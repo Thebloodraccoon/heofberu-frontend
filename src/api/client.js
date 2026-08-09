@@ -55,7 +55,7 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
-    credentials: 'include',
+    credentials: 'omit',
   })
 
   if (res.status === 401 && auth && !path.startsWith('/api/auth/')) {
