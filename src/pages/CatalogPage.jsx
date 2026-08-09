@@ -322,7 +322,26 @@ export function CatalogListPage() {
   }, [items, filters, query, filterFields])
 
   const selectedId = id ? Number(id) : null
-  const selected = selectedId ? (items ?? []).find((it) => Number(it.id) === selectedId) ?? null : null
+  const [selected, setSelected] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    if (!selectedId) return () => { active = false }
+    cfg.api
+      .get(selectedId)
+      .then((data) => {
+        if (active) {
+          setSelected({ id: selectedId, data })
+          setError(null)
+        }
+      })
+      .catch((e) => {
+        if (active) setError(e)
+      })
+    return () => {
+      active = false
+    }
+  }, [cfg, selectedId])
 
   const activeCount = Object.values(filters).reduce((n, arr) => n + (arr?.length ?? 0), 0)
 
@@ -405,15 +424,15 @@ export function CatalogListPage() {
             </aside>
 
             <section className="min-w-0">
-              {selected ? (
+              {selected && selected.id === selectedId ? (
                 <DetailPanel
                   key={`${resource}-${selectedId}`}
                   resource={resource}
-                  item={selected}
+                  item={selected.data}
                 />
               ) : (
                 <Card className="p-10 text-center">
-                  <p className="text-sm text-stone-500">Запись не найдена</p>
+                  <Spinner />
                 </Card>
               )}
             </section>

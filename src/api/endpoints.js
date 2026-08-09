@@ -21,7 +21,6 @@ export const api = {
 
   races: {
     list: (params) => request('/api/races/', { params }),
-    brief: (params) => request('/api/races/brief', { params }),
     create: (body) => request('/api/races/', { method: 'POST', body }),
     get: (id) => request(`/api/races/${id}`),
     update: (id, body) => request(`/api/races/${id}`, { method: 'PATCH', body }),
@@ -34,7 +33,6 @@ export const api = {
 
   classes: {
     list: (params) => request('/api/classes/', { params }),
-    brief: (params) => request('/api/classes/brief', { params }),
     create: (body) => request('/api/classes/', { method: 'POST', body }),
     get: (id) => request(`/api/classes/${id}`),
     update: (id, body) => request(`/api/classes/${id}`, { method: 'PATCH', body }),
@@ -54,7 +52,6 @@ export const api = {
 
   skills: {
     list: (params) => request('/api/skills/', { params }),
-    brief: (params) => request('/api/skills/brief', { params }),
     create: (body) => request('/api/skills/', { method: 'POST', body }),
     get: (id) => request(`/api/skills/${id}`),
     update: (id, body) => request(`/api/skills/${id}`, { method: 'PATCH', body }),
@@ -63,7 +60,6 @@ export const api = {
 
   spells: {
     list: (params) => request('/api/spells/', { params }),
-    brief: (params) => request('/api/spells/brief', { params }),
     create: (body) => request('/api/spells/', { method: 'POST', body }),
     get: (id) => request(`/api/spells/${id}`),
     update: (id, body) => request(`/api/spells/${id}`, { method: 'PATCH', body }),
@@ -74,7 +70,6 @@ export const api = {
 
   backgrounds: {
     list: (params) => request('/api/backgrounds/', { params }),
-    brief: (params) => request('/api/backgrounds/brief', { params }),
     create: (body) => request('/api/backgrounds/', { method: 'POST', body }),
     get: (id) => request(`/api/backgrounds/${id}`),
     update: (id, body) => request(`/api/backgrounds/${id}`, { method: 'PATCH', body }),
@@ -85,7 +80,6 @@ export const api = {
 
   feats: {
     list: (params) => request('/api/feats/', { params }),
-    brief: (params) => request('/api/feats/brief', { params }),
     create: (body) => request('/api/feats/', { method: 'POST', body }),
     get: (id) => request(`/api/feats/${id}`),
     update: (id, body) => request(`/api/feats/${id}`, { method: 'PATCH', body }),
@@ -97,7 +91,6 @@ export const api = {
 
   features: {
     list: (params) => request('/api/features/', { params }),
-    brief: (params) => request('/api/features/brief', { params }),
     create: (body) => request('/api/features/', { method: 'POST', body }),
     get: (id) => request(`/api/features/${id}`),
     update: (id, body) => request(`/api/features/${id}`, { method: 'PATCH', body }),
@@ -106,7 +99,6 @@ export const api = {
 
   items: {
     list: (params) => request('/api/items/', { params }),
-    brief: (params) => request('/api/items/brief', { params }),
     create: (body) => request('/api/items/', { method: 'POST', body }),
     get: (id) => request(`/api/items/${id}`),
     update: (id, body) => request(`/api/items/${id}`, { method: 'PATCH', body }),

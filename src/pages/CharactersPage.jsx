@@ -70,9 +70,9 @@ export default function CharactersPage() {
 
   useEffect(() => {
     let active = true
-    api.races.brief({ size: 100 }).then((p) => { if (active) setRaces(p.items ?? []) }).catch(() => {})
-    api.classes.brief({ size: 100 }).then((p) => { if (active) setClasses(p.items ?? []) }).catch(() => {})
-    api.backgrounds.brief({ size: 100 }).then((p) => { if (active) setBackgrounds(p.items ?? []) }).catch(() => {})
+    api.races.list({ size: 100 }).then((p) => { if (active) setRaces(p.items ?? []) }).catch(() => {})
+    api.classes.list({ size: 100 }).then((p) => { if (active) setClasses(p.items ?? []) }).catch(() => {})
+    api.backgrounds.list({ size: 100 }).then((p) => { if (active) setBackgrounds(p.items ?? []) }).catch(() => {})
     return () => {
       active = false
     }

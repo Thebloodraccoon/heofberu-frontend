@@ -66,14 +66,14 @@ export default function CharacterDetailPage() {
 
   useEffect(() => {
     let active = true
-    api.races.brief({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, races: p.items ?? [] })) }).catch(() => {})
-    api.classes.brief({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, classes: p.items ?? [] })) }).catch(() => {})
-    api.backgrounds.brief({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, backgrounds: p.items ?? [] })) }).catch(() => {})
-    api.skills.brief({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, skills: p.items ?? [] })) }).catch(() => {})
-    api.spells.brief({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, spells: p.items ?? [] })) }).catch(() => {})
-    api.items.brief({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, items: p.items ?? [] })) }).catch(() => {})
-    api.feats.brief({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, feats: p.items ?? [] })) }).catch(() => {})
-    api.features.brief({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, features: p.items ?? [] })) }).catch(() => {})
+    api.races.list({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, races: p.items ?? [] })) }).catch(() => {})
+    api.classes.list({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, classes: p.items ?? [] })) }).catch(() => {})
+    api.backgrounds.list({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, backgrounds: p.items ?? [] })) }).catch(() => {})
+    api.skills.list({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, skills: p.items ?? [] })) }).catch(() => {})
+    api.spells.list({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, spells: p.items ?? [] })) }).catch(() => {})
+    api.items.list({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, items: p.items ?? [] })) }).catch(() => {})
+    api.feats.list({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, feats: p.items ?? [] })) }).catch(() => {})
+    api.features.list({ size: 100 }).then((p) => { if (active) setLookups((l) => ({ ...l, features: p.items ?? [] })) }).catch(() => {})
     return () => {
       active = false
     }
