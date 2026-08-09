@@ -1,0 +1,38 @@
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_API_URL: ""
+    image: heofberu-frontend
+    container_name: heofberu-frontend
+    ports:
+      - "8080:80"
+    environment:
+      BACKEND_PROXY_PASS: http://host.docker.internal:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # Dev-режим с горячей перезагрузкой (HMR):
+  #   docker compose up frontend-dev     # http://localhost:5173
+  # Код монтируется из папки, изменения подхватываются мгновенно.
+  frontend-dev:
+    build:
+      context: .
+      target: dev
+    image: heofberu-frontend-dev
+    container_name: heofberu-frontend-dev
+    command: npm run dev -- --host 0.0.0.0
+    profiles: ["dev"]
+    ports:
+      - "5173:5173"
+    environment:
+      # Куда проксировать /api в dev-режиме (бэкенд на хосте)
+      VITE_PROXY_TARGET: http://host.docker.internal:8000
+    volumes:
+      - .:/app
+      - /app/node_modules
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

@@ -1,0 +1,107 @@
+[
+  {
+    "name": "Бдительный",
+    "description": "Вы всегда начеку и редко застаёте врасплох. Вы получаете бонус +5 к инициативе и не можете быть застигнуты врасплох, пока находитесь в сознании.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Атлет",
+    "description": "Вы достигли вершин физической подготовки. Ваши Сила или Ловкость увеличиваются на 1. При утомительных испытаниях вы можете подняться с лёжа встав, потратив лишь 5 футов движения.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": [{ "ability": "STR", "amount": 1 }]
+  },
+  {
+    "name": "Актёр",
+    "description": "Мастер перевоплощения. Ваша Харизма увеличивается на 1. Вы можете подражать голосам и поведению других людей с высокой точностью.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": [{ "ability": "CHA", "amount": 1 }]
+  },
+  {
+    "name": "Выносливый",
+    "description": "Ваше Телосложение увеличивается на 1. При броске кости хитов вы получаете минимум удвоенный модификатор Телосложения.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": [{ "ability": "CON", "amount": 1 }]
+  },
+  {
+    "name": "Борец",
+    "description": "Вы превосходно сражаетесь в ближнем бою. Вы получаете преимущество к проверкам атаки против существ, которых держите. Один раз за ход вы можете попытаться связать захваченного противника.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Целитель",
+    "description": "Вы умеете быстро оказывать медицинскую помощь. Используя набор целителя, вы можете действием стабилизировать существо и восстановить ему 1 ХП.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Везунчик",
+    "description": "Судьба благосклонна к вам. Вы можете перебросить одну проверку атаки, спасбросок или проверку способности три раза в день.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Подвижный",
+    "description": "Ваша скорость увеличивается на 10 футов. При использовании действия «Рывок» вы не страдаете от труднопроходимой местности. Движение от враждебного существа не провоцирует атаку возможности.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Наблюдательный",
+    "description": "Ваш Интеллект или Мудрость увеличивается на 1. Вы можете читать по губам и получаете бонус +5 к пассивной проверке Восприятия и Расследования.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": [{ "ability": "INT", "amount": 1 }]
+  },
+  {
+    "name": "Неустрашимый",
+    "description": "Выбирая эту черту, выберите одну характеристику. Вы получаете владение спасброском этой характеристики.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Часовой",
+    "description": "Вы не даёте врагам уйти от вас. Атака возможности при попадании снижает скорость цели до 0 до конца хода. Существа в пределах 5 футов, атакующие ваших союзников, провоцируют атаку возможности.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Стрелок",
+    "description": "Мастер дальнего боя. Вы не получаете помеху при стрельбе на дальнюю дистанцию и игнорируете укрытия наполовину. Ваши атаки дальнего боя игнорируют правило «Крупный калибр».",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Одарённый",
+    "description": "Вы получаете владение тремя навыками по вашему выбору.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Крепкий",
+    "description": "Ваш максимум ХП увеличивается на 2 за каждый уровень, который у вас есть.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  },
+  {
+    "name": "Воин-заклинатель",
+    "description": "Вы искусны в наложении заклинаний в бою. Вы получаете преимущество к спасброскам Телосложения для сохранения концентрации. Вы можете выполнять соматические компоненты заклинаний, даже держа оружие в руках.",
+    "prerequisite_ability": null,
+    "prerequisite_minimum_score": null,
+    "ability_score_increases": []
+  }
+]

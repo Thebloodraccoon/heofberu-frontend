@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+*.log
+.env
+.env.*
+.idea
+.vscode
+.git
+.dockerignore
+Dockerfile
+docker-compose.yml
+Heofberu Backend API - ReDoc.html
+Heofberu Backend API - ReDoc_files

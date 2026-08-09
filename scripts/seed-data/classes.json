@@ -1,0 +1,305 @@
+[
+  {
+    "name": "Варвар",
+    "hit_dice": "D12",
+    "skill_choice_count": 2,
+    "spellcasting_ability": null,
+    "description": "Дикий воин, чья ярость в бою придаёт ему невероятную силу и выносливость. Варвары полагаются на инстинкты и физическую мощь.",
+    "primary_abilities": [
+      "STR"
+    ],
+    "saving_throws": [
+      "STR",
+      "CON"
+    ],
+    "available_skills": [
+      "athletics",
+      "animal_handling",
+      "insight",
+      "intimidation",
+      "nature",
+      "perception",
+      "survival"
+    ],
+    "key": "barbarian"
+  },
+  {
+    "name": "Бард",
+    "hit_dice": "D8",
+    "skill_choice_count": 3,
+    "spellcasting_ability": "CHA",
+    "description": "Странствующий артист и вдохновитель, чья магия звучит в песнях и историях. Барды владеют магией убеждения и поддержки.",
+    "primary_abilities": [
+      "CHA"
+    ],
+    "saving_throws": [
+      "DEX",
+      "CHA"
+    ],
+    "available_skills": [
+      "acrobatics",
+      "animal_handling",
+      "arcana",
+      "deception",
+      "history",
+      "insight",
+      "intimidation",
+      "investigation",
+      "medicine",
+      "nature",
+      "perception",
+      "performance",
+      "persuasion",
+      "religion",
+      "sleight_of_hand",
+      "stealth",
+      "survival"
+    ],
+    "key": "bard"
+  },
+  {
+    "name": "Жрец",
+    "hit_dice": "D8",
+    "skill_choice_count": 2,
+    "spellcasting_ability": "WIS",
+    "description": "Служитель божества, черпающий силу в вере. Жрецы лечат союзников, изгоняют нежить и низводят божественную кару на врагов.",
+    "primary_abilities": [
+      "WIS"
+    ],
+    "saving_throws": [
+      "WIS",
+      "CHA"
+    ],
+    "available_skills": [
+      "history",
+      "insight",
+      "medicine",
+      "persuasion",
+      "religion"
+    ],
+    "key": "cleric"
+  },
+  {
+    "name": "Друид",
+    "hit_dice": "D8",
+    "skill_choice_count": 2,
+    "spellcasting_ability": "WIS",
+    "description": "Хранитель природы, повелевающий стихиями и звериными обличьями. Друиды связаны с круговоротом жизни и древними силами дикой земли.",
+    "primary_abilities": [
+      "WIS"
+    ],
+    "saving_throws": [
+      "INT",
+      "WIS"
+    ],
+    "available_skills": [
+      "animal_handling",
+      "arcana",
+      "insight",
+      "medicine",
+      "nature",
+      "perception",
+      "religion",
+      "survival"
+    ],
+    "key": "druid"
+  },
+  {
+    "name": "Воин",
+    "hit_dice": "D10",
+    "skill_choice_count": 2,
+    "spellcasting_ability": null,
+    "description": "Мастер владения оружием и тактики. Воины славятся универсальностью в бою — от щита и меча до тяжёлого лука.",
+    "primary_abilities": [
+      "STR",
+      "DEX"
+    ],
+    "saving_throws": [
+      "STR",
+      "CON"
+    ],
+    "available_skills": [
+      "acrobatics",
+      "animal_handling",
+      "athletics",
+      "history",
+      "insight",
+      "intimidation",
+      "perception",
+      "survival"
+    ],
+    "key": "fighter"
+  },
+  {
+    "name": "Монах",
+    "hit_dice": "D8",
+    "skill_choice_count": 2,
+    "spellcasting_ability": null,
+    "description": "Аскет, направляющий жизненную энергию (ки) на невероятные подвиги. Монахи сражаются голыми руками и душой.",
+    "primary_abilities": [
+      "DEX",
+      "WIS"
+    ],
+    "saving_throws": [
+      "STR",
+      "DEX"
+    ],
+    "available_skills": [
+      "acrobatics",
+      "athletics",
+      "history",
+      "insight",
+      "religion",
+      "stealth"
+    ],
+    "key": "monk"
+  },
+  {
+    "name": "Паладин",
+    "hit_dice": "D10",
+    "skill_choice_count": 2,
+    "spellcasting_ability": "WIS",
+    "description": "Святой воин клятвы, защищающий свет и карающий зло. Паладины сочетают боевое мастерство с божественной магией.",
+    "primary_abilities": [
+      "STR",
+      "CHA"
+    ],
+    "saving_throws": [
+      "WIS",
+      "CHA"
+    ],
+    "available_skills": [
+      "athletics",
+      "insight",
+      "intimidation",
+      "medicine",
+      "persuasion",
+      "religion"
+    ],
+    "key": "paladin"
+  },
+  {
+    "name": "Следопыт",
+    "hit_dice": "D10",
+    "skill_choice_count": 3,
+    "spellcasting_ability": "WIS",
+    "description": "Охотник и разведчик диких земель. Следопыты выслеживают врагов, ставят ловушки и используют магию природы.",
+    "primary_abilities": [
+      "DEX",
+      "WIS"
+    ],
+    "saving_throws": [
+      "STR",
+      "DEX"
+    ],
+    "available_skills": [
+      "animal_handling",
+      "athletics",
+      "insight",
+      "investigation",
+      "nature",
+      "perception",
+      "stealth",
+      "survival"
+    ],
+    "key": "ranger"
+  },
+  {
+    "name": "Плут",
+    "hit_dice": "D8",
+    "skill_choice_count": 4,
+    "spellcasting_ability": null,
+    "description": "Хитрец и мастер скрытности. Плуты наносят сокрушительные уроны скрытой атакой и виртуозно владеют навыками.",
+    "primary_abilities": [
+      "DEX"
+    ],
+    "saving_throws": [
+      "DEX",
+      "INT"
+    ],
+    "available_skills": [
+      "acrobatics",
+      "athletics",
+      "deception",
+      "insight",
+      "intimidation",
+      "investigation",
+      "perception",
+      "performance",
+      "persuasion",
+      "sleight_of_hand",
+      "stealth"
+    ],
+    "key": "rogue"
+  },
+  {
+    "name": "Чародей",
+    "hit_dice": "D6",
+    "skill_choice_count": 2,
+    "spellcasting_ability": "CHA",
+    "description": "Носитель врождённой магии, текущей в крови. Чародеи плетут заклинания интуитивно и видоизменяют их метамагией.",
+    "primary_abilities": [
+      "CHA"
+    ],
+    "saving_throws": [
+      "CON",
+      "CHA"
+    ],
+    "available_skills": [
+      "arcana",
+      "deception",
+      "insight",
+      "intimidation",
+      "persuasion",
+      "religion"
+    ],
+    "key": "sorcerer"
+  },
+  {
+    "name": "Колдун",
+    "hit_dice": "D8",
+    "skill_choice_count": 2,
+    "spellcasting_ability": "CHA",
+    "description": "Заключивший пакт с могущественным существом, колдун получает магию взамен на службу или тайные знания.",
+    "primary_abilities": [
+      "CHA"
+    ],
+    "saving_throws": [
+      "WIS",
+      "CHA"
+    ],
+    "available_skills": [
+      "arcana",
+      "deception",
+      "history",
+      "intimidation",
+      "investigation",
+      "nature",
+      "religion"
+    ],
+    "key": "warlock"
+  },
+  {
+    "name": "Волшебник",
+    "hit_dice": "D6",
+    "skill_choice_count": 2,
+    "spellcasting_ability": "INT",
+    "description": "Учёный магии, изучающий заклинания по книгам. Волшебники владеют самым широким арсеналом заклинаний.",
+    "primary_abilities": [
+      "INT"
+    ],
+    "saving_throws": [
+      "INT",
+      "WIS"
+    ],
+    "available_skills": [
+      "arcana",
+      "history",
+      "insight",
+      "investigation",
+      "medicine",
+      "religion"
+    ],
+    "key": "wizard"
+  }
+]

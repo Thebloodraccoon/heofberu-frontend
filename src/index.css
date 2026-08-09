@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", system-ui, Roboto, sans-serif;
+  --font-display: "Palatino Linotype", "Book Antiqua", "Palatino", Georgia, "Times New Roman", serif;
+
+  /* Тёплая тёмно-фэнтезийная переработка палитры `stone` */
+  --color-stone-50: #f7f1e2;
+  --color-stone-100: #f3e7c6;
+  --color-stone-200: #e5d5ac;
+  --color-stone-300: #cbb68f;
+  --color-stone-400: #a58f6d;
+  --color-stone-500: #8a7455;
+  --color-stone-600: #6f5b3c;
+  --color-stone-700: #57442a;
+  --color-stone-800: #3a2a16;
+  --color-stone-900: #241709;
+  --color-stone-950: #17100a;
+
+  --color-parchment: #f5efe0;
+  --color-ink: #241709;
+  --color-ember: #d4552a;
+  --color-ember-dark: #9a3a16;
+  --color-gold: #a8853d;
+  --color-gold-light: #cdb58b;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  background-color: #0d0905;
+  background-image:
+    radial-gradient(1100px 520px at 50% -5%, #2b1d0e 0%, rgba(43, 29, 14, 0) 60%),
+    radial-gradient(1400px 900px at 100% 110%, rgba(90, 52, 20, 0.35) 0%, rgba(90, 52, 20, 0) 55%),
+    radial-gradient(1200px 800px at 0% 110%, rgba(60, 40, 18, 0.3) 0%, rgba(60, 40, 18, 0) 55%);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+::selection {
+  background: rgba(212, 85, 42, 0.35);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #57442a transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #57442a;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Декоративная линия-разделитель: ✦ между двумя золотыми чертами */
+.ornate-rule {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--color-gold);
+}
+.ornate-rule::before,
+.ornate-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+}
+.ornate-rule::before {
+  background: linear-gradient(90deg, transparent, rgba(168, 133, 61, 0.55));
+}
+.ornate-rule::after {
+  background: linear-gradient(90deg, rgba(168, 133, 61, 0.55), transparent);
+}
+
+/* Панель-«фолиант»: бронзовая рамка с уголками-скобками */
+.fantasy-panel {
+  position: relative;
+  border: 1px solid rgba(168, 133, 61, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
+    var(--color-stone-900);
+  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+}
+.fantasy-panel::before,
+.fantasy-panel::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+.fantasy-panel::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--color-gold);
+  border-left: 2px solid var(--color-gold);
+}
+.fantasy-panel::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--color-gold);
+  border-right: 2px solid var(--color-gold);
+}
