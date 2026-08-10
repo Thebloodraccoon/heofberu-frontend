@@ -29,6 +29,7 @@ export const api = {
       request(`/api/races/${id}/ability-bonuses`, { method: 'PUT', body }),
     skills: (id, body) => request(`/api/races/${id}/skills`, { method: 'PUT', body }),
     features: {
+      list: (id) => request(`/api/races/${id}/features`),
       add: (id, body) => request(`/api/races/${id}/features`, { method: 'POST', body }),
       update: (id, featureId, body) =>
         request(`/api/races/${id}/features/${featureId}`, { method: 'PATCH', body }),
@@ -50,6 +51,7 @@ export const api = {
     spellSlots: (id, level, body) =>
       request(`/api/classes/${id}/spell-slots/${level}`, { method: 'PUT', body }),
     features: {
+      list: (id) => request(`/api/classes/${id}/features`),
       add: (id, body) => request(`/api/classes/${id}/features`, { method: 'POST', body }),
       update: (id, featureId, body) =>
         request(`/api/classes/${id}/features/${featureId}`, { method: 'PATCH', body }),
@@ -66,6 +68,8 @@ export const api = {
       remove: (classId, subclassId) =>
         request(`/api/classes/${classId}/subclasses/${subclassId}`, { method: 'DELETE' }),
       features: {
+        list: (classId, subclassId) =>
+          request(`/api/classes/${classId}/subclasses/${subclassId}/features`),
         add: (classId, subclassId, body) =>
           request(`/api/classes/${classId}/subclasses/${subclassId}/features`, { method: 'POST', body }),
         update: (classId, subclassId, featureId, body) =>
@@ -102,6 +106,7 @@ export const api = {
     remove: (id) => request(`/api/backgrounds/${id}`, { method: 'DELETE' }),
     skills: (id, body) => request(`/api/backgrounds/${id}/skills`, { method: 'PUT', body }),
     features: {
+      list: (id) => request(`/api/backgrounds/${id}/features`),
       add: (id, body) => request(`/api/backgrounds/${id}/features`, { method: 'POST', body }),
       update: (id, featureId, body) =>
         request(`/api/backgrounds/${id}/features/${featureId}`, { method: 'PATCH', body }),
@@ -119,6 +124,7 @@ export const api = {
     abilityScoreIncreases: (id, body) =>
       request(`/api/feats/${id}/ability-score-increases`, { method: 'PUT', body }),
     features: {
+      list: (id) => request(`/api/feats/${id}/features`),
       add: (id, body) => request(`/api/feats/${id}/features`, { method: 'POST', body }),
       update: (id, featureId, body) =>
         request(`/api/feats/${id}/features/${featureId}`, { method: 'PATCH', body }),

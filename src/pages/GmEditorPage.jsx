@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/endpoints.js'
-import { editorConfig, syncFeatures, SPELL_LEVEL_KEYS } from '../editor.js'
+import { editorConfig, featurePayload, featuresFromRecord, subclassPayload, SPELL_LEVEL_KEYS } from '../editor.js'
 import FeatureModal from '../components/FeaturesModal.jsx'
-import SubclassModal from '../components/SubclassModal.jsx'
+import SubclassEditor from '../components/SubclassEditor.jsx'
 import { ruLevel } from '../labels.js'
-import { Badge, Button, Card, EmptyState, ErrorBox, Field, Input, PageHeader, Select, Spinner } from '../components/ui.jsx'
+import { Badge, Button, Card, EmptyState, ErrorBox, Field, Input, PageHeader, Select, Spinner, TextArea } from '../components/ui.jsx'
 
 const inputClass =
   'w-full rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember'
@@ -86,11 +86,28 @@ export default function GmEditorPage() {
   const [editing, setEditing] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(null)
-  const [saving, setSaving] = useState(false)
   const [editLoading, setEditLoading] = useState(false)
 
+  const [fieldSaving, setFieldSaving] = useState(false)
+  const [fieldError, setFieldError] = useState(null)
+  const [fieldSaved, setFieldSaved] = useState(false)
+
+  const [features, setFeatures] = useState([])
+  const [featuresLoading, setFeaturesLoading] = useState(false)
+  const [featuresError, setFeaturesError] = useState(null)
+
+  const [subclasses, setSubclasses] = useState([])
+  const [subDetails, setSubDetails] = useState({})
+  const [subError, setSubError] = useState(null)
+
+  const [newSub, setNewSub] = useState(null)
+  const [newSubSaving, setNewSubSaving] = useState(false)
+  const [newSubError, setNewSubError] = useState(null)
+
   const [featureModal, setFeatureModal] = useState(null)
-  const [subclassModal, setSubclassModal] = useState(null)
+  const [confirmSub, setConfirmSub] = useState(null)
+  const [confirmSubDeleting, setConfirmSubDeleting] = useState(false)
+  const [subDeleteError, setSubDeleteError] = useState(null)
 
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -146,38 +163,95 @@ export default function GmEditorPage() {
     }
   }, [resource, pillKeys, reloadKey])
 
+  const setSubDetail = (id, patch) =>
+    setSubDetails((m) => ({ ...m, [id]: { ...(m[id] ?? {}), ...patch } }))
+
+  const loadSubDetail = async (classId, sub) => {
+    setSubDetail(sub.id, { loading: true, error: null })
+    try {
+      const [detail, feats] = await Promise.all([
+        api.classes.subclasses.get(classId, sub.id),
+        api.classes.subclasses.features.list(classId, sub.id),
+      ])
+      setSubDetail(sub.id, { detail, features: feats, loading: false })
+    } catch (e) {
+      setSubDetail(sub.id, { loading: false, error: e })
+    }
+  }
+
+  const reloadSubDetail = async (subId) => {
+    const sub = subclasses.find((s) => s.id === subId)
+    if (sub) await loadSubDetail(editing.id, sub)
+  }
+
+  const reloadFeatures = async () => {
+    setFeaturesLoading(true)
+    setFeaturesError(null)
+    try {
+      setFeatures(featuresFromRecord(await cfg.featuresOps.list(editing.id)))
+    } catch (e) {
+      setFeaturesError(e)
+    } finally {
+      setFeaturesLoading(false)
+    }
+  }
+
+  const reloadSubclasses = async (classId) => {
+    setSubError(null)
+    try {
+      const full = await api.classes.get(classId)
+      const list = full.subclasses ?? []
+      setSubclasses(list)
+      setSubDetails({})
+      await Promise.all(list.map((s) => loadSubDetail(classId, s)))
+    } catch (e) {
+      setSubError(e)
+    }
+  }
+
+  const loadNested = async (id) => {
+    if (cfg.featuresOps) {
+      setFeaturesLoading(true)
+      setFeaturesError(null)
+      try {
+        setFeatures(featuresFromRecord(await cfg.featuresOps.list(id)))
+      } catch (e) {
+        setFeaturesError(e)
+      } finally {
+        setFeaturesLoading(false)
+      }
+    }
+    if (cfg.hasSubclasses) {
+      await reloadSubclasses(id)
+    }
+  }
+
   const selectResource = (key) => {
     if (key === resource) return
     setResource(key)
     setQuery('')
     setError(null)
     setRecords(null)
-    setShowForm(false)
-    setEditing(null)
-    setForm(null)
-    setFeatureModal(null)
-    setSubclassModal(null)
-    setEditLoading(false)
+    closeForm()
   }
 
   const openCreate = () => {
     setEditing(null)
     setForm(cfg.emptyForm())
     setFeatureModal(null)
-    setSubclassModal(null)
     setShowForm(true)
   }
 
   const openEdit = async (rec) => {
     setError(null)
     setFeatureModal(null)
-    setSubclassModal(null)
     setEditLoading(true)
     setShowForm(true)
     try {
       const full = await cfg.api.get(rec.id)
       setEditing(full)
       setForm(cfg.fromRecord(full))
+      await loadNested(full.id)
     } catch (e) {
       setError(e)
     } finally {
@@ -190,8 +264,18 @@ export default function GmEditorPage() {
     setEditing(null)
     setForm(null)
     setFeatureModal(null)
-    setSubclassModal(null)
     setEditLoading(false)
+    setFieldError(null)
+    setFieldSaved(false)
+    setFeatures([])
+    setFeaturesError(null)
+    setSubclasses([])
+    setSubDetails({})
+    setSubError(null)
+    setNewSub(null)
+    setNewSubError(null)
+    setConfirmSub(null)
+    setSubDeleteError(null)
   }
 
   const filtered = useMemo(() => {
@@ -249,21 +333,109 @@ export default function GmEditorPage() {
     }
   }, [pills, records, resource])
 
-  const submit = async (e) => {
+  const saveFields = async (e) => {
     e.preventDefault()
-    setSaving(true)
-    setError(null)
+    setFieldSaving(true)
+    setFieldError(null)
+    setFieldSaved(false)
     try {
-      if (editing && cfg.featuresSource) {
-        await syncFeatures(form, editing.id, editing.features, cfg.featuresSource)
-      }
-      await cfg.submit(form, editing)
-      closeForm()
-      load()
+      await cfg.submitFields(form, editing)
+      const full = await cfg.api.get(editing.id)
+      setEditing(full)
+      setForm(cfg.fromRecord(full))
+      await loadNested(full.id)
+      setFieldSaved(true)
     } catch (err) {
-      setError(err)
+      setFieldError(err)
     } finally {
-      setSaving(false)
+      setFieldSaving(false)
+    }
+  }
+
+  const createSubmit = async (e) => {
+    e.preventDefault()
+    setFieldSaving(true)
+    setFieldError(null)
+    try {
+      const created = await cfg.submitFields(form, null)
+      if (cfg.featuresOps || cfg.hasSubclasses) {
+        setEditing(created)
+        setForm(cfg.fromRecord(created))
+        await loadNested(created.id)
+        load()
+      } else {
+        closeForm()
+        load()
+      }
+    } catch (err) {
+      setFieldError(err)
+    } finally {
+      setFieldSaving(false)
+    }
+  }
+
+  const openFeatureModal = (subId, index) => setFeatureModal({ subId, index })
+
+  const saveFeature = async (next) => {
+    const { subId, index } = featureModal
+    const body = featurePayload(next)
+    try {
+      if (subId == null) {
+        if (index == null) await cfg.featuresOps.add(editing.id, body)
+        else await cfg.featuresOps.update(editing.id, next.id, body)
+        await reloadFeatures()
+      } else {
+        if (index == null) await api.classes.subclasses.features.add(editing.id, subId, body)
+        else await api.classes.subclasses.features.update(editing.id, subId, next.id, body)
+        await reloadSubDetail(subId)
+      }
+      setFeatureModal(null)
+    } catch (e) {
+      setFeaturesError(e)
+    }
+  }
+
+  const removeFeature = async (f) => {
+    try {
+      await cfg.featuresOps.remove(editing.id, f.id)
+      await reloadFeatures()
+    } catch (e) {
+      setFeaturesError(e)
+    }
+  }
+
+  const openNewSub = () => {
+    setNewSub({ name: '', archetype_group_name: '', unlock_level: '3', description: '', is_homebrew: false })
+    setNewSubError(null)
+  }
+  const setNewSubField = (key) => (e) => setNewSub((d) => ({ ...d, [key]: e.target.value }))
+  const toggleNewSubHomebrew = (e) => setNewSub((d) => ({ ...d, is_homebrew: e.target.checked }))
+  const saveNewSub = async (e) => {
+    e.preventDefault()
+    setNewSubSaving(true)
+    setNewSubError(null)
+    try {
+      await api.classes.subclasses.create(editing.id, subclassPayload(newSub))
+      setNewSub(null)
+      await reloadSubclasses(editing.id)
+    } catch (err) {
+      setNewSubError(err)
+    } finally {
+      setNewSubSaving(false)
+    }
+  }
+
+  const doSubDelete = async () => {
+    setConfirmSubDeleting(true)
+    setSubDeleteError(null)
+    try {
+      await api.classes.subclasses.remove(editing.id, confirmSub.id)
+      setConfirmSub(null)
+      await reloadSubclasses(editing.id)
+    } catch (err) {
+      setSubDeleteError(err)
+    } finally {
+      setConfirmSubDeleting(false)
     }
   }
 
@@ -329,9 +501,11 @@ export default function GmEditorPage() {
 
       {!error && records && (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-          {filtered.length > 0 && (
           <aside className="flex max-h-[calc(100vh-280px)] flex-col gap-2 overflow-y-auto pr-1 lg:sticky lg:top-24">
-            {filtered.map((it) => (
+            {filtered.length === 0 ? (
+              <p className="text-sm text-stone-500">Нет записей — создайте первую</p>
+            ) : (
+            filtered.map((it) => (
               <div key={it.id} className="fantasy-panel rounded-lg p-3 transition hover:border-ember/50">
                 <div className="flex items-start justify-between gap-2">
                   <button
@@ -371,9 +545,9 @@ export default function GmEditorPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </aside>
-          )}
 
           <section className="min-w-0">
             {showForm && form ? (
@@ -400,7 +574,7 @@ export default function GmEditorPage() {
                   </div>
                 </div>
 
-                <form onSubmit={submit} className="flex flex-col gap-5">
+                <form onSubmit={editing ? saveFields : createSubmit} className="flex flex-col gap-5">
                   <div className="grid gap-4 sm:grid-cols-2">
                     {cfg.fields.map((field) => {
                       if (field.type === 'checkbox') {
@@ -434,7 +608,7 @@ export default function GmEditorPage() {
 
                   {cfg.sections
                     .filter((section) => {
-                      if (editing && section.hiddenOnEdit) return false
+                      if (section.hiddenOnEdit && editing) return false
                       if (section.showWhen && !section.showWhen(form)) return false
                       return true
                     })
@@ -607,128 +781,6 @@ export default function GmEditorPage() {
                         </div>
                       )
                     }
-                    if (section.type === 'features') {
-                      return (
-                        <div key={section.key}>
-                          <div className="mb-2 flex items-center justify-between">
-                            <SectionTitle>{section.label}</SectionTitle>
-                            <button
-                              type="button"
-                              onClick={() => setFeatureModal({ section, index: null })}
-                              className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-                            >
-                              {section.addLabel}
-                            </button>
-                          </div>
-                          {section.subtitle && <p className="-mt-1 mb-2 text-xs text-stone-500">{section.subtitle}</p>}
-                          {form[section.key].length === 0 ? (
-                            <p className="text-sm text-stone-500">{section.empty}</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {form[section.key].map((f, i) => (
-                                <div key={i} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <p className="text-sm font-medium text-stone-100">{f.name || 'Без названия'}</p>
-                                        {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-                                        {f.is_homebrew && <Badge>Homebrew</Badge>}
-                                      </div>
-                                      {f.description && (
-                                        <p className="mt-0.5 line-clamp-2 text-sm text-stone-400">{f.description}</p>
-                                      )}
-                                    </div>
-                                    <div className="flex shrink-0 flex-col gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => setFeatureModal({ section, index: i })}
-                                        className="rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
-                                      >
-                                        Изменить
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setForm((f2) => ({
-                                            ...f2,
-                                            [section.key]: f2[section.key].filter((_, idx) => idx !== i),
-                                          }))
-                                        }
-                                        className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
-                                      >
-                                        Убрать
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    }
-                    if (section.type === 'subclasses') {
-                      const list = form[section.key] ?? []
-                      return (
-                        <div key={section.key}>
-                          <div className="mb-2 flex items-center justify-between">
-                            <SectionTitle>{section.label}</SectionTitle>
-                            <button
-                              type="button"
-                              onClick={() => setSubclassModal({ index: null })}
-                              className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-                            >
-                              {section.addLabel}
-                            </button>
-                          </div>
-                          {list.length === 0 ? (
-                            <p className="text-sm text-stone-500">{section.empty}</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {list.map((s, i) => (
-                                <div key={s.id ?? i} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <p className="text-sm font-medium text-stone-100">{s.name || 'Без названия'}</p>
-                                        {s.unlock_level != null && s.unlock_level !== '' && (
-                                          <Badge tone="accent">{ruLevel(s.unlock_level)}</Badge>
-                                        )}
-                                        {s.is_homebrew && <Badge>Homebrew</Badge>}
-                                      </div>
-                                      {Array.isArray(s.features) && s.features.length > 0 && (
-                                        <p className="mt-0.5 text-xs text-stone-400">{s.features.length} умений</p>
-                                      )}
-                                    </div>
-                                    <div className="flex shrink-0 flex-col gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => setSubclassModal({ index: i })}
-                                        className="rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
-                                      >
-                                        Изменить
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setForm((f2) => ({
-                                            ...f2,
-                                            [section.key]: f2[section.key].filter((_, idx) => idx !== i),
-                                          }))
-                                        }
-                                        className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
-                                      >
-                                        Убрать
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    }
                     const options =
                       section.type === 'pills' ? section.options : listOptions[section.listKey]
                     return (
@@ -749,15 +801,157 @@ export default function GmEditorPage() {
                     )
                   })}
 
-                  <div className="flex flex-wrap gap-2 border-t border-stone-700/70 pt-4">
-                    <Button type="submit" disabled={saving}>
-                      {saving ? 'Сохраняем...' : editing ? 'Сохранить изменения' : 'Создать'}
+                  <div className="flex flex-wrap items-center gap-2 border-t border-stone-700/70 pt-4">
+                    <Button type="submit" disabled={fieldSaving}>
+                      {fieldSaving
+                        ? 'Сохраняем...'
+                        : editing
+                          ? 'Обновить поля'
+                          : 'Создать'}
                     </Button>
                     <Button type="button" variant="ghost" onClick={closeForm}>
                       Отмена
                     </Button>
+                    {fieldSaved && <span className="text-xs text-emerald-400">Поля обновлены</span>}
                   </div>
+                  {fieldError && <ErrorBox error={fieldError} onRetry={() => {}} />}
                 </form>
+
+                {editing && cfg.featuresOps && (
+                  <div className="mt-5 border-t border-stone-700/70 pt-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <SectionTitle>{cfg.featuresBlock.label}</SectionTitle>
+                      <button
+                        type="button"
+                        onClick={() => openFeatureModal(null, null)}
+                        className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                      >
+                        {cfg.featuresBlock.addLabel}
+                      </button>
+                    </div>
+                    {featuresError && <ErrorBox error={featuresError} onRetry={reloadFeatures} />}
+                    {featuresLoading ? (
+                      <p className="text-sm text-stone-500">Загружаем умения...</p>
+                    ) : features.length === 0 ? (
+                      <p className="text-sm text-stone-500">{cfg.featuresBlock.empty}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {features.map((f, i) => (
+                          <div key={f.id ?? i} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-medium text-stone-100">{f.name || 'Без названия'}</p>
+                                  {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
+                                  {f.is_homebrew && <Badge>Homebrew</Badge>}
+                                </div>
+                                {f.description && (
+                                  <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-stone-400">{f.description}</p>
+                                )}
+                              </div>
+                              <div className="flex shrink-0 flex-col gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openFeatureModal(null, i)}
+                                  className="rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+                                >
+                                  Изменить
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeFeature(f)}
+                                  className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
+                                >
+                                  Удалить
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {editing && cfg.hasSubclasses && (
+                  <div className="mt-5 border-t border-stone-700/70 pt-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <SectionTitle>Подклассы (архетипы)</SectionTitle>
+                      <button
+                        type="button"
+                        onClick={openNewSub}
+                        className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                      >
+                        + Добавить подкласс
+                      </button>
+                    </div>
+                    {subError && <ErrorBox error={subError} onRetry={() => reloadSubclasses(editing.id)} />}
+
+                    {newSub && (
+                      <div className="mb-3 rounded-lg border border-ember/40 bg-stone-900/60 p-4">
+                        <p className="mb-3 font-display text-sm font-bold text-stone-100">Новый подкласс</p>
+                        {newSubError && <ErrorBox error={newSubError} onRetry={() => {}} />}
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <Field label="Название подкласса">
+                            <Input value={newSub.name} onChange={setNewSubField('name')} placeholder="Например, Школа Воплощения" />
+                          </Field>
+                          <Field label="Название группы (архетипа)">
+                            <Input
+                              value={newSub.archetype_group_name}
+                              onChange={setNewSubField('archetype_group_name')}
+                              placeholder="Например, Школа магии"
+                            />
+                          </Field>
+                          <Field label="Уровень получения">
+                            <Input type="number" min={1} max={20} value={newSub.unlock_level} onChange={setNewSubField('unlock_level')} />
+                          </Field>
+                        </div>
+                        <Field label="Описание">
+                          <TextArea value={newSub.description} onChange={setNewSubField('description')} rows={2} />
+                        </Field>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="flex w-fit cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={!!newSub.is_homebrew}
+                              onChange={toggleNewSubHomebrew}
+                              className="size-4 accent-ember"
+                            />
+                            <span className="text-sm text-stone-200">Homebrew</span>
+                          </label>
+                          <Button type="button" disabled={newSubSaving} onClick={saveNewSub}>
+                            {newSubSaving ? 'Создаём...' : 'Создать подкласс'}
+                          </Button>
+                          <Button type="button" variant="ghost" onClick={() => setNewSub(null)}>
+                            Отмена
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {subclasses.length === 0 && !newSub ? (
+                      <p className="text-sm text-stone-500">Подклассов нет</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {subclasses.map((sub) => {
+                          const info = subDetails[sub.id] ?? {}
+                          return (
+                            <SubclassEditor
+                              key={info.detail ? sub.id : `loading-${sub.id}`}
+                              classId={editing.id}
+                              detail={info.detail ?? sub}
+                              features={info.features ?? []}
+                              busy={!!info.loading && !info.detail}
+                              error={info.error}
+                              onRefresh={() => reloadSubDetail(sub.id)}
+                              onDelete={() => setConfirmSub(sub)}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             ) : showForm && editLoading ? (
               <Card className="flex items-center justify-center p-10">
@@ -777,64 +971,52 @@ export default function GmEditorPage() {
         </div>
       )}
 
-      {featureModal && form && (() => {
-        const section = featureModal.section
-        const row = featureModal.index == null ? null : (form[section.key] ?? [])[featureModal.index]
+      {featureModal && featureModal.subId == null && form && (() => {
+        const row = featureModal.index == null ? null : features[featureModal.index]
         return (
           <FeatureModal
             title={
               featureModal.index == null
-                ? `Добавить ${section.noun}`
-                : `Изменить: ${row?.name || section.noun}`
+                ? `Добавить ${cfg.featuresBlock.noun}`
+                : `Изменить: ${row?.name || cfg.featuresBlock.noun}`
             }
             subtitle={editing?.name}
             value={row}
-            showLevel={section.showLevel}
-            levelHint={section.subtitle}
-            onSave={(next) => {
-              setForm((f) => {
-                const list = f[section.key] ?? []
-                const updated =
-                  featureModal.index == null
-                    ? [...list, next]
-                    : list.map((x, idx) => (idx === featureModal.index ? next : x))
-                return { ...f, [section.key]: updated }
-              })
-              setFeatureModal(null)
-            }}
+            showLevel={cfg.featuresModal.showLevel}
+            levelHint={cfg.featuresModal.levelHint}
+            onSave={saveFeature}
             onClose={() => setFeatureModal(null)}
           />
         )
       })()}
 
-      {subclassModal && form && (() => {
-        const row = subclassModal.index == null ? null : (form.subclasses ?? [])[subclassModal.index]
-        return (
-          <SubclassModal
-            key={subclassModal.index == null ? 'new' : row?.id ?? subclassModal.index}
-            title={
-              subclassModal.index == null
-                ? 'Добавить подкласс'
-                : `Изменить: ${row?.name || 'подкласс'}`
-            }
-            subtitle={editing?.name}
-            classId={editing?.id}
-            value={row}
-            onSave={(next) => {
-              setForm((f) => {
-                const list = f.subclasses ?? []
-                const updated =
-                  subclassModal.index == null
-                    ? [...list, next]
-                    : list.map((x, idx) => (idx === subclassModal.index ? next : x))
-                return { ...f, subclasses: updated }
-              })
-              setSubclassModal(null)
-            }}
-            onClose={() => setSubclassModal(null)}
-          />
-        )
-      })()}
+      {confirmSub && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !confirmSubDeleting && setConfirmSub(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg bg-stone-900 p-6 shadow-2xl ring-1 ring-red-900/60"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="font-display text-lg font-bold text-stone-100">Удалить подкласс?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-stone-300">
+              Вы точно хотите удалить{' '}
+              <span className="font-semibold text-stone-100">«{confirmSub.name}»</span> вместе со
+              всеми его умениями? Это действие необратимо.
+            </p>
+            {subDeleteError && <ErrorBox error={subDeleteError} onRetry={() => {}} />}
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="ghost" disabled={confirmSubDeleting} onClick={() => setConfirmSub(null)}>
+                Отмена
+              </Button>
+              <Button variant="danger" disabled={confirmSubDeleting} onClick={doSubDelete}>
+                {confirmSubDeleting ? 'Удаляем...' : 'Да, удалить'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <div

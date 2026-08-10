@@ -15,12 +15,17 @@ const SPELL_LEVELS = [
 
 const DICE_MAX = { D4: 4, D6: 6, D8: 8, D10: 10, D12: 12, D20: 20, D100: 100 }
 
-function buildRows(cls) {
+function buildRows(cls, extraFeatures) {
   const featuresByLevel = {}
   for (const feature of cls.features ?? []) {
     const lv = feature.level ?? 0
     if (!featuresByLevel[lv]) featuresByLevel[lv] = []
-    featuresByLevel[lv].push(feature)
+    featuresByLevel[lv].push({ ...feature, fromSubclass: false })
+  }
+  for (const feature of extraFeatures ?? []) {
+    const lv = feature.level ?? 0
+    if (!featuresByLevel[lv]) featuresByLevel[lv] = []
+    featuresByLevel[lv].push({ ...feature, fromSubclass: true })
   }
   const slotsByLevel = {}
   for (const slot of cls.spell_slot_progression ?? []) {
@@ -49,12 +54,35 @@ function Section({ title, children }) {
   )
 }
 
-export default function ClassDetailCard({ cls }) {
-  const { rows, hasSlots } = buildRows(cls)
+export default function ClassDetailCard({ cls, selectedSubId }) {
   const die = DICE_MAX[cls.hit_dice]
   const average = Math.floor(die / 2) + 1
   const diceRu = diceTypeLabels[cls.hit_dice] ?? cls.hit_dice
-  const features = (cls.features ?? []).slice().sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || a.id - b.id)
+  const subclasses = cls.subclasses ?? []
+  const selectedSub = selectedSubId
+    ? subclasses.find((s) => String(s.id) === String(selectedSubId))
+    : null
+
+  const subFeatures = selectedSub
+    ? (selectedSub.features ?? []).map((f) => ({
+        ...f,
+        fromSubclass: true,
+        subclassName: selectedSub.name,
+      }))
+    : []
+  const { rows, hasSlots } = buildRows(cls, subFeatures)
+
+  const features = [
+    ...(cls.features ?? []).map((f) => ({ ...f, fromSubclass: false })),
+    ...subFeatures,
+  ].sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || a.id - b.id)
+  const featuresByLevel = {}
+  for (const f of features) {
+    const lv = f.level ?? 0
+    if (!featuresByLevel[lv]) featuresByLevel[lv] = []
+    featuresByLevel[lv].push(f)
+  }
+  const featureLevels = Object.keys(featuresByLevel).map(Number).sort((a, b) => a - b)
 
   return (
     <Card className="p-6">
@@ -65,7 +93,7 @@ export default function ClassDetailCard({ cls }) {
       </div>
 
       {cls.description && (
-        <p className="border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+        <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
           {cls.description}
         </p>
       )}
@@ -118,7 +146,18 @@ export default function ClassDetailCard({ cls }) {
                   <td className="px-3 py-2 font-medium text-stone-100">{row.level}</td>
                   <td className="px-3 py-2 text-stone-200">+{row.proficiencyBonus}</td>
                   <td className="px-3 py-2 text-stone-300">
-                    {row.features.length > 0 ? row.features.map((f) => f.name).join(', ') : '—'}
+                    {row.features.length > 0 ? (
+                      row.features.map((f, i) => (
+                        <span key={f.id ?? `x-${i}`}>
+                          {i > 0 && ', '}
+                          <span className={f.fromSubclass ? 'rounded bg-ember/10 px-0.5' : ''}>
+                            <span className={f.fromSubclass ? 'font-medium text-ember' : ''}>
+                              {f.name}
+                            </span>
+                          </span>
+                        </span>
+                      ))
+                    ) : '—'}
                   </td>
                   {hasSlots &&
                     SPELL_LEVELS.map((lv) => (
@@ -131,6 +170,11 @@ export default function ClassDetailCard({ cls }) {
             </tbody>
           </table>
         </div>
+        {subFeatures.length > 0 && (
+          <p className="mt-2 text-xs text-stone-500">
+            Умения подкласса подсвечены <span className="text-ember">янтарным</span>.
+          </p>
+        )}
       </Section>
 
       <Section title="Владение">
@@ -159,41 +203,84 @@ export default function ClassDetailCard({ cls }) {
         {features.length === 0 ? (
           <p className="text-sm text-stone-500">Особенностей не указано</p>
         ) : (
-          <ul className="space-y-3">
-            {features.map((feature) => (
-              <li key={feature.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold text-stone-100">{feature.name}</p>
-                  {feature.level != null && <Badge tone="accent">{ruLevel(feature.level)}</Badge>}
-                  {feature.is_homebrew && <Badge>Homebrew</Badge>}
-                </div>
-                {feature.description && (
-                  <p className="mt-1 text-sm leading-relaxed text-stone-300">{feature.description}</p>
-                )}
-              </li>
+          <div className="space-y-4">
+            {featureLevels.map((lv) => (
+              <div key={lv}>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-400">
+                  {lv === 0 ? 'Базовые умения' : ruLevel(lv)}
+                </p>
+                <ul className="space-y-3">
+                  {featuresByLevel[lv].map((feature) => (
+                    <li
+                      key={feature.id}
+                      className={`rounded-lg border p-3 ${
+                        feature.fromSubclass
+                          ? 'border-ember/60 bg-ember/5'
+                          : 'border-stone-700/60 bg-stone-900/60'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className={`font-semibold ${feature.fromSubclass ? 'text-ember' : 'text-stone-100'}`}>
+                          {feature.name}
+                        </p>
+                        {feature.level != null && <Badge tone="accent">{ruLevel(feature.level)}</Badge>}
+                        {feature.fromSubclass && feature.subclassName && (
+                          <Badge tone="accent">Подкласс: {feature.subclassName}</Badge>
+                        )}
+                        {feature.is_homebrew && <Badge>Homebrew</Badge>}
+                      </div>
+                      {feature.description && (
+                        <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
+                          {feature.description}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </Section>
 
       <Section title="Подклассы">
-        {(cls.subclasses ?? []).length === 0 ? (
+        {subclasses.length === 0 ? (
           <p className="text-sm text-stone-500">Подклассов не указано</p>
+        ) : selectedSub ? (
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              <h3 className="font-display text-xl font-bold text-stone-100">{selectedSub.name}</h3>
+              <Badge>Разблокировка: {ruLevel(selectedSub.unlock_level)}</Badge>
+              {selectedSub.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
+            </div>
+            {selectedSub.description && (
+              <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+                {selectedSub.description}
+              </p>
+            )}
+            {(selectedSub.features ?? []).length > 0 ? (
+              <ul className="mt-4 space-y-3">
+                {(selectedSub.features ?? []).map((feature) => (
+                  <li key={feature.id} className="rounded-lg border border-ember/60 bg-ember/5 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-ember">{feature.name}</p>
+                      {feature.level != null && <Badge tone="accent">{ruLevel(feature.level)}</Badge>}
+                      {feature.is_homebrew && <Badge>Homebrew</Badge>}
+                    </div>
+                    {feature.description && (
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
+                        {feature.description}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-4 text-sm text-stone-500">Умений подкласса не указано</p>
+            )}
+          </div>
         ) : (
-          <ul className="space-y-2">
-            {(cls.subclasses ?? []).map((sub) => (
-              <li key={sub.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-stone-100">{sub.name}</p>
-                  <Badge>Разблокировка: {ruLevel(sub.unlock_level)}</Badge>
-                  {sub.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
-                </div>
-                {sub.description && (
-                  <p className="mt-1 text-sm leading-relaxed text-stone-300">{sub.description}</p>
-                )}
-              </li>
-            ))}
-          </ul>
+          <p className="text-sm text-stone-500">Выберите подкласс в списке слева.</p>
         )}
       </Section>
     </Card>

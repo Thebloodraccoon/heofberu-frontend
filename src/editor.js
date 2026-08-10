@@ -53,71 +53,21 @@ export const buildSpellSlotPayload = (spellSlots) =>
     }))
     .filter((entry) => entry.slots.length > 0)
 
-const FEATURE_OPS_BY_SOURCE = {
-  RACE: api.races.features,
-  CLASS: api.classes.features,
-  BACKGROUND: api.backgrounds.features,
-  FEAT: api.feats.features,
-}
-
-const withoutId = ({ id, ...rest }) => rest
-
-const featurePayload = (f) => ({
-  ...(f.id != null ? { id: f.id } : {}),
+export const featurePayload = (f) => ({
   name: f.name,
   description: f.description ?? '',
   level: f.level ?? null,
   is_homebrew: !!f.is_homebrew,
 })
 
-const syncFeatureList = async (ops, recId, desired, existing) => {
-  const desiredIds = new Set(desired.map((f) => f.id).filter((x) => x != null))
-  for (const f of desired) {
-    const body = withoutId(f)
-    if (f.id != null) await ops.update(recId, f.id, body)
-    else await ops.add(recId, body)
-  }
-  for (const ex of existing ?? []) {
-    if (!desiredIds.has(ex.id)) await ops.remove(recId, ex.id)
-  }
-}
-
-const syncSubclassFeatures = async (classId, subclassId, desired, existing) => {
-  const desiredIds = new Set(desired.map((f) => f.id).filter((x) => x != null))
-  for (const f of desired) {
-    const body = withoutId(f)
-    if (f.id != null) await api.classes.subclasses.features.update(classId, subclassId, f.id, body)
-    else await api.classes.subclasses.features.add(classId, subclassId, body)
-  }
-  for (const ex of existing ?? []) {
-    if (!desiredIds.has(ex.id)) {
-      await api.classes.subclasses.features.remove(classId, subclassId, ex.id)
-    }
-  }
-}
-
-export const syncFeatures = async (form, recId, existing, source) => {
-  const ops = FEATURE_OPS_BY_SOURCE[source.type]
-  if (!ops) return
-  await syncFeatureList(ops, recId, (form.features ?? []).map(featurePayload), existing)
-}
-
-const featuresFromRecord = (r) =>
-  (r.features ?? []).map((f) => ({
+export const featuresFromRecord = (r) =>
+  (Array.isArray(r) ? r : r?.features ?? []).map((f) => ({
     id: f.id,
     name: f.name,
     description: f.description ?? '',
     level: f.level ?? null,
     is_homebrew: !!f.is_homebrew,
   }))
-
-const subclassFeatureFromRecord = (f) => ({
-  id: f.id,
-  name: f.name,
-  description: f.description ?? '',
-  level: f.level ?? null,
-  is_homebrew: !!f.is_homebrew,
-})
 
 const subclassFromRecord = (s) => ({
   id: s.id,
@@ -126,57 +76,14 @@ const subclassFromRecord = (s) => ({
   unlock_level: toStr(s.unlock_level ?? 3),
   description: s.description ?? '',
   is_homebrew: !!s.is_homebrew,
-  features: Array.isArray(s.features) ? s.features.map(subclassFeatureFromRecord) : undefined,
 })
 
-const subclassPayload = (s) => ({
+export const subclassPayload = (s) => ({
   name: s.name,
   archetype_group_name: s.archetype_group_name || null,
   unlock_level: toNumDefault(s.unlock_level, 3),
   description: s.description ?? '',
   is_homebrew: !!s.is_homebrew,
-})
-
-const saveSubclasses = async (form, rec) => {
-  const current = form.subclasses ?? []
-  const original = rec.subclasses ?? []
-  const currentIds = new Set(current.map((s) => s.id).filter((x) => x != null))
-
-  for (const sub of current) {
-    const base = subclassPayload(sub)
-    if (sub.id == null) {
-      await api.classes.subclasses.create(rec.id, {
-        ...base,
-        features: Array.isArray(sub.features) ? sub.features.map(featurePayload) : [],
-      })
-    } else if (Array.isArray(sub.features)) {
-      const origSub = original.find((s) => s.id === sub.id)
-      let origFeatures = origSub?.features
-      if (!Array.isArray(origFeatures)) {
-        const full = await api.classes.subclasses.get(rec.id, sub.id)
-        origFeatures = full.features
-      }
-      await api.classes.subclasses.update(rec.id, sub.id, base)
-      await syncSubclassFeatures(rec.id, sub.id, sub.features.map(featurePayload), origFeatures)
-    }
-  }
-
-  for (const orig of original) {
-    if (!currentIds.has(orig.id)) {
-      await api.classes.subclasses.remove(rec.id, orig.id)
-    }
-  }
-}
-
-const featuresSection = (sourceType, opts = {}) => ({
-  type: 'features',
-  sourceType,
-  key: 'features',
-  label: 'Особенности',
-  addLabel: '+ Добавить',
-  empty: 'Особенностей нет',
-  noun: 'особенность',
-  ...opts,
 })
 
 export const saveSpellSlots = async (form, rec, existingProgression) => {
@@ -204,6 +111,14 @@ export const saveSpellSlots = async (form, rec, existingProgression) => {
 const racesCfg = {
   singular: 'раса',
   featuresSource: { type: 'RACE', fk: 'race_id' },
+  featuresOps: api.races.features,
+  featuresModal: { showLevel: false, levelHint: '' },
+  featuresBlock: {
+    label: 'Особенности и умения расы',
+    addLabel: '+ Добавить особенность',
+    empty: 'Особенностей и умений нет',
+    noun: 'особенность',
+  },
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Эльф' },
     { key: 'size', label: 'Размер', type: 'select', options: opt(raceSizeLabels) },
@@ -225,12 +140,6 @@ const racesCfg = {
       ],
     },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки расы', empty: 'Навыков в справочнике нет' },
-    featuresSection('RACE', {
-      label: 'Особенности и умения расы',
-      addLabel: '+ Добавить особенность',
-      empty: 'Особенностей и умений нет',
-      noun: 'особенность',
-    }),
   ],
   emptyForm: () => ({
     name: '',
@@ -239,7 +148,6 @@ const racesCfg = {
     is_homebrew: false,
     description: '',
     ability_bonuses: [],
-    features: [],
     skill_ids: [],
   }),
   fromRecord: (r) => ({
@@ -249,10 +157,9 @@ const racesCfg = {
     is_homebrew: !!r.is_homebrew,
     description: r.description ?? '',
     ability_bonuses: (r.ability_bonuses ?? []).map((b) => ({ ability: b.ability, bonus: b.bonus })),
-    features: featuresFromRecord(r),
     skill_ids: (r.granted_skills ?? []).map((s) => s.id),
   }),
-  submit: async (form, rec) => {
+  submitFields: async (form, rec) => {
     const base = {
       name: form.name,
       size: form.size,
@@ -265,11 +172,10 @@ const racesCfg = {
       await api.races.abilityBonuses(rec.id, { ability_bonuses: form.ability_bonuses })
       await api.races.skills(rec.id, { skill_ids: form.skill_ids })
     } else {
-      await api.races.create({
+      return api.races.create({
         ...base,
         ability_bonuses: form.ability_bonuses,
         granted_skills: form.skill_ids,
-        features: form.features,
       })
     }
   },
@@ -283,6 +189,18 @@ const racesCfg = {
 const classesCfg = {
   singular: 'класс',
   featuresSource: { type: 'CLASS', fk: 'class_id' },
+  featuresOps: api.classes.features,
+  featuresModal: {
+    showLevel: true,
+    levelHint: 'Укажите уровень, с которого умение доступно, или оставьте пустым — тогда оно доступно сразу.',
+  },
+  featuresBlock: {
+    label: 'Умения класса',
+    addLabel: '+ Добавить умение',
+    empty: 'Умений нет',
+    noun: 'умение',
+  },
+  hasSubclasses: true,
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Волшебник' },
     { key: 'hit_dice', label: 'Кость хитов', type: 'select', options: opt(diceTypeLabels) },
@@ -295,27 +213,12 @@ const classesCfg = {
     { type: 'pills', key: 'primary_abilities', label: 'Основные характеристики', options: opt(abilityLabels), empty: 'Не выбрано' },
     { type: 'pills', key: 'saving_throws', label: 'Спасброски', options: opt(abilityLabels), empty: 'Не выбрано' },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Доступные навыки', empty: 'Навыков в справочнике нет' },
-    featuresSection('CLASS', {
-      label: 'Умения класса',
-      addLabel: '+ Добавить умение',
-      empty: 'Умений нет',
-      noun: 'умение',
-      showLevel: true,
-      subtitle: 'Укажите уровень, с которого умение доступно, или оставьте пустым — тогда оно доступно сразу.',
-    }),
     {
       type: 'spellSlots',
       key: 'spell_slots',
       label: 'Ячейки заклинаний по уровням',
       empty: 'Ячеек нет',
       showWhen: (form) => !!form.spellcasting_ability,
-    },
-    {
-      type: 'subclasses',
-      key: 'subclasses',
-      label: 'Подклассы (архетипы)',
-      addLabel: '+ Добавить подкласс',
-      empty: 'Подклассов нет',
     },
   ],
   emptyForm: () => ({
@@ -327,10 +230,8 @@ const classesCfg = {
     description: '',
     primary_abilities: [],
     saving_throws: [],
-    features: [],
     skill_ids: [],
     spell_slots: {},
-    subclasses: [],
   }),
   fromRecord: (r) => ({
     name: r.name,
@@ -341,7 +242,6 @@ const classesCfg = {
     description: r.description ?? '',
     primary_abilities: (r.primary_abilities ?? []).map((p) => p.ability),
     saving_throws: (r.saving_throws ?? []).map((s) => s.ability),
-    features: featuresFromRecord(r),
     skill_ids: (r.available_skills ?? []).map((s) => s.id),
     spell_slots: (r.spell_slot_progression ?? []).reduce((acc, row) => {
       acc[row.class_level] = acc[row.class_level] || {}
@@ -350,7 +250,7 @@ const classesCfg = {
     }, {}),
     subclasses: (r.subclasses ?? []).map(subclassFromRecord),
   }),
-  submit: async (form, rec) => {
+  submitFields: async (form, rec) => {
     let primary = [...form.primary_abilities]
     if (form.spellcasting_ability && !primary.includes(form.spellcasting_ability)) {
       primary = [...primary, form.spellcasting_ability]
@@ -367,19 +267,13 @@ const classesCfg = {
       await api.classes.update(rec.id, { ...base, primary_abilities: primary, saving_throws: form.saving_throws })
       await api.classes.availableSkills(rec.id, { skill_ids: form.skill_ids })
       if (form.spellcasting_ability) await saveSpellSlots(form, rec, rec.spell_slot_progression)
-      await saveSubclasses(form, rec)
     } else {
-      await api.classes.create({
+      return api.classes.create({
         ...base,
         primary_abilities: primary,
         saving_throws: form.saving_throws,
         available_skills: form.skill_ids,
-        features: form.features,
         spell_slot_progression: buildSpellSlotPayload(form.spell_slots),
-        subclasses: (form.subclasses ?? []).map((s) => ({
-          ...subclassPayload(s),
-          features: Array.isArray(s.features) ? s.features.map(featurePayload) : [],
-        })),
       })
     }
   },
@@ -403,7 +297,7 @@ const skillsCfg = {
     ability: r.ability,
     description: r.description ?? '',
   }),
-  submit: async (form, rec) => {
+  submitFields: async (form, rec) => {
     const base = { name: form.name, key: form.key, ability: form.ability, description: form.description }
     if (rec) await api.skills.update(rec.id, base)
     else await api.skills.create(base)
@@ -494,7 +388,7 @@ const spellsCfg = {
     class_ids: (r.available_classes ?? []).map((c) => c.id),
     race_ids: (r.available_races ?? []).map((x) => x.id),
   }),
-  submit: async (form, rec) => {
+  submitFields: async (form, rec) => {
     const base = {
       name: form.name,
       level: form.level,
@@ -541,6 +435,14 @@ const spellsCfg = {
 const backgroundsCfg = {
   singular: 'предыстория',
   featuresSource: { type: 'BACKGROUND', fk: 'background_id' },
+  featuresOps: api.backgrounds.features,
+  featuresModal: { showLevel: false, levelHint: '' },
+  featuresBlock: {
+    label: 'Умения предыстории',
+    addLabel: '+ Добавить умение',
+    empty: 'Умений предыстории нет',
+    noun: 'умение',
+  },
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Благородный' },
     { key: 'personality_traits_suggestions', label: 'Черты личности', type: 'textarea', full: true },
@@ -552,13 +454,6 @@ const backgroundsCfg = {
   ],
   sections: [
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки предыстории', empty: 'Навыков в справочнике нет' },
-    featuresSection('BACKGROUND', {
-      label: 'Умения предыстории',
-      addLabel: '+ Добавить умение',
-      empty: 'Умений предыстории нет',
-      noun: 'умение',
-      subtitle: 'Основное умение и дополнительные умения предыстории хранятся здесь.',
-    }),
   ],
   emptyForm: () => ({
     name: '',
@@ -568,7 +463,6 @@ const backgroundsCfg = {
     flaws_suggestions: '',
     description: '',
     is_homebrew: false,
-    features: [],
     skill_ids: [],
   }),
   fromRecord: (r) => ({
@@ -579,10 +473,9 @@ const backgroundsCfg = {
     flaws_suggestions: r.flaws_suggestions ?? '',
     description: r.description ?? '',
     is_homebrew: !!r.is_homebrew,
-    features: featuresFromRecord(r),
     skill_ids: (r.granted_skills ?? []).map((s) => s.id),
   }),
-  submit: async (form, rec) => {
+  submitFields: async (form, rec) => {
     const base = {
       name: form.name,
       personality_traits_suggestions: form.personality_traits_suggestions,
@@ -596,7 +489,7 @@ const backgroundsCfg = {
       await api.backgrounds.update(rec.id, base)
       await api.backgrounds.skills(rec.id, { skill_ids: form.skill_ids })
     } else {
-      await api.backgrounds.create({ ...base, granted_skills: form.skill_ids, features: form.features })
+      return api.backgrounds.create({ ...base, granted_skills: form.skill_ids })
     }
   },
   listBadges: () => [],
@@ -605,6 +498,14 @@ const backgroundsCfg = {
 const featsCfg = {
   singular: 'черта',
   featuresSource: { type: 'FEAT', fk: 'feat_id' },
+  featuresOps: api.feats.features,
+  featuresModal: { showLevel: false, levelHint: '' },
+  featuresBlock: {
+    label: 'Умения',
+    addLabel: '+ Добавить умение',
+    empty: 'Умений нет',
+    noun: 'умение',
+  },
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Проворный' },
     { key: 'prerequisite_ability', label: 'Требуемая характеристика', type: 'select', options: optOptional(abilityLabels) },
@@ -626,13 +527,6 @@ const featsCfg = {
         { key: 'amount', label: 'Величина', type: 'number', min: 0, max: 5, width: 'w-24' },
       ],
     },
-    featuresSection('FEAT', {
-      label: 'Умения',
-      addLabel: '+ Добавить умение',
-      empty: 'Умений нет',
-      noun: 'умение',
-      subtitle: 'Если черта даёт несколько пунктов — запишите каждый отдельным умением.',
-    }),
   ],
   emptyForm: () => ({
     name: '',
@@ -642,7 +536,6 @@ const featsCfg = {
     description: '',
     is_homebrew: false,
     ability_score_increases: [],
-    features: [],
   }),
   fromRecord: (r) => ({
     name: r.name,
@@ -655,9 +548,8 @@ const featsCfg = {
       ability: a.ability,
       amount: a.amount,
     })),
-    features: featuresFromRecord(r),
   }),
-  submit: async (form, rec) => {
+  submitFields: async (form, rec) => {
     const base = {
       name: form.name,
       prerequisite_ability: form.prerequisite_ability || null,
@@ -670,7 +562,7 @@ const featsCfg = {
       await api.feats.update(rec.id, base)
       await api.feats.abilityScoreIncreases(rec.id, { ability_score_increases: form.ability_score_increases })
     } else {
-      await api.feats.create({ ...base, ability_score_increases: form.ability_score_increases, features: form.features })
+      return api.feats.create({ ...base, ability_score_increases: form.ability_score_increases })
     }
   },
   listBadges: (item) =>
@@ -739,7 +631,7 @@ const itemsCfg = {
     description: r.description ?? '',
     is_homebrew: !!r.is_homebrew,
   }),
-  submit: async (form, rec) => {
+  submitFields: async (form, rec) => {
     const base = {
       name: form.name,
       item_type: form.item_type,
@@ -786,7 +678,7 @@ const featuresCfg = {
     is_homebrew: !!r.is_homebrew,
     description: r.description ?? '',
   }),
-  submit: async (form, rec) => {
+  submitFields: async (form, rec) => {
     const base = {
       name: form.name,
       level: toNum(form.level),
