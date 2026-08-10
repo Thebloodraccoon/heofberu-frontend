@@ -323,14 +323,11 @@ export default function GmEditorPage() {
 
       {error && <ErrorBox error={error} onRetry={load} />}
       {!error && !records && <Spinner />}
-      {!error && records && records.length === 0 && !showForm && (
-        <EmptyState text={`${cfg.label} пуст. Нажмите «+ Новая запись», чтобы создать первую.`} />
-      )}
       {!error && records && records.length > 0 && filtered.length === 0 && !showForm && (
         <EmptyState text="Ничего не найдено по запросу" />
       )}
 
-      {!error && records && (filtered.length > 0 || showForm) && (
+      {!error && records && (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
           {filtered.length > 0 && (
           <aside className="flex max-h-[calc(100vh-280px)] flex-col gap-2 overflow-y-auto pr-1 lg:sticky lg:top-24">
