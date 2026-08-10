@@ -8,4 +8,5 @@ export const catalog = {
   backgrounds: { label: 'Предыстории', icon: 'П', desc: 'Происхождение героя', api: api.backgrounds, filters: [] },
   feats: { label: 'Черты', icon: 'Ч', desc: 'Особые таланты', api: api.feats, filters: [] },
   items: { label: 'Предметы', icon: 'Пр', desc: 'Оружие, броня и артефакты', api: api.items, filters: ['item_type', 'rarity'] },
+  features: { label: 'Особенности', icon: 'Ос', desc: 'Особенности вне классов и рас', api: api.features, filters: [], listParams: { source_type: 'OTHER' } },
 }

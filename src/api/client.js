@@ -3,6 +3,8 @@ import { API } from './config.js'
 const TOKEN_KEY = 'heofberu.access_token'
 const TOKEN_EVENT = 'heofberu:token'
 
+const API_BASE = API.baseURL.replace(/\/+$/, '')
+
 let refreshPromise = null
 
 export function getToken() {
@@ -39,7 +41,7 @@ export function decodeToken(token) {
 }
 
 async function request(path, { method = 'GET', body, params, auth = true } = {}) {
-  const url = new URL(API.baseURL + path, window.location.origin)
+  const url = new URL(API_BASE + path, window.location.origin)
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)
@@ -93,7 +95,7 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
 
 async function refreshAccessToken() {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API.baseURL}/api/auth/refresh`, {
+    refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
     })

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/endpoints.js'
 import { editorConfig, syncFeatures, SPELL_LEVEL_KEYS } from '../editor.js'
 import FeatureModal from '../components/FeaturesModal.jsx'
+import SubclassModal from '../components/SubclassModal.jsx'
 import { ruLevel } from '../labels.js'
 import { Badge, Button, Card, EmptyState, ErrorBox, Field, Input, PageHeader, Select, Spinner } from '../components/ui.jsx'
 
@@ -86,8 +87,10 @@ export default function GmEditorPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
 
   const [featureModal, setFeatureModal] = useState(null)
+  const [subclassModal, setSubclassModal] = useState(null)
 
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -99,7 +102,7 @@ export default function GmEditorPage() {
   useEffect(() => {
     let active = true
     cfg.api
-      .list({ size: 100 })
+      .list({ size: 100, ...(cfg.listParams ?? {}) })
       .then((page) => {
         if (!active) return
         setError(null)
@@ -153,20 +156,33 @@ export default function GmEditorPage() {
     setEditing(null)
     setForm(null)
     setFeatureModal(null)
+    setSubclassModal(null)
+    setEditLoading(false)
   }
 
   const openCreate = () => {
     setEditing(null)
     setForm(cfg.emptyForm())
     setFeatureModal(null)
+    setSubclassModal(null)
     setShowForm(true)
   }
 
-  const openEdit = (rec) => {
-    setEditing(rec)
-    setForm(cfg.fromRecord(rec))
+  const openEdit = async (rec) => {
+    setError(null)
     setFeatureModal(null)
+    setSubclassModal(null)
+    setEditLoading(true)
     setShowForm(true)
+    try {
+      const full = await cfg.api.get(rec.id)
+      setEditing(full)
+      setForm(cfg.fromRecord(full))
+    } catch (e) {
+      setError(e)
+    } finally {
+      setEditLoading(false)
+    }
   }
 
   const closeForm = () => {
@@ -174,6 +190,8 @@ export default function GmEditorPage() {
     setEditing(null)
     setForm(null)
     setFeatureModal(null)
+    setSubclassModal(null)
+    setEditLoading(false)
   }
 
   const filtered = useMemo(() => {
@@ -198,8 +216,20 @@ export default function GmEditorPage() {
       ...f,
       [key]: f[key].map((row, idx) => (idx === i ? { ...row, [colKey]: v } : row)),
     }))
-  const addRow = (section) =>
-    setForm((f) => ({ ...f, [section.key]: [...f[section.key], { ...section.defaults }] }))
+  const addRow = (section) => {
+    const selCol = section.columns?.find((c) => c.type === 'select')
+    if (!selCol) {
+      setForm((f) => ({ ...f, [section.key]: [...(f[section.key] ?? []), { ...section.defaults }] }))
+      return
+    }
+    setForm((f) => {
+      const rows = f[section.key] ?? []
+      const used = new Set(rows.map((r) => r[selCol.key]))
+      const free = (selCol?.options ?? []).find((o) => !used.has(o.value))
+      if (!free) return f
+      return { ...f, [section.key]: [...rows, { ...section.defaults, [selCol.key]: free.value }] }
+    })
+  }
   const removeRow = (key, i) =>
     setForm((f) => ({ ...f, [key]: f[key].filter((_, idx) => idx !== i) }))
   const setSpellSlot = (key, classLevel, spellLevel, v) =>
@@ -225,7 +255,7 @@ export default function GmEditorPage() {
     setError(null)
     try {
       if (editing && cfg.featuresSource) {
-        await syncFeatures(form, editing.id, null, cfg.featuresSource)
+        await syncFeatures(form, editing.id, editing.features, cfg.featuresSource)
       }
       await cfg.submit(form, editing)
       closeForm()
@@ -293,15 +323,16 @@ export default function GmEditorPage() {
 
       {error && <ErrorBox error={error} onRetry={load} />}
       {!error && !records && <Spinner />}
-      {!error && records && records.length === 0 && (
+      {!error && records && records.length === 0 && !showForm && (
         <EmptyState text={`${cfg.label} пуст. Нажмите «+ Новая запись», чтобы создать первую.`} />
       )}
-      {!error && records && records.length > 0 && filtered.length === 0 && (
+      {!error && records && records.length > 0 && filtered.length === 0 && !showForm && (
         <EmptyState text="Ничего не найдено по запросу" />
       )}
 
-      {!error && records && records.length > 0 && filtered.length > 0 && (
+      {!error && records && (filtered.length > 0 || showForm) && (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+          {filtered.length > 0 && (
           <aside className="flex max-h-[calc(100vh-280px)] flex-col gap-2 overflow-y-auto pr-1 lg:sticky lg:top-24">
             {filtered.map((it) => (
               <div key={it.id} className="fantasy-panel rounded-lg p-3 transition hover:border-ember/50">
@@ -345,6 +376,7 @@ export default function GmEditorPage() {
               </div>
             ))}
           </aside>
+          )}
 
           <section className="min-w-0">
             {showForm && form ? (
@@ -477,6 +509,13 @@ export default function GmEditorPage() {
                       )
                     }
                     if (section.type === 'rows') {
+                      const selCol = section.columns?.find((c) => c.type === 'select')
+                      const usedValues = selCol
+                        ? new Set((form[section.key] ?? []).map((r) => r[selCol.key]))
+                        : null
+                      const allUsed = selCol
+                        ? (selCol.options ?? []).every((o) => usedValues.has(o.value))
+                        : false
                       return (
                         <div key={section.key}>
                           <div className="mb-2 flex items-center justify-between">
@@ -484,13 +523,19 @@ export default function GmEditorPage() {
                             <button
                               type="button"
                               onClick={() => addRow(section)}
-                              className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                              disabled={allUsed}
+                              className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
                             >
                               {section.addLabel}
                             </button>
                           </div>
                           {form[section.key].length === 0 && (
                             <p className="text-sm text-stone-500">{section.empty}</p>
+                          )}
+                          {allUsed && form[section.key].length > 0 && (
+                            <p className="mb-2 text-xs text-stone-500">
+                              Все характеристики использованы — каждая не может повторяться.
+                            </p>
                           )}
                           <div className="flex flex-col gap-2">
                             {form[section.key].map((row, i) => (
@@ -505,7 +550,11 @@ export default function GmEditorPage() {
                                         className={`flex-1 ${col.width ?? ''}`}
                                       >
                                         {col.options.map((o) => (
-                                          <option key={o.value} value={o.value}>
+                                          <option
+                                            key={o.value}
+                                            value={o.value}
+                                            disabled={usedValues?.has(o.value) && o.value !== row[col.key]}
+                                          >
                                             {o.label}
                                           </option>
                                         ))}
@@ -621,6 +670,68 @@ export default function GmEditorPage() {
                         </div>
                       )
                     }
+                    if (section.type === 'subclasses') {
+                      const list = form[section.key] ?? []
+                      return (
+                        <div key={section.key}>
+                          <div className="mb-2 flex items-center justify-between">
+                            <SectionTitle>{section.label}</SectionTitle>
+                            <button
+                              type="button"
+                              onClick={() => setSubclassModal({ index: null })}
+                              className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                            >
+                              {section.addLabel}
+                            </button>
+                          </div>
+                          {list.length === 0 ? (
+                            <p className="text-sm text-stone-500">{section.empty}</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {list.map((s, i) => (
+                                <div key={s.id ?? i} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="text-sm font-medium text-stone-100">{s.name || 'Без названия'}</p>
+                                        {s.unlock_level != null && s.unlock_level !== '' && (
+                                          <Badge tone="accent">{ruLevel(s.unlock_level)}</Badge>
+                                        )}
+                                        {s.is_homebrew && <Badge>Homebrew</Badge>}
+                                      </div>
+                                      {Array.isArray(s.features) && s.features.length > 0 && (
+                                        <p className="mt-0.5 text-xs text-stone-400">{s.features.length} умений</p>
+                                      )}
+                                    </div>
+                                    <div className="flex shrink-0 flex-col gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSubclassModal({ index: i })}
+                                        className="rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+                                      >
+                                        Изменить
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setForm((f2) => ({
+                                            ...f2,
+                                            [section.key]: f2[section.key].filter((_, idx) => idx !== i),
+                                          }))
+                                        }
+                                        className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
+                                      >
+                                        Убрать
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
                     const options =
                       section.type === 'pills' ? section.options : listOptions[section.listKey]
                     return (
@@ -650,6 +761,10 @@ export default function GmEditorPage() {
                     </Button>
                   </div>
                 </form>
+              </Card>
+            ) : showForm && editLoading ? (
+              <Card className="flex items-center justify-center p-10">
+                <Spinner label="Загружаем запись..." />
               </Card>
             ) : (
               <Card className="p-10 text-center">
@@ -691,6 +806,35 @@ export default function GmEditorPage() {
               setFeatureModal(null)
             }}
             onClose={() => setFeatureModal(null)}
+          />
+        )
+      })()}
+
+      {subclassModal && form && (() => {
+        const row = subclassModal.index == null ? null : (form.subclasses ?? [])[subclassModal.index]
+        return (
+          <SubclassModal
+            key={subclassModal.index == null ? 'new' : row?.id ?? subclassModal.index}
+            title={
+              subclassModal.index == null
+                ? 'Добавить подкласс'
+                : `Изменить: ${row?.name || 'подкласс'}`
+            }
+            subtitle={editing?.name}
+            classId={editing?.id}
+            value={row}
+            onSave={(next) => {
+              setForm((f) => {
+                const list = f.subclasses ?? []
+                const updated =
+                  subclassModal.index == null
+                    ? [...list, next]
+                    : list.map((x, idx) => (idx === subclassModal.index ? next : x))
+                return { ...f, subclasses: updated }
+              })
+              setSubclassModal(null)
+            }}
+            onClose={() => setSubclassModal(null)}
           />
         )
       })()}

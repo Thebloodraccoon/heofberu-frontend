@@ -10,6 +10,7 @@ const catalogLinks = [
   { to: '/catalog/backgrounds', label: 'Предыстории' },
   { to: '/catalog/feats', label: 'Черты' },
   { to: '/catalog/items', label: 'Предметы' },
+  { to: '/catalog/features', label: 'Особенности' },
 ]
 
 function Crest({ size = 'size-9', text = 'text-base' }) {

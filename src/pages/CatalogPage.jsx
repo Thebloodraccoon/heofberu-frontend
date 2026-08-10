@@ -35,7 +35,12 @@ function renderValue(value) {
 
 function summaryBadges(item) {
   const badges = []
-  if (item.level) badges.push({ text: spellLevel(item.level), tone: 'accent' })
+  if (item.level != null && item.level !== '') {
+    badges.push({
+      text: typeof item.level === 'number' ? ruLevel(item.level) : spellLevel(item.level),
+      tone: 'accent',
+    })
+  }
   if (item.school) badges.push({ text: label(item.school), tone: 'default' })
   if (item.rarity && item.rarity !== 'NONE') badges.push({ text: label(item.rarity), tone: 'default' })
   if (item.item_type) badges.push({ text: label(item.item_type), tone: 'default' })
@@ -278,7 +283,7 @@ export function CatalogListPage() {
     let active = true
     const run = async () => {
       try {
-        const page = await cfg.api.list({ size: 100 })
+        const page = await cfg.api.list({ size: 100, ...(cfg.listParams ?? {}) })
         if (!active) return
         setError(null)
         setItems(page.items ?? [])
