@@ -790,14 +790,6 @@ export function CatalogListPage() {
       .then(async (data) => {
         if (!active) return
         let withFeatures = data
-        if (cfg.featuresApi) {
-          try {
-            const feats = await cfg.featuresApi(selectedId)
-            withFeatures = { ...data, features: Array.isArray(feats) ? feats : feats?.features ?? [] }
-          } catch {
-            /* не критично для просмотра */
-          }
-        }
         if (resource === 'classes') {
           try {
             const subs = withFeatures.subclasses ?? []
