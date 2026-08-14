@@ -1,4 +1,4 @@
-import { abilityLabels, diceTypeLabels, ruLevel } from '../labels.js'
+import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel } from '../labels.js'
 import { Badge, Card } from './ui.jsx'
 
 const SPELL_LEVELS = [
@@ -45,9 +45,9 @@ function buildRows(cls, extraFeatures) {
   return { rows, hasSlots }
 }
 
-function Section({ title, children }) {
+function Section({ title, children, noBorder }) {
   return (
-    <div className="mt-6 border-t border-stone-700/70 pt-4">
+    <div className={`mt-6 pt-4 ${noBorder ? '' : 'border-t border-stone-700/70'}`}>
       <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-500">{title}</h2>
       {children}
     </div>
@@ -76,26 +76,31 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
     ...(cls.features ?? []).map((f) => ({ ...f, fromSubclass: false })),
     ...subFeatures,
   ].sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || a.id - b.id)
-  const featuresByLevel = {}
-  for (const f of features) {
-    const lv = f.level ?? 0
-    if (!featuresByLevel[lv]) featuresByLevel[lv] = []
-    featuresByLevel[lv].push(f)
-  }
-  const featureLevels = Object.keys(featuresByLevel).map(Number).sort((a, b) => a - b)
 
   return (
     <Card className="p-6">
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-2xl font-bold text-stone-100">{cls.name}</h1>
-        <Badge>{`Кость хитов ${diceRu}`}</Badge>
-        {cls.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold text-stone-100">{cls.name}</h1>
+          <Badge>{`Кость хитов ${diceRu}`}</Badge>
+        </div>
+        {selectedSub && (
+          <p className="mt-1 font-display text-lg font-semibold text-ember">{selectedSub.name}</p>
+        )}
       </div>
 
-      {cls.description && (
-        <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
-          {cls.description}
-        </p>
+      {selectedSub ? (
+        selectedSub.description && (
+          <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+            {selectedSub.description}
+          </p>
+        )
+      ) : (
+        cls.description && (
+          <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+            {cls.description}
+          </p>
+        )
       )}
 
       <Section title="Хиты">
@@ -115,8 +120,8 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
         </ul>
       </Section>
 
-      <Section title="Таблица прогрессии">
-        <div className="overflow-x-auto rounded-lg border border-stone-700/60">
+      <Section title="Таблица" noBorder>
+        <div className="overflow-x-auto rounded-lg bg-stone-900/40">
           <table className="w-full min-w-max text-sm">
             <thead>
               <tr className="border-b border-stone-700/60 bg-stone-800/50 text-left text-xs uppercase tracking-wide text-stone-400">
@@ -190,97 +195,79 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             </dd>
           </div>
           <div>
-            <dt className="inline font-medium text-stone-200">Навыки: </dt>
+            <dt className="inline font-medium text-stone-200">Навыки </dt>
             <dd className="inline">
-              {cls.skill_choice_count > 0 ? `Выберите ${cls.skill_choice_count}: ` : ''}
+              {cls.skill_choice_count > 0 ? `выберите ${cls.skill_choice_count}: ` : ''}
               {cls.available_skills.map((s) => s.name).join(', ')}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline font-medium text-stone-200">Владение бронёй: </dt>
+            <dd className="inline">
+              {(cls.armor_proficiencies ?? []).length === 0
+                ? '—'
+                : cls.armor_proficiencies
+                    .map((a) => armorProficiencyLabels[a.armor_type] ?? a.armor_type)
+                    .join(', ')}
             </dd>
           </div>
         </dl>
       </Section>
 
-      <Section title="Фичи класса">
+      <Section title="Снаряжение">
+        <p className="text-sm leading-relaxed text-stone-300">
+          Вы начинаете со следующим снаряжением в дополнение к снаряжению, полученному за вашу
+          предысторию:
+        </p>
+        {(cls.starting_items ?? []).length > 0 ? (
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-stone-300">
+            {cls.starting_items.map((entry, i) => (
+              <li key={i}>
+                {entry.quantity > 1 && <span className="font-medium text-ember">{entry.quantity}× </span>}
+                {entry.item?.name ?? entry.item_id}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-stone-500">—</p>
+        )}
+        <p className="mt-3 text-sm leading-relaxed text-stone-300">
+          В качестве альтернативы базовому снаряжению класса и предыстории, вы можете получить 5к4
+          × 10 зм. монет и приобрести себе снаряжение самостоятельно.
+        </p>
+      </Section>
+
+      <Section title="Особенности и умения">
         {features.length === 0 ? (
           <p className="text-sm text-stone-500">Особенностей не указано</p>
         ) : (
-          <div className="space-y-4">
-            {featureLevels.map((lv) => (
-              <div key={lv}>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-400">
-                  {lv === 0 ? 'Базовые умения' : ruLevel(lv)}
-                </p>
-                <ul className="space-y-3">
-                  {featuresByLevel[lv].map((feature) => (
-                    <li
-                      key={feature.id}
-                      className={`rounded-lg border p-3 ${
-                        feature.fromSubclass
-                          ? 'border-ember/60 bg-ember/5'
-                          : 'border-stone-700/60 bg-stone-900/60'
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className={`font-semibold ${feature.fromSubclass ? 'text-ember' : 'text-stone-100'}`}>
-                          {feature.name}
-                        </p>
-                        {feature.level != null && <Badge tone="accent">{ruLevel(feature.level)}</Badge>}
-                        {feature.fromSubclass && feature.subclassName && (
-                          <Badge tone="accent">Подкласс: {feature.subclassName}</Badge>
-                        )}
-                        {feature.is_homebrew && <Badge>Homebrew</Badge>}
-                      </div>
-                      {feature.description && (
-                        <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
-                          {feature.description}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <ul className="space-y-3">
+            {features.map((feature) => (
+              <li
+                key={feature.id}
+                className={`rounded-lg border p-3 ${
+                  feature.fromSubclass
+                    ? 'border-ember/60 bg-ember/5'
+                    : 'border-stone-700/60 bg-stone-900/60'
+                }`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={`font-semibold ${feature.fromSubclass ? 'text-ember' : 'text-stone-100'}`}>
+                    {feature.name}
+                  </p>
+                  {feature.level != null && <Badge tone="accent">{ruLevel(feature.level)}</Badge>}
+                  {feature.fromSubclass && feature.subclassName && (
+                    <Badge tone="accent">Подкласс: {feature.subclassName}</Badge>
+                  )}
+                </div>
+                {feature.description && (
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
+                    {feature.description}
+                  </p>
+                )}
+              </li>
             ))}
-          </div>
-        )}
-      </Section>
-
-      <Section title="Подклассы">
-        {subclasses.length === 0 ? (
-          <p className="text-sm text-stone-500">Подклассов не указано</p>
-        ) : selectedSub ? (
-          <div>
-            <div className="mb-3 flex flex-wrap items-center gap-3">
-              <h3 className="font-display text-xl font-bold text-stone-100">{selectedSub.name}</h3>
-              <Badge>Разблокировка: {ruLevel(selectedSub.unlock_level)}</Badge>
-              {selectedSub.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
-            </div>
-            {selectedSub.description && (
-              <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
-                {selectedSub.description}
-              </p>
-            )}
-            {(selectedSub.features ?? []).length > 0 ? (
-              <ul className="mt-4 space-y-3">
-                {(selectedSub.features ?? []).map((feature) => (
-                  <li key={feature.id} className="rounded-lg border border-ember/60 bg-ember/5 p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-ember">{feature.name}</p>
-                      {feature.level != null && <Badge tone="accent">{ruLevel(feature.level)}</Badge>}
-                      {feature.is_homebrew && <Badge>Homebrew</Badge>}
-                    </div>
-                    {feature.description && (
-                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
-                        {feature.description}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-sm text-stone-500">Умений подкласса не указано</p>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-stone-500">Выберите подкласс в списке слева.</p>
+          </ul>
         )}
       </Section>
     </Card>

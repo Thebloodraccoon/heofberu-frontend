@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import ThemeSwitcher from './ThemeSwitcher.jsx'
 
 const catalogLinks = [
   { to: '/catalog/races', label: 'Расы' },
@@ -69,6 +70,7 @@ export default function Layout() {
             </Link>
 
             <div className="ml-auto flex items-center gap-2">
+              <ThemeSwitcher />
               {authenticated ? (
                 <>
                   <span className="hidden text-sm text-stone-300 md:block">{user?.username}</span>

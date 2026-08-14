@@ -160,9 +160,17 @@ export const sourceTypeLabels = {
   CLASS: 'Класс',
   SUBCLASS: 'Подкласс',
   RACE: 'Раса',
+  SUBRACE: 'Подраса',
   BACKGROUND: 'Предыстория',
   FEAT: 'Черта',
   OTHER: 'Прочее',
+}
+
+export const armorProficiencyLabels = {
+  LIGHT: 'Лёгкая броня',
+  MEDIUM: 'Средняя броня',
+  HEAVY: 'Тяжёлая броня',
+  SHIELD: 'Щит',
 }
 
 export const diceTypeLabels = {
@@ -295,6 +303,12 @@ export const fieldLabels = {
   flaws_suggestions: 'Слабости',
   available_subclasses: 'Подклассы',
   available_races: 'Доступно расам',
+  armor_proficiencies: 'Владение бронёй',
+  starting_items: 'Стартовое снаряжение',
+  subraces: 'Подрасы',
+  subrace_id: 'Подраса',
+  subclass_id: 'Подкласс',
+  quantity: 'Количество',
 }
 
 const maps = {
@@ -313,6 +327,7 @@ const maps = {
   ...healingTargetLabels,
   ...conditionLabels,
   ...sourceTypeLabels,
+  ...armorProficiencyLabels,
   ...diceTypeLabels,
   ...roleLabels,
   ...skillLabels,

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button, Field, Input, TextArea } from './ui.jsx'
 
 function blankFeature() {
-  return { name: '', description: '', level: null, is_homebrew: false }
+  return { name: '', description: '', level: null }
 }
 
 export default function FeatureModal({ title, subtitle, value = null, showLevel = false, levelHint, onSave, onClose }) {
@@ -13,8 +13,6 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
       ...d,
       [key]: key === 'level' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value,
     }))
-
-  const toggleHomebrew = (e) => setEdit((d) => ({ ...d, is_homebrew: e.target.checked }))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -59,11 +57,6 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
           <Field label="Описание">
             <TextArea value={edit.description} onChange={setField('description')} rows={4} />
           </Field>
-
-          <label className="flex w-fit cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2">
-            <input type="checkbox" checked={!!edit.is_homebrew} onChange={toggleHomebrew} className="size-4 accent-ember" />
-            <span className="text-sm text-stone-200">Homebrew</span>
-          </label>
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-stone-700/70 p-4">

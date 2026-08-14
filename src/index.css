@@ -52,19 +52,19 @@ h4 {
 }
 
 ::selection {
-  background: rgba(212, 85, 42, 0.35);
+  background: color-mix(in srgb, var(--color-ember) 35%, transparent);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #57442a transparent;
+  scrollbar-color: var(--color-stone-700) transparent;
 }
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #57442a;
+  background: var(--color-stone-700);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-track {
@@ -120,4 +120,120 @@ h4 {
   right: -1px;
   border-bottom: 2px solid var(--color-gold);
   border-right: 2px solid var(--color-gold);
+}
+
+/* ===== Темы оформления ===== */
+/* Каждая тема переопределяет палитру Tailwind (stone/ember/gold) на <html data-theme="...">,
+   поэтому все существующие утилиты text-stone-*, bg-stone-*, border-ember и т.д. перекрашиваются автоматически. */
+
+[data-theme="arcana"] {
+  --color-stone-50: #edf1f7;
+  --color-stone-100: #e0e7f0;
+  --color-stone-200: #c6d2e3;
+  --color-stone-300: #a3b3cc;
+  --color-stone-400: #7f90ab;
+  --color-stone-500: #62718a;
+  --color-stone-600: #4d5a70;
+  --color-stone-700: #3b4556;
+  --color-stone-800: #29303d;
+  --color-stone-900: #1b2029;
+  --color-stone-950: #12151b;
+  --color-parchment: #e0e7f0;
+  --color-ink: #12151b;
+  --color-ember: #6d9db8;
+  --color-ember-dark: #4a7890;
+  --color-gold: #93a3bc;
+  --color-gold-light: #c0cce0;
+}
+
+[data-theme="forest"] {
+  --color-stone-50: #eff3ea;
+  --color-stone-100: #e3ebd8;
+  --color-stone-200: #c9d8b8;
+  --color-stone-300: #a7bf92;
+  --color-stone-400: #83a26d;
+  --color-stone-500: #66854f;
+  --color-stone-600: #4f6940;
+  --color-stone-700: #3f5233;
+  --color-stone-800: #2c3a23;
+  --color-stone-900: #1e2919;
+  --color-stone-950: #141b11;
+  --color-parchment: #e3ebd8;
+  --color-ink: #141b11;
+  --color-ember: #5d8a4e;
+  --color-ember-dark: #446b3a;
+  --color-gold: #9da97c;
+  --color-gold-light: #ccd5b0;
+}
+
+[data-theme="crimson"] {
+  --color-stone-50: #f8edea;
+  --color-stone-100: #f1ddda;
+  --color-stone-200: #e3c0bb;
+  --color-stone-300: #cf9a93;
+  --color-stone-400: #b5756c;
+  --color-stone-500: #9a5a51;
+  --color-stone-600: #7e4740;
+  --color-stone-700: #623733;
+  --color-stone-800: #462724;
+  --color-stone-900: #2f1a18;
+  --color-stone-950: #201112;
+  --color-parchment: #f1ddda;
+  --color-ink: #201112;
+  --color-ember: #b5574a;
+  --color-ember-dark: #8c4238;
+  --color-gold: #b09263;
+  --color-gold-light: #d9c195;
+}
+
+[data-theme="twilight"] {
+  --color-stone-50: #f0eef6;
+  --color-stone-100: #e6e2f0;
+  --color-stone-200: #cfc7e3;
+  --color-stone-300: #b1a5cf;
+  --color-stone-400: #9183b5;
+  --color-stone-500: #746699;
+  --color-stone-600: #5c507b;
+  --color-stone-700: #484061;
+  --color-stone-800: #332d45;
+  --color-stone-900: #221e2e;
+  --color-stone-950: #16131e;
+  --color-parchment: #e6e2f0;
+  --color-ink: #16131e;
+  --color-ember: #8a74b5;
+  --color-ember-dark: #69558f;
+  --color-gold: #a292bd;
+  --color-gold-light: #cec4e2;
+}
+
+[data-theme="arcana"] body {
+  background-color: #0e1218;
+  background-image:
+    radial-gradient(1100px 520px at 50% -5%, #1c2533 0%, rgba(28, 37, 51, 0) 60%),
+    radial-gradient(1400px 900px at 100% 110%, rgba(46, 66, 90, 0.28) 0%, rgba(46, 66, 90, 0) 55%),
+    radial-gradient(1200px 800px at 0% 110%, rgba(40, 55, 75, 0.24) 0%, rgba(40, 55, 75, 0) 55%);
+}
+
+[data-theme="forest"] body {
+  background-color: #0c110a;
+  background-image:
+    radial-gradient(1100px 520px at 50% -5%, #1a2514 0%, rgba(26, 37, 20, 0) 60%),
+    radial-gradient(1400px 900px at 100% 110%, rgba(52, 74, 40, 0.28) 0%, rgba(52, 74, 40, 0) 55%),
+    radial-gradient(1200px 800px at 0% 110%, rgba(40, 58, 30, 0.24) 0%, rgba(40, 58, 30, 0) 55%);
+}
+
+[data-theme="crimson"] body {
+  background-color: #120a0a;
+  background-image:
+    radial-gradient(1100px 520px at 50% -5%, #2b1715 0%, rgba(43, 23, 21, 0) 60%),
+    radial-gradient(1400px 900px at 100% 110%, rgba(90, 40, 35, 0.28) 0%, rgba(90, 40, 35, 0) 55%),
+    radial-gradient(1200px 800px at 0% 110%, rgba(70, 32, 28, 0.24) 0%, rgba(70, 32, 28, 0) 55%);
+}
+
+[data-theme="twilight"] body {
+  background-color: #100d17;
+  background-image:
+    radial-gradient(1100px 520px at 50% -5%, #221b31 0%, rgba(34, 27, 49, 0) 60%),
+    radial-gradient(1400px 900px at 100% 110%, rgba(70, 55, 95, 0.28) 0%, rgba(70, 55, 95, 0) 55%),
+    radial-gradient(1200px 800px at 0% 110%, rgba(55, 42, 75, 0.24) 0%, rgba(55, 42, 75, 0) 55%);
 }

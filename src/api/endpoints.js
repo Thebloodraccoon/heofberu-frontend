@@ -36,6 +36,27 @@ export const api = {
       remove: (id, featureId) =>
         request(`/api/races/${id}/features/${featureId}`, { method: 'DELETE' }),
     },
+    subraces: {
+      list: (raceId) => request(`/api/races/${raceId}/subraces`),
+      create: (raceId, body) => request(`/api/races/${raceId}/subraces`, { method: 'POST', body }),
+      get: (raceId, subraceId) => request(`/api/races/${raceId}/subraces/${subraceId}`),
+      update: (raceId, subraceId, body) =>
+        request(`/api/races/${raceId}/subraces/${subraceId}`, { method: 'PATCH', body }),
+      remove: (raceId, subraceId) =>
+        request(`/api/races/${raceId}/subraces/${subraceId}`, { method: 'DELETE' }),
+      abilityBonuses: (raceId, subraceId, body) =>
+        request(`/api/races/${raceId}/subraces/${subraceId}/ability-bonuses`, { method: 'PUT', body }),
+      features: {
+        list: (raceId, subraceId) =>
+          request(`/api/races/${raceId}/subraces/${subraceId}/features`),
+        add: (raceId, subraceId, body) =>
+          request(`/api/races/${raceId}/subraces/${subraceId}/features`, { method: 'POST', body }),
+        update: (raceId, subraceId, featureId, body) =>
+          request(`/api/races/${raceId}/subraces/${subraceId}/features/${featureId}`, { method: 'PATCH', body }),
+        remove: (raceId, subraceId, featureId) =>
+          request(`/api/races/${raceId}/subraces/${subraceId}/features/${featureId}`, { method: 'DELETE' }),
+      },
+    },
   },
 
   classes: {
@@ -48,6 +69,12 @@ export const api = {
       request(`/api/classes/${id}/saving-throws`, { method: 'PUT', body }),
     availableSkills: (id, body) =>
       request(`/api/classes/${id}/available-skills`, { method: 'PUT', body }),
+    armorProficiencies: (id, body) =>
+      request(`/api/classes/${id}/armor-proficiencies`, { method: 'PUT', body }),
+    items: {
+      list: (id) => request(`/api/classes/${id}/items`),
+      set: (id, body) => request(`/api/classes/${id}/items`, { method: 'PUT', body }),
+    },
     spellSlots: (id, level, body) =>
       request(`/api/classes/${id}/spell-slots/${level}`, { method: 'PUT', body }),
     features: {
@@ -105,6 +132,10 @@ export const api = {
     update: (id, body) => request(`/api/backgrounds/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/backgrounds/${id}`, { method: 'DELETE' }),
     skills: (id, body) => request(`/api/backgrounds/${id}/skills`, { method: 'PUT', body }),
+    items: {
+      list: (id) => request(`/api/backgrounds/${id}/items`),
+      set: (id, body) => request(`/api/backgrounds/${id}/items`, { method: 'PUT', body }),
+    },
     features: {
       list: (id) => request(`/api/backgrounds/${id}/features`),
       add: (id, body) => request(`/api/backgrounds/${id}/features`, { method: 'POST', body }),
@@ -215,6 +246,10 @@ export const api = {
         request(`/api/characters/${id}/progression/race`, { method: 'PATCH', body }),
       class: (id, body) =>
         request(`/api/characters/${id}/progression/class`, { method: 'PATCH', body }),
+      subclass: (id, body) =>
+        request(`/api/characters/${id}/progression/subclass`, { method: 'PATCH', body }),
+      subrace: (id, body) =>
+        request(`/api/characters/${id}/progression/subrace`, { method: 'PATCH', body }),
       levelUp: (id, body) =>
         request(`/api/characters/${id}/progression/level-up`, { method: 'POST', body }),
       asiChoices: (id) => request(`/api/characters/${id}/progression/asi-choices`),

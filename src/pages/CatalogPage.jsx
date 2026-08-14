@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints.js'
 import { catalog } from '../catalog.js'
-import { abilityLabels, classSlugLabels, diceTypeLabels, fieldLabel, label, ruLevel, skillLabels } from '../labels.js'
+import { abilityLabels, classSlugLabels, diceTypeLabels, fieldLabel, label, raceSizeLabels, ruLevel, skillLabels } from '../labels.js'
 import { Badge, Card, EmptyState, ErrorBox, PageHeader, Spinner } from '../components/ui.jsx'
 import ClassDetailCard from '../components/ClassDetailCard.jsx'
 
@@ -76,7 +76,7 @@ function summaryBadges(item) {
     badges.push({ text: label(item.rarity), tone: rare ? 'accent' : 'default' })
   }
   if (item.item_type) badges.push({ text: label(item.item_type), tone: 'default' })
-  if (item.size) badges.push({ text: label(item.size), tone: 'default' })
+  if (item.size) badges.push({ text: raceSizeLabels[item.size] ?? label(item.size), tone: 'default' })
   if (item.hit_dice) badges.push({ text: `Кость хитов ${diceTypeLabels[item.hit_dice] ?? item.hit_dice}`, tone: 'default' })
   if (item.source_type) badges.push({ text: label(item.source_type), tone: 'default' })
   if (item.ability) badges.push({ text: label(item.ability), tone: 'default' })
@@ -110,7 +110,7 @@ function summaryBadges(item) {
   if (item.is_ritual) badges.push({ text: 'Ритуал', tone: 'accent' })
   if (item.available_classes && item.available_classes.length > 0) {
     badges.push({
-      text: item.available_classes.map((c) => classSlugLabels[c] ?? label(c)).join(', '),
+      text: item.available_classes.map((c) => classSlugLabels[itemName(c)] ?? label(itemName(c))).join(', '),
       tone: 'default',
     })
   }
@@ -169,6 +169,7 @@ function FieldValue({ value }) {
 
 function filterLabel(field, value) {
   if (field === 'level') return spellLevel(value)
+  if (field === 'size') return raceSizeLabels[value] ?? label(value)
   if (field === 'is_concentration' || field === 'is_ritual') return value === 'true' ? 'Да' : 'Нет'
   return label(value)
 }
@@ -250,7 +251,6 @@ function FeatureCards({ features }) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-stone-100">{f.name}</p>
             {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-            {f.is_homebrew && <Badge>Homebrew</Badge>}
           </div>
           {f.description && <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{f.description}</p>}
         </li>
@@ -259,36 +259,66 @@ function FeatureCards({ features }) {
   )
 }
 
-function RaceDetailCard({ race }) {
+function RaceDetailCard({ race, selectedSub }) {
+  const raceFeatures = (race.features ?? []).map((f) => ({ ...f, fromSubrace: false }))
+  const subFeatures = selectedSub
+    ? (selectedSub.features ?? []).map((f) => ({
+        ...f,
+        fromSubrace: true,
+        subraceName: selectedSub.name,
+      }))
+    : []
+  const features = [...raceFeatures, ...subFeatures]
+
   return (
     <Card className="p-6">
-      <div className="mb-3 flex flex-col items-center gap-2 text-center">
+      <div className="mb-3 flex flex-col items-center gap-1 text-center">
         <h1 className="font-display text-2xl font-bold text-stone-100">{race.name}</h1>
-        {race.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
+        {selectedSub && (
+          <p className="font-display text-lg font-semibold text-ember">{selectedSub.name}</p>
+        )}
       </div>
 
       <div className="mb-6 flex flex-wrap justify-center gap-1.5">
-        <Badge>Размер: {label(race.size)}</Badge>
+        <Badge>Размер: {raceSizeLabels[race.size] ?? race.size}</Badge>
         <Badge>Скорость: {race.speed} фт.</Badge>
       </div>
 
-      {race.description && (
-        <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
-          {race.description}
-        </p>
-      )}
+      {selectedSub
+        ? selectedSub.description && (
+            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+              {selectedSub.description}
+            </p>
+          )
+        : race.description && (
+            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+              {race.description}
+            </p>
+          )}
 
-      {race.ability_bonuses && race.ability_bonuses.length > 0 && (
-        <Section title="Бонусы характеристик">
-          <div className="flex flex-wrap gap-1.5">
-            {race.ability_bonuses.map((b, i) => (
-              <span key={i} className="rounded bg-stone-800 px-2.5 py-1 text-xs text-stone-200">
-                {abilityLabels[b.ability] ?? b.ability} +{b.bonus}
-              </span>
-            ))}
-          </div>
-        </Section>
-      )}
+      {selectedSub
+        ? selectedSub.ability_bonuses && selectedSub.ability_bonuses.length > 0 && (
+            <Section title="Бонусы характеристик">
+              <div className="flex flex-wrap gap-1.5">
+                {selectedSub.ability_bonuses.map((b, i) => (
+                  <span key={i} className="rounded bg-stone-800 px-2.5 py-1 text-xs text-stone-200">
+                    {abilityLabels[b.ability] ?? b.ability} +{b.bonus}
+                  </span>
+                ))}
+              </div>
+            </Section>
+          )
+        : race.ability_bonuses && race.ability_bonuses.length > 0 && (
+            <Section title="Бонусы характеристик">
+              <div className="flex flex-wrap gap-1.5">
+                {race.ability_bonuses.map((b, i) => (
+                  <span key={i} className="rounded bg-stone-800 px-2.5 py-1 text-xs text-stone-200">
+                    {abilityLabels[b.ability] ?? b.ability} +{b.bonus}
+                  </span>
+                ))}
+              </div>
+            </Section>
+          )}
 
       {race.granted_skills && race.granted_skills.length > 0 && (
         <Section title="Навыки расы">
@@ -300,8 +330,38 @@ function RaceDetailCard({ race }) {
         </Section>
       )}
 
-      <Section title="Расовые особенности">
-        <FeatureCards features={race.features} />
+      <Section title="Особенности и умения">
+        {features.length === 0 ? (
+          <p className="text-sm text-stone-500">Особенностей не указано</p>
+        ) : (
+          <ul className="space-y-3">
+            {features.map((feature) => (
+              <li
+                key={feature.id}
+                className={`rounded-lg border p-3 ${
+                  feature.fromSubrace
+                    ? 'border-ember/60 bg-ember/5'
+                    : 'border-stone-700/60 bg-stone-900/60'
+                }`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={`font-semibold ${feature.fromSubrace ? 'text-ember' : 'text-stone-100'}`}>
+                    {feature.name}
+                  </p>
+                  {feature.level != null && <Badge tone="accent">{ruLevel(feature.level)}</Badge>}
+                  {feature.fromSubrace && feature.subraceName && (
+                    <Badge tone="accent">Подраса: {feature.subraceName}</Badge>
+                  )}
+                </div>
+                {feature.description && (
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
+                    {feature.description}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
     </Card>
   )
@@ -318,7 +378,6 @@ function GenericDetail({ item, hideAbility = false }) {
     <Card className="p-6">
       <div className="mb-3 flex flex-col items-center gap-2 text-center">
         <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
-        {item.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
       </div>
 
       {badges.length > 0 && (
@@ -365,7 +424,6 @@ function FeatureDetailCard({ item }) {
         <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
         <div className="flex flex-wrap justify-center gap-1.5">
           {item.level != null && <Badge tone="accent">{ruLevel(item.level)}</Badge>}
-          {item.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
         </div>
       </div>
 
@@ -420,10 +478,7 @@ function SpellDetailCard({ spell }) {
     .map((c) => COMPONENT_FULL[c] ?? label(c))
     .join(', ')
   const classes = (spell.available_classes ?? [])
-    .map((c) => classSlugLabels[itemName(c)] ?? label(c))
-    .join(', ')
-  const subclasses = (spell.available_subclasses ?? [])
-    .map((c) => label(itemName(c)))
+    .map((c) => classSlugLabels[itemName(c)] ?? label(itemName(c)))
     .join(', ')
   const races = (spell.available_races ?? [])
     .map((c) => label(itemName(c)))
@@ -468,7 +523,6 @@ function SpellDetailCard({ spell }) {
           {spell.level && <Badge tone="accent">{spellLevel(spell.level)}</Badge>}
           {spell.school && <Badge>{label(spell.school)}</Badge>}
           {spell.is_ritual && <Badge>Ритуал</Badge>}
-          {spell.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
         </div>
         {spell.source && <p className="text-xs text-stone-500">Источник: {spell.source}</p>}
       </div>
@@ -494,19 +548,13 @@ function SpellDetailCard({ spell }) {
         </Section>
       )}
 
-      {(classes || subclasses || races) && (
+      {(classes || races) && (
         <Section title="Доступность">
           <div className="space-y-1 text-sm text-stone-300">
             {classes && (
               <p>
                 <span className="font-medium text-stone-200">Классы: </span>
                 {classes}
-              </p>
-            )}
-            {subclasses && (
-              <p>
-                <span className="font-medium text-stone-200">Подклассы: </span>
-                {subclasses}
               </p>
             )}
             {races && (
@@ -542,7 +590,7 @@ function BackgroundDetailCard({ bg }) {
   const extra = Object.entries(bg).filter(
     ([k]) =>
       !skipFields.has(k) &&
-      !['description', 'features', 'granted_skills'].includes(k) &&
+      !['description', 'features', 'granted_skills', 'starting_items'].includes(k) &&
       !suggestionFields.some(([f]) => f === k)
   )
   const extraVisible = extra.filter(([, v]) => !isEmptyValue(v))
@@ -551,7 +599,6 @@ function BackgroundDetailCard({ bg }) {
     <Card className="p-6">
       <div className="mb-3 flex flex-col items-center gap-2 text-center">
         <h1 className="font-display text-2xl font-bold text-stone-100">{bg.name}</h1>
-        {bg.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
       </div>
 
       {bg.description && (
@@ -584,13 +631,29 @@ function BackgroundDetailCard({ bg }) {
       )}
 
       {bg.features && bg.features.length > 0 && (
-        <Section title="Дополнительные особенности и умения">
+        <Section title="Особенности и умения">
           <FeatureCards features={bg.features} />
         </Section>
       )}
 
+      {(bg.starting_items ?? []).length > 0 && (
+        <Section title="Снаряжение">
+          <p className="mb-3 text-sm leading-relaxed text-stone-300">
+            Из прошлого, что осталось за спиной, вы взяли лишь немногое — но оно всегда при вас:
+          </p>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-stone-300">
+            {bg.starting_items.map((entry, i) => (
+              <li key={i}>
+                {entry.quantity > 1 && <span className="font-medium text-ember">{entry.quantity}× </span>}
+                {entry.item?.name ?? entry.item_id}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
       {extraVisible.length > 0 && (
-        <Section title="Дополнительно">
+        <Section title="Снаряжения">
           <dl className="grid gap-3 sm:grid-cols-2">
             {extraVisible.map(([key, value]) => (
               <div key={key} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
@@ -619,7 +682,6 @@ function TileCard({ item, resource }) {
         <p className="font-display text-base font-bold text-stone-100 group-hover:text-ember">
           {item.name}
         </p>
-        {item.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
       </div>
       {item.description && (
         <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-stone-400">{item.description}</p>
@@ -636,7 +698,12 @@ function TileCard({ item, resource }) {
 }
 
 function DetailPanel({ resource, item, selectedSubId }) {
-  if (resource === 'races') return <RaceDetailCard race={item} />
+  if (resource === 'races') {
+    const sub = selectedSubId
+      ? (item.subraces ?? []).find((s) => String(s.id) === String(selectedSubId))
+      : null
+    return <RaceDetailCard race={item} selectedSub={sub} />
+  }
   if (resource === 'classes') return <ClassDetailCard cls={item} selectedSubId={selectedSubId} />
   if (resource === 'spells') return <SpellDetailCard spell={item} />
   if (resource === 'backgrounds') return <BackgroundDetailCard bg={item} />
@@ -746,6 +813,28 @@ export function CatalogListPage() {
             /* не критично для просмотра */
           }
         }
+        if (resource === 'races') {
+          try {
+            const subs = withFeatures.subraces ?? []
+            const withSubFeatures = await Promise.all(
+              subs.map(async (sub) => {
+                if (Array.isArray(sub.features) && sub.ability_bonuses) return sub
+                const [detail, feats] = await Promise.all([
+                  api.races.subraces.get(selectedId, sub.id),
+                  api.races.subraces.features.list(selectedId, sub.id),
+                ])
+                return {
+                  ...sub,
+                  ...detail,
+                  features: Array.isArray(feats) ? feats : feats?.features ?? [],
+                }
+              })
+            )
+            withFeatures = { ...withFeatures, subraces: withSubFeatures }
+          } catch {
+            /* не критично для просмотра */
+          }
+        }
         setSelected({ id: selectedId, data: withFeatures })
         setError(null)
       })
@@ -755,7 +844,7 @@ export function CatalogListPage() {
     return () => {
       active = false
     }
-  }, [cfg, selectedId, resource])
+  }, [cfg, selectedId, resource, reloadKey])
 
   const activeCount = Object.values(filters).reduce((n, arr) => n + (arr?.length ?? 0), 0)
 
@@ -784,16 +873,24 @@ export function CatalogListPage() {
         }
       />
 
-      {error && <ErrorBox error={error} onRetry={() => setReloadKey((k) => k + 1)} />}
-      {!error && !items && <Spinner />}
-      {!error && items && items.length === 0 && (
+      {error && (
+        <ErrorBox
+          error={error}
+          onRetry={() => {
+            setError(null)
+            setReloadKey((k) => k + 1)
+          }}
+        />
+      )}
+      {items === null && !error && <Spinner />}
+      {items !== null && items.length === 0 && (
         <EmptyState text="Справочник пуст. Попросите ГМ наполнить его через npm run seed" />
       )}
-      {!error && items && items.length > 0 && filtered.length === 0 && (
+      {items !== null && items.length > 0 && filtered.length === 0 && (
         <EmptyState text="Ничего не найдено по запросу" />
       )}
 
-      {!error && filtered && filtered.length > 0 && (
+      {items && filtered && filtered.length > 0 && (
         selectedId ? (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
             <aside className="max-h-[calc(100vh-220px)] overflow-y-auto pr-1 lg:sticky lg:top-24">
@@ -801,12 +898,17 @@ export function CatalogListPage() {
                 to={`/catalog/${resource}`}
                 className="mb-2 block text-xs text-ember hover:underline"
               >
-                ← Все записи плитками
+                ← Ко всем записям
               </Link>
               <div className="flex flex-col gap-2">
                 {filtered.map((it) => {
                   const isActive = Number(it.id) === selectedId
-                  const activeSubs = it.subclasses ?? []
+                  const activeSubs =
+                    resource === 'classes'
+                      ? it.subclasses ?? []
+                      : isActive
+                        ? selected?.data?.subraces ?? []
+                        : []
                   return (
                     <div
                       key={it.id}
@@ -825,7 +927,6 @@ export function CatalogListPage() {
                           <p className={`font-display text-sm font-bold ${isActive ? 'text-ember' : 'text-stone-100'}`}>
                             {it.name}
                           </p>
-                          {it.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
                         </div>
                         {it.description && (
                           <p className="mt-1.5 line-clamp-2 whitespace-pre-wrap text-xs text-stone-400">{it.description}</p>
@@ -840,16 +941,16 @@ export function CatalogListPage() {
                       </button>
                       <div
                         className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                          isActive && resource === 'classes' && activeSubs.length > 0
+                          isActive && (resource === 'classes' || resource === 'races') && activeSubs.length > 0
                             ? 'grid-rows-[1fr]'
                             : 'grid-rows-[0fr]'
                         }`}
                       >
                         <div className="overflow-hidden">
-                          {resource === 'classes' && (
+                          {(resource === 'classes' || resource === 'races') && (
                             <div className="mt-3 border-t border-stone-700/70 pt-2">
                               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
-                                Подклассы
+                                {resource === 'races' ? 'Подрасы' : 'Подклассы'}
                               </p>
                               <div className="flex flex-col gap-1">
                                 {activeSubs.map((sub) => {

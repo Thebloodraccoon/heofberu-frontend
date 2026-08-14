@@ -1,0 +1,6 @@
+feat: sync catalog with backend — subraces, starting items, themes
+
+- subraces in catalog / GM editor / characters; hybrid subclass-subrace cards
+- starting items: «Снаряжение» blocks + ItemPickerModal (classes, backgrounds)
+- fixes: spells `[Object Object]`, race size label, catalog error handling
+- themes: ThemeSwitcher + 5 color schemes (CSS variables, localStorage)

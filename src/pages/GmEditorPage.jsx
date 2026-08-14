@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/endpoints.js'
-import { editorConfig, featurePayload, featuresFromRecord, subclassPayload, SPELL_LEVEL_KEYS } from '../editor.js'
+import { editorConfig, featurePayload, featuresFromRecord, subclassPayload, subracePayload, SPELL_LEVEL_KEYS } from '../editor.js'
 import FeatureModal from '../components/FeaturesModal.jsx'
 import SubclassEditor from '../components/SubclassEditor.jsx'
-import { ruLevel } from '../labels.js'
+import SubraceEditor from '../components/SubraceEditor.jsx'
+import { ruLevel, label } from '../labels.js'
 import { Badge, Button, Card, EmptyState, ErrorBox, Field, Input, PageHeader, Select, Spinner, TextArea } from '../components/ui.jsx'
+import ItemPickerModal from '../components/ItemPickerModal.jsx'
 
 const inputClass =
   'w-full rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember'
@@ -96,6 +98,11 @@ export default function GmEditorPage() {
   const [featuresLoading, setFeaturesLoading] = useState(false)
   const [featuresError, setFeaturesError] = useState(null)
 
+  const [startingItems, setStartingItems] = useState([])
+  const [startingItemsLoading, setStartingItemsLoading] = useState(false)
+  const [startingItemsError, setStartingItemsError] = useState(null)
+  const [itemsModalOpen, setItemsModalOpen] = useState(false)
+
   const [subclasses, setSubclasses] = useState([])
   const [subDetails, setSubDetails] = useState({})
   const [subError, setSubError] = useState(null)
@@ -104,10 +111,21 @@ export default function GmEditorPage() {
   const [newSubSaving, setNewSubSaving] = useState(false)
   const [newSubError, setNewSubError] = useState(null)
 
+  const [subraces, setSubraces] = useState([])
+  const [subraceDetails, setSubraceDetails] = useState({})
+  const [subraceError, setSubraceError] = useState(null)
+
+  const [newSubrace, setNewSubrace] = useState(null)
+  const [newSubraceSaving, setNewSubraceSaving] = useState(false)
+  const [newSubraceError, setNewSubraceError] = useState(null)
+
   const [featureModal, setFeatureModal] = useState(null)
   const [confirmSub, setConfirmSub] = useState(null)
   const [confirmSubDeleting, setConfirmSubDeleting] = useState(false)
   const [subDeleteError, setSubDeleteError] = useState(null)
+  const [confirmSubrace, setConfirmSubrace] = useState(null)
+  const [confirmSubraceDeleting, setConfirmSubraceDeleting] = useState(false)
+  const [subraceDeleteError, setSubraceDeleteError] = useState(null)
 
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -137,7 +155,13 @@ export default function GmEditorPage() {
     const keys = new Set()
     for (const section of cfg.sections ?? []) {
       if (section.type === 'pillsFrom' && section.listKey) keys.add(section.listKey)
+      if (section.type === 'rows') {
+        for (const col of section.columns ?? []) {
+          if (col.listKey) keys.add(col.listKey)
+        }
+      }
     }
+    if (cfg.itemsOps) keys.add('items')
     return Array.from(keys)
   }, [cfg])
 
@@ -145,7 +169,7 @@ export default function GmEditorPage() {
     let active = true
     const needed = pillKeys.filter((key) => key !== resource)
     if (needed.length === 0) return () => {}
-    const apis = { skills: api.skills, classes: api.classes, races: api.races }
+    const apis = { skills: api.skills, classes: api.classes, races: api.races, items: api.items }
     Promise.all(
       needed.map((key) => apis[key].list({ size: 100 }).then((page) => page.items ?? []))
     )
@@ -196,6 +220,41 @@ export default function GmEditorPage() {
     }
   }
 
+  const reloadItems = async () => {
+    setStartingItemsLoading(true)
+    setStartingItemsError(null)
+    try {
+      setStartingItems(await cfg.itemsOps.list(editing.id))
+    } catch (e) {
+      setStartingItemsError(e)
+    } finally {
+      setStartingItemsLoading(false)
+    }
+  }
+
+  const saveItems = async (rows) => {
+    try {
+      await cfg.itemsOps.set(editing.id, { items: rows })
+      setItemsModalOpen(false)
+      await reloadItems()
+    } catch (e) {
+      setStartingItemsError(e)
+    }
+  }
+
+  const removeItem = async (it) => {
+    try {
+      await cfg.itemsOps.set(editing.id, {
+        items: startingItems
+          .filter((x) => x.item_id !== it.item_id)
+          .map((x) => ({ item_id: x.item_id, quantity: x.quantity })),
+      })
+      await reloadItems()
+    } catch (e) {
+      setStartingItemsError(e)
+    }
+  }
+
   const reloadSubclasses = async (classId) => {
     setSubError(null)
     try {
@@ -206,6 +265,40 @@ export default function GmEditorPage() {
       await Promise.all(list.map((s) => loadSubDetail(classId, s)))
     } catch (e) {
       setSubError(e)
+    }
+  }
+
+  const setSubraceDetail = (id, patch) =>
+    setSubraceDetails((m) => ({ ...m, [id]: { ...(m[id] ?? {}), ...patch } }))
+
+  const loadSubraceDetail = async (raceId, sub) => {
+    setSubraceDetail(sub.id, { loading: true, error: null })
+    try {
+      const [detail, feats] = await Promise.all([
+        api.races.subraces.get(raceId, sub.id),
+        api.races.subraces.features.list(raceId, sub.id),
+      ])
+      setSubraceDetail(sub.id, { detail, features: feats, loading: false })
+    } catch (e) {
+      setSubraceDetail(sub.id, { loading: false, error: e })
+    }
+  }
+
+  const reloadSubraceDetail = async (subId) => {
+    const sub = subraces.find((s) => s.id === subId)
+    if (sub) await loadSubraceDetail(editing.id, sub)
+  }
+
+  const reloadSubraces = async (raceId) => {
+    setSubraceError(null)
+    try {
+      const full = await api.races.get(raceId)
+      const list = full.subraces ?? []
+      setSubraces(list)
+      setSubraceDetails({})
+      await Promise.all(list.map((s) => loadSubraceDetail(raceId, s)))
+    } catch (e) {
+      setSubraceError(e)
     }
   }
 
@@ -221,8 +314,14 @@ export default function GmEditorPage() {
         setFeaturesLoading(false)
       }
     }
+    if (cfg.itemsOps) {
+      await reloadItems()
+    }
     if (cfg.hasSubclasses) {
       await reloadSubclasses(id)
+    }
+    if (cfg.hasSubraces) {
+      await reloadSubraces(id)
     }
   }
 
@@ -269,6 +368,9 @@ export default function GmEditorPage() {
     setFieldSaved(false)
     setFeatures([])
     setFeaturesError(null)
+    setStartingItems([])
+    setStartingItemsError(null)
+    setItemsModalOpen(false)
     setSubclasses([])
     setSubDetails({})
     setSubError(null)
@@ -276,6 +378,13 @@ export default function GmEditorPage() {
     setNewSubError(null)
     setConfirmSub(null)
     setSubDeleteError(null)
+    setSubraces([])
+    setSubraceDetails({})
+    setSubraceError(null)
+    setNewSubrace(null)
+    setNewSubraceError(null)
+    setConfirmSubrace(null)
+    setSubraceDeleteError(null)
   }
 
   const filtered = useMemo(() => {
@@ -306,10 +415,11 @@ export default function GmEditorPage() {
       setForm((f) => ({ ...f, [section.key]: [...(f[section.key] ?? []), { ...section.defaults }] }))
       return
     }
+    const selOptions = selCol.options ?? listOptions[selCol.listKey] ?? []
     setForm((f) => {
       const rows = f[section.key] ?? []
       const used = new Set(rows.map((r) => r[selCol.key]))
-      const free = (selCol?.options ?? []).find((o) => !used.has(o.value))
+      const free = selOptions.find((o) => !used.has(o.value))
       if (!free) return f
       return { ...f, [section.key]: [...rows, { ...section.defaults, [selCol.key]: free.value }] }
     })
@@ -330,6 +440,7 @@ export default function GmEditorPage() {
       skills: toOptions(srcFor('skills')),
       classes: toOptions(srcFor('classes')),
       races: toOptions(srcFor('races')),
+      items: toOptions(srcFor('items')),
     }
   }, [pills, records, resource])
 
@@ -380,14 +491,14 @@ export default function GmEditorPage() {
     const { subId, index } = featureModal
     const body = featurePayload(next)
     try {
-      if (subId == null) {
-        if (index == null) await cfg.featuresOps.add(editing.id, body)
-        else await cfg.featuresOps.update(editing.id, next.id, body)
-        await reloadFeatures()
-      } else {
+      if (subId != null) {
         if (index == null) await api.classes.subclasses.features.add(editing.id, subId, body)
         else await api.classes.subclasses.features.update(editing.id, subId, next.id, body)
         await reloadSubDetail(subId)
+      } else {
+        if (index == null) await cfg.featuresOps.add(editing.id, body)
+        else await cfg.featuresOps.update(editing.id, next.id, body)
+        await reloadFeatures()
       }
       setFeatureModal(null)
     } catch (e) {
@@ -405,11 +516,10 @@ export default function GmEditorPage() {
   }
 
   const openNewSub = () => {
-    setNewSub({ name: '', archetype_group_name: '', unlock_level: '3', description: '', is_homebrew: false })
+    setNewSub({ name: '', archetype_group_name: '', description: '' })
     setNewSubError(null)
   }
   const setNewSubField = (key) => (e) => setNewSub((d) => ({ ...d, [key]: e.target.value }))
-  const toggleNewSubHomebrew = (e) => setNewSub((d) => ({ ...d, is_homebrew: e.target.checked }))
   const saveNewSub = async (e) => {
     e.preventDefault()
     setNewSubSaving(true)
@@ -425,6 +535,26 @@ export default function GmEditorPage() {
     }
   }
 
+  const openNewSubrace = () => {
+    setNewSubrace({ name: '', description: '' })
+    setNewSubraceError(null)
+  }
+  const setNewSubraceField = (key) => (e) => setNewSubrace((d) => ({ ...d, [key]: e.target.value }))
+  const saveNewSubrace = async (e) => {
+    e.preventDefault()
+    setNewSubraceSaving(true)
+    setNewSubraceError(null)
+    try {
+      await api.races.subraces.create(editing.id, subracePayload(newSubrace))
+      setNewSubrace(null)
+      await reloadSubraces(editing.id)
+    } catch (err) {
+      setNewSubraceError(err)
+    } finally {
+      setNewSubraceSaving(false)
+    }
+  }
+
   const doSubDelete = async () => {
     setConfirmSubDeleting(true)
     setSubDeleteError(null)
@@ -436,6 +566,20 @@ export default function GmEditorPage() {
       setSubDeleteError(err)
     } finally {
       setConfirmSubDeleting(false)
+    }
+  }
+
+  const doSubraceDelete = async () => {
+    setConfirmSubraceDeleting(true)
+    setSubraceDeleteError(null)
+    try {
+      await api.races.subraces.remove(editing.id, confirmSubrace.id)
+      setConfirmSubrace(null)
+      await reloadSubraces(editing.id)
+    } catch (err) {
+      setSubraceDeleteError(err)
+    } finally {
+      setConfirmSubraceDeleting(false)
     }
   }
 
@@ -515,7 +659,6 @@ export default function GmEditorPage() {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-display text-sm font-bold text-stone-100">{it.name}</p>
-                      {it.is_homebrew && <Badge tone="accent">Homebrew</Badge>}
                     </div>
                     {cfg.listBadges(it).length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -681,11 +824,12 @@ export default function GmEditorPage() {
                     }
                     if (section.type === 'rows') {
                       const selCol = section.columns?.find((c) => c.type === 'select')
+                      const selOptions = selCol ? selCol.options ?? listOptions[selCol.listKey] ?? [] : []
                       const usedValues = selCol
                         ? new Set((form[section.key] ?? []).map((r) => r[selCol.key]))
                         : null
                       const allUsed = selCol
-                        ? (selCol.options ?? []).every((o) => usedValues.has(o.value))
+                        ? selOptions.every((o) => usedValues.has(o.value))
                         : false
                       return (
                         <div key={section.key}>
@@ -705,7 +849,7 @@ export default function GmEditorPage() {
                           )}
                           {allUsed && form[section.key].length > 0 && (
                             <p className="mb-2 text-xs text-stone-500">
-                              Все характеристики использованы — каждая не может повторяться.
+                              Все доступные варианты использованы — каждый вариант не может повторяться.
                             </p>
                           )}
                           <div className="flex flex-col gap-2">
@@ -720,7 +864,7 @@ export default function GmEditorPage() {
                                         onChange={(e) => setRow(section.key, i, col.key, e.target.value)}
                                         className={`flex-1 ${col.width ?? ''}`}
                                       >
-                                        {col.options.map((o) => (
+                                        {selOptions.map((o) => (
                                           <option
                                             key={o.value}
                                             value={o.value}
@@ -843,7 +987,6 @@ export default function GmEditorPage() {
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="text-sm font-medium text-stone-100">{f.name || 'Без названия'}</p>
                                   {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-                                  {f.is_homebrew && <Badge>Homebrew</Badge>}
                                 </div>
                                 {f.description && (
                                   <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-stone-400">{f.description}</p>
@@ -873,6 +1016,57 @@ export default function GmEditorPage() {
                   </div>
                 )}
 
+                {editing && cfg.itemsOps && (
+                  <div className="mt-5 border-t border-stone-700/70 pt-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <SectionTitle>{cfg.itemsBlock.label}</SectionTitle>
+                      <button
+                        type="button"
+                        onClick={() => setItemsModalOpen(true)}
+                        className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                      >
+                        {cfg.itemsBlock.addLabel}
+                      </button>
+                    </div>
+                    {startingItemsError && <ErrorBox error={startingItemsError} onRetry={reloadItems} />}
+                    {startingItemsLoading ? (
+                      <p className="text-sm text-stone-500">Загружаем снаряжение...</p>
+                    ) : startingItems.length === 0 ? (
+                      <p className="text-sm text-stone-500">{cfg.itemsBlock.empty}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {startingItems.map((it) => (
+                          <div
+                            key={it.item_id}
+                            className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-stone-100">
+                                  {it.item?.name ?? `Предмет #${it.item_id}`}
+                                </p>
+                                {it.item?.item_type && (
+                                  <p className="mt-0.5 text-xs text-stone-400">{label(it.item.item_type)}</p>
+                                )}
+                              </div>
+                              <div className="flex shrink-0 items-center gap-3">
+                                <span className="text-sm text-stone-300">× {it.quantity}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(it)}
+                                  className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
+                                >
+                                  Убрать
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {editing && cfg.hasSubclasses && (
                   <div className="mt-5 border-t border-stone-700/70 pt-4">
                     <div className="mb-2 flex items-center justify-between">
@@ -891,7 +1085,7 @@ export default function GmEditorPage() {
                       <div className="mb-3 rounded-lg border border-ember/40 bg-stone-900/60 p-4">
                         <p className="mb-3 font-display text-sm font-bold text-stone-100">Новый подкласс</p>
                         {newSubError && <ErrorBox error={newSubError} onRetry={() => {}} />}
-                        <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
                           <Field label="Название подкласса">
                             <Input value={newSub.name} onChange={setNewSubField('name')} placeholder="Например, Школа Воплощения" />
                           </Field>
@@ -902,23 +1096,11 @@ export default function GmEditorPage() {
                               placeholder="Например, Школа магии"
                             />
                           </Field>
-                          <Field label="Уровень получения">
-                            <Input type="number" min={1} max={20} value={newSub.unlock_level} onChange={setNewSubField('unlock_level')} />
-                          </Field>
                         </div>
                         <Field label="Описание">
                           <TextArea value={newSub.description} onChange={setNewSubField('description')} rows={2} />
                         </Field>
                         <div className="flex flex-wrap items-center gap-2">
-                          <label className="flex w-fit cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2">
-                            <input
-                              type="checkbox"
-                              checked={!!newSub.is_homebrew}
-                              onChange={toggleNewSubHomebrew}
-                              className="size-4 accent-ember"
-                            />
-                            <span className="text-sm text-stone-200">Homebrew</span>
-                          </label>
                           <Button type="button" disabled={newSubSaving} onClick={saveNewSub}>
                             {newSubSaving ? 'Создаём...' : 'Создать подкласс'}
                           </Button>
@@ -945,6 +1127,71 @@ export default function GmEditorPage() {
                               error={info.error}
                               onRefresh={() => reloadSubDetail(sub.id)}
                               onDelete={() => setConfirmSub(sub)}
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {editing && cfg.hasSubraces && (
+                  <div className="mt-5 border-t border-stone-700/70 pt-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <SectionTitle>Подрасы</SectionTitle>
+                      <button
+                        type="button"
+                        onClick={openNewSubrace}
+                        className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                      >
+                        + Добавить подрасу
+                      </button>
+                    </div>
+                    {subraceError && <ErrorBox error={subraceError} onRetry={() => reloadSubraces(editing.id)} />}
+
+                    {newSubrace && (
+                      <div className="mb-3 rounded-lg border border-ember/40 bg-stone-900/60 p-4">
+                        <p className="mb-3 font-display text-sm font-bold text-stone-100">Новая подраса</p>
+                        {newSubraceError && <ErrorBox error={newSubraceError} onRetry={() => {}} />}
+                        <div className="grid gap-3">
+                          <Field label="Название подрасы">
+                            <Input
+                              value={newSubrace.name}
+                              onChange={setNewSubraceField('name')}
+                              placeholder="Например, Высший эльф"
+                            />
+                          </Field>
+                        </div>
+                        <Field label="Описание">
+                          <TextArea value={newSubrace.description} onChange={setNewSubraceField('description')} rows={2} />
+                        </Field>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button type="button" disabled={newSubraceSaving} onClick={saveNewSubrace}>
+                            {newSubraceSaving ? 'Создаём...' : 'Создать подрасу'}
+                          </Button>
+                          <Button type="button" variant="ghost" onClick={() => setNewSubrace(null)}>
+                            Отмена
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {subraces.length === 0 && !newSubrace ? (
+                      <p className="text-sm text-stone-500">Подрас нет</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {subraces.map((sub) => {
+                          const info = subraceDetails[sub.id] ?? {}
+                          return (
+                            <SubraceEditor
+                              key={info.detail ? sub.id : `loading-${sub.id}`}
+                              raceId={editing.id}
+                              detail={info.detail ?? sub}
+                              features={info.features ?? []}
+                              busy={!!info.loading && !info.detail}
+                              error={info.error}
+                              onRefresh={() => reloadSubraceDetail(sub.id)}
+                              onDelete={() => setConfirmSubrace(sub)}
                             />
                           )
                         })}
@@ -990,6 +1237,16 @@ export default function GmEditorPage() {
         )
       })()}
 
+      {itemsModalOpen && editing && cfg.itemsOps && (
+        <ItemPickerModal
+          title={`Стартовое снаряжение${editing.name ? ` — ${editing.name}` : ''}`}
+          items={pills.items ?? []}
+          value={startingItems}
+          onSave={saveItems}
+          onClose={() => setItemsModalOpen(false)}
+        />
+      )}
+
       {confirmSub && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -1012,6 +1269,34 @@ export default function GmEditorPage() {
               </Button>
               <Button variant="danger" disabled={confirmSubDeleting} onClick={doSubDelete}>
                 {confirmSubDeleting ? 'Удаляем...' : 'Да, удалить'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmSubrace && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !confirmSubraceDeleting && setConfirmSubrace(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg bg-stone-900 p-6 shadow-2xl ring-1 ring-red-900/60"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="font-display text-lg font-bold text-stone-100">Удалить подрасу?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-stone-300">
+              Вы точно хотите удалить{' '}
+              <span className="font-semibold text-stone-100">«{confirmSubrace.name}»</span> вместе со
+              всеми его особенностями? Это действие необратимо.
+            </p>
+            {subraceDeleteError && <ErrorBox error={subraceDeleteError} onRetry={() => {}} />}
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="ghost" disabled={confirmSubraceDeleting} onClick={() => setConfirmSubrace(null)}>
+                Отмена
+              </Button>
+              <Button variant="danger" disabled={confirmSubraceDeleting} onClick={doSubraceDelete}>
+                {confirmSubraceDeleting ? 'Удаляем...' : 'Да, удалить'}
               </Button>
             </div>
           </div>

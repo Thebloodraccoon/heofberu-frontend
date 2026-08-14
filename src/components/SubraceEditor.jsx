@@ -1,23 +1,20 @@
 import { useState } from 'react'
 import { api } from '../api/endpoints.js'
-import { featurePayload, subclassPayload } from '../editor.js'
-import { ruLevel } from '../labels.js'
+import { featurePayload, subracePayload } from '../editor.js'
+import { abilityLabels, ruLevel } from '../labels.js'
 import FeatureModal from './FeaturesModal.jsx'
 import { Badge, Button, ErrorBox, Field, Input, TextArea } from './ui.jsx'
 
-const SUBFEATURE_LEVEL_HINT =
-  'Уровень, с которого умение доступно. Оставьте пустым — доступно сразу.'
-
-function blankSubclass() {
+function blankSubrace() {
   return {
     name: '',
-    archetype_group_name: '',
     description: '',
+    ability_bonuses: [],
   }
 }
 
-export default function SubclassEditor({ classId, detail, features, busy = false, error = null, onRefresh, onDelete }) {
-  const [draft, setDraft] = useState(() => ({ ...blankSubclass(), ...(detail ?? {}) }))
+export default function SubraceEditor({ raceId, detail, features, busy = false, error = null, onRefresh, onDelete }) {
+  const [draft, setDraft] = useState(() => ({ ...blankSubrace(), ...(detail ?? {}) }))
   const [featureModal, setFeatureModal] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -31,7 +28,8 @@ export default function SubclassEditor({ classId, detail, features, busy = false
     setSaveError(null)
     setSaved(false)
     try {
-      await api.classes.subclasses.update(classId, detail.id, subclassPayload(draft))
+      await api.races.subraces.update(raceId, detail.id, subracePayload(draft))
+      await api.races.subraces.abilityBonuses(raceId, detail.id, { ability_bonuses: draft.ability_bonuses })
       setSaved(true)
       await onRefresh()
     } catch (err) {
@@ -41,14 +39,26 @@ export default function SubclassEditor({ classId, detail, features, busy = false
     }
   }
 
+  const setBonus = (i, key, val) =>
+    setDraft((d) => {
+      const ability_bonuses = d.ability_bonuses.map((row, j) => (j === i ? { ...row, [key]: val } : row))
+      return { ...d, ability_bonuses }
+    })
+
+  const addBonus = () =>
+    setDraft((d) => ({ ...d, ability_bonuses: [...d.ability_bonuses, { ability: 'STR', bonus: 1 }] }))
+
+  const removeBonus = (i) =>
+    setDraft((d) => ({ ...d, ability_bonuses: d.ability_bonuses.filter((_, j) => j !== i) }))
+
   const saveFeature = async (next) => {
     setSaveError(null)
     const body = featurePayload(next)
     try {
       if (featureModal.index == null) {
-        await api.classes.subclasses.features.add(classId, detail.id, body)
+        await api.races.subraces.features.add(raceId, detail.id, body)
       } else {
-        await api.classes.subclasses.features.update(classId, detail.id, next.id, body)
+        await api.races.subraces.features.update(raceId, detail.id, next.id, body)
       }
       setFeatureModal(null)
       await onRefresh()
@@ -60,7 +70,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
   const removeFeature = async (f) => {
     setSaveError(null)
     try {
-      await api.classes.subclasses.features.remove(classId, detail.id, f.id)
+      await api.races.subraces.features.remove(raceId, detail.id, f.id)
       await onRefresh()
     } catch (err) {
       setSaveError(err)
@@ -78,53 +88,101 @@ export default function SubclassEditor({ classId, detail, features, busy = false
           onClick={onDelete}
           className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
         >
-          Удалить подкласс
+          Удалить подрасу
         </button>
       </div>
 
       {busy ? (
-        <p className="text-sm text-stone-500">Загружаем подкласс...</p>
+        <p className="text-sm text-stone-500">Загружаем подрасу...</p>
       ) : (
         <div className="space-y-3">
           {saveError && <ErrorBox error={saveError} onRetry={() => {}} />}
           {error && <ErrorBox error={error} onRetry={() => {}} />}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Название подкласса">
-              <Input value={draft.name} onChange={setField('name')} placeholder="Например, Школа Воплощения" />
-            </Field>
-            <Field label="Название группы (архетипа)">
-              <Input
-                value={draft.archetype_group_name}
-                onChange={setField('archetype_group_name')}
-                placeholder="Например, Школа магии"
-              />
-            </Field>
-          </div>
+
+          <Field label="Название подрасы">
+            <Input value={draft.name} onChange={setField('name')} placeholder="Например, Высший эльф" />
+          </Field>
 
           <Field label="Описание">
             <TextArea value={draft.description} onChange={setField('description')} rows={2} />
           </Field>
 
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Бонусы характеристик</p>
+              <button
+                type="button"
+                onClick={addBonus}
+                className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+              >
+                + Добавить
+              </button>
+            </div>
+            {draft.ability_bonuses.length === 0 ? (
+              <p className="text-sm text-stone-500">Бонусов нет</p>
+            ) : (
+              <div className="space-y-2">
+                {draft.ability_bonuses.map((row, i) => (
+                  <div key={i} className="flex items-end gap-2">
+                    <div className="w-48">
+                      <Field label="Характеристика">
+                        <select
+                          value={row.ability}
+                          onChange={(e) => setBonus(i, 'ability', e.target.value)}
+                          className="w-full rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none focus:border-ember"
+                        >
+                          {Object.entries(abilityLabels).map(([k, v]) => (
+                            <option key={k} value={k}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    </div>
+                    <div className="w-28">
+                      <Field label="Бонус">
+                        <Input
+                          type="number"
+                          min={-5}
+                          max={5}
+                          value={row.bonus}
+                          onChange={(e) => setBonus(i, 'bonus', Number(e.target.value))}
+                        />
+                      </Field>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeBonus(i)}
+                      className="mb-0.5 rounded border border-red-800 px-2 py-1.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" disabled={saving} onClick={save}>
-              {saving ? 'Сохраняем...' : 'Обновить подкласс'}
+              {saving ? 'Сохраняем...' : 'Обновить подрасу'}
             </Button>
-            {saved && <span className="text-xs text-emerald-400">Подкласс обновлён</span>}
+            {saved && <span className="text-xs text-emerald-400">Подраса обновлена</span>}
           </div>
 
           <div className="border-t border-stone-700/70 pt-3">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Умения подкласса</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Особенности подрасы</p>
               <button
                 type="button"
                 onClick={() => setFeatureModal({ index: null })}
                 className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
               >
-                + Добавить умение
+                + Добавить особенность
               </button>
             </div>
             {features.length === 0 ? (
-              <p className="text-sm text-stone-500">Умений нет</p>
+              <p className="text-sm text-stone-500">Особенностей нет</p>
             ) : (
               <div className="space-y-2">
                 {features.map((f, i) => (
@@ -168,15 +226,9 @@ export default function SubclassEditor({ classId, detail, features, busy = false
         const row = featureModal.index == null ? null : features[featureModal.index]
         return (
           <FeatureModal
-            title={
-              featureModal.index == null
-                ? 'Добавить умение'
-                : `Изменить: ${row?.name || 'умение'}`
-            }
+            title={featureModal.index == null ? 'Добавить особенность' : `Изменить: ${row?.name || 'особенность'}`}
             subtitle={detail.name}
             value={row}
-            showLevel
-            levelHint={SUBFEATURE_LEVEL_HINT}
             onSave={saveFeature}
             onClose={() => setFeatureModal(null)}
           />

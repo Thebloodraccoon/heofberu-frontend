@@ -169,7 +169,7 @@ function ProfileForm({ user, onSaved }) {
             <Input type="email" required autoComplete="email" value={form.email} onChange={set('email')} />
           </Field>
           <Field label="Местоположение">
-            <Input value={form.location} onChange={set('location')} placeholder="Например, Москва" />
+            <Input value={form.location} onChange={set('location')} placeholder="Например, Николаев" />
           </Field>
           <Field label="Контакт">
             <Input

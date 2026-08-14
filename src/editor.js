@@ -2,6 +2,7 @@ import { api } from './api/endpoints.js'
 import { catalog } from './catalog.js'
 import {
   abilityLabels,
+  armorProficiencyLabels,
   attackTypeLabels,
   componentLabels,
   damageTypeLabels,
@@ -57,7 +58,6 @@ export const featurePayload = (f) => ({
   name: f.name,
   description: f.description ?? '',
   level: f.level ?? null,
-  is_homebrew: !!f.is_homebrew,
 })
 
 export const featuresFromRecord = (r) =>
@@ -66,24 +66,24 @@ export const featuresFromRecord = (r) =>
     name: f.name,
     description: f.description ?? '',
     level: f.level ?? null,
-    is_homebrew: !!f.is_homebrew,
   }))
 
 const subclassFromRecord = (s) => ({
   id: s.id,
   name: s.name,
   archetype_group_name: s.archetype_group_name ?? '',
-  unlock_level: toStr(s.unlock_level ?? 3),
   description: s.description ?? '',
-  is_homebrew: !!s.is_homebrew,
 })
 
 export const subclassPayload = (s) => ({
   name: s.name,
   archetype_group_name: s.archetype_group_name || null,
-  unlock_level: toNumDefault(s.unlock_level, 3),
   description: s.description ?? '',
-  is_homebrew: !!s.is_homebrew,
+})
+
+export const subracePayload = (s) => ({
+  name: s.name,
+  description: s.description ?? '',
 })
 
 export const saveSpellSlots = async (form, rec, existingProgression) => {
@@ -119,11 +119,17 @@ const racesCfg = {
     empty: 'Особенностей и умений нет',
     noun: 'особенность',
   },
+  hasSubraces: true,
+  subracesBlock: {
+    label: 'Подрасы',
+    addLabel: '+ Добавить подрасу',
+    empty: 'Подрас нет',
+    noun: 'подрасу',
+  },
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Эльф' },
     { key: 'size', label: 'Размер', type: 'select', options: opt(raceSizeLabels) },
     { key: 'speed', label: 'Скорость (фт.)', type: 'number', min: 0 },
-    { key: 'is_homebrew', label: 'Homebrew', type: 'checkbox' },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [
@@ -145,7 +151,6 @@ const racesCfg = {
     name: '',
     size: 'MEDIUM',
     speed: '30',
-    is_homebrew: false,
     description: '',
     ability_bonuses: [],
     skill_ids: [],
@@ -154,7 +159,6 @@ const racesCfg = {
     name: r.name,
     size: r.size,
     speed: toStr(r.speed ?? 30),
-    is_homebrew: !!r.is_homebrew,
     description: r.description ?? '',
     ability_bonuses: (r.ability_bonuses ?? []).map((b) => ({ ability: b.ability, bonus: b.bonus })),
     skill_ids: (r.granted_skills ?? []).map((s) => s.id),
@@ -164,7 +168,6 @@ const racesCfg = {
       name: form.name,
       size: form.size,
       speed: toNumDefault(form.speed, 30),
-      is_homebrew: form.is_homebrew,
       description: form.description,
     }
     if (rec) {
@@ -200,18 +203,25 @@ const classesCfg = {
     empty: 'Умений нет',
     noun: 'умение',
   },
+  itemsOps: api.classes.items,
+  itemsBlock: {
+    label: 'Стартовое снаряжение',
+    addLabel: '+ Добавить',
+    empty: 'Снаряжения нет',
+    noun: 'предмет',
+  },
   hasSubclasses: true,
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Волшебник' },
     { key: 'hit_dice', label: 'Кость хитов', type: 'select', options: opt(diceTypeLabels) },
     { key: 'skill_choice_count', label: 'Количество навыков', type: 'number', min: 0 },
     { key: 'spellcasting_ability', label: 'Характеристика заклинаний', type: 'select', options: optOptional(abilityLabels) },
-    { key: 'is_homebrew', label: 'Homebrew', type: 'checkbox' },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [
     { type: 'pills', key: 'primary_abilities', label: 'Основные характеристики', options: opt(abilityLabels), empty: 'Не выбрано' },
     { type: 'pills', key: 'saving_throws', label: 'Спасброски', options: opt(abilityLabels), empty: 'Не выбрано' },
+    { type: 'pills', key: 'armor_proficiencies', label: 'Владение бронёй', options: opt(armorProficiencyLabels), empty: 'Не выбрано' },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Доступные навыки', empty: 'Навыков в справочнике нет' },
     {
       type: 'spellSlots',
@@ -226,10 +236,10 @@ const classesCfg = {
     hit_dice: 'D8',
     skill_choice_count: '2',
     spellcasting_ability: '',
-    is_homebrew: false,
     description: '',
     primary_abilities: [],
     saving_throws: [],
+    armor_proficiencies: [],
     skill_ids: [],
     spell_slots: {},
   }),
@@ -238,10 +248,10 @@ const classesCfg = {
     hit_dice: r.hit_dice,
     skill_choice_count: toStr(r.skill_choice_count ?? 2),
     spellcasting_ability: r.spellcasting_ability ?? '',
-    is_homebrew: !!r.is_homebrew,
     description: r.description ?? '',
     primary_abilities: (r.primary_abilities ?? []).map((p) => p.ability),
     saving_throws: (r.saving_throws ?? []).map((s) => s.ability),
+    armor_proficiencies: (r.armor_proficiencies ?? []).map((a) => a.armor_type),
     skill_ids: (r.available_skills ?? []).map((s) => s.id),
     spell_slots: (r.spell_slot_progression ?? []).reduce((acc, row) => {
       acc[row.class_level] = acc[row.class_level] || {}
@@ -260,21 +270,22 @@ const classesCfg = {
       hit_dice: form.hit_dice,
       skill_choice_count: toNumDefault(form.skill_choice_count, 2),
       spellcasting_ability: form.spellcasting_ability || null,
-      is_homebrew: form.is_homebrew,
       description: form.description,
+      armor_proficiencies: form.armor_proficiencies,
     }
     if (rec) {
       await api.classes.update(rec.id, { ...base, primary_abilities: primary, saving_throws: form.saving_throws })
       await api.classes.availableSkills(rec.id, { skill_ids: form.skill_ids })
       if (form.spellcasting_ability) await saveSpellSlots(form, rec, rec.spell_slot_progression)
     } else {
-      return api.classes.create({
+      const created = await api.classes.create({
         ...base,
         primary_abilities: primary,
         saving_throws: form.saving_throws,
         available_skills: form.skill_ids,
         spell_slot_progression: buildSpellSlotPayload(form.spell_slots),
       })
+      return created
     }
   },
   listBadges: (item) =>
@@ -443,6 +454,13 @@ const backgroundsCfg = {
     empty: 'Умений предыстории нет',
     noun: 'умение',
   },
+  itemsOps: api.backgrounds.items,
+  itemsBlock: {
+    label: 'Стартовое снаряжение',
+    addLabel: '+ Добавить',
+    empty: 'Снаряжения нет',
+    noun: 'предмет',
+  },
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Благородный' },
     { key: 'personality_traits_suggestions', label: 'Черты личности', type: 'textarea', full: true },
@@ -450,7 +468,6 @@ const backgroundsCfg = {
     { key: 'bonds_suggestions', label: 'Привязанности', type: 'textarea', full: true },
     { key: 'flaws_suggestions', label: 'Слабости', type: 'textarea', full: true },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
-    { key: 'is_homebrew', label: 'Homebrew', type: 'checkbox' },
   ],
   sections: [
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки предыстории', empty: 'Навыков в справочнике нет' },
@@ -462,7 +479,6 @@ const backgroundsCfg = {
     bonds_suggestions: '',
     flaws_suggestions: '',
     description: '',
-    is_homebrew: false,
     skill_ids: [],
   }),
   fromRecord: (r) => ({
@@ -472,7 +488,6 @@ const backgroundsCfg = {
     bonds_suggestions: r.bonds_suggestions ?? '',
     flaws_suggestions: r.flaws_suggestions ?? '',
     description: r.description ?? '',
-    is_homebrew: !!r.is_homebrew,
     skill_ids: (r.granted_skills ?? []).map((s) => s.id),
   }),
   submitFields: async (form, rec) => {
@@ -483,7 +498,6 @@ const backgroundsCfg = {
       bonds_suggestions: form.bonds_suggestions,
       flaws_suggestions: form.flaws_suggestions,
       description: form.description,
-      is_homebrew: form.is_homebrew,
     }
     if (rec) {
       await api.backgrounds.update(rec.id, base)
@@ -512,7 +526,6 @@ const featsCfg = {
     { key: 'prerequisite_minimum_score', label: 'Минимальное значение', type: 'number', min: 1, max: 30 },
     { key: 'prerequisite_description', label: 'Описание требований', type: 'textarea', full: true },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
-    { key: 'is_homebrew', label: 'Homebrew', type: 'checkbox' },
   ],
   sections: [
     {
@@ -534,7 +547,6 @@ const featsCfg = {
     prerequisite_minimum_score: '',
     prerequisite_description: '',
     description: '',
-    is_homebrew: false,
     ability_score_increases: [],
   }),
   fromRecord: (r) => ({
@@ -543,7 +555,6 @@ const featsCfg = {
     prerequisite_minimum_score: toStr(r.prerequisite_minimum_score),
     prerequisite_description: r.prerequisite_description ?? '',
     description: r.description ?? '',
-    is_homebrew: !!r.is_homebrew,
     ability_score_increases: (r.ability_score_increases ?? []).map((a) => ({
       ability: a.ability,
       amount: a.amount,
@@ -556,7 +567,6 @@ const featsCfg = {
       prerequisite_minimum_score: toNum(form.prerequisite_minimum_score),
       prerequisite_description: form.prerequisite_description,
       description: form.description,
-      is_homebrew: form.is_homebrew,
     }
     if (rec) {
       await api.feats.update(rec.id, base)
@@ -590,7 +600,6 @@ const itemsCfg = {
     { key: 'strength_requirement', label: 'Требование силы', type: 'number', min: 0 },
     { key: 'stealth_disadvantage', label: 'Помеха к скрытности', type: 'checkbox' },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
-    { key: 'is_homebrew', label: 'Homebrew', type: 'checkbox' },
   ],
   sections: [],
   emptyForm: () => ({
@@ -610,7 +619,6 @@ const itemsCfg = {
     strength_requirement: '',
     stealth_disadvantage: false,
     description: '',
-    is_homebrew: false,
   }),
   fromRecord: (r) => ({
     name: r.name,
@@ -629,7 +637,6 @@ const itemsCfg = {
     strength_requirement: toStr(r.strength_requirement),
     stealth_disadvantage: !!r.stealth_disadvantage,
     description: r.description ?? '',
-    is_homebrew: !!r.is_homebrew,
   }),
   submitFields: async (form, rec) => {
     const base = {
@@ -649,7 +656,6 @@ const itemsCfg = {
       strength_requirement: toNum(form.strength_requirement),
       stealth_disadvantage: form.stealth_disadvantage,
       description: form.description,
-      is_homebrew: form.is_homebrew,
     }
     if (rec) await api.items.update(rec.id, base)
     else await api.items.create(base)
@@ -667,15 +673,13 @@ const featuresCfg = {
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Печать древней клятвы' },
     { key: 'level', label: 'Уровень', type: 'number', min: 1, max: 20 },
-    { key: 'is_homebrew', label: 'Homebrew', type: 'checkbox' },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [],
-  emptyForm: () => ({ name: '', level: '', is_homebrew: false, description: '' }),
+  emptyForm: () => ({ name: '', level: '', description: '' }),
   fromRecord: (r) => ({
     name: r.name,
     level: toStr(r.level),
-    is_homebrew: !!r.is_homebrew,
     description: r.description ?? '',
   }),
   submitFields: async (form, rec) => {
@@ -683,7 +687,6 @@ const featuresCfg = {
       name: form.name,
       level: toNum(form.level),
       description: form.description,
-      is_homebrew: form.is_homebrew,
     }
     if (rec) await api.features.update(rec.id, base)
     else await api.features.create(base)

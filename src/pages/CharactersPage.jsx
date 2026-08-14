@@ -38,6 +38,8 @@ export default function CharactersPage() {
     class_id: '',
     race_id: '',
     background_id: '',
+    subclass_id: '',
+    subrace_id: '',
     level: 1,
     max_hp: 10,
     current_hp: 10,
@@ -49,6 +51,7 @@ export default function CharactersPage() {
     charisma: 10,
   })
   const [saving, setSaving] = useState(false)
+  const [subraces, setSubraces] = useState([])
 
   useEffect(() => {
     let active = true
@@ -78,7 +81,32 @@ export default function CharactersPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let active = true
+    if (!form.race_id) {
+      setSubraces([])
+      setForm((f) => ({ ...f, subrace_id: '' }))
+      return () => { active = false }
+    }
+    api.races.subraces
+      .list(Number(form.race_id))
+      .then((res) => {
+        if (active) setSubraces(Array.isArray(res) ? res : res?.items ?? [])
+      })
+      .catch(() => {
+        if (active) setSubraces([])
+      })
+    return () => {
+      active = false
+    }
+  }, [form.race_id])
+
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+
+  const selectedClass = classes.find((c) => String(c.id) === String(form.class_id))
+
+  const setClass = (e) => setForm((f) => ({ ...f, class_id: e.target.value, subclass_id: '' }))
+  const setRace = (e) => setForm((f) => ({ ...f, race_id: e.target.value, subrace_id: '' }))
 
   const submit = async (e) => {
     e.preventDefault()
@@ -94,6 +122,8 @@ export default function CharactersPage() {
       for (const [k] of stats) body[k] = Number(form[k]) || 10
       if (form.race_id) body.race_id = Number(form.race_id)
       if (form.background_id) body.background_id = Number(form.background_id)
+      if (form.subclass_id) body.subclass_id = Number(form.subclass_id)
+      if (form.subrace_id) body.subrace_id = Number(form.subrace_id)
       await api.characters.create(body)
       setForm((f) => ({ ...f, name: '' }))
       setShowCreate(false)
@@ -125,17 +155,33 @@ export default function CharactersPage() {
               <Input required value={form.name} onChange={set('name')} />
             </Field>
             <Field label="Класс *">
-              <Select required value={form.class_id} onChange={set('class_id')}>
+              <Select required value={form.class_id} onChange={setClass}>
                 <option value="">Выберите класс</option>
                 {classes.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </Select>
             </Field>
+            <Field label="Подкласс">
+              <Select value={form.subclass_id} onChange={set('subclass_id')}>
+                <option value="">Без подкласса</option>
+                {(selectedClass?.subclasses ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Раса">
-              <Select value={form.race_id} onChange={set('race_id')}>
+              <Select value={form.race_id} onChange={setRace}>
                 <option value="">Без расы</option>
                 {races.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Подраса">
+              <Select value={form.subrace_id} onChange={set('subrace_id')}>
+                <option value="">Без подрасы</option>
+                {subraces.map((r) => (
                   <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </Select>
@@ -179,6 +225,7 @@ export default function CharactersPage() {
             const cls = classes.find((x) => x.id === c.class_id)
             const race = races.find((x) => x.id === c.race_id)
             const bg = backgrounds.find((x) => x.id === c.background_id)
+            const subcls = cls?.subclasses?.find((x) => String(x.id) === String(c.subclass_id))
             return (
               <Link
                 key={c.id}
@@ -190,7 +237,7 @@ export default function CharactersPage() {
                   <Badge tone="accent">Ур. {c.level}</Badge>
                 </div>
                 <p className="mt-1 text-sm text-stone-400">
-                  {[cls?.name, race?.name, bg?.name].filter(Boolean).join(' · ') || 'Без класса'}
+                  {[cls?.name, subcls?.name, race?.name, bg?.name].filter(Boolean).join(' · ') || 'Без класса'}
                 </p>
                 <p className="mt-3 text-sm">
                   <span className="text-stone-400">HP </span>

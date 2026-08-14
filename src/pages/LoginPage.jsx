@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { Button, Card, ErrorBox, Field, Input } from '../components/ui.jsx'
+import ThemeSwitcher from '../components/ThemeSwitcher.jsx'
 
 export default function LoginPage() {
   const { login, busy } = useAuth()
@@ -25,6 +26,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="fixed right-4 top-4 z-50">
+        <ThemeSwitcher />
+      </div>
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 text-center">
           <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display text-2xl font-black text-stone-100 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.35)]">

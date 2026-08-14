@@ -43,7 +43,7 @@ export default function CharacterDetailPage() {
   const { id } = useParams()
   const [character, setCharacter] = useState(null)
   const [error, setError] = useState(null)
-  const [lookups, setLookups] = useState({ races: [], classes: [], backgrounds: [], skills: [], spells: [], items: [], feats: [], features: [] })
+  const [lookups, setLookups] = useState({ races: [], classes: [], backgrounds: [], skills: [], spells: [], items: [], feats: [], features: [], subraces: [] })
   const [tab, setTab] = useState('overview')
 
   useEffect(() => {
@@ -79,6 +79,21 @@ export default function CharacterDetailPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let active = true
+    const raceId = character?.race_id
+    if (!raceId) return () => { active = false }
+    api.races.subraces
+      .list(Number(raceId))
+      .then((res) => {
+        if (active) setLookups((l) => ({ ...l, subraces: Array.isArray(res) ? res : res?.items ?? [] }))
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [character?.race_id])
+
   const load = useCallback(async () => {
     try {
       setCharacter(await api.characters.get(id))
@@ -102,6 +117,8 @@ export default function CharacterDetailPage() {
   const cls = lookups.classes.find((x) => x.id === character.class_id)
   const race = lookups.races.find((x) => x.id === character.race_id)
   const bg = lookups.backgrounds.find((x) => x.id === character.background_id)
+  const subcls = cls?.subclasses?.find((x) => String(x.id) === String(character.subclass_id))
+  const subrace = lookups.subraces.find((x) => x.id === character.subrace_id)
 
   return (
     <div>
@@ -116,8 +133,9 @@ export default function CharacterDetailPage() {
         subtitle={
           [
             cls?.name && `Класс ${cls.name}`,
-            character.subclass,
+            subcls?.name,
             race?.name,
+            subrace?.name,
             bg?.name,
             character.level && `Уровень ${character.level}`,
           ]
