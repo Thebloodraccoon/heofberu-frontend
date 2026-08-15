@@ -1,57 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/endpoints.js'
 import {
   Badge,
   Button,
-  Card,
   EmptyState,
   ErrorBox,
-  Field,
-  Input,
   PageHeader,
-  Select,
   Spinner,
 } from '../components/ui.jsx'
 
-const stats = [
-  ['strength', 'Сила'],
-  ['dexterity', 'Ловкость'],
-  ['constitution', 'Телосложение'],
-  ['intelligence', 'Интеллект'],
-  ['wisdom', 'Мудрость'],
-  ['charisma', 'Харизма'],
-]
-
 export default function CharactersPage() {
+  const navigate = useNavigate()
   const [characters, setCharacters] = useState(null)
   const [error, setError] = useState(null)
-  const [showCreate, setShowCreate] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
 
   const [races, setRaces] = useState([])
   const [classes, setClasses] = useState([])
   const [backgrounds, setBackgrounds] = useState([])
-
-  const [form, setForm] = useState({
-    name: '',
-    class_id: '',
-    race_id: '',
-    background_id: '',
-    subclass_id: '',
-    subrace_id: '',
-    level: 1,
-    max_hp: 10,
-    current_hp: 10,
-    strength: 10,
-    dexterity: 10,
-    constitution: 10,
-    intelligence: 10,
-    wisdom: 10,
-    charisma: 10,
-  })
-  const [saving, setSaving] = useState(false)
-  const [subraces, setSubraces] = useState([])
 
   useEffect(() => {
     let active = true
@@ -81,138 +48,13 @@ export default function CharactersPage() {
     }
   }, [])
 
-  useEffect(() => {
-    let active = true
-    if (!form.race_id) {
-      setSubraces([])
-      setForm((f) => ({ ...f, subrace_id: '' }))
-      return () => { active = false }
-    }
-    api.races.subraces
-      .list(Number(form.race_id))
-      .then((res) => {
-        if (active) setSubraces(Array.isArray(res) ? res : res?.items ?? [])
-      })
-      .catch(() => {
-        if (active) setSubraces([])
-      })
-    return () => {
-      active = false
-    }
-  }, [form.race_id])
-
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
-
-  const selectedClass = classes.find((c) => String(c.id) === String(form.class_id))
-
-  const setClass = (e) => setForm((f) => ({ ...f, class_id: e.target.value, subclass_id: '' }))
-  const setRace = (e) => setForm((f) => ({ ...f, race_id: e.target.value, subrace_id: '' }))
-
-  const submit = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      const body = {
-        name: form.name,
-        class_id: Number(form.class_id),
-        level: Number(form.level) || 1,
-        max_hp: Number(form.max_hp) || 0,
-        current_hp: Number(form.current_hp) || 0,
-      }
-      for (const [k] of stats) body[k] = Number(form[k]) || 10
-      if (form.race_id) body.race_id = Number(form.race_id)
-      if (form.background_id) body.background_id = Number(form.background_id)
-      if (form.subclass_id) body.subclass_id = Number(form.subclass_id)
-      if (form.subrace_id) body.subrace_id = Number(form.subrace_id)
-      await api.characters.create(body)
-      setForm((f) => ({ ...f, name: '' }))
-      setShowCreate(false)
-      setReloadKey((k) => k + 1)
-    } catch (err) {
-      setError(err)
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <div>
       <PageHeader
         title="Персонажи"
         subtitle="Ваши герои и их состояния"
-        actions={
-          <Button onClick={() => setShowCreate((v) => !v)}>
-            {showCreate ? 'Отмена' : '+ Новый персонаж'}
-          </Button>
-        }
+        actions={<Button onClick={() => navigate('/characters/new')}>+ Новый персонаж</Button>}
       />
-
-      {showCreate && (
-        <Card className="mb-6 p-5">
-          <h2 className="mb-4 text-base font-semibold text-stone-100">Создать персонажа</h2>
-          <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Имя *">
-              <Input required value={form.name} onChange={set('name')} />
-            </Field>
-            <Field label="Класс *">
-              <Select required value={form.class_id} onChange={setClass}>
-                <option value="">Выберите класс</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Подкласс">
-              <Select value={form.subclass_id} onChange={set('subclass_id')}>
-                <option value="">Без подкласса</option>
-                {(selectedClass?.subclasses ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Раса">
-              <Select value={form.race_id} onChange={setRace}>
-                <option value="">Без расы</option>
-                {races.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Подраса">
-              <Select value={form.subrace_id} onChange={set('subrace_id')}>
-                <option value="">Без подрасы</option>
-                {subraces.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Предыстория">
-              <Select value={form.background_id} onChange={set('background_id')}>
-                <option value="">Без предыстории</option>
-                {backgrounds.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Уровень">
-              <Input type="number" min="1" value={form.level} onChange={set('level')} />
-            </Field>
-            <Field label="Макс. HP">
-              <Input type="number" min="0" value={form.max_hp} onChange={set('max_hp')} />
-            </Field>
-            {stats.map(([key, label]) => (
-              <Field key={key} label={label}>
-                <Input type="number" min="1" value={form[key]} onChange={set(key)} />
-              </Field>
-            ))}
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Button type="submit" disabled={saving}>
-                {saving ? 'Создаём...' : 'Создать'}
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
 
       {error && <ErrorBox error={error} onRetry={() => setReloadKey((k) => k + 1)} />}
       {!error && !characters && <Spinner />}
@@ -230,7 +72,7 @@ export default function CharactersPage() {
               <Link
                 key={c.id}
                 to={`/characters/${c.id}`}
-                className="group fantasy-panel rounded-lg p-4 transition hover:border-ember/70"
+                className="group card-hover fantasy-panel rounded-lg p-4 transition hover:border-ember/70"
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-display font-semibold text-stone-100 group-hover:text-ember">{c.name}</p>

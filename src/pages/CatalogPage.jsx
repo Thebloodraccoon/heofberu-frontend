@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints.js'
 import { catalog } from '../catalog.js'
 import { abilityLabels, classSlugLabels, diceTypeLabels, fieldLabel, label, raceSizeLabels, ruLevel, skillLabels } from '../labels.js'
-import { Badge, Card, EmptyState, ErrorBox, PageHeader, Spinner } from '../components/ui.jsx'
+import { Badge, Card, Chip, EmptyState, ErrorBox, FactList, FactRow, Modal, PageHeader, PillToggle, Spinner, StatTable } from '../components/ui.jsx'
 import ClassDetailCard from '../components/ClassDetailCard.jsx'
 
 const skipFields = new Set([
@@ -125,14 +125,6 @@ function summaryBadges(item) {
   return badges
 }
 
-function Chip({ children }) {
-  return (
-    <span className="inline-block rounded border border-stone-700 bg-stone-800/80 px-2 py-0.5 text-xs text-stone-200">
-      {children}
-    </span>
-  )
-}
-
 function FieldValue({ value }) {
   if (value === null || value === undefined || value === '') return <span className="text-stone-500">—</span>
   if (typeof value === 'boolean') return <span className="text-stone-200">{value ? 'Да' : 'Нет'}</span>
@@ -181,53 +173,25 @@ function FilterModal({ fields, options, value, onChange, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="mx-auto mt-8 w-full max-w-md rounded-lg bg-stone-900 p-5 shadow-2xl ring-1 ring-stone-700"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-stone-100">Фильтр</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded border border-stone-700 px-2 py-1 text-sm text-stone-300 transition hover:bg-stone-800"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="max-h-[60vh] space-y-5 overflow-y-auto pr-1">
-          {fields.length === 0 && <p className="text-sm text-stone-500">Фильтров нет</p>}
-          {fields.map((field) => (
-            <section key={field}>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
-                {fieldLabel(field)}
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {(options[field] ?? []).map((v) => {
-                  const active = (value[field] ?? []).includes(v)
-                  return (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => toggle(field, v)}
-                      className={`rounded px-2.5 py-1 text-xs font-medium transition ${
-                        active ? 'bg-ember text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
-                      }`}
-                    >
-                      {filterLabel(field, v)}
-                    </button>
-                  )
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <p className="mt-4 text-center text-xs text-stone-500">Фильтры применяются автоматически!</p>
+    <Modal title="Фильтр" onClose={onClose} size="md" align="top">
+      <div className="max-h-[60vh] space-y-5 overflow-y-auto pr-1">
+        {fields.length === 0 && <p className="text-sm text-stone-500">Фильтров нет</p>}
+        {fields.map((field) => (
+          <section key={field}>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
+              {fieldLabel(field)}
+            </h3>
+            <PillToggle
+              options={(options[field] ?? []).map((v) => ({ value: v, label: filterLabel(field, v) }))}
+              selected={value[field] ?? []}
+              onToggle={(v) => toggle(field, v)}
+              className="max-h-52 border-0 bg-transparent p-0"
+            />
+          </section>
+        ))}
       </div>
-    </div>
+      <p className="mt-4 text-center text-xs text-stone-500">Фильтры применяются автоматически!</p>
+    </Modal>
   )
 }
 
@@ -564,37 +528,6 @@ function FeatureDetailCard({ item }) {
   )
 }
 
-function StatTable({ rows }) {
-  if (!rows || rows.length === 0) return null
-  return (
-    <table className="w-full text-sm">
-      <tbody>
-        {rows.map(([k, v]) => (
-          <tr key={k} className="border-b border-stone-700/40 align-top last:border-b-0">
-            <th className="w-2/5 px-3 py-2.5 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-              {k}
-            </th>
-            <td className="px-3 py-2.5 text-stone-200">{v}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
-function FactList({ children }) {
-  return <ul className="mb-6 space-y-1.5">{children}</ul>
-}
-
-function FactRow({ label: lbl, value }) {
-  return (
-    <li className="text-sm leading-relaxed text-stone-300">
-      <span className="font-medium text-stone-200">{lbl}: </span>
-      <span>{value}</span>
-    </li>
-  )
-}
-
 const COMPONENT_FULL = { VERBAL: 'Вербальный', SOMATIC: 'Соматический', MATERIAL: 'Материальный' }
 
 function SpellDetailCard({ spell }) {
@@ -786,7 +719,7 @@ function TileCard({ item, resource }) {
   return (
     <Link
       to={`/catalog/${resource}/${item.id}`}
-      className="group fantasy-panel rounded-lg p-5 transition hover:border-ember/70"
+      className="group card-hover fantasy-panel rounded-lg p-5 transition hover:border-ember/70"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="font-display text-base font-bold text-stone-100 group-hover:text-ember">
@@ -907,9 +840,8 @@ export function CatalogListPage() {
             const subs = withFeatures.subclasses ?? []
             const withSubFeatures = await Promise.all(
               subs.map(async (sub) => {
-                if (Array.isArray(sub.features)) return sub
-                const feats = await api.classes.subclasses.features.list(selectedId, sub.id)
-                return { ...sub, features: Array.isArray(feats) ? feats : feats?.features ?? [] }
+                const detail = await api.classes.subclasses.get(selectedId, sub.id)
+                return { ...sub, ...detail }
               })
             )
             withFeatures = { ...withFeatures, subclasses: withSubFeatures }
@@ -922,16 +854,8 @@ export function CatalogListPage() {
             const subs = withFeatures.subraces ?? []
             const withSubFeatures = await Promise.all(
               subs.map(async (sub) => {
-                if (Array.isArray(sub.features) && sub.ability_bonuses) return sub
-                const [detail, feats] = await Promise.all([
-                  api.races.subraces.get(selectedId, sub.id),
-                  api.races.subraces.features.list(selectedId, sub.id),
-                ])
-                return {
-                  ...sub,
-                  ...detail,
-                  features: Array.isArray(feats) ? feats : feats?.features ?? [],
-                }
+                const detail = await api.races.subraces.get(selectedId, sub.id)
+                return { ...sub, ...detail }
               })
             )
             withFeatures = { ...withFeatures, subraces: withSubFeatures }
@@ -1016,7 +940,7 @@ export function CatalogListPage() {
                   return (
                     <div
                       key={it.id}
-                      className={`w-full fantasy-panel rounded-lg p-4 transition ${
+                      className={`card-hover w-full fantasy-panel rounded-lg p-4 transition ${
                         isActive
                           ? 'border-ember/80 bg-stone-900'
                           : 'hover:border-ember/50'

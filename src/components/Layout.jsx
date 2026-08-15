@@ -52,12 +52,23 @@ function SectionTitle({ children }) {
   )
 }
 
+const SIDEBAR_KEY = 'heofberu.sidebar.collapsed'
+
 export default function Layout() {
   const { authenticated, user, isGM, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const navigate = useNavigate()
 
   const close = () => setSidebarOpen(false)
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0')
+      return next
+    })
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-stone-950">
@@ -107,27 +118,64 @@ export default function Layout() {
         </header>
 
         <div className="flex flex-1">
-          <aside className="hidden w-72 shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-3 lg:flex">
-            <nav className="flex flex-col gap-0.5">
-              {!authenticated && <SidebarLink to="/" end label="Главная" onClick={close} />}
+          {collapsed ? (
+            <aside className="hidden shrink-0 flex-col self-start border-r border-stone-800 bg-stone-950/95 p-2 lg:flex">
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2.5 py-1.5 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
+                aria-label="Развернуть меню"
+                title="Развернуть меню"
+              >
+                ▸ Меню
+              </button>
+            </aside>
+          ) : (
+            <aside className="hidden w-[16.75rem] shrink-0 flex-col self-start border-r border-stone-800 bg-stone-950/95 p-3 lg:sticky lg:top-16 lg:flex lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto">
+              <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2 pl-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                  <span aria-hidden className="mr-1.5 text-[0.7em] text-ember/70">✦</span>
+                  Меню
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleCollapsed}
+                  className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
+                  aria-label="Свернуть меню"
+                  title="Свернуть меню"
+                >
+                  « Свернуть
+                </button>
+              </div>
+              <nav className="flex flex-col gap-0.5">
+                <SidebarLink to="/" end label="Главная" onClick={close} />
 
-              <SectionTitle>Справочники</SectionTitle>
-              {catalogLinks.map((l) => (
-                <SidebarLink key={l.to} to={l.to} end={l.to === '/catalog/races'} label={l.label} onClick={close} />
-              ))}
+                <SectionTitle>Справочники</SectionTitle>
+                {catalogLinks.map((l) => (
+                  <SidebarLink key={l.to} to={l.to} end={l.to === '/catalog/races'} label={l.label} onClick={close} />
+                ))}
 
-              {authenticated && isGM && (
-                <>
-                  <SectionTitle>ГМ</SectionTitle>
-                  <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={close} />
-                  <SidebarLink to="/users" label="Пользователи" onClick={close} />
-                </>
-              )}
-            </nav>
-          </aside>
+                {authenticated && (
+                  <>
+                    <SectionTitle>Личное</SectionTitle>
+                    <SidebarLink to="/profile" label="Профиль" onClick={close} />
+                    <SidebarLink to="/characters" label="Персонажи" onClick={close} />
+                  </>
+                )}
+
+                {authenticated && isGM && (
+                  <>
+                    <SectionTitle>ГМ</SectionTitle>
+                    <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={close} />
+                    <SidebarLink to="/users" label="Пользователи" onClick={close} />
+                  </>
+                )}
+              </nav>
+            </aside>
+          )}
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+            <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 sm:px-7">
               <Outlet />
             </main>
           </div>
@@ -135,7 +183,7 @@ export default function Layout() {
 
         {sidebarOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 lg:hidden" onClick={close}>
-            <aside className="flex h-full w-72 flex-col border-r border-stone-800 bg-stone-950 p-3" onClick={(e) => e.stopPropagation()}>
+            <aside className="flex h-full w-[16.75rem] flex-col border-r border-stone-800 bg-stone-950 p-3" onClick={(e) => e.stopPropagation()}>
               <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2">
                 <span className="text-sm font-semibold text-stone-100">Меню</span>
                 <button
@@ -147,12 +195,20 @@ export default function Layout() {
                 </button>
               </div>
               <nav className="flex flex-col gap-0.5">
-                {!authenticated && <SidebarLink to="/" end label="Главная" onClick={close} />}
+                <SidebarLink to="/" end label="Главная" onClick={close} />
 
                 <SectionTitle>Справочники</SectionTitle>
                 {catalogLinks.map((l) => (
                   <SidebarLink key={l.to} to={l.to} end={l.to === '/catalog/races'} label={l.label} onClick={close} />
                 ))}
+
+                {authenticated && (
+                  <>
+                    <SectionTitle>Личное</SectionTitle>
+                    <SidebarLink to="/profile" label="Мой профиль" onClick={close} />
+                    <SidebarLink to="/characters" label="Мои персонажи" onClick={close} />
+                  </>
+                )}
 
                 {authenticated && isGM && (
                   <>

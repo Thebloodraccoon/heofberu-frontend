@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
 import CharactersPage from './pages/CharactersPage.jsx'
+import CharacterCreatePage from './pages/CharacterCreatePage.jsx'
 import CharacterDetailPage from './pages/CharacterDetailPage.jsx'
 import { CatalogListPage } from './pages/CatalogPage.jsx'
 import UsersPage from './pages/UsersPage.jsx'
@@ -34,6 +35,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="characters" element={<CharactersPage />} />
+              <Route path="characters/new" element={<CharacterCreatePage />} />
               <Route path="characters/:id" element={<CharacterDetailPage />} />
               <Route
                 path="users"

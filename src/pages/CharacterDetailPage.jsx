@@ -1,29 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/endpoints.js'
-import { label } from '../labels.js'
+import { label, armorProficiencyLabels, skillLabels, conditionLabels } from '../labels.js'
+import { STATS, mod } from '../utils/ability.js'
+import { Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Spinner } from '../components/ui.jsx'
 import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  ErrorBox,
-  Field,
-  Input,
-  PageHeader,
-  Select,
-  Spinner,
-} from '../components/ui.jsx'
+  BoxedValue,
+  CheckDot,
+  PassiveSenses,
+  ProficiencyChips,
+  RollButton,
+  RollModal,
+  SheetSectionLabel,
+  SheetTabs,
+  TextBlock,
+  XpBar,
+} from '../components/sheet/primitives.jsx'
 
-const STATS = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma']
-const STAT_LABELS = {
-  strength: 'СИЛ',
-  dexterity: 'ЛОВ',
-  constitution: 'ТЕЛ',
-  intelligence: 'ИНТ',
-  wisdom: 'МДР',
-  charisma: 'ХАР',
-}
 const ATTACK_TYPES = ['MELEE_ATTACK', 'RANGED_ATTACK']
 const DICE_TYPES = ['D4', 'D6', 'D8', 'D10', 'D12', 'D20', 'D100']
 const DAMAGE_TYPES = [
@@ -36,15 +29,55 @@ const CONDITIONS = [
   'STUNNED', 'UNCONSCIOUS', 'EXHAUSTION',
 ]
 
-const mod = (score) => Math.floor((score - 10) / 2)
+const ARMOR_OPTIONS = ['LIGHT', 'MEDIUM', 'HEAVY', 'SHIELD'].map((v) => ({
+  value: v,
+  label: armorProficiencyLabels[v] ?? label(v),
+}))
+
+const SPELL_LEVEL_ORDER = [
+  'CANTRIP', 'LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4',
+  'LEVEL_5', 'LEVEL_6', 'LEVEL_7', 'LEVEL_8', 'LEVEL_9',
+]
+
 const num = (v) => (v === '' || v === undefined || v === null ? null : Number(v))
+
+const EyeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
+const FaceIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 15h8" />
+    <path d="M8 9h2" />
+    <path d="M14 9h2" />
+  </svg>
+)
+const SearchIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m21 21-4.34-4.34" />
+    <circle cx="11" cy="11" r="8" />
+  </svg>
+)
 
 export default function CharacterDetailPage() {
   const { id } = useParams()
   const [character, setCharacter] = useState(null)
   const [error, setError] = useState(null)
+  const [classDetail, setClassDetail] = useState(null)
   const [lookups, setLookups] = useState({ races: [], classes: [], backgrounds: [], skills: [], spells: [], items: [], feats: [], features: [], subraces: [] })
-  const [tab, setTab] = useState('overview')
+
+  const [tab, setTab] = useState('attacks')
+  const [editing, setEditing] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const [rollsOn, setRollsOn] = useState(true)
+  const [roll, setRoll] = useState(null)
+  const [hpModal, setHpModal] = useState(false)
+  const [conditionsModal, setConditionsModal] = useState(false)
+  const [inspiration, setInspiration] = useState(false)
+  const [exhaustion, setExhaustion] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -94,6 +127,21 @@ export default function CharacterDetailPage() {
     }
   }, [character?.race_id])
 
+  useEffect(() => {
+    let active = true
+    const classId = character?.class_id
+    if (!classId) return () => { active = false }
+    api.classes
+      .get(Number(classId))
+      .then((data) => {
+        if (active) setClassDetail(data)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [character?.class_id])
+
   const load = useCallback(async () => {
     try {
       setCharacter(await api.characters.get(id))
@@ -102,14 +150,82 @@ export default function CharacterDetailPage() {
     }
   }, [id])
 
-  const tabs = [
-    ['overview', 'Обзор'],
-    ['spells', 'Заклинания'],
-    ['attacks', 'Атаки'],
-    ['items', 'Предметы'],
-    ['feats', 'Черты и свойства'],
-    ['conditions', 'Условия'],
-  ]
+  const saveField = useCallback(
+    (field) => async (value) => {
+      try {
+        await api.characters.update(id, { [field]: value })
+        await load()
+      } catch (e) {
+        setError(e)
+      }
+    },
+    [id, load]
+  )
+
+  const rollDice = (title, bonus) => setRoll({ title, bonus, d20: 1 + Math.floor(Math.random() * 20) })
+
+  const level = Number(character?.level) || 1
+  const pb = 2 + Math.floor((level - 1) / 4)
+
+  const totals = useMemo(() => {
+    const abilityTotals = character?.ability_scores || {}
+    return Object.fromEntries(
+      STATS.map((s) => [s.code, abilityTotals[`${s.key}_total`] ?? character?.[s.key] ?? 10])
+    )
+  }, [character])
+
+  const modFor = useCallback((code) => mod(totals[code] ?? 10), [totals])
+
+  const skillMap = useMemo(() => {
+    const m = new Map()
+    for (const sk of lookups.skills ?? []) m.set(Number(sk.id), sk)
+    return m
+  }, [lookups.skills])
+
+  const profSet = useMemo(() => {
+    const m = new Map()
+    for (const p of character?.skill_proficiencies ?? []) m.set(Number(p.skill_id), p.is_expertise ?? false)
+    return m
+  }, [character?.skill_proficiencies])
+
+  const saveSet = useMemo(
+    () => new Set((character?.saving_throw_proficiencies ?? []).map((s) => s.ability)),
+    [character?.saving_throw_proficiencies]
+  )
+
+  const skillsByAbility = useMemo(() => {
+    const groups = Object.fromEntries(STATS.map((s) => [s.code, []]))
+    groups.other = []
+    for (const sk of lookups.skills ?? []) {
+      const code = sk.ability && groups[sk.ability] ? sk.ability : 'other'
+      groups[code].push(sk)
+    }
+    for (const code of Object.keys(groups)) groups[code].sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    return groups
+  }, [lookups.skills])
+
+  const passiveSenses = useMemo(() => {
+    const findSkill = (key) =>
+      (lookups.skills ?? []).find((s) => [s.key, s.slug, s.name].some((v) => String(v ?? '').toLowerCase() === key))
+    const build = (key, icon) => {
+      const sk = findSkill(key)
+      if (!sk) return null
+      const prof = profSet.get(Number(sk.id))
+      const value = 10 + modFor(sk.ability) + (prof ? pb : 0)
+      return { name: skillLabels[key] ?? sk.name, value, icon }
+    }
+    return [build('perception', <EyeIcon />), build('insight', <FaceIcon />), build('investigation', <SearchIcon />)]
+      .filter(Boolean)
+  }, [lookups.skills, profSet, pb, modFor])
+
+  const armorProfs = useMemo(() => {
+    const raw = classDetail?.armor_proficiencies ?? []
+    return raw.map((a) => (typeof a === 'string' ? a : a.armor_type))
+  }, [classDetail])
+  const weaponProfs = useMemo(() => {
+    const raw = classDetail?.weapon_proficiencies ?? []
+    return raw.map((a) => (typeof a === 'string' ? a : a.weapon_type))
+  }, [classDetail])
 
   if (error) return <ErrorBox error={error} onRetry={load} />
   if (!character) return <Spinner />
@@ -120,383 +236,391 @@ export default function CharacterDetailPage() {
   const subcls = cls?.subclasses?.find((x) => String(x.id) === String(character.subclass_id))
   const subrace = lookups.subraces.find((x) => x.id === character.subrace_id)
 
-  return (
-    <div>
-      <div className="mb-4">
-        <Link to="/characters" className="text-sm text-ember hover:underline">
-          ← Назад к персонажам
-        </Link>
-      </div>
+  const subtitle = [cls?.name, subcls?.name, race?.name, subrace?.name, bg?.name]
+    .filter(Boolean)
+    .join(' · ')
 
-      <PageHeader
-        title={character.name}
-        subtitle={
-          [
-            cls?.name && `Класс ${cls.name}`,
-            subcls?.name,
-            race?.name,
-            subrace?.name,
-            bg?.name,
-            character.level && `Уровень ${character.level}`,
-          ]
-            .filter(Boolean)
-            .join(' · ')
-        }
-        actions={<Badge tone="accent">HP {character.current_hp}/{character.max_hp}</Badge>}
-      />
+  const saveBonus = (code) => modFor(code) + (saveSet.has(code) ? pb : 0)
+  const skillBonus = (sk) => {
+    const prof = profSet.get(Number(sk.id))
+    const expertise = prof && (character.skill_proficiencies ?? []).find((p) => Number(p.skill_id) === Number(sk.id))?.is_expertise
+    return modFor(sk.ability) + (prof ? pb : 0) + (expertise ? pb : 0)
+  }
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {tabs.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`rounded-full px-4 py-1.5 text-sm transition ${
-              tab === key
-                ? 'bg-ember text-white'
-                : 'border border-stone-700 text-stone-300 hover:bg-stone-800'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+  const attackBonus = (a) => modFor(a.ability) + (a.is_proficient ? pb : 0) + (num(a.bonus_attack) ?? 0)
 
-      {tab === 'overview' && <OverviewTab character={character} lookups={lookups} onChanged={load} />}
-      {tab === 'spells' && <SpellsTab character={character} lookups={lookups} onChanged={load} />}
-      {tab === 'attacks' && <AttacksTab character={character} lookups={lookups} onChanged={load} />}
-      {tab === 'items' && <ItemsTab character={character} lookups={lookups} onChanged={load} />}
-      {tab === 'feats' && <FeatsTab character={character} lookups={lookups} onChanged={load} />}
-      {tab === 'conditions' && <ConditionsTab character={character} onChanged={load} />}
-    </div>
-  )
-}
-
-function OverviewTab({ character, lookups, onChanged }) {
-  const [delta, setDelta] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const find = (kind, idv) => lookups[kind].find((x) => x.id === idv)?.name
-
-  const hpDelta = async (value) => {
-    setBusy(true)
-    setError(null)
+  const hpDelta = async (delta) => {
     try {
-      await api.characters.hp(character.id, { delta: value })
-      onChanged()
+      await api.characters.hp(id, { delta })
+      await load()
     } catch (e) {
       setError(e)
-    } finally {
-      setBusy(false)
     }
   }
 
   const doRest = async (type) => {
-    setBusy(true)
-    setError(null)
     try {
-      await api.characters.rest(character.id, { type })
-      onChanged()
+      await api.characters.rest(id, { type })
+      await load()
     } catch (e) {
       setError(e)
-    } finally {
-      setBusy(false)
     }
   }
 
-  const applyDelta = async () => {
-    if (!delta) return
-    setBusy(true)
-    setError(null)
+  const changeSlot = async (spellLevel, used) => {
     try {
-      await api.characters.hp(character.id, { delta: num(delta) })
-      setDelta('')
-      onChanged()
+      await api.characters.spellSlots.update(id, { level: spellLevel, used })
+      await load()
     } catch (e) {
       setError(e)
-    } finally {
-      setBusy(false)
     }
   }
 
-  const spellSlots = character.spell_slots ?? []
-  const saves = character.saving_throw_proficiencies ?? []
-  const skills = character.skill_proficiencies ?? []
-  const abilityTotals = character.ability_scores || {}
-
-  const changeSlot = async (level, used) => {
-    setBusy(true)
-    setError(null)
-    try {
-      await api.characters.spellSlots.update(character.id, { level, used })
-      onChanged()
-    } catch (e) {
-      setError(e)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const tabs = [
+    ['attacks', 'Атаки'],
+    ['features', 'Способности'],
+    ['equipment', 'Снаряжение'],
+    ['personality', 'Личность'],
+    ['goals', 'Цели'],
+    ['notes', 'Заметки'],
+    ['spells', 'Заклинания'],
+  ]
 
   return (
-    <div className="space-y-5">
-      {error && <ErrorBox error={error} />}
+    <div className="flex flex-col gap-4">
+      <SheetHeader
+        character={character}
+        subtitle={subtitle}
+        level={level}
+        pb={pb}
+        collapsed={collapsed}
+        editing={editing}
+        inspiration={inspiration}
+        exhaustion={exhaustion}
+        conditionCount={(character.conditions ?? []).length}
+        rollsOn={rollsOn}
+        onToggleCollapse={() => setCollapsed(!collapsed)}
+        onToggleEdit={() => setEditing(!editing)}
+        onInspiration={() => setInspiration(!inspiration)}
+        onExhaustion={(v) => setExhaustion(v)}
+        onOpenHp={() => setHpModal(true)}
+        onOpenConditions={() => setConditionsModal(true)}
+        onRollInitiative={() => rollDice('Инициатива', modFor('DEX') + (num(character.initiative_bonus) ?? 0))}
+      />
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Card className="p-5">
-          <h2 className="mb-3 text-base font-semibold text-stone-100">Хиты</h2>
-          <div className="text-center">
-            <p className="text-4xl font-bold text-stone-100">
-              {character.current_hp}
-              <span className="text-lg font-normal text-stone-400"> / {character.max_hp}</span>
-            </p>
-            {character.temp_hp > 0 && (
-              <p className="mt-1 text-sm text-emerald-300">Временные: {character.temp_hp}</p>
-            )}
-            <p className="mt-2 text-xs text-stone-500">Кость хитов: {character.hit_dice || '—'}</p>
-          </div>
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            <Button variant="ghost" disabled={busy} onClick={() => hpDelta(-10)}>-10</Button>
-            <Button variant="ghost" disabled={busy} onClick={() => hpDelta(-1)}>-1</Button>
-            <Button variant="ghost" disabled={busy} onClick={() => hpDelta(1)}>+1</Button>
-            <Button variant="ghost" disabled={busy} onClick={() => hpDelta(10)}>+10</Button>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <Input
-              type="number"
-              placeholder="Дельта"
-              value={delta}
-              onChange={(e) => setDelta(e.target.value)}
+      <div className="sheet-body">
+        <aside className="sheet-left fantasy-panel rounded-lg p-4">
+          {STATS.map((s) => (
+            <AbilityBlock
+              key={s.code}
+              stat={s}
+              total={totals[s.code]}
+              saveBonus={saveBonus(s.code)}
+              saveProf={saveSet.has(s.code)}
+              skills={skillsByAbility[s.code]}
+              skillMap={skillMap}
+              skillBonus={skillBonus}
+              rollsOn={rollsOn}
+              onRoll={rollDice}
             />
-            <Button variant="ghost" disabled={busy} onClick={applyDelta}>Применить</Button>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-stone-700/70 pt-4">
-            <Button variant="ghost" disabled={busy} onClick={() => doRest('short')}>
-              Короткий отдых
-            </Button>
-            <Button variant="ghost" disabled={busy} onClick={() => doRest('long')}>
-              Длинный отдых
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="mb-3 text-base font-semibold text-stone-100">Характеристики</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {STATS.map((s) => {
-              const total = abilityTotals[`${s}_total`] ?? character[s]
-              return (
-                <div key={s} className="rounded border border-stone-700/70 bg-stone-800/50 p-2 text-center">
-                  <p className="text-xs font-medium uppercase text-stone-400">{STAT_LABELS[s]}</p>
-                  <p className="text-xl font-bold text-stone-100">{total ?? '—'}</p>
-                  <p className="text-xs text-stone-500">{total != null ? (mod(total) >= 0 ? '+' : '') + mod(total) : ''}</p>
-                </div>
-              )
-            })}
-          </div>
-          <dl className="mt-4 space-y-1.5 text-sm">
-            <InfoRow label="КД" value={character.armor_class} />
-            <InfoRow label="Скорость" value={character.speed} />
-            <InfoRow label="Инициатива" value={character.initiative_bonus} />
-            <InfoRow label="Пассивное восприятие" value={character.passive_perception_bonus} />
-            <InfoRow label="Щит" value={character.shield} />
-          </dl>
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="mb-3 text-base font-semibold text-stone-100">Спасброски</h2>
-          {saves.length === 0 && <EmptyState text="Нет спасбросков" />}
-          <div className="flex flex-wrap gap-1.5">
-            {saves.map((s) => (
-              <Badge key={s.ability} tone="accent">{label(s.ability)}</Badge>
-            ))}
-          </div>
-          <h2 className="mb-3 mt-5 text-base font-semibold text-stone-100">Владение навыками</h2>
-          {skills.length === 0 && <EmptyState text="Нет навыков" />}
-          <ul className="space-y-1 text-sm text-stone-300">
-            {skills.map((sk) => (
-              <li key={sk.skill_id} className="flex items-center justify-between">
-                <span>{find('skills', sk.skill_id) || `Навык #${sk.skill_id}`}</span>
-                {sk.is_expertise && <Badge tone="good">Экспертиза</Badge>}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </div>
-
-      <Card className="p-5">
-        <h2 className="mb-3 text-base font-semibold text-stone-100">Слоты заклинаний</h2>
-        {spellSlots.length === 0 && <EmptyState text="Нет слотов заклинаний" />}
-        <div className="flex flex-wrap gap-3">
-          {spellSlots.map((slot) => (
-            <div
-              key={slot.spell_level}
-              className="rounded border border-stone-700/70 bg-stone-800/50 px-4 py-2 text-center"
-            >
-              <p className="text-xs font-medium text-stone-400">{label(slot.spell_level)}</p>
-              <p className="text-lg font-bold text-stone-100">
-                {slot.used} / {slot.total}
-              </p>
-              <div className="mt-1 flex gap-1">
-                <button
-                  type="button"
-                  disabled={busy || slot.used <= 0}
-                  onClick={() => changeSlot(slot.spell_level, slot.used - 1)}
-                  className="rounded bg-stone-700 px-2 py-0.5 text-xs hover:bg-stone-600 disabled:opacity-40"
-                >
-                  −
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || slot.used >= slot.total}
-                  onClick={() => changeSlot(slot.spell_level, slot.used + 1)}
-                  className="rounded bg-stone-700 px-2 py-0.5 text-xs hover:bg-stone-600 disabled:opacity-40"
-                >
-                  +
-                </button>
-              </div>
-            </div>
           ))}
-        </div>
-      </Card>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="mb-3 text-base font-semibold text-stone-100">Деньги</h2>
-          <div className="flex gap-6 text-sm">
-            <span><span className="text-yellow-300">⛁</span> {character.money_gold ?? 0} зм</span>
-            <span><span className="text-stone-300">⛀</span> {character.money_silver ?? 0} см</span>
-            <span><span className="text-amber-700">⛁</span> {character.money_copper ?? 0} мм</span>
+          {passiveSenses.length > 0 && (
+            <>
+              <SheetSectionLabel>Пассивные чувства</SheetSectionLabel>
+              <PassiveSenses items={passiveSenses} />
+            </>
+          )}
+
+          <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
+          <ProficiencyChips items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
+
+          <SheetSectionLabel>Владение оружием</SheetSectionLabel>
+          <ProficiencyChips
+            items={weaponProfs}
+            options={[
+              { value: 'SIMPLE', label: 'Простое' },
+              { value: 'MARTIAL', label: 'Воинское' },
+              { value: 'OTHER', label: 'Другое' },
+            ]}
+            empty="Не задано классом"
+          />
+
+          <div className="mt-4">
+            <TextBlock
+              title="Прочие владения и языки"
+              value={character.proficiencies}
+              editing={editing}
+              onSave={saveField('proficiencies')}
+            />
           </div>
-          <h2 className="mb-2 mt-5 text-base font-semibold text-stone-100">Личность</h2>
-          <TextSection title="Черты характера" value={character.personality_traits} />
-          <TextSection title="Идеалы" value={character.ideals} />
-          <TextSection title="Привязанности" value={character.bonds} />
-          <TextSection title="Слабости" value={character.flaws} />
-          <TextSection title="Прочие владения" value={character.proficiencies} />
-        </Card>
-        <Card className="p-5">
-          <h2 className="mb-3 text-base font-semibold text-stone-100">История</h2>
-          <TextSection title="Особенности" value={character.traits} />
-          <TextSection title="Предыстория" value={character.backstory} />
-          <TextSection title="Заметки" value={character.notes} />
-        </Card>
+        </aside>
+
+        <section className="sheet-right fantasy-panel rounded-lg p-4">
+          <SheetTabs
+            tabs={tabs}
+            active={tab}
+            onSelect={setTab}
+            rollsOn={rollsOn}
+            onToggleRolls={setRollsOn}
+          />
+
+          <div className="pt-4">
+            {tab === 'attacks' && (
+              <AttacksPanel
+                character={character}
+                editing={editing}
+                rollsOn={rollsOn}
+                attackBonus={attackBonus}
+                onRoll={rollDice}
+                onSaveTraits={saveField('traits')}
+                onChanged={load}
+                onError={setError}
+              />
+            )}
+            {tab === 'features' && (
+              <FeaturesPanel
+                character={character}
+                lookups={lookups}
+                editing={editing}
+                onChanged={load}
+                onError={setError}
+              />
+            )}
+            {tab === 'equipment' && (
+              <EquipmentPanel
+                character={character}
+                lookups={lookups}
+                editing={editing}
+                onChanged={load}
+                onError={setError}
+              />
+            )}
+            {tab === 'personality' && (
+              <PersonalityPanel character={character} editing={editing} onSave={saveField} />
+            )}
+            {tab === 'goals' && (
+              <GoalsPanel character={character} editing={editing} onSave={saveField} />
+            )}
+            {tab === 'notes' && (
+              <NotesPanel character={character} editing={editing} onSave={saveField} />
+            )}
+            {tab === 'spells' && (
+              <SpellsPanel
+                character={character}
+                lookups={lookups}
+                editing={editing}
+                onChangeSlot={changeSlot}
+                onChanged={load}
+                onError={setError}
+              />
+            )}
+          </div>
+        </section>
       </div>
+
+      {hpModal && (
+        <HpModal
+          character={character}
+          onClose={() => setHpModal(false)}
+          onDelta={hpDelta}
+          onRest={doRest}
+        />
+      )}
+
+      {conditionsModal && (
+        <ConditionsModal
+          character={character}
+          onClose={() => setConditionsModal(false)}
+          onChanged={load}
+          onError={setError}
+        />
+      )}
+
+      {roll && <RollModal title={roll.title} bonus={roll.bonus} d20={roll.d20} onClose={() => setRoll(null)} />}
     </div>
   )
 }
 
-function TextSection({ title, value }) {
-  if (!value) return null
+/* ===== Шапка листа ===== */
+
+function SheetHeader({
+  character,
+  subtitle,
+  level,
+  pb,
+  collapsed,
+  editing,
+  inspiration,
+  exhaustion,
+  conditionCount,
+  rollsOn,
+  onToggleCollapse,
+  onToggleEdit,
+  onInspiration,
+  onExhaustion,
+  onOpenHp,
+  onOpenConditions,
+  onRollInitiative,
+}) {
   return (
-    <div className="mb-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{title}</p>
-      <p className="mt-0.5 whitespace-pre-wrap text-sm text-stone-300">{value}</p>
-    </div>
-  )
-}
-
-function InfoRow({ label, value }) {
-  if (value === null || value === undefined) return null
-  return (
-    <div className="flex justify-between">
-      <dt className="text-stone-500">{label}</dt>
-      <dd className="font-medium text-stone-200">{value}</dd>
-    </div>
-  )
-}
-
-function SectionCard({ title, children, action }) {
-  return (
-    <Card className="p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-stone-100">{title}</h2>
-        {action}
-      </div>
-      {children}
-    </Card>
-  )
-}
-
-function SpellsTab({ character, lookups, onChanged }) {
-  const [spellId, setSpellId] = useState('')
-  const [error, setError] = useState(null)
-  const spells = character.spells ?? []
-
-  const add = async () => {
-    if (!spellId) return
-    setError(null)
-    try {
-      await api.characters.spells.add(character.id, { spell_id: Number(spellId) })
-      setSpellId('')
-      onChanged()
-    } catch (e) {
-      setError(e)
-    }
-  }
-
-  const remove = async (sid) => {
-    setError(null)
-    try {
-      await api.characters.spells.remove(character.id, sid)
-      onChanged()
-    } catch (e) {
-      setError(e)
-    }
-  }
-
-  return (
-    <SectionCard
-      title="Заклинания персонажа"
-      action={
-        <div className="flex gap-2">
-          <Select value={spellId} onChange={(e) => setSpellId(e.target.value)} className="w-56">
-            <option value="">Добавить заклинание...</option>
-            {lookups.spells.map((sp) => (
-              <option key={sp.id} value={sp.id}>{sp.name}</option>
-            ))}
-          </Select>
-          <Button variant="ghost" onClick={add}>Добавить</Button>
-        </div>
-      }
-    >
-      {error && <div className="mb-3"><ErrorBox error={error} /></div>}
-      {spells.length === 0 && <EmptyState text="Заклинаний пока нет" />}
-      <div className="space-y-3">
-        {spells.map((cs) => {
-          const sp = cs.spell || {}
-          return (
-            <div key={cs.spell_id} className="rounded border border-stone-700/70 bg-stone-800/40 p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium text-stone-100">{sp.name || `Заклинание #${cs.spell_id}`}</p>
-                  <p className="mt-0.5 text-xs text-stone-400">
-                    {[sp.school && label(sp.school), sp.level && label(sp.level), sp.cast_time && label(sp.cast_time)].filter(Boolean).join(' · ')}
-                  </p>
-                  {sp.range_type && (
-                    <p className="mt-0.5 text-xs text-stone-400">
-                      Дистанция: {label(sp.range_type)}{sp.range_value ? ` (${sp.range_value})` : ''}
-                      {sp.duration ? ` · Длительность: ${label(sp.duration)}` : ''}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => remove(cs.spell_id)}
-                  className="rounded border border-red-800 px-2 py-1 text-xs text-red-300 hover:bg-red-950/50"
-                >
-                  Убрать
-                </button>
-              </div>
-              {sp.description && <p className="mt-2 text-sm text-stone-400">{sp.description}</p>}
+    <div className="sheet-header">
+      {!collapsed && (
+        <div className="flex items-center gap-3 px-4 pb-3 pt-3">
+          <Link
+            to="/characters"
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-stone-700 bg-stone-800/70 text-stone-300 transition hover:border-ember hover:text-ember"
+            title="К списку персонажей"
+          >
+            ←
+          </Link>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-display text-lg font-bold text-stone-100">{character.name || 'Безымянный персонаж'}</p>
+            <p className="truncate text-xs text-stone-400">{subtitle || '&nbsp;'}</p>
+            <div className="mt-2 max-w-xs">
+              <XpBar level={level} current={0} next={300} />
             </div>
-          )
-        })}
+          </div>
+          <span className="grid size-12 shrink-0 place-items-center rounded-full border-2 border-stone-600 bg-stone-900 font-display text-lg font-black text-stone-100 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.35)]">
+            {(character.name || '?').slice(0, 1).toUpperCase()}
+          </span>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-4 border-t border-stone-800 px-4 py-2.5">
+        <BoxedValue label="КД">{character.armor_class ?? '—'}</BoxedValue>
+        <BoxedValue label="Скорость">{character.speed ?? '—'}</BoxedValue>
+        <BoxedValue label="Владение">+{pb}</BoxedValue>
+        <div className="ml-auto flex items-center gap-4">
+          <span className="sheet-chip" title="Золото">
+            ⛁ {character.money_gold ?? 0}
+          </span>
+          <button type="button" className="sheet-btn" onClick={onOpenHp} title="Отдых и хиты">
+            ⛺ Отдых
+          </button>
+          <button type="button" className="sheet-btn" onClick={onOpenHp} title="Хиты">
+            ♥ {character.current_hp ?? 0}/{character.max_hp ?? 0}
+            {character.temp_hp > 0 && <span className="ml-1 text-emerald-300">(+{character.temp_hp})</span>}
+          </button>
+        </div>
       </div>
-    </SectionCard>
+
+      {!collapsed && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-stone-800 px-4 py-2.5">
+          <BoxedValue label="Вдохновение" boxClassName="p-0">
+            <input
+              type="checkbox"
+              checked={inspiration}
+              onChange={onInspiration}
+              className="size-4 accent-ember"
+              title="Вдохновение"
+            />
+          </BoxedValue>
+          <BoxedValue label="Состояния">
+            <button type="button" className="text-sm text-ember hover:underline" onClick={onOpenConditions}>
+              {conditionCount > 0 ? conditionCount : '—'}
+            </button>
+          </BoxedValue>
+          <BoxedValue label="Истощение">
+            <select
+              value={exhaustion}
+              onChange={(e) => onExhaustion(Number(e.target.value))}
+              className="w-12 rounded border border-stone-700 bg-stone-800/70 px-1 py-1 text-center text-sm text-stone-100 outline-none focus:border-ember"
+              title="Уровень истощения"
+            >
+              {[0, 1, 2, 3, 4, 5, 6].map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+          </BoxedValue>
+          <BoxedValue label="Инициатива">
+            <RollButton bonus={0} disabled={!rollsOn} onClick={onRollInitiative} title="Инициатива" />
+          </BoxedValue>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleEdit}
+              className={`sheet-btn ${editing ? 'sheet-btn_primary' : ''}`}
+            >
+              {editing ? '✓ Готово' : '✎ Редактировать'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className="flex w-full items-center justify-center gap-1 rounded-b-xl border-t border-stone-800 py-1 text-[11px] uppercase tracking-wide text-stone-500 transition hover:text-stone-300"
+      >
+        <svg className={`size-3 transition ${collapsed ? '' : 'rotate-180'}`} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z" />
+        </svg>
+        {collapsed ? 'развернуть' : 'свернуть'}
+      </button>
+    </div>
   )
 }
 
-function AttacksTab({ character, onChanged }) {
+/* ===== Блок характеристики ===== */
+
+function SkillRow({ labelText, bonus, onRoll, dot, rollsOn }) {
+  return (
+    <div className="sheet-skill">
+      <span className="sheet-skill__label">
+        {dot != null && <CheckDot checked={dot.checked} onChange={dot.onChange} />}
+        <span>{labelText}</span>
+      </span>
+      <RollButton bonus={bonus} onClick={onRoll} compact disabled={!rollsOn} title={`Бросок: ${labelText}`} />
+    </div>
+  )
+}
+
+function AbilityBlock({ stat, total, saveBonus, saveProf, skills, skillMap, skillBonus, rollsOn, onRoll }) {
+  const m = mod(total)
+  return (
+    <div className="sheet-ability">
+      <div className="sheet-ability__name">
+        <span className="sheet-ability__name-link">{stat.label}</span>
+        <span className="ml-auto flex items-baseline gap-1.5">
+          <span className="text-xs text-stone-600">—</span>
+          <span className="sheet-ability__score">{total}</span>
+        </span>
+      </div>
+
+      <div className="sheet-ability__checks">
+        <SkillRow
+          labelText="Проверка"
+          bonus={m}
+          rollsOn={rollsOn}
+          onRoll={() => onRoll(`${stat.label}: проверка`, m)}
+        />
+        <SkillRow
+          labelText="Спасбросок"
+          bonus={saveBonus}
+          rollsOn={rollsOn}
+          dot={{ checked: saveProf }}
+          onRoll={() => onRoll(`${stat.label}: спасбросок`, saveBonus)}
+        />
+      </div>
+
+      {(skills ?? []).map((sk) => (
+        <SkillRow
+          key={sk.id}
+          labelText={skillMap.get(Number(sk.id))?.name ?? sk.name}
+          bonus={skillBonus(sk)}
+          rollsOn={rollsOn}
+          onRoll={() => onRoll(`Навык: ${skillMap.get(Number(sk.id))?.name ?? sk.name}`, skillBonus(sk))}
+        />
+      ))}
+    </div>
+  )
+}
+
+/* ===== Вкладки ===== */
+
+function AttacksPanel({ character, editing, rollsOn, attackBonus, onRoll, onSaveTraits, onChanged, onError }) {
+  const attacks = character.attacks ?? []
   const [form, setForm] = useState({
     name: '',
     attack_type: 'MELEE_ATTACK',
@@ -510,14 +634,12 @@ function AttacksTab({ character, onChanged }) {
     range: '',
     notes: '',
   })
-  const [error, setError] = useState(null)
-  const attacks = character.attacks ?? []
-
+  const [showForm, setShowForm] = useState(false)
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
   const add = async (e) => {
     e.preventDefault()
-    setError(null)
+    setShowForm(false)
     try {
       const body = {
         ...form,
@@ -530,339 +652,572 @@ function AttacksTab({ character, onChanged }) {
       }
       await api.characters.attacks.add(character.id, body)
       setForm((f) => ({ ...f, name: '' }))
-      onChanged()
+      await onChanged()
     } catch (err) {
-      setError(err)
+      onError(err)
     }
   }
 
   const remove = async (attackId) => {
-    setError(null)
     try {
       await api.characters.attacks.remove(character.id, attackId)
-      onChanged()
+      await onChanged()
     } catch (err) {
-      setError(err)
+      onError(err)
     }
   }
 
   return (
-    <SectionCard title="Атаки">
-      {error && <div className="mb-3"><ErrorBox error={error} /></div>}
+    <div className="space-y-4">
       {attacks.length === 0 && <EmptyState text="Атак пока нет" />}
-      <div className="space-y-3">
-        {attacks.map((a) => (
-          <div key={a.id} className="flex items-start justify-between gap-3 rounded border border-stone-700/70 bg-stone-800/40 p-3">
-            <div>
-              <p className="font-medium text-stone-100">{a.name}</p>
-              <p className="mt-0.5 text-sm text-stone-400">
-                {label(a.attack_type)} · {a.ability}
-                {a.damage_dice_count && a.damage_dice_type
-                  ? ` · ${a.damage_dice_count}${a.damage_dice_type} ${a.damage_type ? label(a.damage_type).toLowerCase() : ''}`
-                  : ''}
-                {a.bonus_attack ? ` · бонус атаки ${a.bonus_attack}` : ''}
-              </p>
-              {a.range && <p className="text-xs text-stone-500">Дистанция: {a.range}</p>}
-            </div>
-            <button
-              type="button"
-              onClick={() => remove(a.id)}
-              className="rounded border border-red-800 px-2 py-1 text-xs text-red-300 hover:bg-red-950/50"
-            >
-              Удалить
+      {attacks.length > 0 && (
+        <table className="sheet-table">
+          <thead>
+            <tr>
+              <th>название</th>
+              <th className="w-20">Бонус</th>
+              <th>урон / вид</th>
+              {editing && <th className="w-20" />}
+            </tr>
+          </thead>
+          <tbody>
+            {attacks.map((a) => (
+              <tr key={a.id}>
+                <td className="font-medium text-stone-100">{a.name}</td>
+                <td>
+                  <RollButton
+                    bonus={attackBonus(a)}
+                    compact
+                    disabled={!rollsOn}
+                    onClick={() => onRoll(`Атака: ${a.name}`, attackBonus(a))}
+                  />
+                </td>
+                <td>
+                  <RollButton
+                    bonus={0}
+                    compact
+                    disabled={!rollsOn}
+                    onClick={() => onRoll(`Урон: ${a.name}`, (num(a.bonus_damage) ?? 0))}
+                    className="mr-2"
+                  />
+                  {a.damage_dice_count && a.damage_dice_type
+                    ? `${a.damage_dice_count}${a.damage_dice_type.replace('D', 'к')}${a.damage_type ? ` ${label(a.damage_type).toLowerCase()}` : ''}`
+                    : ''}
+                </td>
+                {editing && (
+                  <td className="text-right">
+                    <button type="button" className="sheet-btn" onClick={() => remove(a.id)}>Удалить</button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <TextBlock
+        title="Атаки и заклинания"
+        value={character.traits}
+        editing={editing}
+        onSave={onSaveTraits}
+      />
+
+      {editing && (
+        <div>
+          {!showForm ? (
+            <button type="button" className="sheet-btn" onClick={() => setShowForm(true)}>
+              + Добавить атаку
             </button>
-          </div>
-        ))}
-      </div>
-      <form onSubmit={add} className="mt-5 grid gap-3 border-t border-stone-700/70 pt-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Название *"><Input required value={form.name} onChange={set('name')} /></Field>
-        <Field label="Тип">
-          <Select value={form.attack_type} onChange={set('attack_type')}>
-            {ATTACK_TYPES.map((t) => <option key={t} value={t}>{label(t)}</option>)}
-          </Select>
-        </Field>
-        <Field label="Характеристика">
-          <Select value={form.ability} onChange={set('ability')}>
-            {STATS.map((s) => <option key={s} value={s.toUpperCase()}>{s}</option>)}
-          </Select>
-        </Field>
-        <Field label="Владение">
-          <Select value={String(form.is_proficient)} onChange={set('is_proficient')}>
-            <option value="true">Да</option>
-            <option value="false">Нет</option>
-          </Select>
-        </Field>
-        <Field label="Кол-во костей"><Input type="number" min="0" value={form.damage_dice_count} onChange={set('damage_dice_count')} /></Field>
-        <Field label="Кость">
-          <Select value={form.damage_dice_type} onChange={set('damage_dice_type')}>
-            {DICE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-          </Select>
-        </Field>
-        <Field label="Тип урона">
-          <Select value={form.damage_type} onChange={set('damage_type')}>
-            {DAMAGE_TYPES.map((d) => <option key={d} value={d}>{label(d)}</option>)}
-          </Select>
-        </Field>
-        <Field label="Бонус атаки"><Input type="number" value={form.bonus_attack} onChange={set('bonus_attack')} /></Field>
-        <Field label="Бонус урона"><Input type="number" value={form.bonus_damage} onChange={set('bonus_damage')} /></Field>
-        <Field label="Дистанция"><Input value={form.range} onChange={set('range')} /></Field>
-        <Field label="Заметки"><Input value={form.notes} onChange={set('notes')} /></Field>
-        <div className="flex items-end">
-          <Button type="submit" className="w-full">Добавить атаку</Button>
-        </div>
-      </form>
-    </SectionCard>
-  )
-}
-
-function ItemsTab({ character, lookups, onChanged }) {
-  const [itemId, setItemId] = useState('')
-  const [quantity, setQuantity] = useState(1)
-  const [isEquipped, setIsEquipped] = useState(false)
-  const [isAttuned, setIsAttuned] = useState(false)
-  const [notes, setNotes] = useState('')
-  const [error, setError] = useState(null)
-  const items = character.items ?? []
-  const findItem = (itemIdV) => lookups.items.find((x) => x.id === itemIdV)?.name
-
-  const add = async () => {
-    if (!itemId) return
-    setError(null)
-    try {
-      await api.characters.items.add(character.id, {
-        item_id: Number(itemId),
-        quantity: Number(quantity) || 1,
-        is_equipped: isEquipped,
-        is_attuned: isAttuned,
-        notes: notes || undefined,
-      })
-      setItemId('')
-      setNotes('')
-      onChanged()
-    } catch (e) {
-      setError(e)
-    }
-  }
-
-  const update = async (charItemId, patch) => {
-    setError(null)
-    try {
-      await api.characters.items.update(character.id, charItemId, patch)
-      onChanged()
-    } catch (e) {
-      setError(e)
-    }
-  }
-
-  const remove = async (charItemId) => {
-    setError(null)
-    try {
-      await api.characters.items.remove(character.id, charItemId)
-      onChanged()
-    } catch (e) {
-      setError(e)
-    }
-  }
-
-  return (
-    <SectionCard title="Инвентарь">
-      {error && <div className="mb-3"><ErrorBox error={error} /></div>}
-      {items.length === 0 && <EmptyState text="Инвентарь пуст" />}
-      <div className="space-y-3">
-        {items.map((ci) => (
-          <div key={ci.id} className="flex items-center justify-between gap-3 rounded border border-stone-700/70 bg-stone-800/40 p-3">
-            <div className="min-w-0">
-              <p className="font-medium text-stone-100">
-                {findItem(ci.item_id) || `Предмет #${ci.item_id}`}
-                <span className="ml-2 text-sm font-normal text-stone-400">×{ci.quantity}</span>
-              </p>
-              <div className="mt-1.5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => update(ci.id, { is_equipped: !ci.is_equipped })}
-                  className={`rounded px-2 py-0.5 text-xs ${ci.is_equipped ? 'bg-ember text-white' : 'bg-stone-700 text-stone-300 hover:bg-stone-600'}`}
-                >
-                  Экипировано
-                </button>
-                <button
-                  type="button"
-                  onClick={() => update(ci.id, { is_attuned: !ci.is_attuned })}
-                  className={`rounded px-2 py-0.5 text-xs ${ci.is_attuned ? 'bg-emerald-800 text-emerald-200' : 'bg-stone-700 text-stone-300 hover:bg-stone-600'}`}
-                >
-                  Настроено
-                </button>
+          ) : (
+            <form onSubmit={add} className="space-y-3 rounded-lg border border-stone-700/70 bg-stone-900/60 p-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Название *"><Input required value={form.name} onChange={set('name')} /></Field>
+                <Field label="Тип">
+                  <Select value={form.attack_type} onChange={set('attack_type')}>
+                    {ATTACK_TYPES.map((t) => <option key={t} value={t}>{label(t)}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Характеристика">
+                  <Select value={form.ability} onChange={set('ability')}>
+                    {STATS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Владение">
+                  <Select value={String(form.is_proficient)} onChange={set('is_proficient')}>
+                    <option value="true">Да</option>
+                    <option value="false">Нет</option>
+                  </Select>
+                </Field>
+                <Field label="Кол-во костей"><Input type="number" min="0" value={form.damage_dice_count} onChange={set('damage_dice_count')} /></Field>
+                <Field label="Кость">
+                  <Select value={form.damage_dice_type} onChange={set('damage_dice_type')}>
+                    {DICE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Тип урона">
+                  <Select value={form.damage_type} onChange={set('damage_type')}>
+                    {DAMAGE_TYPES.map((d) => <option key={d} value={d}>{label(d)}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Бонус атаки"><Input type="number" value={form.bonus_attack} onChange={set('bonus_attack')} /></Field>
+                <Field label="Бонус урона"><Input type="number" value={form.bonus_damage} onChange={set('bonus_damage')} /></Field>
+                <Field label="Дистанция"><Input value={form.range} onChange={set('range')} /></Field>
+                <Field label="Заметки"><Input value={form.notes} onChange={set('notes')} /></Field>
               </div>
-              {ci.notes && <p className="mt-1 text-xs text-stone-500">{ci.notes}</p>}
-            </div>
-            <button
-              type="button"
-              onClick={() => remove(ci.id)}
-              className="rounded border border-red-800 px-2 py-1 text-xs text-red-300 hover:bg-red-950/50"
-            >
-              Удалить
-            </button>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 grid gap-3 border-t border-stone-700/70 pt-4 sm:grid-cols-2 lg:grid-cols-6">
-        <div className="lg:col-span-2">
-          <Field label="Предмет">
-            <Select value={itemId} onChange={(e) => setItemId(e.target.value)}>
-              <option value="">Выберите...</option>
-              {lookups.items.map((it) => (
-                <option key={it.id} value={it.id}>{it.name}</option>
-              ))}
-            </Select>
-          </Field>
+              <div className="flex items-center gap-2">
+                <Button type="submit">Добавить атаку</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Отмена</Button>
+              </div>
+            </form>
+          )}
         </div>
-        <Field label="Кол-во"><Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
-        <Field label="Экипировано">
-          <Select value={String(isEquipped)} onChange={(e) => setIsEquipped(e.target.value === 'true')}>
-            <option value="false">Нет</option>
-            <option value="true">Да</option>
-          </Select>
-        </Field>
-        <Field label="Настроено">
-          <Select value={String(isAttuned)} onChange={(e) => setIsAttuned(e.target.value === 'true')}>
-            <option value="false">Нет</option>
-            <option value="true">Да</option>
-          </Select>
-        </Field>
-        <div className="flex items-end">
-          <Button onClick={add} className="w-full">Добавить</Button>
-        </div>
-      </div>
-    </SectionCard>
+      )}
+    </div>
   )
 }
 
-function FeatsTab({ character, lookups, onChanged }) {
-  const [featId, setFeatId] = useState('')
-  const [featureId, setFeatureId] = useState('')
-  const [error, setError] = useState(null)
+function FeatSection({ title, items, editing, renderName, onRemove }) {
+  return (
+    <div className="space-y-2">
+      <p className="sheet-section-label">{title}</p>
+      {items.length === 0 ? (
+        <p className="text-sm text-stone-500">Ничего не добавлено</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((cf) => (
+            <li key={cf.id} className="flex items-start justify-between gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-stone-100">{renderName(cf)}</p>
+              </div>
+              {editing && (
+                <button type="button" className="sheet-btn shrink-0" onClick={() => onRemove(cf)}>
+                  Убрать
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function FeaturesPanel({ character, lookups, editing, onChanged, onError }) {
   const feats = character.feats ?? []
   const features = character.features ?? []
+  const [featId, setFeatId] = useState('')
+  const [featureId, setFeatureId] = useState('')
   const findFeat = (idv) => lookups.feats.find((x) => x.id === idv)?.name
   const findFeature = (idv) => lookups.features.find((x) => x.id === idv)?.name
 
   const addFeat = async () => {
     if (!featId) return
-    setError(null)
     try {
       await api.characters.feats.add(character.id, { feat_id: Number(featId) })
       setFeatId('')
-      onChanged()
+      await onChanged()
     } catch (e) {
-      setError(e)
+      onError(e)
     }
   }
 
   const addFeature = async () => {
     if (!featureId) return
-    setError(null)
     try {
       await api.characters.features.add(character.id, { feature_id: Number(featureId) })
       setFeatureId('')
-      onChanged()
+      await onChanged()
     } catch (e) {
-      setError(e)
+      onError(e)
     }
   }
 
   const removeFeat = async (cfId) => {
-    setError(null)
     try {
       await api.characters.feats.remove(character.id, cfId)
-      onChanged()
+      await onChanged()
     } catch (e) {
-      setError(e)
+      onError(e)
     }
   }
 
   const removeFeature = async (cfId) => {
-    setError(null)
     try {
       await api.characters.features.remove(character.id, cfId)
-      onChanged()
+      await onChanged()
     } catch (e) {
-      setError(e)
+      onError(e)
     }
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
-      <SectionCard
+    <div className="space-y-5">
+      <FeatSection
         title="Черты"
-        action={
-          <div className="flex gap-2">
-            <Select value={featId} onChange={(e) => setFeatId(e.target.value)} className="w-52">
-              <option value="">Добавить...</option>
-              {lookups.feats.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </Select>
-            <Button variant="ghost" onClick={addFeat}>+</Button>
-          </div>
-        }
-      >
-        {error && <div className="mb-3"><ErrorBox error={error} /></div>}
-        {feats.length === 0 && <EmptyState text="Черты не выбраны" />}
-        <ul className="space-y-2">
-          {feats.map((cf) => (
-            <li key={cf.id} className="flex items-center justify-between gap-2 rounded border border-stone-700/70 bg-stone-800/40 px-3 py-2">
-              <span className="text-sm text-stone-200">{findFeat(cf.feat_id) || `Черта #${cf.feat_id}`}</span>
-              <button
-                type="button"
-                onClick={() => removeFeat(cf.id)}
-                className="rounded border border-red-800 px-2 py-0.5 text-xs text-red-300 hover:bg-red-950/50"
-              >
-                Убрать
-              </button>
-            </li>
-          ))}
-        </ul>
-      </SectionCard>
-
-      <SectionCard
+        items={feats.map((cf) => ({ ...cf, is_feat: true }))}
+        editing={editing}
+        renderName={(cf) => findFeat(cf.feat_id) || `Черта #${cf.feat_id}`}
+        onRemove={(cf) => (cf.is_feat ? removeFeat(cf.id) : removeFeature(cf.id))}
+      />
+      <FeatSection
         title="Свойства"
-        action={
-          <div className="flex gap-2">
-            <Select value={featureId} onChange={(e) => setFeatureId(e.target.value)} className="w-52">
-              <option value="">Добавить...</option>
-              {lookups.features.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </Select>
-            <Button variant="ghost" onClick={addFeature}>+</Button>
+        items={features.map((cf) => ({ ...cf, is_feat: false }))}
+        editing={editing}
+        renderName={(cf) => findFeature(cf.feature_id) || `Свойство #${cf.feature_id}`}
+        onRemove={(cf) => (cf.is_feat ? removeFeat(cf.id) : removeFeature(cf.id))}
+      />
+
+      {editing && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-end gap-2">
+            <Field label="Добавить черту">
+              <Select value={featId} onChange={(e) => setFeatId(e.target.value)}>
+                <option value="">Выберите...</option>
+                {lookups.feats.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </Select>
+            </Field>
+            <Button onClick={addFeat}>+</Button>
           </div>
-        }
-      >
-        {features.length === 0 && <EmptyState text="Свойства не добавлены" />}
-        <ul className="space-y-2">
-          {features.map((cf) => (
-            <li key={cf.id} className="flex items-center justify-between gap-2 rounded border border-stone-700/70 bg-stone-800/40 px-3 py-2">
-              <span className="text-sm text-stone-200">{findFeature(cf.feature_id) || `Свойство #${cf.feature_id}`}</span>
-              <button
-                type="button"
-                onClick={() => removeFeature(cf.id)}
-                className="rounded border border-red-800 px-2 py-0.5 text-xs text-red-300 hover:bg-red-950/50"
-              >
-                Убрать
-              </button>
-            </li>
-          ))}
-        </ul>
-      </SectionCard>
+          <div className="flex items-end gap-2">
+            <Field label="Добавить свойство">
+              <Select value={featureId} onChange={(e) => setFeatureId(e.target.value)}>
+                <option value="">Выберите...</option>
+                {lookups.features.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </Select>
+            </Field>
+            <Button onClick={addFeature}>+</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function ConditionsTab({ character, onChanged }) {
+function EquipmentPanel({ character, lookups, editing, onChanged, onError }) {
+  const items = character.items ?? []
+  const [itemId, setItemId] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  const [showForm, setShowForm] = useState(false)
+  const findItem = (idv) => lookups.items.find((x) => x.id === idv)?.name
+
+  const add = async () => {
+    if (!itemId) return
+    setShowForm(false)
+    try {
+      await api.characters.items.add(character.id, {
+        item_id: Number(itemId),
+        quantity: Number(quantity) || 1,
+        is_equipped: false,
+        is_attuned: false,
+      })
+      setItemId('')
+      await onChanged()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const update = async (charItemId, patch) => {
+    try {
+      await api.characters.items.update(character.id, charItemId, patch)
+      await onChanged()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const remove = async (charItemId) => {
+    try {
+      await api.characters.items.remove(character.id, charItemId)
+      await onChanged()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {items.length === 0 && <EmptyState text="Инвентарь пуст" />}
+      {items.length > 0 && (
+        <ul className="space-y-2">
+          {items.map((ci) => (
+            <li key={ci.id} className="flex items-center justify-between gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-stone-100">
+                  {findItem(ci.item_id) || `Предмет #${ci.item_id}`}
+                  <span className="ml-2 text-xs font-normal text-stone-400">×{ci.quantity}</span>
+                </p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => update(ci.id, { is_equipped: !ci.is_equipped })}
+                    className={`sheet-chip ${ci.is_equipped ? 'sheet-chip_on' : ''}`}
+                  >
+                    <span className="sheet-chip__dot" />
+                    Экипировано
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => update(ci.id, { is_attuned: !ci.is_attuned })}
+                    className={`sheet-chip ${ci.is_attuned ? 'sheet-chip_on' : ''}`}
+                  >
+                    <span className="sheet-chip__dot" />
+                    Настроено
+                  </button>
+                </div>
+              </div>
+              {editing && (
+                <button type="button" className="sheet-btn shrink-0" onClick={() => remove(ci.id)}>
+                  Удалить
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+        <p className="sheet-section-label !mt-0">Деньги</p>
+        <div className="flex gap-5 text-sm">
+          <span className="text-stone-200"><span className="text-yellow-300">⛁</span> {character.money_gold ?? 0} зм</span>
+          <span className="text-stone-200"><span className="text-stone-300">⛀</span> {character.money_silver ?? 0} см</span>
+          <span className="text-stone-200"><span className="text-amber-700">⛁</span> {character.money_copper ?? 0} мм</span>
+        </div>
+      </div>
+
+      {editing && (
+        <div>
+          {!showForm ? (
+            <button type="button" className="sheet-btn" onClick={() => setShowForm(true)}>
+              + Добавить предмет
+            </button>
+          ) : (
+            <div className="grid gap-3 rounded-lg border border-stone-700/70 bg-stone-900/60 p-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Field label="Предмет">
+                  <Select value={itemId} onChange={(e) => setItemId(e.target.value)}>
+                    <option value="">Выберите...</option>
+                    {lookups.items.map((it) => (
+                      <option key={it.id} value={it.id}>{it.name}</option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+              <Field label="Кол-во"><Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
+              <div className="flex items-end gap-2">
+                <Button onClick={add}>Добавить</Button>
+                <Button variant="ghost" onClick={() => setShowForm(false)}>Отмена</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PersonalityPanel({ character, editing, onSave }) {
+  return (
+    <div className="space-y-3">
+      <TextBlock title="Черты характера" value={character.personality_traits} editing={editing} onSave={onSave('personality_traits')} />
+      <TextBlock title="Идеалы" value={character.ideals} editing={editing} onSave={onSave('ideals')} />
+      <TextBlock title="Привязанности" value={character.bonds} editing={editing} onSave={onSave('bonds')} />
+      <TextBlock title="Слабости" value={character.flaws} editing={editing} onSave={onSave('flaws')} />
+    </div>
+  )
+}
+
+function GoalsPanel({ character, editing, onSave }) {
+  return (
+    <div className="space-y-3">
+      <TextBlock title="История и цели" value={character.backstory} editing={editing} onSave={onSave('backstory')} />
+    </div>
+  )
+}
+
+function NotesPanel({ character, editing, onSave }) {
+  return (
+    <div className="space-y-3">
+      <TextBlock title="Заметки" value={character.notes} editing={editing} onSave={onSave('notes')} />
+    </div>
+  )
+}
+
+function SpellsPanel({ character, lookups, editing, onChangeSlot, onChanged, onError }) {
+  const [spellId, setSpellId] = useState('')
+  const spells = character.spells ?? []
+  const slots = character.spell_slots ?? []
+
+  const byLevel = useMemo(() => {
+    const groups = {}
+    for (const cs of character.spells ?? []) {
+      const lv = cs.spell?.level ?? 'OTHER'
+      if (!groups[lv]) groups[lv] = []
+      groups[lv].push(cs)
+    }
+    return groups
+  }, [character.spells])
+
+  const add = async () => {
+    if (!spellId) return
+    try {
+      await api.characters.spells.add(character.id, { spell_id: Number(spellId) })
+      setSpellId('')
+      await onChanged()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const remove = async (sid) => {
+    try {
+      await api.characters.spells.remove(character.id, sid)
+      await onChanged()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {slots.length > 0 && (
+        <div>
+          <p className="sheet-section-label">Слоты заклинаний</p>
+          <div className="flex flex-wrap gap-2">
+            {slots.map((slot) => (
+              <div key={slot.spell_level} className="sheet-boxed">
+                <div className="sheet-boxed__box min-w-0 flex-col !gap-0.5 !px-3">
+                  <span className="text-sm">{slot.used} / {slot.total}</span>
+                  <span className="flex gap-1">
+                    <button
+                      type="button"
+                      disabled={slot.used <= 0}
+                      onClick={() => onChangeSlot(slot.spell_level, slot.used - 1)}
+                      className="sheet-btn !px-1.5"
+                    >
+                      −
+                    </button>
+                    <button
+                      type="button"
+                      disabled={slot.used >= slot.total}
+                      onClick={() => onChangeSlot(slot.spell_level, slot.used + 1)}
+                      className="sheet-btn !px-1.5"
+                    >
+                      +
+                    </button>
+                  </span>
+                </div>
+                <span className="sheet-boxed__label">{label(slot.spell_level)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <p className="sheet-section-label">Заклинания</p>
+        {spells.length === 0 && <EmptyState text="Заклинаний пока нет" />}
+        <div className="space-y-4">
+          {SPELL_LEVEL_ORDER.filter((lv) => byLevel[lv]).map((lv) => (
+            <div key={lv}>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                {lv === 'CANTRIP' ? 'Заговоры' : label(lv)}
+              </p>
+              <ul className="space-y-2">
+                {byLevel[lv].map((cs) => {
+                  const sp = cs.spell || {}
+                  return (
+                    <li key={cs.spell_id} className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-stone-100">{sp.name || `Заклинание #${cs.spell_id}`}</p>
+                          <p className="mt-0.5 text-xs text-stone-400">
+                            {[sp.school && label(sp.school), sp.cast_time && label(sp.cast_time)].filter(Boolean).join(' · ')}
+                          </p>
+                          {sp.range_type && (
+                            <p className="mt-0.5 text-xs text-stone-400">
+                              Дистанция: {label(sp.range_type)}{sp.range_value ? ` (${sp.range_value})` : ''}
+                              {sp.duration ? ` · ${label(sp.duration)}` : ''}
+                            </p>
+                          )}
+                        </div>
+                        {editing && (
+                          <button type="button" className="sheet-btn shrink-0" onClick={() => remove(cs.spell_id)}>
+                            Убрать
+                          </button>
+                        )}
+                      </div>
+                      {sp.description && <p className="mt-2 text-sm text-stone-400">{sp.description}</p>}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {editing && (
+        <div className="flex items-end gap-2">
+          <Field label="Добавить заклинание">
+            <Select value={spellId} onChange={(e) => setSpellId(e.target.value)}>
+              <option value="">Выберите...</option>
+              {lookups.spells.map((sp) => (
+                <option key={sp.id} value={sp.id}>{sp.name}</option>
+              ))}
+            </Select>
+          </Field>
+          <Button onClick={add}>Добавить</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ===== Модалки ===== */
+
+function HpModal({ character, onClose, onDelta, onRest }) {
+  const [delta, setDelta] = useState('')
+  const apply = () => {
+    if (delta === '') return
+    onDelta(num(delta))
+    setDelta('')
+  }
+  return (
+    <Modal title="Хиты и отдых" onClose={onClose} size="sm">
+        <div className="text-center">
+          <p className="font-display text-3xl font-bold text-stone-100">
+            {character.current_hp}<span className="text-base font-normal text-stone-400"> / {character.max_hp}</span>
+          </p>
+          {character.temp_hp > 0 && <p className="mt-1 text-sm text-emerald-300">Временные: {character.temp_hp}</p>}
+          <p className="mt-1 text-xs text-stone-500">Кость хитов: {character.hit_dice || '—'}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2">
+          <button type="button" className="sheet-btn" onClick={() => onDelta(-10)}>-10</button>
+          <button type="button" className="sheet-btn" onClick={() => onDelta(-1)}>-1</button>
+          <button type="button" className="sheet-btn" onClick={() => onDelta(1)}>+1</button>
+          <button type="button" className="sheet-btn" onClick={() => onDelta(10)}>+10</button>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <Input type="number" placeholder="Дельта" value={delta} onChange={(e) => setDelta(e.target.value)} />
+          <button type="button" className="sheet-btn sheet-btn_primary" onClick={apply}>Применить</button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-stone-700/70 pt-4">
+          <button type="button" className="sheet-btn" onClick={() => onRest('short')}>Короткий отдых</button>
+          <button type="button" className="sheet-btn" onClick={() => onRest('long')}>Длинный отдых</button>
+        </div>
+    </Modal>
+  )
+}
+
+function ConditionsModal({ character, onClose, onChanged, onError }) {
   const [condition, setCondition] = useState('')
   const [exhaustion, setExhaustion] = useState('')
   const [source, setSource] = useState('')
-  const [error, setError] = useState(null)
   const conditions = character.conditions ?? []
 
   const add = async () => {
     if (!condition) return
-    setError(null)
     try {
       await api.characters.conditions.add(character.id, {
         condition,
@@ -871,60 +1226,57 @@ function ConditionsTab({ character, onChanged }) {
       })
       setExhaustion('')
       setSource('')
-      onChanged()
+      await onChanged()
     } catch (e) {
-      setError(e)
+      onError(e)
     }
   }
 
   const remove = async (cond) => {
-    setError(null)
     try {
       await api.characters.conditions.remove(character.id, cond)
-      onChanged()
+      await onChanged()
     } catch (e) {
-      setError(e)
+      onError(e)
     }
   }
 
   return (
-    <SectionCard title="Состояния">
-      {error && <div className="mb-3"><ErrorBox error={error} /></div>}
-      {conditions.length === 0 && <EmptyState text="Нет активных состояний" />}
-      <div className="flex flex-wrap gap-2">
-        {conditions.map((c) => (
-          <div key={c.condition} className="flex items-center gap-2 rounded bg-stone-800/60 px-3 py-1.5 text-sm">
-            <span className="font-medium text-stone-200">{label(c.condition)}</span>
-            {c.exhaustion_level != null && <Badge tone="bad">Ур. {c.exhaustion_level}</Badge>}
-            {c.source && <span className="text-xs text-stone-500">{c.source}</span>}
-            <button
-              type="button"
-              onClick={() => remove(c.condition)}
-              className="ml-1 text-stone-500 hover:text-red-300"
-              title="Снять состояние"
-            >
-              ×
-            </button>
+    <Modal title="Состояния" onClose={onClose} size="md">
+        {conditions.length === 0 ? (
+          <EmptyState text="Нет активных состояний" />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {conditions.map((c) => (
+              <span key={c.condition} className="sheet-chip sheet-chip_on">
+                <span className="sheet-chip__dot" />
+                {conditionLabels[c.condition] ?? label(c.condition)}
+                {c.exhaustion_level != null && <span className="text-stone-400">Ур. {c.exhaustion_level}</span>}
+                {c.source && <span className="text-stone-400">{c.source}</span>}
+                <button type="button" className="ml-0.5 text-stone-400 hover:text-red-300" onClick={() => remove(c.condition)} title="Снять состояние">×</button>
+              </span>
+            ))}
           </div>
-        ))}
-      </div>
-      <div className="mt-5 grid gap-3 border-t border-stone-700/70 pt-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Состояние">
-          <Select value={condition} onChange={(e) => setCondition(e.target.value)}>
-            <option value="">Выберите...</option>
-            {CONDITIONS.map((c) => <option key={c} value={c}>{label(c)}</option>)}
-          </Select>
-        </Field>
-        <Field label="Уровень истощения">
-          <Input type="number" min="1" max="6" value={exhaustion} onChange={(e) => setExhaustion(e.target.value)} />
-        </Field>
-        <Field label="Источник">
-          <Input value={source} onChange={(e) => setSource(e.target.value)} />
-        </Field>
-        <div className="flex items-end">
-          <Button onClick={add} className="w-full">Добавить</Button>
+        )}
+        <div className="mt-5 grid gap-3 border-t border-stone-700/70 pt-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Field label="Состояние">
+              <Select value={condition} onChange={(e) => setCondition(e.target.value)}>
+                <option value="">Выберите...</option>
+                {CONDITIONS.map((c) => <option key={c} value={c}>{conditionLabels[c] ?? label(c)}</option>)}
+              </Select>
+            </Field>
+          </div>
+          <Field label="Уровень истощения">
+            <Input type="number" min="1" max="6" value={exhaustion} onChange={(e) => setExhaustion(e.target.value)} />
+          </Field>
+          <div className="flex items-end">
+            <Button onClick={add} className="w-full">Добавить</Button>
+          </div>
+          <Field label="Источник">
+            <Input value={source} onChange={(e) => setSource(e.target.value)} />
+          </Field>
         </div>
-      </div>
-    </SectionCard>
+    </Modal>
   )
 }

@@ -129,13 +129,9 @@ export default function UsersPage() {
                     {u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => remove(u.id)}
-                      className="rounded border border-red-800 px-2 py-1 text-xs text-red-300 hover:bg-red-950/50"
-                    >
+                    <Button type="button" variant="danger" size="sm" onClick={() => remove(u.id)}>
                       Удалить
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}

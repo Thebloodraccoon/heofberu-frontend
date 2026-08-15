@@ -5,12 +5,8 @@ import FeatureModal from '../components/FeaturesModal.jsx'
 import SubclassEditor from '../components/SubclassEditor.jsx'
 import SubraceEditor from '../components/SubraceEditor.jsx'
 import { ruLevel, label } from '../labels.js'
-import { Badge, Button, Card, EmptyState, ErrorBox, Field, Input, PageHeader, Select, Spinner, TextArea } from '../components/ui.jsx'
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, Input, PageHeader, PillToggle, Select, Spinner, TextArea } from '../components/ui.jsx'
 import ItemPickerModal from '../components/ItemPickerModal.jsx'
-
-const inputClass =
-  'w-full rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember'
-const textareaClass = `${inputClass} min-h-24 resize-y leading-relaxed`
 
 function SectionTitle({ children }) {
   return (
@@ -18,37 +14,14 @@ function SectionTitle({ children }) {
   )
 }
 
-function PillToggle({ options, selected, onToggle }) {
-  return (
-    <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded border border-stone-700/60 bg-stone-900/50 p-3">
-      {options.map((o) => {
-        const active = selected.includes(o.value)
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onToggle(o.value)}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition ${
-              active ? 'bg-ember text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
-            }`}
-          >
-            {o.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 function EditorFieldControl({ field, value, onChange }) {
   if (field.type === 'textarea') {
     return (
-      <textarea
+      <TextArea
         value={value}
         onChange={onChange}
         placeholder={field.placeholder}
         rows={field.rows ?? 4}
-        className={textareaClass}
       />
     )
   }
@@ -86,6 +59,7 @@ export default function GmEditorPage() {
   const [query, setQuery] = useState('')
 
   const [editing, setEditing] = useState(null)
+  const [selectedId, setSelectedId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(null)
   const [editLoading, setEditLoading] = useState(false)
@@ -193,11 +167,8 @@ export default function GmEditorPage() {
   const loadSubDetail = async (classId, sub) => {
     setSubDetail(sub.id, { loading: true, error: null })
     try {
-      const [detail, feats] = await Promise.all([
-        api.classes.subclasses.get(classId, sub.id),
-        api.classes.subclasses.features.list(classId, sub.id),
-      ])
-      setSubDetail(sub.id, { detail, features: feats, loading: false })
+      const detail = await api.classes.subclasses.get(classId, sub.id)
+      setSubDetail(sub.id, { detail, features: detail.features ?? [], loading: false })
     } catch (e) {
       setSubDetail(sub.id, { loading: false, error: e })
     }
@@ -274,11 +245,8 @@ export default function GmEditorPage() {
   const loadSubraceDetail = async (raceId, sub) => {
     setSubraceDetail(sub.id, { loading: true, error: null })
     try {
-      const [detail, feats] = await Promise.all([
-        api.races.subraces.get(raceId, sub.id),
-        api.races.subraces.features.list(raceId, sub.id),
-      ])
-      setSubraceDetail(sub.id, { detail, features: feats, loading: false })
+      const detail = await api.races.subraces.get(raceId, sub.id)
+      setSubraceDetail(sub.id, { detail, features: detail.features ?? [], loading: false })
     } catch (e) {
       setSubraceDetail(sub.id, { loading: false, error: e })
     }
@@ -346,6 +314,7 @@ export default function GmEditorPage() {
     setFeatureModal(null)
     setEditLoading(true)
     setShowForm(true)
+    setSelectedId(rec.id)
     try {
       const full = await cfg.api.get(rec.id)
       setEditing(full)
@@ -361,6 +330,7 @@ export default function GmEditorPage() {
   const closeForm = () => {
     setShowForm(false)
     setEditing(null)
+    setSelectedId(null)
     setForm(null)
     setFeatureModal(null)
     setEditLoading(false)
@@ -432,8 +402,21 @@ export default function GmEditorPage() {
       slots[spellLevel] = v
       return { ...f, [key]: { ...(f[key] ?? {}), [classLevel]: slots } }
     })
+  const addSpellSlotLevel = (key) =>
+    setForm((f) => {
+      const levels = Object.keys(f[key] ?? {}).map(Number)
+      const next = levels.length ? Math.max(...levels) + 1 : 1
+      if (next > 20) return f
+      return { ...f, [key]: { ...(f[key] ?? {}), [next]: {} } }
+    })
+  const removeSpellSlotLevel = (key, classLevel) =>
+    setForm((f) => {
+      const slots = { ...(f[key] ?? {}) }
+      delete slots[classLevel]
+      return { ...f, [key]: slots }
+    })
 
-  const listOptions = useMemo(() => {
+  const listOptions = (() => {
     const toOptions = (arr) => arr.map((x) => ({ value: x.id, label: x.name }))
     const srcFor = (key) => (key === resource && records ? records : pills[key] ?? [])
     return {
@@ -442,7 +425,7 @@ export default function GmEditorPage() {
       races: toOptions(srcFor('races')),
       items: toOptions(srcFor('items')),
     }
-  }, [pills, records, resource])
+  })()
 
   const saveFields = async (e) => {
     e.preventDefault()
@@ -650,7 +633,14 @@ export default function GmEditorPage() {
               <p className="text-sm text-stone-500">Нет записей — создайте первую</p>
             ) : (
             filtered.map((it) => (
-              <div key={it.id} className="fantasy-panel rounded-lg p-3 transition hover:border-ember/50">
+              <div
+                key={it.id}
+                className={`card-hover fantasy-panel cursor-pointer rounded-lg p-3 transition ${
+                  selectedId === it.id
+                    ? 'border-ember/80 bg-stone-900'
+                    : 'hover:border-ember/50'
+                }`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <button
                     type="button"
@@ -658,7 +648,7 @@ export default function GmEditorPage() {
                     className="min-w-0 flex-1 text-left"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-sm font-bold text-stone-100">{it.name}</p>
+                      <p className={`font-display text-sm font-bold ${selectedId === it.id ? 'text-ember' : 'text-stone-100'}`}>{it.name}</p>
                     </div>
                     {cfg.listBadges(it).length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -678,13 +668,14 @@ export default function GmEditorPage() {
                     >
                       Изменить
                     </button>
-                    <button
+                    <Button
                       type="button"
+                      variant="danger"
+                      size="xs"
                       onClick={() => setDeleteTarget(it)}
-                      className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
                     >
                       Удалить
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -701,13 +692,14 @@ export default function GmEditorPage() {
                       {editing ? `Редактирование: ${editing.name}` : `Новая ${cfg.singular}`}
                     </h2>
                     {editing && (
-                      <button
+                      <Button
                         type="button"
+                        variant="danger"
+                        size="sm"
                         onClick={() => setDeleteTarget(editing)}
-                        className="rounded border border-red-800 px-2.5 py-1 text-xs text-red-300 transition hover:bg-red-950/50"
                       >
                         Удалить...
-                      </button>
+                      </Button>
                     )}
                   </div>
                   <div className="ornate-rule mt-3">
@@ -757,68 +749,98 @@ export default function GmEditorPage() {
                     })
                     .map((section) => {
                     if (section.type === 'spellSlots') {
+                      const slotLevels = Object.keys(form[section.key] ?? {})
+                        .map(Number)
+                        .sort((a, b) => a - b)
                       return (
                         <div key={section.key}>
-                          <div className="mb-2">
+                          <div className="mb-2 flex items-center justify-between">
                             <SectionTitle>{section.label}</SectionTitle>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => addSpellSlotLevel(section.key)}
+                              disabled={slotLevels.length >= 20}
+                            >
+                              + Добавить уровень
+                            </Button>
                           </div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full min-w-[640px] border-collapse text-sm">
-                              <thead>
-                                <tr>
-                                  <th className="w-10 border border-stone-700 bg-stone-900/50 px-2 py-1 text-left text-xs font-semibold text-stone-400">
-                                    Ур.
-                                  </th>
-                                  <th className="border border-stone-700 bg-stone-900/50 px-2 py-1 text-xs font-semibold text-stone-400">
-                                    Кантрип
-                                  </th>
-                                  {Array.from({ length: 9 }, (_, i) => (
-                                    <th
-                                      key={i}
-                                      className="border border-stone-700 bg-stone-900/50 px-2 py-1 text-xs font-semibold text-stone-400"
-                                    >
-                                      {i + 1}
+                          {slotLevels.length === 0 && (
+                            <p className="text-sm text-stone-500">
+                              {section.empty} — нажмите «Добавить уровень», чтобы задать ячейки заклинаний.
+                            </p>
+                          )}
+                          {slotLevels.length > 0 && (
+                            <div className="overflow-x-auto">
+                              <table className="w-full min-w-[640px] border-collapse text-sm">
+                                <thead>
+                                  <tr>
+                                    <th className="w-10 border border-stone-700 bg-stone-900/50 px-2 py-1 text-left text-xs font-semibold text-stone-400">
+                                      Ур.
                                     </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {Array.from({ length: 20 }, (_, i) => {
-                                  const classLevel = i + 1
-                                  const row = form[section.key]?.[classLevel] ?? {}
-                                  return (
-                                    <tr key={classLevel}>
-                                      <td className="border border-stone-700 px-2 py-1 text-xs text-stone-300">
-                                        {classLevel}
-                                      </td>
-                                      <td className="border border-stone-700 p-1">
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          max={9}
-                                          value={row.CANTRIP ?? ''}
-                                          onChange={(e) => setSpellSlot(section.key, classLevel, 'CANTRIP', e.target.value)}
-                                          className="w-full rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
-                                        />
-                                      </td>
-                                      {SPELL_LEVEL_KEYS.slice(1).map((spellLevel) => (
-                                        <td key={spellLevel} className="border border-stone-700 p-1">
+                                    <th className="border border-stone-700 bg-stone-900/50 px-2 py-1 text-xs font-semibold text-stone-400">
+                                      Кантрип
+                                    </th>
+                                    {Array.from({ length: 9 }, (_, i) => (
+                                      <th
+                                        key={i}
+                                        className="border border-stone-700 bg-stone-900/50 px-2 py-1 text-xs font-semibold text-stone-400"
+                                      >
+                                        {i + 1}
+                                      </th>
+                                    ))}
+                                    <th className="w-10 border border-stone-700 bg-stone-900/50 px-2 py-1" />
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {slotLevels.map((classLevel) => {
+                                    const row = form[section.key]?.[classLevel] ?? {}
+                                    return (
+                                      <tr key={classLevel}>
+                                        <td className="border border-stone-700 px-2 py-1 text-xs font-medium text-stone-300">
+                                          {classLevel}
+                                        </td>
+                                        <td className="border border-stone-700 p-1">
                                           <input
                                             type="number"
                                             min={0}
                                             max={9}
-                                            value={row[spellLevel] ?? ''}
-                                            onChange={(e) => setSpellSlot(section.key, classLevel, spellLevel, e.target.value)}
+                                            value={row.CANTRIP ?? ''}
+                                            onChange={(e) => setSpellSlot(section.key, classLevel, 'CANTRIP', e.target.value)}
                                             className="w-full rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
                                           />
                                         </td>
-                                      ))}
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
+                                        {SPELL_LEVEL_KEYS.slice(1).map((spellLevel) => (
+                                          <td key={spellLevel} className="border border-stone-700 p-1">
+                                            <input
+                                              type="number"
+                                              min={0}
+                                              max={9}
+                                              value={row[spellLevel] ?? ''}
+                                              onChange={(e) => setSpellSlot(section.key, classLevel, spellLevel, e.target.value)}
+                                              className="w-full rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
+                                            />
+                                          </td>
+                                        ))}
+                                        <td className="border border-stone-700 px-1 text-center">
+                                          <button
+                                            type="button"
+                                            onClick={() => removeSpellSlotLevel(section.key, classLevel)}
+                                            className="rounded px-1.5 py-0.5 text-xs text-red-400 transition hover:bg-red-950/50 hover:text-red-300"
+                                            aria-label={`Убрать уровень ${classLevel}`}
+                                            title={`Убрать уровень ${classLevel}`}
+                                          >
+                                            ✕
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       )
                     }
@@ -878,13 +900,13 @@ export default function GmEditorPage() {
                                   }
                                   if (col.type === 'textarea') {
                                     return (
-                                      <textarea
+                                      <TextArea
                                         key={col.key}
                                         value={row[col.key] ?? ''}
                                         onChange={(e) => setRow(section.key, i, col.key, e.target.value)}
                                         placeholder={col.placeholder}
                                         rows={col.rows ?? 2}
-                                        className={`${inputClass} min-h-0 flex-1 ${col.width ?? ''}`}
+                                        className={`min-h-0 flex-1 ${col.width ?? ''}`}
                                       />
                                     )
                                   }
@@ -912,13 +934,14 @@ export default function GmEditorPage() {
                                     />
                                   )
                                 })}
-                                <button
+                                <Button
                                   type="button"
+                                  variant="danger"
+                                  size="sm"
                                   onClick={() => removeRow(section.key, i)}
-                                  className="rounded border border-red-800 px-2 py-1.5 text-xs text-red-300 transition hover:bg-red-950/50"
                                 >
                                   Убрать
-                                </button>
+                                </Button>
                               </div>
                             ))}
                           </div>
@@ -996,17 +1019,18 @@ export default function GmEditorPage() {
                                 <button
                                   type="button"
                                   onClick={() => openFeatureModal(null, i)}
-                                  className="rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+                      className="cursor-pointer rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
                                 >
                                   Изменить
                                 </button>
-                                <button
+                                <Button
                                   type="button"
+                                  variant="danger"
+                                  size="xs"
                                   onClick={() => removeFeature(f)}
-                                  className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
                                 >
                                   Удалить
-                                </button>
+                                </Button>
                               </div>
                             </div>
                           </div>
@@ -1051,13 +1075,14 @@ export default function GmEditorPage() {
                               </div>
                               <div className="flex shrink-0 items-center gap-3">
                                 <span className="text-sm text-stone-300">× {it.quantity}</span>
-                                <button
+                                <Button
                                   type="button"
+                                  variant="danger"
+                                  size="xs"
                                   onClick={() => removeItem(it)}
-                                  className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
                                 >
                                   Убрать
-                                </button>
+                                </Button>
                               </div>
                             </div>
                           </div>
@@ -1248,87 +1273,57 @@ export default function GmEditorPage() {
       )}
 
       {confirmSub && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => !confirmSubDeleting && setConfirmSub(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-lg bg-stone-900 p-6 shadow-2xl ring-1 ring-red-900/60"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="font-display text-lg font-bold text-stone-100">Удалить подкласс?</h2>
-            <p className="mt-2 text-sm leading-relaxed text-stone-300">
+        <ConfirmDialog
+          title="Удалить подкласс?"
+          message={
+            <>
               Вы точно хотите удалить{' '}
               <span className="font-semibold text-stone-100">«{confirmSub.name}»</span> вместе со
               всеми его умениями? Это действие необратимо.
-            </p>
-            {subDeleteError && <ErrorBox error={subDeleteError} onRetry={() => {}} />}
-            <div className="mt-6 flex justify-end gap-2">
-              <Button variant="ghost" disabled={confirmSubDeleting} onClick={() => setConfirmSub(null)}>
-                Отмена
-              </Button>
-              <Button variant="danger" disabled={confirmSubDeleting} onClick={doSubDelete}>
-                {confirmSubDeleting ? 'Удаляем...' : 'Да, удалить'}
-              </Button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          error={subDeleteError}
+          busy={confirmSubDeleting}
+          busyText="Удаляем..."
+          onCancel={() => setConfirmSub(null)}
+          onConfirm={doSubDelete}
+        />
       )}
 
       {confirmSubrace && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => !confirmSubraceDeleting && setConfirmSubrace(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-lg bg-stone-900 p-6 shadow-2xl ring-1 ring-red-900/60"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="font-display text-lg font-bold text-stone-100">Удалить подрасу?</h2>
-            <p className="mt-2 text-sm leading-relaxed text-stone-300">
+        <ConfirmDialog
+          title="Удалить подрасу?"
+          message={
+            <>
               Вы точно хотите удалить{' '}
               <span className="font-semibold text-stone-100">«{confirmSubrace.name}»</span> вместе со
               всеми его особенностями? Это действие необратимо.
-            </p>
-            {subraceDeleteError && <ErrorBox error={subraceDeleteError} onRetry={() => {}} />}
-            <div className="mt-6 flex justify-end gap-2">
-              <Button variant="ghost" disabled={confirmSubraceDeleting} onClick={() => setConfirmSubrace(null)}>
-                Отмена
-              </Button>
-              <Button variant="danger" disabled={confirmSubraceDeleting} onClick={doSubraceDelete}>
-                {confirmSubraceDeleting ? 'Удаляем...' : 'Да, удалить'}
-              </Button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          error={subraceDeleteError}
+          busy={confirmSubraceDeleting}
+          busyText="Удаляем..."
+          onCancel={() => setConfirmSubrace(null)}
+          onConfirm={doSubraceDelete}
+        />
       )}
 
       {deleteTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => !deleting && setDeleteTarget(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-lg bg-stone-900 p-6 shadow-2xl ring-1 ring-red-900/60"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="font-display text-lg font-bold text-stone-100">Удалить запись?</h2>
-            <p className="mt-2 text-sm leading-relaxed text-stone-300">
+        <ConfirmDialog
+          title="Удалить запись?"
+          message={
+            <>
               Вы точно хотите удалить{' '}
               <span className="font-semibold text-stone-100">«{deleteTarget.name}»</span>? Это
               действие необратимо.
-            </p>
-            {error && <ErrorBox error={error} onRetry={() => {}} />}
-            <div className="mt-6 flex justify-end gap-2">
-              <Button variant="ghost" disabled={deleting} onClick={() => setDeleteTarget(null)}>
-                Отмена
-              </Button>
-              <Button variant="danger" disabled={deleting} onClick={doDelete}>
-                {deleting ? 'Удаляем...' : 'Да, удалить'}
-              </Button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          error={error}
+          busy={deleting}
+          busyText="Удаляем..."
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={doDelete}
+        />
       )}
     </div>
   )

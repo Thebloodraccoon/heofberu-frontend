@@ -66,7 +66,7 @@ export default function LandingPage() {
             <Link
               key={key}
               to={`/catalog/${key}`}
-              className="group fantasy-panel rounded-lg p-6 transition hover:border-ember/70"
+              className="group card-hover fantasy-panel rounded-lg p-6 transition hover:border-ember/70"
             >
               <span className="flex size-11 items-center justify-center rounded border border-stone-700 bg-stone-800/70 font-display text-lg font-bold text-ember">
                 {cfg.icon}
