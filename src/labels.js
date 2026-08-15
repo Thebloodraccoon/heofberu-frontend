@@ -183,6 +183,20 @@ export const diceTypeLabels = {
   D100: 'к100',
 }
 
+export const weaponPropertyLabels = {
+  AMMUNITION: 'Боеприпас',
+  FINESSE: 'Фехтовальное',
+  HEAVY: 'Тяжёлое',
+  LIGHT: 'Лёгкое',
+  LOADING: 'Заряжание',
+  RANGE: 'Дальнобойное',
+  REACH: 'Досягаемость',
+  SPECIAL: 'Особое',
+  THROWN: 'Метательное',
+  TWO_HANDED: 'Двуручное',
+  VERSATILE: 'Универсальное',
+}
+
 export function ruLevel(level) {
   if (level == null || level === '') return ''
   return `${level}-й уровень`
@@ -329,6 +343,7 @@ const maps = {
   ...sourceTypeLabels,
   ...armorProficiencyLabels,
   ...diceTypeLabels,
+  ...weaponPropertyLabels,
   ...roleLabels,
   ...skillLabels,
   ...classSlugLabels,

@@ -272,14 +272,16 @@ function RaceDetailCard({ race, selectedSub }) {
 
   return (
     <Card className="p-6">
-      <div className="mb-3 flex flex-col items-center gap-1 text-center">
-        <h1 className="font-display text-2xl font-bold text-stone-100">{race.name}</h1>
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold text-stone-100">{race.name}</h1>
+        </div>
         {selectedSub && (
-          <p className="font-display text-lg font-semibold text-ember">{selectedSub.name}</p>
+          <p className="mt-1 font-display text-lg font-semibold text-ember">{selectedSub.name}</p>
         )}
       </div>
 
-      <div className="mb-6 flex flex-wrap justify-center gap-1.5">
+      <div className="mb-6 flex flex-wrap gap-1.5">
         <Badge>Размер: {raceSizeLabels[race.size] ?? race.size}</Badge>
         <Badge>Скорость: {race.speed} фт.</Badge>
       </div>
@@ -296,38 +298,22 @@ function RaceDetailCard({ race, selectedSub }) {
             </p>
           )}
 
-      {selectedSub
-        ? selectedSub.ability_bonuses && selectedSub.ability_bonuses.length > 0 && (
-            <Section title="Бонусы характеристик">
-              <div className="flex flex-wrap gap-1.5">
-                {selectedSub.ability_bonuses.map((b, i) => (
-                  <span key={i} className="rounded bg-stone-800 px-2.5 py-1 text-xs text-stone-200">
-                    {abilityLabels[b.ability] ?? b.ability} +{b.bonus}
-                  </span>
-                ))}
-              </div>
-            </Section>
-          )
-        : race.ability_bonuses && race.ability_bonuses.length > 0 && (
-            <Section title="Бонусы характеристик">
-              <div className="flex flex-wrap gap-1.5">
-                {race.ability_bonuses.map((b, i) => (
-                  <span key={i} className="rounded bg-stone-800 px-2.5 py-1 text-xs text-stone-200">
-                    {abilityLabels[b.ability] ?? b.ability} +{b.bonus}
-                  </span>
-                ))}
-              </div>
-            </Section>
-          )}
+      {((selectedSub ? selectedSub.ability_bonuses : race.ability_bonuses) ?? []).length > 0 && (
+        <p className="mt-4 text-sm leading-relaxed">
+          <span className="font-semibold text-stone-100">Бонусы характеристик: </span>
+          <span className="font-semibold text-stone-100">
+            {(selectedSub ? selectedSub.ability_bonuses : race.ability_bonuses)
+              .map((b) => `${abilityLabels[b.ability] ?? b.ability} +${b.bonus}`)
+              .join(' ')}
+          </span>
+        </p>
+      )}
 
       {race.granted_skills && race.granted_skills.length > 0 && (
-        <Section title="Навыки расы">
-          <div className="flex flex-wrap gap-1.5">
-            {race.granted_skills.map((s) => (
-              <Badge key={s.id}>{s.name}</Badge>
-            ))}
-          </div>
-        </Section>
+        <p className="mt-4 text-sm leading-relaxed">
+          <span className="font-semibold text-stone-100">Навыки расы: </span>
+          <span className="font-semibold text-stone-100">{race.granted_skills.map((s) => s.name).join(' ')}</span>
+        </p>
       )}
 
       <Section title="Особенности и умения">
@@ -376,30 +362,32 @@ function GenericDetail({ item, hideAbility = false }) {
 
   return (
     <Card className="p-6">
-      <div className="mb-3 flex flex-col items-center gap-2 text-center">
-        <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
+        </div>
       </div>
 
       {badges.length > 0 && (
-        <div className="mb-6 flex flex-wrap justify-center gap-1.5">
+        <div className="mb-6 flex flex-wrap gap-1.5">
           {badges.map((b, i) => (
             <Badge key={i} tone={b.tone}>{b.text}</Badge>
           ))}
         </div>
       )}
 
+      {visible.length > 0 && (
+        <FactList>
+          {visible.map(([k, v]) => (
+            <FactRow key={k} label={fieldLabel(k)} value={<FieldValue value={v} />} />
+          ))}
+        </FactList>
+      )}
+
       {item.description && (
         <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
           {item.description}
         </p>
-      )}
-
-      {visible.length > 0 && (
-        <FactGrid>
-          {visible.map(([k, v]) => (
-            <FactCell key={k} label={fieldLabel(k)} value={<FieldValue value={v} />} />
-          ))}
-        </FactGrid>
       )}
 
       {item.higher_levels && (
@@ -417,12 +405,152 @@ function GenericDetail({ item, hideAbility = false }) {
   )
 }
 
+function ItemDetailCard({ item }) {
+  const damage =
+    item.damage_dice_count && item.damage_dice_type
+      ? `${item.damage_dice_count}${diceTypeLabels[item.damage_dice_type] ?? item.damage_dice_type}${
+          item.damage_type ? ` ${label(item.damage_type)}` : ''
+        }`.trim()
+      : null
+
+  const ac =
+    item.armor_class_base != null && item.armor_class_base !== ''
+      ? `${item.armor_class_base}${
+          item.armor_class_dex_bonus ? ' + Ловкость' : ''
+        }${item.armor_class_max_dex_bonus ? ` (макс. ${item.armor_class_max_dex_bonus})` : ''}`
+      : null
+
+  const properties = (item.weapon_properties ?? '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => label(p))
+    .join(', ')
+
+  const cost =
+    item.cost_gold != null && item.cost_gold !== '' ? `${item.cost_gold} зм.` : null
+  const weight =
+    item.weight != null && item.weight !== '' ? `${item.weight} фнт.` : null
+
+  const rows = [
+    item.rarity && item.rarity !== 'NONE' ? { label: 'Редкость', value: label(item.rarity) } : null,
+    item.requires_attunement != null
+      ? { label: 'Настройка', value: item.requires_attunement ? 'Требуется' : 'Не требуется' }
+      : null,
+    weight ? { label: 'Вес', value: weight } : null,
+    cost ? { label: 'Цена', value: cost } : null,
+    damage ? { label: 'Урон', value: damage } : null,
+    ac ? { label: 'Класс доспеха', value: ac } : null,
+    item.strength_requirement != null && item.strength_requirement !== ''
+      ? { label: 'Требование силы', value: `Сила ${item.strength_requirement}` }
+      : null,
+    item.stealth_disadvantage ? { label: 'Скрытность', value: 'Помеха' } : null,
+    properties ? { label: 'Свойства оружия', value: properties } : null,
+  ]
+    .filter(Boolean)
+    .sort((a, b) => a.value.length - b.value.length)
+
+  return (
+    <Card className="p-6">
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
+          <div className="flex flex-wrap gap-1.5">
+            {item.item_type && <Badge>{label(item.item_type)}</Badge>}
+            {item.rarity && item.rarity !== 'NONE' && (
+              <Badge tone={item.rarity === 'LEGENDARY' || item.rarity === 'ARTIFACT' ? 'accent' : 'default'}>
+                {label(item.rarity)}
+              </Badge>
+            )}
+            {item.requires_attunement && <Badge tone="accent">Требует настройки</Badge>}
+          </div>
+        </div>
+      </div>
+
+      {rows.length > 0 && (
+        <FactList>
+          {rows.map((r) => (
+            <FactRow key={r.label} label={r.label} value={r.value} />
+          ))}
+        </FactList>
+      )}
+
+      {item.description && (
+        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+          {item.description}
+        </p>
+      )}
+
+      {item.features && item.features.length > 0 && (
+        <Section title="Свойства">
+          <FeatureCards features={item.features} />
+        </Section>
+      )}
+    </Card>
+  )
+}
+
+function FeatDetailCard({ item }) {
+  const prerequisite =
+    item.prerequisite_ability || item.prerequisite_minimum_score != null
+      ? `${item.prerequisite_ability ? `${abilityLabels[item.prerequisite_ability] ?? label(item.prerequisite_ability)}` : ''}${
+          item.prerequisite_minimum_score != null && item.prerequisite_minimum_score !== ''
+            ? ` ${item.prerequisite_minimum_score}`
+            : ''
+        }`.trim()
+      : null
+
+  const increases = item.ability_score_increases ?? []
+
+  return (
+    <Card className="p-6">
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
+          {prerequisite && <Badge>{`Треб: ${prerequisite}`}</Badge>}
+        </div>
+      </div>
+
+      {(prerequisite || item.prerequisite_description || increases.length > 0) && (
+        <FactList>
+          {prerequisite && <FactRow label="Требования" value={prerequisite} />}
+          {item.prerequisite_description && (
+            <FactRow label="Доп. требования" value={item.prerequisite_description} />
+          )}
+          {increases.length > 0 && (
+            <FactRow
+              label="Увеличение характеристик"
+              value={
+                <span className="font-semibold text-stone-100">
+                  {increases.map((a) => `${abilityLabels[a.ability] ?? label(a.ability)} +${a.amount}`).join(' ')}
+                </span>
+              }
+            />
+          )}
+        </FactList>
+      )}
+
+      {item.description && (
+        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+          {item.description}
+        </p>
+      )}
+
+      {item.features && item.features.length > 0 && (
+        <Section title="Умения">
+          <FeatureCards features={item.features} />
+        </Section>
+      )}
+    </Card>
+  )
+}
+
 function FeatureDetailCard({ item }) {
   return (
     <Card className="p-6">
-      <div className="mb-3 flex flex-col items-center gap-2 text-center">
-        <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
-        <div className="flex flex-wrap justify-center gap-1.5">
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
           {item.level != null && <Badge tone="accent">{ruLevel(item.level)}</Badge>}
         </div>
       </div>
@@ -454,20 +582,16 @@ function StatTable({ rows }) {
   )
 }
 
-function FactGrid({ children }) {
-  return (
-    <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-stone-700/60 bg-stone-700/60">
-      {children}
-    </div>
-  )
+function FactList({ children }) {
+  return <ul className="mb-6 space-y-1.5">{children}</ul>
 }
 
-function FactCell({ label: lbl, value }) {
+function FactRow({ label: lbl, value }) {
   return (
-    <div className="bg-stone-900/60 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{lbl}</p>
-      <div className="mt-1 text-sm text-stone-200">{value}</div>
-    </div>
+    <li className="text-sm leading-relaxed text-stone-300">
+      <span className="font-medium text-stone-200">{lbl}: </span>
+      <span>{value}</span>
+    </li>
   )
 }
 
@@ -476,12 +600,6 @@ const COMPONENT_FULL = { VERBAL: 'Вербальный', SOMATIC: 'Сомати�
 function SpellDetailCard({ spell }) {
   const components = (spell.components ?? [])
     .map((c) => COMPONENT_FULL[c] ?? label(c))
-    .join(', ')
-  const classes = (spell.available_classes ?? [])
-    .map((c) => classSlugLabels[itemName(c)] ?? label(itemName(c)))
-    .join(', ')
-  const races = (spell.available_races ?? [])
-    .map((c) => label(itemName(c)))
     .join(', ')
 
   const rangeText =
@@ -515,29 +633,41 @@ function SpellDetailCard({ spell }) {
         }`.trim()
       : null
 
+  const rows = [
+    spell.cast_time ? { label: 'Время накладывания', value: label(spell.cast_time) } : null,
+    rangeText ? { label: 'Дистанция', value: rangeText } : null,
+    durationText ? { label: 'Длительность', value: durationText } : null,
+    componentsText ? { label: 'Компоненты', value: componentsText } : null,
+    damageText ? { label: 'Урон', value: damageText } : null,
+    healingText ? { label: 'Лечение', value: healingText } : null,
+  ]
+    .filter(Boolean)
+    .sort((a, b) => a.value.length - b.value.length)
+
   return (
     <Card className="p-6">
-      <div className="mb-2 flex flex-col items-center gap-2 text-center">
-        <h1 className="font-display text-2xl font-bold text-stone-100">{spell.name}</h1>
-        <div className="flex flex-wrap justify-center gap-1.5">
-          {spell.level && <Badge tone="accent">{spellLevel(spell.level)}</Badge>}
-          {spell.school && <Badge>{label(spell.school)}</Badge>}
-          {spell.is_ritual && <Badge>Ритуал</Badge>}
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold text-stone-100">{spell.name}</h1>
+          <div className="flex flex-wrap gap-1.5">
+            {spell.level && <Badge tone="accent">{spellLevel(spell.level)}</Badge>}
+            {spell.school && <Badge>{label(spell.school)}</Badge>}
+            {spell.is_ritual && <Badge>Ритуал</Badge>}
+          </div>
         </div>
-        {spell.source && <p className="text-xs text-stone-500">Источник: {spell.source}</p>}
+        {spell.source && <p className="mt-1 text-xs text-stone-500">Источник: {spell.source}</p>}
       </div>
 
-      <FactGrid>
-        {spell.cast_time && <FactCell label="Время накладывания" value={label(spell.cast_time)} />}
-        {rangeText && <FactCell label="Дистанция" value={rangeText} />}
-        {durationText && <FactCell label="Длительность" value={durationText} />}
-        {componentsText && <FactCell label="Компоненты" value={componentsText} />}
-        {damageText && <FactCell label="Урон" value={damageText} />}
-        {healingText && <FactCell label="Лечение" value={healingText} />}
-      </FactGrid>
+      {rows.length > 0 && (
+        <FactList>
+          {rows.map((r) => (
+            <FactRow key={r.label} label={r.label} value={r.value} />
+          ))}
+        </FactList>
+      )}
 
       {spell.description && (
-        <p className="mb-6 whitespace-pre-wrap text-sm leading-relaxed text-stone-200">
+        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
           {spell.description}
         </p>
       )}
@@ -545,25 +675,6 @@ function SpellDetailCard({ spell }) {
       {spell.higher_levels && (
         <Section title="На более высоких уровнях">
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{spell.higher_levels}</p>
-        </Section>
-      )}
-
-      {(classes || races) && (
-        <Section title="Доступность">
-          <div className="space-y-1 text-sm text-stone-300">
-            {classes && (
-              <p>
-                <span className="font-medium text-stone-200">Классы: </span>
-                {classes}
-              </p>
-            )}
-            {races && (
-              <p>
-                <span className="font-medium text-stone-200">Доступно расам: </span>
-                {races}
-              </p>
-            )}
-          </div>
         </Section>
       )}
     </Card>
@@ -597,8 +708,10 @@ function BackgroundDetailCard({ bg }) {
 
   return (
     <Card className="p-6">
-      <div className="mb-3 flex flex-col items-center gap-2 text-center">
-        <h1 className="font-display text-2xl font-bold text-stone-100">{bg.name}</h1>
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-display text-2xl font-bold text-stone-100">{bg.name}</h1>
+        </div>
       </div>
 
       {bg.description && (
@@ -608,13 +721,10 @@ function BackgroundDetailCard({ bg }) {
       )}
 
       {skills.length > 0 && (
-        <Section title="Владение навыками">
-          <div className="flex flex-wrap gap-1.5">
-            {skills.map((s, i) => (
-              <Badge key={i}>{skillText(s)}</Badge>
-            ))}
-          </div>
-        </Section>
+        <p className="mt-4 text-sm leading-relaxed">
+          <span className="font-semibold text-stone-100">Владение навыками: </span>
+          <span className="font-semibold text-stone-100">{skills.map((s) => skillText(s)).join(' ')}</span>
+        </p>
       )}
 
       {suggestionRows.length > 0 && (
@@ -708,6 +818,8 @@ function DetailPanel({ resource, item, selectedSubId }) {
   if (resource === 'spells') return <SpellDetailCard spell={item} />
   if (resource === 'backgrounds') return <BackgroundDetailCard bg={item} />
   if (resource === 'features') return <FeatureDetailCard item={item} />
+  if (resource === 'items') return <ItemDetailCard item={item} />
+  if (resource === 'feats') return <FeatDetailCard item={item} />
   return <GenericDetail item={item} hideAbility={resource === 'skills'} />
 }
 
