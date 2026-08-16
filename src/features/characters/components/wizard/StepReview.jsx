@@ -1,13 +1,23 @@
-import { ASI_LEVELS, mod, STATS } from '@/lib/utils/ability.js'
+import { ASI_LEVELS, abilityName, mod, STATS } from '@/lib/utils/ability.js'
 import { Button, EmptyState } from '@/components/ui'
-import { Hint, Panel, StepShell, Tag } from './StepShell.jsx'
+import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
 
 const Row = ({ label, value }) => (
-  <div className="flex items-baseline justify-between gap-4 border-b border-stone-700/30 py-1.5 text-sm last:border-0">
-    <span className="text-stone-500">{label}</span>
+  <div className="flex items-baseline justify-between gap-4 border-b border-stone-700/30 py-2 text-[15px] last:border-0">
+    <span className="text-stone-400">{label}</span>
     <span className="text-right font-medium text-stone-100">{value}</span>
   </div>
 )
+
+const ItemList = ({ label, items }) => {
+  if (!items || items.length === 0) return null
+  return (
+    <Row
+      label={label}
+      value={items.map((it) => `${it.item?.name ?? `Предмет #${it.item_id}`}${it.quantity > 1 ? ` ×${it.quantity}` : ''}`).join(', ')}
+    />
+  )
+}
 
 export default function StepReview({ stepNo, total, form, lookups, derived, onRollHp }) {
   const { classDetail, raceDetail, backgroundDetail } = lookups
@@ -31,8 +41,7 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
 
   const gains = {}
   for (let l = 2; l <= level; l++) {
-    if (form.hp_mode === 'manual') gains[l] = form.manual_hp?.[l] ?? avgGain
-    else if (form.hp_mode === 'roll') {
+    if (form.hp_mode === 'roll') {
       const roll = form.rolled_dice?.[l]
       gains[l] = roll != null ? roll + conMod : null
     } else gains[l] = avgGain
@@ -48,30 +57,43 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
   const background = (lookups.backgrounds ?? []).find((b) => String(b.id) === String(form.background_id))
   const subclass = classDetail?.subclasses?.find((s) => String(s.id) === String(form.subclass_id))
   const subrace = raceDetail?.subraces?.find((s) => String(s.id) === String(form.subrace_id))
+  const feat = (lookups.feats ?? []).find((f) => String(f.id) === String(form.feat_id))
 
-  const hpModeLabel =
-    form.hp_mode === 'average' ? 'Среднее' : form.hp_mode === 'roll' ? 'Броски кубика' : 'Вручную'
+  const hpModeLabel = form.hp_mode === 'roll' ? 'Броски кубика' : 'Среднее'
 
   return (
     <StepShell stepNo={stepNo} total={total} title="Сводка" subtitle="Проверьте выборы перед созданием героя">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="space-y-4">
-          <Panel title="Происхождение">
+      <Section title="Имя">
+        <p className="font-display text-xl font-bold text-stone-100">{form.name || '—'}</p>
+        {feat && <p className="mt-1 text-[15px] text-stone-300">Черта: <b className="text-stone-100">{feat.name}</b></p>}
+      </Section>
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        <div className="space-y-8">
+          <Section title="Происхождение">
             <Row label="Раса" value={race?.name || '—'} />
             {raceDetail?.subraces?.length > 0 && <Row label="Подраса" value={subrace?.name || 'Без подрасы'} />}
             <Row label="Предыстория" value={background?.name || '—'} />
-          </Panel>
+          </Section>
 
-          <Panel title="Класс">
+          <Section title="Класс">
             <Row label="Класс" value={klass?.name || '—'} />
             <Row label="Подкласс" value={subclass?.name || 'Без подкласса'} />
             <Row label="Уровень" value={level} />
             <Row label="Кость хитов" value={`к${dieSides}`} />
-            <Row label="HP на уровне 1" value={hpLevel1} />
+            <Row label="Спасброски" value={(classDetail?.saving_throws ?? []).map((s) => abilityName(s.ability)).join(', ') || '—'} />
             <Row label="HP на уровнях 2+" value={hpModeLabel} />
-          </Panel>
+          </Section>
 
-          <Panel title="Хиты">
+          <Section title="Стартовое снаряжение">
+            <ItemList label="Класс" items={classDetail?.starting_items ?? []} />
+            <ItemList label="Предыстория" items={backgroundDetail?.starting_items ?? []} />
+            {(classDetail?.starting_items ?? []).length === 0 && (backgroundDetail?.starting_items ?? []).length === 0 && (
+              <Hint>Стартовых предметов нет.</Hint>
+            )}
+          </Section>
+
+          <Section title="Хиты">
             <Row label="Уровень 1" value={hpLevel1} />
             {level > 1 &&
               Array.from({ length: level - 1 }, (_, i) => i + 2).map((l) => (
@@ -86,11 +108,11 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
               </div>
             )}
             {!missingRolls && level > 1 && <Row label="Итоговое HP" value={knownTotal} />}
-          </Panel>
+          </Section>
         </div>
 
-        <div className="space-y-4">
-          <Panel title="Характеристики">
+        <div className="space-y-8">
+          <Section title="Характеристики">
             <div className="grid grid-cols-3 gap-2">
               {STATS.map((s) => {
                 const total = totals[s.code]
@@ -101,14 +123,14 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
                       {total}
                       {bonusByCode[s.code] ? <span className="text-xs font-normal text-emerald-300">+{bonusByCode[s.code]}</span> : null}
                     </p>
-                    <p className="text-xs text-stone-500">{mod(total) > 0 ? '+' : ''}{mod(total)}</p>
+                    <p className="text-sm text-stone-300">{mod(total) > 0 ? '+' : ''}{mod(total)}</p>
                   </div>
                 )
               })}
             </div>
-          </Panel>
+          </Section>
 
-          <Panel title="Навыки и владения">
+          <Section title="Навыки и владения">
             {chosen.length === 0 && allGranted.length === 0 && <EmptyState text="Навыки не выбраны" />}
             {chosen.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
@@ -132,12 +154,9 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
             {expertiseBudget > 0 && expertise.length === 0 && (
               <Hint className="mt-2">Экспертиза ещё не выбрана.</Hint>
             )}
-            <div className="mt-3 border-t border-stone-700/30 pt-2">
-              <Row label="Спасброски" value={(classDetail?.saving_throws ?? []).map((s) => s.ability).join(', ') || '—'} />
-            </div>
-          </Panel>
+          </Section>
 
-          <Panel title="Улучшения характеристик">
+          <Section title="Улучшения характеристик">
             {asiLevels.length === 0 ? (
               <Hint>На уровне {level} улучшения не требуются.</Hint>
             ) : (
@@ -146,11 +165,7 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
                 {asiLevels.join(', ')}.
               </Hint>
             )}
-          </Panel>
-
-          <Panel title="Имя">
-            <Row label="Имя" value={form.name || '—'} />
-          </Panel>
+          </Section>
         </div>
       </div>
     </StepShell>

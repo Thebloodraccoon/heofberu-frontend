@@ -1,32 +1,54 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import StepAbilities from '@/features/characters/components/wizard/StepAbilities.jsx'
 import { baseDefaults } from '@/lib/utils/ability.js'
 
 const all8 = () => Object.fromEntries(Object.entries(baseDefaults()).map(([k]) => [k, 8]))
 
 const baseForm = (overrides = {}) => ({
-  ability_method: 'manual',
-  ability_base: baseDefaults(),
+  ability_method: 'array',
+  ability_base: {},
   ability_rolls: {},
   ...overrides,
 })
 
-const renderStep = (form, update = vi.fn()) =>
+const renderStep = (form, update = vi.fn(), onRoll = undefined) =>
   render(
     <StepAbilities
-      stepNo={1}
-      total={6}
+      stepNo={4}
+      total={7}
       form={form}
       update={update}
-      derived={{ bonusByCode: {}, totals: baseDefaults() }}
+      derived={{ bonusByCode: {}, totals: all8() }}
+      onRoll={onRoll}
     />,
   )
 
 const statRow = (label) => {
   const el = screen.getByText(label)
   return el.closest('.grid')
+}
+
+const valueCell = (label) => within(statRow(label)).getByRole('button')
+
+const poolChip = (name) => within(screen.getByTestId('ability-pool')).getByRole('button', { name })
+
+const Harness = ({ initial = {}, onUpdate = vi.fn() }) => {
+  const [form, setForm] = useState(baseForm(initial))
+  return (
+    <StepAbilities
+      stepNo={4}
+      total={7}
+      form={form}
+      update={(patch) => {
+        onUpdate(patch)
+        setForm((f) => ({ ...f, ...patch }))
+      }}
+      derived={{ bonusByCode: {}, totals: all8() }}
+    />
+  )
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -40,154 +62,145 @@ describe('StepAbilities', () => {
     }
   })
 
-  it('switches to the standard array method', async () => {
-    const update = vi.fn()
-    renderStep(baseForm(), update)
-    await userEvent.click(screen.getByRole('button', { name: /стандартный набор/i }))
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ability_method: 'array',
-        ability_base: { strength: 15, dexterity: 14, constitution: 13, intelligence: 12, wisdom: 10, charisma: 8 },
-        ability_rolls: {},
-      }),
-    )
+  describe('standard array pool', () => {
+    it('shows the pool of numbers', () => {
+      renderStep(baseForm())
+      for (const v of [15, 14, 13, 12, 10, 8]) {
+        expect(poolChip(String(v))).toBeInTheDocument()
+      }
+    })
+
+    it('assigns an active pool number to a stat cell', async () => {
+      const update = vi.fn()
+      renderStep(baseForm(), update)
+      await userEvent.click(poolChip('15'))
+      await userEvent.click(valueCell('Сила'))
+      expect(update).toHaveBeenCalledWith({ ability_base: { strength: 15 } })
+    })
+
+    it('marks the assigned number as used and disables the chip', async () => {
+      render(<Harness />)
+      await userEvent.click(poolChip('15'))
+      await userEvent.click(valueCell('Сила'))
+      expect(poolChip('15')).toBeDisabled()
+      expect(valueCell('Сила')).toHaveTextContent('15')
+    })
+
+    it('unassigns a value back to the pool', async () => {
+      const update = vi.fn()
+      renderStep(baseForm({ ability_base: { strength: 15 } }), update)
+      await userEvent.click(valueCell('Сила'))
+      expect(update).toHaveBeenCalledWith({ ability_base: {} })
+    })
+
+    it('does not assign without an active pool number', async () => {
+      const update = vi.fn()
+      renderStep(baseForm(), update)
+      await userEvent.click(valueCell('Сила'))
+      expect(update).not.toHaveBeenCalled()
+    })
   })
 
-  it('switches to point-buy and resets stats to 8', async () => {
-    const update = vi.fn()
-    renderStep(baseForm(), update)
-    await userEvent.click(screen.getByRole('button', { name: /по очкам \(27\)/i }))
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ ability_method: 'pointbuy', ability_base: all8(), ability_rolls: {} }),
-    )
-  })
-
-  describe('point-buy', () => {
-    it('shows the remaining budget and raises a stat on +', async () => {
+  describe('point buy', () => {
+    it('switches to point-buy and resets stats to 8', async () => {
       const update = vi.fn()
-      renderStep(baseForm({ ability_method: 'pointbuy', ability_base: all8() }), update)
-      expect(screen.getByText('Осталось очков: 27')).toBeInTheDocument()
-
-      await userEvent.click(within(statRow('Сила')).getByText('+'))
+      renderStep(baseForm(), update)
+      await userEvent.click(screen.getByRole('button', { name: /по очкам \(27\)/i }))
       expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ ability_base: expect.objectContaining({ strength: 9 }) }),
+        expect.objectContaining({ ability_method: 'pointbuy', ability_base: all8(), ability_rolls: {} }),
       )
     })
 
-    it('lowers a stat on −', async () => {
-      const update = vi.fn()
-      renderStep(baseForm({ ability_method: 'pointbuy', ability_base: { ...all8(), strength: 10 } }), update)
-      await userEvent.click(within(statRow('Сила')).getByText('−'))
-      expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ ability_base: expect.objectContaining({ strength: 9 }) }),
-      )
-    })
-
-    it('disables + at the max value and when the budget is spent', () => {
-      renderStep(
-        baseForm({
-          ability_method: 'pointbuy',
-          ability_base: { strength: 15, dexterity: 15, constitution: 15, intelligence: 8, wisdom: 8, charisma: 8 },
-        }),
-      )
-      expect(screen.getByText('Осталось очков: 0')).toBeInTheDocument()
-      expect(within(statRow('Сила')).getByText('+')).toBeDisabled()
-    })
-
-    it('disables − at the minimum value', () => {
+    it('shows the remaining budget and the price hint', () => {
       renderStep(baseForm({ ability_method: 'pointbuy', ability_base: all8() }))
-      expect(within(statRow('Сила')).getByText('−')).toBeDisabled()
+      expect(screen.getByText('Осталось очков: 27')).toBeInTheDocument()
+      expect(screen.getByText(/Цена: 8→0, 9→1, 10→2, 11→3, 12→4, 13→5, 14→7, 15→9/)).toBeInTheDocument()
+      expect(screen.queryByTestId('ability-pool')).not.toBeInTheDocument()
     })
 
-    it('shows the per-value cost tag', () => {
-      renderStep(
-        baseForm({
-          ability_method: 'pointbuy',
-          ability_base: { ...all8(), strength: 15 },
-        }),
+    it('increments a stat with a counter and recalculates the budget live', async () => {
+      render(<Harness initial={{ ability_method: 'pointbuy' }} />)
+      expect(screen.getByText('Осталось очков: 27')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Увеличить Сила' }))
+      expect(within(statRow('Сила')).getByText('9')).toBeInTheDocument()
+      expect(screen.getByText('Осталось очков: 26')).toBeInTheDocument()
+    })
+
+    it('disables the minus button at the minimum value', () => {
+      renderStep(baseForm({ ability_method: 'pointbuy', ability_base: all8() }))
+      expect(screen.getByRole('button', { name: 'Уменьшить Сила' })).toBeDisabled()
+    })
+
+    it('disables the plus button when the budget is exhausted and allows decrement', async () => {
+      render(
+        <Harness
+          initial={{
+            ability_method: 'pointbuy',
+            ability_base: { ...all8(), strength: 15, dexterity: 15, constitution: 15 },
+          }}
+        />,
       )
-      expect(within(statRow('Сила')).getByText('9 очк.')).toBeInTheDocument()
-    })
-  })
-
-  describe('standard array', () => {
-    it('renders native selects for each stat', () => {
-      renderStep(baseForm({ ability_method: 'array', ability_base: { strength: 15, dexterity: 14, constitution: 13, intelligence: 12, wisdom: 10, charisma: 8 } }))
-      expect(screen.getAllByRole('combobox')).toHaveLength(6)
+      expect(screen.getByRole('button', { name: 'Увеличить Сила' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Уменьшить Сила' })).not.toBeDisabled()
+      await userEvent.click(screen.getByRole('button', { name: 'Уменьшить Сила' }))
+      expect(screen.getByText('Осталось очков: 2')).toBeInTheDocument()
     })
 
-    it('disables duplicate values in a select', () => {
-      renderStep(
-        baseForm({
-          ability_method: 'array',
-          ability_base: { strength: 15, dexterity: 14, constitution: 13, intelligence: 12, wisdom: 10, charisma: 8 },
-        }),
-      )
-      const selects = screen.getAllByRole('combobox')
-      const last = selects[5]
-      expect(within(last).getByRole('option', { name: '15' })).toBeDisabled()
-      expect(within(last).getByRole('option', { name: '8' })).not.toBeDisabled()
-    })
-  })
-
-  describe('manual', () => {
-    it('clamps typed values to [3, 20]', async () => {
-      const update = vi.fn()
-      renderStep(baseForm(), update)
-      const input = within(statRow('Сила')).getByDisplayValue('10')
-      await userEvent.clear(input)
-      await userEvent.type(input, '25')
-      expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ ability_base: expect.objectContaining({ strength: 20 }) }),
-      )
-    })
-
-    it('clamps low values to 3', async () => {
-      const update = vi.fn()
-      renderStep(baseForm(), update)
-      const input = within(statRow('Сила')).getByDisplayValue('10')
-      await userEvent.clear(input)
-      await userEvent.type(input, '1')
-      expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ ability_base: expect.objectContaining({ strength: 3 }) }),
-      )
+    it('does not allow exceeding the maximum value', async () => {
+      render(<Harness initial={{ ability_method: 'pointbuy', ability_base: { ...all8(), strength: 15 } }} />)
+      expect(screen.getByRole('button', { name: 'Увеличить Сила' })).toBeDisabled()
     })
   })
 
   describe('dice rolls', () => {
-    it('rolls 4d6 drop lowest and writes base values', async () => {
+    it('rolls dice, writes rolls and notifies onRoll for every stat', async () => {
       vi.spyOn(Math, 'random').mockReturnValue(0.9)
       const update = vi.fn()
-      renderStep(baseForm(), update)
+      const onRoll = vi.fn()
+      renderStep(baseForm(), update, onRoll)
       await userEvent.click(screen.getByRole('button', { name: /бросок 4d6/i }))
 
       expect(update).toHaveBeenCalledWith(
         expect.objectContaining({
           ability_method: 'dice4',
+          ability_base: {},
           ability_rolls: expect.any(Object),
         }),
       )
       const patch = update.mock.calls.find(([p]) => p.ability_method === 'dice4')[0]
       expect(Object.values(patch.ability_rolls).every((r) => r.value === 18)).toBe(true)
-      expect(Object.values(patch.ability_base).every((v) => v === 18)).toBe(true)
+      expect(onRoll).toHaveBeenCalledTimes(6)
+      expect(onRoll).toHaveBeenCalledWith(expect.objectContaining({ dice: [6, 6, 6, 6], total: 18 }))
     })
 
-    it('renders roll chips and shows a reroll button', async () => {
+    it('rerolls and resets assignments', async () => {
       vi.spyOn(Math, 'random').mockReturnValue(0.9)
       const update = vi.fn()
       renderStep(
         baseForm({
           ability_method: 'dice4',
-          ability_base: { ...baseDefaults(), strength: 18 },
+          ability_base: { strength: 18 },
           ability_rolls: { strength: { rolls: [6, 6, 6, 6], value: 18 } },
         }),
         update,
       )
-      expect(screen.getAllByText('= 18').length).toBeGreaterThan(0)
       await userEvent.click(screen.getByRole('button', { name: 'Перебросить кости' }))
       expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ ability_base: expect.any(Object), ability_rolls: expect.any(Object) }),
+        expect.objectContaining({ ability_base: {}, ability_rolls: expect.any(Object) }),
       )
+    })
+
+    it('does not show dice breakdown in the pool and removes the corner hint', () => {
+      const rolls = Object.fromEntries(
+        ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'].map((k, i) => [
+          k,
+          { rolls: [6, 6, 6, 6], value: 10 + i },
+        ]),
+      )
+      renderStep(baseForm({ ability_method: 'dice4', ability_rolls: rolls }))
+      expect(screen.getByRole('button', { name: 'Перебросить кости' })).toBeInTheDocument()
+      expect(poolChip('12')).not.toHaveTextContent('6')
+      expect(screen.queryByText(/Результаты бросков появятся/i)).not.toBeInTheDocument()
     })
   })
 })

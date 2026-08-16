@@ -1,11 +1,10 @@
-import { baseDefaults } from './ability.js'
-
 export const STEPS = [
-  { id: 'origin', title: 'Происхождение' },
+  { id: 'race', title: 'Раса' },
+  { id: 'background', title: 'Предыстория' },
   { id: 'class', title: 'Класс' },
   { id: 'abilities', title: 'Характеристики' },
-  { id: 'skills', title: 'Навыки' },
-  { id: 'details', title: 'Детали' },
+  { id: 'level', title: 'Уровень и ХП' },
+  { id: 'personality', title: 'Личность' },
   { id: 'review', title: 'Сводка' },
 ]
 
@@ -26,15 +25,14 @@ export const DEFAULT_FORM = {
   subclass_id: '',
   level: '1',
   hp_mode: 'average',
-  manual_hp: {},
   rolled_dice: {},
-  ability_method: 'manual',
-  ability_base: baseDefaults(),
+  ability_method: 'array',
+  ability_base: {},
   ability_rolls: {},
   class_skill_ids: [],
   expertise_ids: [],
   name: '',
-  image_path: '',
+  feat_id: '',
   traits: '',
   proficiencies: '',
   backstory: '',

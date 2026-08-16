@@ -1,40 +1,53 @@
-import { Input, Select } from '@/components/ui'
+import { abilityName } from '@/lib/utils/ability.js'
 import { OptionCard } from './OptionCard.jsx'
-import { Hint, Panel, StepShell, Tag } from './StepShell.jsx'
+import { Hint, Search, Section, StepShell, Tag } from './StepShell.jsx'
+import { useSearch } from './useSearch.js'
 
 const asNum = (v) => Number(v) || 0
 
 export default function StepClass({ stepNo, total, form, update, lookups, derived }) {
-  const { dieSides, conMod, hpLevel1, avgGain } = derived
   const classDetail = lookups.classDetail
   const subclassDetail = lookups.subclassDetail
   const selectedClass = (lookups.classes ?? []).find((c) => String(c.id) === String(form.class_id))
-  const level = asNum(form.level)
   const subclasses = classDetail?.subclasses ?? []
+  const level = asNum(form.level) || 1
 
-  const setLevel = (raw) => {
-    const v = Math.min(20, Math.max(1, asNum(raw)))
-    update({ level: String(v) })
+  const classSearch = useSearch(lookups.classes ?? [])
+
+  const expertiseBudget = derived.expertiseBudget
+
+  const pool = (classDetail?.available_skills ?? []).filter((s) => s && s.id != null)
+  const raceGranted = classDetail ? (lookups.raceDetail?.granted_skills ?? []) : []
+  const bgGranted = classDetail ? (lookups.backgroundDetail?.granted_skills ?? []) : []
+  const choiceCount = classDetail?.skill_choice_count ?? 0
+
+  const chosen = (form.class_skill_ids ?? []).map(Number)
+  const expertise = (form.expertise_ids ?? []).map(Number)
+
+  const findName = (id) => {
+    const all = [...pool, ...raceGranted, ...bgGranted]
+    return all.find((s) => Number(s.id) === id)?.name
   }
 
-  const setHpMode = (mode) => {
-    const patch = { hp_mode: mode }
-    if (mode === 'manual') {
-      const manual = { ...(form.manual_hp || {}) }
-      for (let l = 2; l <= level; l++) {
-        if (manual[l] === undefined || manual[l] === '') manual[l] = avgGain
-      }
-      patch.manual_hp = manual
-    }
+  const toggleChoice = (id) => {
+    const has = chosen.includes(id)
+    const atLimit = chosen.length >= choiceCount
+    if (!has && atLimit) return
+    const next = has ? chosen.filter((x) => x !== id) : [...chosen, id]
+    const patch = { class_skill_ids: next }
+    if (!has) patch.expertise_ids = expertise.filter((x) => x !== id)
     update(patch)
   }
 
-  const setManualGain = (l, raw) => {
-    const value = Math.min(dieSides + conMod, Math.max(1, asNum(raw)))
-    update({ manual_hp: { ...(form.manual_hp || {}), [l]: value } })
+  const toggleExpertise = (id) => {
+    const has = expertise.includes(id)
+    if (has) {
+      update({ expertise_ids: expertise.filter((x) => x !== id) })
+    } else if (expertise.length < expertiseBudget) {
+      update({ expertise_ids: [...expertise, id] })
+    }
   }
 
-  const classFeatures = (classDetail?.features ?? []).filter((f) => f.level == null || f.level <= level)
   const spellSlots = (classDetail?.spell_slot_progression ?? []).filter((s) => s.class_level <= level)
 
   const slotSummary = {}
@@ -43,38 +56,68 @@ export default function StepClass({ stepNo, total, form, update, lookups, derive
   }
   const slotEntries = Object.entries(slotSummary).filter(([, n]) => n > 0)
 
+  const SkillToggle = ({ name, sub, on, disabled, onClick }) => (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex items-center justify-between gap-2 rounded border px-3 py-2 text-left text-sm transition ${
+        on ? 'border-ember/70 bg-ember/10 text-stone-100' : 'border-stone-700/60 bg-stone-800/40 text-stone-300 hover:border-ember/40'
+      } ${disabled ? 'cursor-not-allowed opacity-45' : ''}`}
+    >
+      <span>
+        <span className="block font-medium">{name}</span>
+        {sub && <span className="block text-xs text-stone-500">{sub}</span>}
+      </span>
+      <span
+        className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
+          on ? 'border-ember bg-ember text-white' : 'border-stone-600 text-transparent'
+        }`}
+      >
+        ✓
+      </span>
+    </button>
+  )
+
   return (
-    <StepShell stepNo={stepNo} total={total} title="Класс" subtitle="Класс, подкласс, уровень и хиты">
-      <Panel title="Класс">
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-          {(lookups.classes ?? []).map((c) => (
+    <StepShell stepNo={stepNo} total={total} title="Класс" subtitle="Класс, подкласс и навыки класса">
+      <Section title="Класс">
+        <Search
+          className="mb-3 max-w-sm"
+          placeholder="Поиск класса…"
+          value={classSearch.query}
+          onChange={classSearch.setQuery}
+        />
+        <div className="grid gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+          {classSearch.filtered.map((c) => (
             <OptionCard
               key={c.id}
               selected={String(c.id) === String(form.class_id)}
-              onClick={() => update({ class_id: String(c.id), subclass_id: '' })}
+              onClick={() => update({ class_id: String(c.id), subclass_id: '', class_skill_ids: [], expertise_ids: [] })}
               title={c.name}
               subtitle={c.hit_dice ? `Кость хитов к${c.hit_dice.replace('D', '')}` : ''}
             />
           ))}
+          {classSearch.filtered.length === 0 && <Hint>Ничего не найдено.</Hint>}
         </div>
-        {selectedClass && !classDetail && <Hint>Загружаем класс…</Hint>}
+        {selectedClass && !classDetail && <Hint className="mt-3">Загружаем класс…</Hint>}
         {classDetail && (
-          <div className="mt-3 space-y-2 border-t border-stone-700/60 pt-3">
-            {classDetail.description && <p className="text-sm text-stone-400">{classDetail.description}</p>}
+          <div className="mt-4 space-y-3">
+            {classDetail.description && <p className="text-sm leading-relaxed text-stone-300">{classDetail.description}</p>}
             <div className="flex flex-wrap gap-1.5">
               {classDetail.hit_dice && <Tag>Кость хитов: к{classDetail.hit_dice.replace('D', '')}</Tag>}
               {(classDetail.saving_throws ?? []).map((s) => (
                 <Tag key={s.ability} tone="accent">
-                  Спасбросок: {s.ability}
+                  Спасбросок: {abilityName(s.ability)}
                 </Tag>
               ))}
               {(classDetail.primary_abilities ?? []).map((a) => (
                 <Tag key={a.ability} tone="dim">
-                  Основная: {a.ability}
+                  Основная: {abilityName(a.ability)}
                 </Tag>
               ))}
               {classDetail.skill_choice_count > 0 && <Tag>Навыков на выбор: {classDetail.skill_choice_count}</Tag>}
-              {classDetail.spellcasting_ability && <Tag>Заклинатель: {classDetail.spellcasting_ability}</Tag>}
+              {classDetail.spellcasting_ability && <Tag>Заклинатель: {abilityName(classDetail.spellcasting_ability)}</Tag>}
             </div>
             {(classDetail.starting_items ?? []).length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -96,26 +139,13 @@ export default function StepClass({ stepNo, total, form, update, lookups, derive
                 ))}
               </div>
             )}
-            {classFeatures.length > 0 && (
-              <div className="space-y-1.5">
-                {(classFeatures ?? []).map((f) => (
-                  <div key={f.id} className="rounded border border-stone-700/50 bg-stone-800/40 p-2.5">
-                    <p className="text-sm font-medium text-stone-100">
-                      {f.name}
-                      {f.level != null && <span className="ml-2 text-xs font-normal text-stone-500">ур. {f.level}</span>}
-                    </p>
-                    {f.description && <p className="mt-0.5 text-xs text-stone-400">{f.description}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
-      </Panel>
+      </Section>
 
       {subclasses.length > 0 && (
-        <Panel title="Подкласс (необязательно)">
-          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        <Section title="Подкласс (необязательно)">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             <OptionCard
               selected={!form.subclass_id}
               onClick={() => update({ subclass_id: '' })}
@@ -132,100 +162,89 @@ export default function StepClass({ stepNo, total, form, update, lookups, derive
             ))}
           </div>
           {form.subclass_id && (
-            <div className="mt-3 space-y-2 border-t border-stone-700/60 pt-3">
+            <div className="mt-4 space-y-3">
               {!subclassDetail && <Hint>Загружаем подкласс…</Hint>}
               {subclassDetail && (
                 <>
                   {subclassDetail.archetype_group_name && (
                     <Tag tone="accent">{subclassDetail.archetype_group_name}</Tag>
                   )}
-                  {subclassDetail.description && <p className="text-sm text-stone-400">{subclassDetail.description}</p>}
-                  {(subclassDetail.features ?? []).length > 0 && (
-                    <div className="space-y-1.5">
-                      {(subclassDetail.features ?? []).map((f) => (
-                        <div key={f.id} className="rounded border border-stone-700/50 bg-stone-800/40 p-2.5">
-                          <p className="text-sm font-medium text-stone-100">
-                            {f.name}
-                            {f.level != null && (
-                              <span className="ml-2 text-xs font-normal text-stone-500">ур. {f.level}</span>
-                            )}
-                          </p>
-                          {f.description && <p className="mt-0.5 text-xs text-stone-400">{f.description}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {subclassDetail.description && <p className="text-sm leading-relaxed text-stone-300">{subclassDetail.description}</p>}
                 </>
               )}
             </div>
           )}
-        </Panel>
+        </Section>
       )}
 
-      <Panel title="Уровень">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={form.level} onChange={(e) => setLevel(e.target.value)} className="w-32">
-            {Array.from({ length: 20 }, (_, i) => i + 1).map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </Select>
-          {level >= 4 && (
-            <Hint>
-              На уровнях {[4, 8, 12, 16, 19].filter((l) => l <= level).join(', ')} потребуется выбрать улучшение
-              характеристик или черту.
-            </Hint>
-          )}
-        </div>
-      </Panel>
-
-      <Panel title={`Хиты за уровни 2–${level > 1 ? level : ''}`}>
-        <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-stone-300">
-          <span>Уровень 1: к{dieSides} + {conMod} = <b className="text-stone-100">{hpLevel1}</b> HP</span>
-          <span className="text-stone-500">Среднее за уровень: {avgGain} HP</span>
-        </div>
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          <OptionCard
-            selected={form.hp_mode === 'average'}
-            onClick={() => setHpMode('average')}
-            title="Среднее"
-            subtitle={`+${avgGain} HP за каждый уровень`}
-          />
-          <OptionCard
-            selected={form.hp_mode === 'roll'}
-            onClick={() => setHpMode('roll')}
-            title="Броски кубика"
-            subtitle={`к${dieSides} + мод. за каждый уровень`}
-          />
-          <OptionCard
-            selected={form.hp_mode === 'manual'}
-            onClick={() => setHpMode('manual')}
-            title="Вручную"
-            subtitle="Задать прибавку на каждом уровне"
-          />
-        </div>
-
-        {form.hp_mode === 'manual' && level > 1 && (
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: level - 1 }, (_, i) => i + 2).map((l) => (
-              <label key={l} className="flex items-center gap-2 text-sm">
-                <span className="w-24 shrink-0 text-stone-400">Уровень {l}</span>
-                <Input
-                  type="number"
-                  min="1"
-                  max={dieSides + conMod}
-                  value={form.manual_hp?.[l] ?? avgGain}
-                  onChange={(e) => setManualGain(l, e.target.value)}
+      <Section title={classDetail?.name ? `Навыки класса «${classDetail.name}»` : 'Навыки класса'}>
+        {!classDetail && <Hint>Сначала выберите класс.</Hint>}
+        {classDetail && choiceCount === 0 && <Hint>У этого класса нет навыков на выбор.</Hint>}
+        {classDetail && choiceCount > 0 && (
+          <>
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              <Tag tone={chosen.length >= choiceCount ? 'good' : 'default'}>
+                Выбрано: {chosen.length} из {choiceCount}
+              </Tag>
+              {chosen.length >= choiceCount && <Hint>Доступный лимит выбран.</Hint>}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {pool.map((s) => (
+                <SkillToggle
+                  key={s.id}
+                  id={s.id}
+                  name={s.name}
+                  sub={abilityName(s.ability)}
+                  on={chosen.includes(Number(s.id))}
+                  disabled={!chosen.includes(Number(s.id)) && chosen.length >= choiceCount}
+                  onClick={() => toggleChoice(Number(s.id))}
                 />
-              </label>
+              ))}
+            </div>
+          </>
+        )}
+      </Section>
+
+      {(raceGranted.length > 0 || bgGranted.length > 0) && (
+        <Section title="Навыки расы и предыстории">
+          <div className="flex flex-wrap gap-2">
+            {raceGranted.map((s) => (
+              <Tag key={`r${s.id}`} tone="good">
+                {s.name} · раса
+              </Tag>
+            ))}
+            {bgGranted.map((s) => (
+              <Tag key={`b${s.id}`} tone="good">
+                {s.name} · предыстория
+              </Tag>
             ))}
           </div>
-        )}
-        {form.hp_mode === 'roll' && (
-          <Hint className="mt-3">Кости будут брошены на шаге «Сводка» — там же можно перебросить.</Hint>
-        )}
-      </Panel>
+        </Section>
+      )}
+
+      {expertiseBudget > 0 && (
+        <Section title="Экспертиза">
+          <div className="mb-3">
+            <Tag tone={expertise.length >= expertiseBudget ? 'good' : 'default'}>
+              Отмечено: {expertise.length} из {expertiseBudget}
+            </Tag>
+            <Hint className="mt-1">Отметьте {expertiseBudget} навык(а/ов) класса — их бонус мастерства удвоится.</Hint>
+          </div>
+          {chosen.length === 0 && <Hint>Сначала выберите навыки класса.</Hint>}
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {chosen.map((id) => (
+              <SkillToggle
+                key={id}
+                id={id}
+                name={findName(id) || `Навык #${id}`}
+                on={expertise.includes(id)}
+                disabled={!expertise.includes(id) && expertise.length >= expertiseBudget}
+                onClick={() => toggleExpertise(id)}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
     </StepShell>
   )
 }

@@ -47,9 +47,9 @@ describe('Tag', () => {
       'inline-block',
       'whitespace-nowrap',
       'rounded',
-      'px-1.5',
-      'py-0.5',
-      'text-[11px]',
+      'px-2',
+      'py-1',
+      'text-xs',
       'font-medium',
     )
   })
