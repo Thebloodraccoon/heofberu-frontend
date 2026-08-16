@@ -1,9 +1,5 @@
 import { useState } from 'react'
-
-const fmtBonus = (n) => {
-  const v = Number(n ?? 0)
-  return v > 0 ? `+${v}` : String(v)
-}
+import { fmtBonus } from '@/lib/utils/sheet.js'
 
 export function RollButton({ bonus, onClick, disabled, compact = false, className = '', title }) {
   return (

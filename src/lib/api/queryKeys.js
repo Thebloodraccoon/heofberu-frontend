@@ -1,0 +1,34 @@
+export const queryKeys = {
+  auth: {
+    me: ['auth', 'me'],
+  },
+  users: {
+    all: ['users'],
+    detail: (id) => ['users', id],
+  },
+  characters: {
+    all: ['characters'],
+    detail: (id) => ['characters', id],
+    spells: (id) => ['characters', id, 'spells'],
+    attacks: (id) => ['characters', id, 'attacks'],
+    feats: (id) => ['characters', id, 'feats'],
+    features: (id) => ['characters', id, 'features'],
+    items: (id) => ['characters', id, 'items'],
+    conditions: (id) => ['characters', id, 'conditions'],
+    asiChoices: (id) => ['characters', id, 'asi-choices'],
+  },
+  catalog: {
+    classes: (params) => ['catalog', 'classes', params ?? {}],
+    classDetail: (id) => ['catalog', 'classes', id],
+    races: (params) => ['catalog', 'races', params ?? {}],
+    raceDetail: (id) => ['catalog', 'races', id],
+    subraces: (raceId) => ['catalog', 'races', raceId, 'subraces'],
+    backgrounds: (params) => ['catalog', 'backgrounds', params ?? {}],
+    backgroundDetail: (id) => ['catalog', 'backgrounds', id],
+    skills: (params) => ['catalog', 'skills', params ?? {}],
+    feats: (params) => ['catalog', 'feats', params ?? {}],
+    spells: (params) => ['catalog', 'spells', params ?? {}],
+    features: (params) => ['catalog', 'features', params ?? {}],
+    items: (params) => ['catalog', 'items', params ?? {}],
+  },
+}
