@@ -36,17 +36,15 @@ export default function ProfilePage() {
 
       <Card className="p-6">
         <div className="flex flex-wrap items-center gap-5">
-          <span className="flex size-16 items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display text-2xl font-black text-stone-100 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.35)]">
-            {initials}
-          </span>
+          <span className="avatar-lg">{initials}</span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-xl font-bold text-stone-100">{user.username}</h2>
+              <h2 className="heading-card">{user.username}</h2>
               <Badge tone={roleTone}>{roleLabel}</Badge>
             </div>
-            <p className="mt-1 text-sm text-stone-400">{user.email || 'email не указан'}</p>
+            <p className="subtitle">{user.email || 'email не указан'}</p>
             {user.created_at && (
-              <p className="mt-1 text-xs text-stone-500">
+              <p className="text-muted mt-1 text-xs">
                 Регистрация: {new Date(user.created_at).toLocaleDateString('ru-RU')}
               </p>
             )}
@@ -124,8 +122,8 @@ function ProfileForm({ user, onSaved }) {
 
   return (
     <Card className="p-6">
-      <h3 className="font-display text-lg font-bold text-stone-100">Личный кабинет</h3>
-      <p className="mt-1 text-sm text-stone-400">
+      <h3 className="heading-card">Личный кабинет</h3>
+      <p className="subtitle">
         Расскажите о себе и укажите контакты — эти данные отображаются в вашем профиле.
       </p>
 
@@ -176,27 +174,27 @@ function ProfileForm({ user, onSaved }) {
 function PlayerPanel({ charCount }) {
   return (
     <Card className="p-5">
-      <h3 className="text-base font-semibold text-stone-100">Панель игрока</h3>
-      <p className="mt-1 text-sm text-stone-400">
+      <h3 className="heading-sub">Панель игрока</h3>
+      <p className="subtitle">
         Вы можете создавать и вести своих персонажей, следить за их состоянием в бою и изучать справочники.
       </p>
-      <ul className="mt-4 space-y-2 text-sm text-stone-300">
+      <ul className="mt-4 space-y-2 text-body">
         <li>
-          <Link to="/characters" className="text-ember hover:underline">
+          <Link to="/characters" className="link-ember">
             Мои персонажи
           </Link>
           {charCount != null && (
-            <span className="ml-2 text-stone-500">({charCount})</span>
+            <span className="ml-2 text-muted">({charCount})</span>
           )}
         </li>
         <li>
-          <Link to="/catalog/spells" className="text-ember hover:underline">
+          <Link to="/catalog/spells" className="link-ember">
             Справочник заклинаний
           </Link>{' '}
           — изучайте заклинания и добавляйте их персонажу
         </li>
         <li>
-          <Link to="/catalog/items" className="text-ember hover:underline">
+          <Link to="/catalog/items" className="link-ember">
             Справочник предметов
           </Link>{' '}
           — соберите свой инвентарь
@@ -210,19 +208,19 @@ function GmPanel({ userCount }) {
   return (
     <>
       <Card className="p-5">
-        <h3 className="text-base font-semibold text-stone-100">Панель гейм-мастера</h3>
-        <p className="mt-1 text-sm text-stone-400">
+        <h3 className="heading-sub">Панель гейм-мастера</h3>
+        <p className="subtitle">
           Вам доступно управление пользователями и наполнение справочников кампании.
         </p>
-        <ul className="mt-4 space-y-2 text-sm text-stone-300">
+        <ul className="mt-4 space-y-2 text-body">
           <li>
-            <Link to="/users" className="text-ember hover:underline">
+            <Link to="/users" className="link-ember">
               Управление пользователями
             </Link>
-            {userCount != null && <span className="ml-2 text-stone-500">({userCount})</span>}
+            {userCount != null && <span className="ml-2 text-muted">({userCount})</span>}
           </li>
           <li>
-            <Link to="/characters" className="text-ember hover:underline">
+            <Link to="/characters" className="link-ember">
               Персонажи
             </Link>{' '}
             — ведение героев кампании
@@ -231,14 +229,14 @@ function GmPanel({ userCount }) {
       </Card>
 
       <Card className="p-5">
-        <h3 className="text-base font-semibold text-stone-100">Наполнение справочника</h3>
-        <p className="mt-1 text-sm text-stone-400">
+        <h3 className="heading-sub">Наполнение справочника</h3>
+        <p className="subtitle">
           Справочники можно наполнить дефолтным контентом D&D из репозитория:
         </p>
         <pre className="mt-3 overflow-x-auto rounded bg-stone-950 p-3 text-xs text-stone-300">
           npm run seed -- GM_EMAIL GM_PASSWORD
         </pre>
-        <p className="mt-2 text-xs text-stone-500">
+        <p className="mt-2 text-muted text-xs">
           Загружаются расы, классы, навыки, предыстории, черты, заклинания и предметы. Уже существующие записи пропускаются.
         </p>
       </Card>

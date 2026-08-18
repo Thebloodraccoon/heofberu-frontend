@@ -1,0 +1,57 @@
+/* ============================================================
+   guide.css — Стили страницы «Руководство по миру»
+   ============================================================ */
+
+.guide-container {
+  @apply mx-auto max-w-3xl space-y-10;
+}
+
+.guide-section {
+  @apply rounded-lg p-6 sm:p-8 space-y-6;
+  position: relative;
+  border: 1px solid rgba(168, 133, 61, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
+    var(--color-stone-900);
+  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+}
+
+.guide-title {
+  @apply font-display text-4xl font-bold tracking-wide text-stone-100;
+}
+
+.guide-subtitle {
+  @apply mt-4 text-base text-stone-300;
+}
+
+.guide-heading {
+  @apply font-display text-2xl font-bold text-stone-100;
+}
+
+.guide-text {
+  @apply text-base leading-relaxed text-stone-200;
+}
+
+.guide-list {
+  @apply space-y-3 text-base leading-relaxed text-stone-200;
+}
+
+.guide-list-disc {
+  @apply list-disc pl-5 space-y-1 text-base leading-relaxed text-stone-200;
+}
+
+.guide-list-tight {
+  @apply space-y-2 text-base leading-relaxed text-stone-200;
+}
+
+.guide-ordered {
+  @apply space-y-4 text-base leading-relaxed text-stone-200;
+}
+
+.guide-answers {
+  @apply space-y-3 text-base leading-relaxed text-stone-200;
+}
+
+.guide-strong {
+  @apply text-stone-100;
+}

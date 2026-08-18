@@ -130,12 +130,12 @@ export function summaryBadges(item) {
 }
 
 export function FieldValue({ value }) {
-  if (value === null || value === undefined || value === '') return <span className="text-stone-500">—</span>
+  if (value === null || value === undefined || value === '') return <span className="text-muted">—</span>
   if (typeof value === 'boolean') return <span className="text-stone-200">{value ? 'Да' : 'Нет'}</span>
   if (Array.isArray(value)) {
-    if (value.length === 0) return <span className="text-stone-500">—</span>
+    if (value.length === 0) return <span className="text-muted">—</span>
     return (
-      <span className="flex flex-wrap gap-1">
+      <span className="badge-row">
         {value.map((item, i) => {
           const text =
             item && typeof item === 'object'
@@ -165,8 +165,8 @@ export function FieldValue({ value }) {
 
 export function Section({ title, children }) {
   return (
-    <div className="mb-[5px] mt-6 border-t border-stone-700/70 pt-4">
-      <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-500">{title}</h2>
+    <div className="detail-section section-divider">
+      <h2 className="detail-section-title">{title}</h2>
       {children}
     </div>
   )
@@ -174,17 +174,17 @@ export function Section({ title, children }) {
 
 export function FeatureCards({ features }) {
   if (!features || features.length === 0) {
-    return <p className="text-sm text-stone-500">Особенностей не указано</p>
+    return <p className="text-muted">Особенностей не указано</p>
   }
   return (
     <ul className="space-y-3">
       {features.map((f) => (
-        <li key={f.id} className="my-[5px] rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-stone-100">{f.name}</p>
+        <li key={f.id} className="card-item my-[5px]">
+          <div className="chip-row">
+            <p className="detail-field-label">{f.name}</p>
             {f.level != null && <Badge tone="accent" className="my-[5px]">{ruLevel(f.level)}</Badge>}
           </div>
-          {f.description && <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{f.description}</p>}
+          {f.description && <p className="detail-text mt-1">{f.description}</p>}
         </li>
       ))}
     </ul>

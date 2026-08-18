@@ -28,8 +28,8 @@ export default function BackgroundDetailCard({ bg }) {
   const extraVisible = extra.filter(([, v]) => !isEmptyValue(v))
 
   return (
-    <Card className="my-[5px] p-6">
-      <div className="mb-3">
+    <Card className="my-[3px] p-4">
+      <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold text-stone-100">{bg.name}</h1>
         </div>

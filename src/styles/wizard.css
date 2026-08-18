@@ -1,0 +1,85 @@
+/* ============================================================
+   wizard.css — Стили мастера создания персонажа
+   ============================================================ */
+
+/* --- Сетка вариантов --- */
+
+.wizard-option-grid {
+  @apply grid gap-2.5 sm:grid-cols-3 xl:grid-cols-4;
+}
+
+.wizard-option-grid-2 {
+  @apply grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4;
+}
+
+/* --- Карточка варианта --- */
+
+.option-card {
+  @apply relative w-full rounded-lg border px-3 py-2.5 text-left transition;
+}
+
+.option-card-active {
+  @apply border-ember/80 bg-ember/10 shadow-[0_0_0_1px_rgba(212,85,42,0.35)];
+}
+
+.option-card-inactive {
+  @apply border-stone-700/70 bg-stone-800/40 hover:border-ember/50 hover:bg-stone-800/70;
+}
+
+/* --- Номер шага --- */
+
+.step-number {
+  @apply flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold;
+}
+
+.step-number-active {
+  @apply border-ember bg-ember text-white;
+}
+
+/* --- Навигация шагов --- */
+
+.step-nav {
+  @apply mt-6 flex items-center justify-between gap-3 border-t border-stone-700/40 pt-4;
+}
+
+/* --- Метка шага --- */
+
+.step-label {
+  @apply font-display text-sm font-semibold uppercase tracking-widest text-ember;
+}
+
+/* --- Заголовок секции шага --- */
+
+.step-section-label {
+  @apply mb-3 flex items-center gap-3 text-sm font-semibold uppercase tracking-widest text-gold-light;
+}
+
+/* --- Подсказка шага --- */
+
+.step-hint {
+  @apply text-sm text-stone-400;
+}
+
+/* --- Сетка навыков --- */
+
+.skill-toggle-active {
+  @apply border-ember/70 bg-ember/10 text-stone-100;
+}
+
+.skill-toggle-inactive {
+  @apply border-stone-700/60 bg-stone-800/40 text-stone-300 hover:border-ember/40;
+}
+
+/* --- Степпер (кнопки +/-) --- */
+
+.stepper-btn {
+  @apply flex size-8 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-base font-bold text-stone-200 transition;
+  @apply hover:border-ember/60 hover:bg-stone-800;
+  @apply disabled:cursor-not-allowed disabled:opacity-35;
+}
+
+/* --- Двухколоночный макет мастера --- */
+
+.wizard-layout {
+  @apply grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)];
+}

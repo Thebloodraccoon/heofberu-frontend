@@ -48,8 +48,8 @@ export default function ItemDetailCard({ item }) {
     .sort((a, b) => a.value.length - b.value.length)
 
   return (
-    <Card className="my-[5px] p-6">
-      <div className="mb-3">
+    <Card className="my-[3px] p-4">
+      <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
           <div className="flex flex-wrap gap-1.5">

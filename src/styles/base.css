@@ -1,0 +1,99 @@
+/* ============================================================
+   base.css — Глобальная типографика, заголовки, ссылки, аватары
+   ============================================================ */
+
+/* --- Заголовки --- */
+
+.heading-hero {
+  @apply font-display text-4xl font-bold tracking-wide text-stone-100;
+}
+
+.heading-page {
+  @apply font-display text-2xl font-bold text-stone-100;
+}
+
+.heading-section {
+  @apply font-display text-xl font-bold text-stone-100;
+}
+
+.heading-card {
+  @apply text-lg font-bold text-stone-100;
+}
+
+.heading-sub {
+  @apply text-base font-semibold text-stone-100;
+}
+
+/* --- Подзаголовки / мета-текст --- */
+
+.subtitle {
+  @apply mt-1 text-sm text-stone-400;
+}
+
+.text-muted {
+  @apply text-sm text-stone-500;
+}
+
+.text-hint {
+  @apply text-sm text-stone-400;
+}
+
+.text-label {
+  @apply text-xs font-semibold uppercase tracking-wide text-stone-400;
+}
+
+.text-label-sm {
+  @apply text-xs font-medium uppercase tracking-wide text-stone-500;
+}
+
+/* --- Тело текста --- */
+
+.text-body {
+  @apply text-sm leading-relaxed text-stone-300;
+}
+
+.text-body-lg {
+  @apply text-base leading-relaxed text-stone-200;
+}
+
+/* --- Ссылки --- */
+
+.link-ember {
+  @apply text-ember hover:underline;
+}
+
+.link-back {
+  @apply text-sm text-ember hover:underline;
+}
+
+/* --- Аватары / гербы --- */
+
+.avatar {
+  @apply flex items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display font-black text-stone-100;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+.avatar-sm {
+  @apply flex items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display font-black text-stone-100 size-8 text-sm;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+.avatar-md {
+  @apply flex items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display font-black text-stone-100 size-14 text-2xl;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+.avatar-lg {
+  @apply flex items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display font-black text-stone-100 size-16 text-2xl;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+.avatar-hero {
+  @apply mx-auto flex items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display font-black text-stone-100 size-20 text-4xl;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+.avatar-sheet {
+  @apply flex grid size-12 shrink-0 place-items-center items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display font-black text-stone-100 text-lg;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+}

@@ -1,0 +1,144 @@
+/* ============================================================
+   components.css — Кнопки, формы, карточки, статусы, оверлеи
+   ============================================================ */
+
+/* --- Поля ввода --- */
+
+.input-base {
+  @apply w-full rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none;
+  @apply placeholder:text-stone-500 focus:border-ember;
+}
+
+.input-search {
+  @apply w-full rounded border border-stone-700 bg-stone-800/70 px-4 py-2.5 text-sm text-stone-100 outline-none;
+  @apply placeholder:text-stone-500 focus:border-ember sm:w-64;
+}
+
+.input-compact {
+  @apply w-full rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none;
+  @apply focus:border-ember;
+}
+
+.input-narrow {
+  @apply w-20 rounded border border-stone-700 bg-stone-800/70 px-2 py-1 text-center text-sm text-stone-100 outline-none;
+  @apply focus:border-ember;
+}
+
+.input-sm {
+  @apply w-12 rounded border border-stone-700 bg-stone-800/70 px-1 py-1 text-center text-sm text-stone-100 outline-none;
+  @apply focus:border-ember;
+}
+
+/* --- Кнопки (inline / ghost) --- */
+
+.btn-add {
+  @apply my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition;
+  @apply hover:bg-stone-800;
+}
+
+.btn-edit-inline {
+  @apply my-[5px] rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition;
+  @apply hover:bg-stone-800;
+}
+
+.btn-delete-inline {
+  @apply my-[5px] rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition;
+  @apply hover:bg-red-950/50;
+}
+
+.btn-delete {
+  @apply my-[5px] rounded border border-red-800 px-2 py-1.5 text-[11px] text-red-300 transition;
+  @apply hover:bg-red-950/50;
+}
+
+/* --- Карточки / панели --- */
+
+.card-item {
+  @apply rounded-lg border border-stone-700/60 bg-stone-900/60 p-3;
+}
+
+.card-item-p {
+  @apply rounded-lg border border-stone-700/60 bg-stone-900/60 p-4;
+}
+
+.card-active {
+  @apply border-ember/80 bg-stone-900;
+}
+
+.card-highlight {
+  @apply border-ember/60 bg-ember/5;
+}
+
+/* --- Секция-разделитель --- */
+
+.section-divider {
+  @apply border-t border-stone-700/70 pt-4;
+}
+
+/* --- Строка списка --- */
+
+.list-row {
+  @apply flex items-center justify-between gap-2;
+}
+
+.list-row-padded {
+  @apply flex items-center justify-between gap-2 px-3 py-2.5;
+}
+
+/* --- Текст элемента списка --- */
+
+.item-name {
+  @apply text-sm font-medium text-stone-100;
+}
+
+.item-desc-preview {
+  @apply mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-stone-400;
+}
+
+/* --- Ряд с чипсами / бейджами --- */
+
+.chip-row {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.badge-row {
+  @apply flex flex-wrap gap-1.5;
+}
+
+/* --- Успех / сохранено --- */
+
+.badge-saved {
+  @apply text-xs text-emerald-400;
+}
+
+/* --- Описание-цитата (с полоской слева) --- */
+
+.description-blockquote {
+  @apply mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200;
+}
+
+.description-secondary {
+  @apply mb-6 whitespace-pre-wrap text-sm leading-relaxed text-stone-300;
+}
+
+/* --- Оверлей / модалка --- */
+
+.overlay-center {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4;
+}
+
+.overlay-blur {
+  @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm;
+}
+
+/* --- Чекбокс / радио --- */
+
+.checkbox-base {
+  @apply size-4 accent-ember;
+}
+
+/* --- Контейнер-подсветка (выделение активного элемента) --- */
+
+.highlight-active {
+  @apply border-ember/60 bg-ember/5;
+}

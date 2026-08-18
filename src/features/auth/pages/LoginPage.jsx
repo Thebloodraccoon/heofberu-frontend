@@ -31,11 +31,9 @@ export default function LoginPage() {
       </div>
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display text-2xl font-black text-stone-100 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.35)]">
-            H
-          </span>
-          <h1 className="font-display text-xl font-bold text-stone-100">Вход в Heofberu</h1>
-          <p className="mt-1 text-sm text-stone-400">Система управления мирами D&D</p>
+          <span className="avatar-md mx-auto mb-3">H</span>
+          <h1 className="heading-section">Вход в Heofberu</h1>
+          <p className="subtitle">Система управления мирами D&D</p>
         </div>
         {error && <div className="mb-4"><ErrorBox error={error} /></div>}
         <form onSubmit={submit} className="flex flex-col gap-4">
@@ -61,15 +59,15 @@ export default function LoginPage() {
             {busy ? 'Входим...' : 'Войти'}
           </Button>
         </form>
-        <p className="mt-5 text-center text-sm text-stone-400">
+        <p className="mt-5 text-center text-hint">
           Нет аккаунта?{' '}
-          <Link to="/register" className="text-ember hover:underline">
+          <Link to="/register" className="link-ember">
             Зарегистрироваться
           </Link>
         </p>
-        <p className="mt-2 text-center text-sm text-stone-500">
+        <p className="mt-2 text-center text-muted">
           Или{' '}
-          <Link to="/catalog/races" className="text-ember hover:underline">
+          <Link to="/catalog/races" className="link-ember">
             посмотрите справочники
           </Link>{' '}
           без входа

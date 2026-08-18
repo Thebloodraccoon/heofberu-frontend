@@ -28,11 +28,9 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-stone-600 bg-stone-900 font-display text-2xl font-black text-stone-100 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.35)]">
-            H
-          </span>
-          <h1 className="font-display text-xl font-bold text-stone-100">Регистрация</h1>
-          <p className="mt-1 text-sm text-stone-400">Новый аккаунт игрока</p>
+          <span className="avatar-md mx-auto mb-3">H</span>
+          <h1 className="heading-section">Регистрация</h1>
+          <p className="subtitle">Новый аккаунт игрока</p>
         </div>
         {error && <div className="mb-4"><ErrorBox error={error} /></div>}
         <form onSubmit={submit} className="flex flex-col gap-4">
@@ -74,9 +72,9 @@ export default function RegisterPage() {
             {busy ? 'Создаём...' : 'Зарегистрироваться'}
           </Button>
         </form>
-        <p className="mt-5 text-center text-sm text-stone-400">
+        <p className="mt-5 text-center text-hint">
           Уже есть аккаунт?{' '}
-          <Link to="/login" className="text-ember hover:underline">
+          <Link to="/login" className="link-ember">
             Войти
           </Link>
         </p>

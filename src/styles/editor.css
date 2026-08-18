@@ -1,0 +1,55 @@
+/* ============================================================
+   editor.css — Стили редактора GM
+   ============================================================ */
+
+/* --- Сетка редактора (список + детали) --- */
+
+.editor-layout {
+  @apply grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)];
+}
+
+/* --- Заголовок записи в редакторе --- */
+
+.editor-record-row {
+  @apply flex items-center justify-between gap-2 px-3 py-2.5;
+}
+
+.editor-record-name {
+  @apply truncate text-sm font-medium text-stone-100;
+}
+
+.editor-record-meta {
+  @apply text-xs text-stone-500 transition-transform;
+}
+
+/* --- Форма редактора --- */
+
+.editor-field-grid {
+  @apply mb-[5px] grid gap-3 sm:grid-cols-2;
+}
+
+/* --- Разделитель секций в редакторе --- */
+
+.editor-divider {
+  @apply border-t border-stone-700/70 pt-4;
+}
+
+.editor-divider-inset {
+  @apply border-t border-stone-700/60 p-4;
+}
+
+/* --- Подзаголовок секции --- */
+
+.editor-section-title {
+  @apply text-xs font-semibold uppercase tracking-[0.15em] text-stone-400;
+}
+
+/* --- Табы / пилюли переключателя --- */
+
+.tab-active {
+  @apply bg-ember text-white shadow-sm;
+}
+
+.tab-inactive {
+  @apply border border-stone-700 text-stone-300 hover:bg-stone-800;
+}

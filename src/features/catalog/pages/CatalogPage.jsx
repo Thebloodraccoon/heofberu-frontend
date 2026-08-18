@@ -114,7 +114,7 @@ export function CatalogListPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Поиск: имя, описание..."
-              className="w-full rounded border border-stone-700 bg-stone-800/70 px-4 py-2.5 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember sm:w-64"
+              className="input-search sm:w-64"
             />
             {filterFields.length > 0 && (
               <button
@@ -148,15 +148,15 @@ export function CatalogListPage() {
 
       {items && filtered && filtered.length > 0 && (
         selectedId ? (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+          <div className="catalog-layout">
             <aside className="max-h-[calc(100vh-220px)] overflow-y-auto pr-1 lg:sticky lg:top-24">
               <Link
                 to={`/catalog/${resource}`}
-                className="mb-2 my-[5px] block text-xs text-ember hover:underline"
+                className="mb-2 my-[5px] block link-back"
               >
                 ← Ко всем записям
               </Link>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1">
                 {filtered.map((it) => {
                   const isActive = Number(it.id) === selectedId
                   const activeSubs =
@@ -168,7 +168,7 @@ export function CatalogListPage() {
                   return (
                     <div
                       key={it.id}
-                      className={`card-hover my-[5px] w-full fantasy-panel rounded-lg p-4 transition ${
+                      className={`card-hover my-[3px] w-full fantasy-panel rounded-lg p-3 transition ${
                         isActive
                           ? 'border-ember/80 bg-stone-900'
                           : 'hover:border-ember/50'
@@ -253,7 +253,7 @@ export function CatalogListPage() {
             </section>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="catalog-grid">
             {filtered.map((it) => (
               <TileCard key={it.id} item={it} resource={resource} />
             ))}

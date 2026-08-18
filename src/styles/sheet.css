@@ -1,0 +1,458 @@
+/* ============================================================
+   sheet.css — Лист персонажа (sheet)
+   Все цвета берутся из токенов темы (--color-stone-* / ember / gold),
+   поэтому лист перекрашивается вместе со сменой темы.
+   ============================================================ */
+
+.sheet-header {
+  position: sticky;
+  top: 4rem;
+  z-index: 30;
+  border: 1px solid var(--color-stone-800);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-stone-950) 88%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.65);
+}
+
+.sheet-body {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .sheet-body {
+    grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
+  }
+}
+
+.sheet-roll {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-stone-700);
+  background: linear-gradient(180deg, rgba(255, 248, 225, 0.05), rgba(0, 0, 0, 0.2)), var(--color-stone-800);
+  color: var(--color-stone-200);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+}
+.sheet-roll:hover {
+  border-color: var(--color-ember);
+  color: var(--color-ember);
+}
+.sheet-roll:active {
+  transform: translateY(1px);
+}
+.sheet-roll_compact {
+  min-width: 1.75rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
+  font-size: 0.6875rem;
+}
+.sheet-roll:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sheet-checkdot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-stone-600);
+  background: var(--color-stone-900);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  flex-shrink: 0;
+}
+.sheet-checkdot:hover {
+  border-color: var(--color-ember);
+}
+.sheet-checkdot input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+.sheet-checkdot__marker {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.sheet-checkdot input:checked + .sheet-checkdot__marker,
+.sheet-checkdot_checked .sheet-checkdot__marker {
+  background: var(--color-ember);
+  box-shadow: 0 0 0 2px var(--color-ember) inset, 0 0 6px rgba(0, 0, 0, 0.4);
+}
+
+.sheet-boxed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.sheet-boxed__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--color-stone-700);
+  border-radius: 0.625rem;
+  background: linear-gradient(180deg, rgba(255, 248, 225, 0.04), rgba(0, 0, 0, 0.18)), var(--color-stone-800);
+  color: var(--color-stone-100);
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1;
+}
+.sheet-boxed__label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-stone-500);
+  text-align: center;
+}
+
+.sheet-xp {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-sans);
+}
+.sheet-xp__level {
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--color-stone-100);
+}
+.sheet-xp__track {
+  position: relative;
+  flex: 1;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-stone-800);
+  border: 1px solid var(--color-stone-700);
+  overflow: hidden;
+}
+.sheet-xp__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-ember), var(--color-gold));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-ember) 55%, transparent);
+}
+
+.sheet-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-stone-700);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sheet-tabs::-webkit-scrollbar {
+  display: none;
+}
+.sheet-tabs__btn {
+  flex-shrink: 0;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-stone-400);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 0.5rem 0.5rem 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.sheet-tabs__btn:hover {
+  color: color-mix(in srgb, var(--color-stone-100) 88%, var(--color-ember));
+  text-shadow: 0 0 14px color-mix(in srgb, var(--color-ember) 45%, transparent);
+}
+.sheet-tabs__btn_active {
+  color: var(--color-stone-100);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-ember) 12%, transparent), transparent 65%);
+  border-color: var(--color-stone-700);
+  position: relative;
+}
+.sheet-tabs__btn_active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-ember), var(--color-gold));
+}
+
+.sheet-text-block {
+  border: 1px solid var(--color-stone-800);
+  border-radius: 0.625rem;
+  background: linear-gradient(180deg, rgba(255, 248, 225, 0.02), rgba(0, 0, 0, 0.12)), var(--color-stone-900);
+}
+.sheet-text-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--color-stone-800);
+}
+.sheet-text-block__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-stone-300);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.sheet-text-block__label:hover {
+  color: var(--color-stone-100);
+}
+.sheet-text-block__label svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  transition: transform 0.15s ease;
+}
+.sheet-text-block__body {
+  padding: 0.75rem 0.85rem;
+}
+.sheet-text-block__body p {
+  color: var(--color-stone-300);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.sheet-edit-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-stone-700);
+  color: var(--color-stone-400);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.sheet-edit-note:hover {
+  color: var(--color-ember);
+  border-color: var(--color-ember);
+}
+.sheet-edit-note svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.sheet-btn {
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border: 1px solid var(--color-stone-700);
+  color: var(--color-stone-300);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.sheet-btn:hover {
+  border-color: var(--color-ember);
+  color: var(--color-ember);
+}
+.sheet-btn_primary {
+  background: var(--color-ember);
+  border-color: var(--color-ember);
+  color: #fff;
+}
+.sheet-btn_primary:hover {
+  background: var(--color-ember-dark);
+  border-color: var(--color-ember-dark);
+  color: #fff;
+}
+.sheet-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sheet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-stone-700);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-stone-300);
+  background: var(--color-stone-800);
+  white-space: nowrap;
+}
+.sheet-chip_on {
+  border-color: color-mix(in srgb, var(--color-ember) 55%, var(--color-stone-700));
+  color: var(--color-stone-100);
+  background: color-mix(in srgb, var(--color-ember) 12%, var(--color-stone-800));
+}
+.sheet-chip__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-stone-600);
+  background: transparent;
+}
+.sheet-chip_on .sheet-chip__dot {
+  border-color: var(--color-ember);
+  background: var(--color-ember);
+}
+
+.sheet-ability {
+  margin-bottom: 1rem;
+}
+.sheet-ability__name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-stone-700) 70%, transparent);
+}
+.sheet-ability__name-link {
+  color: var(--color-stone-200);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.sheet-ability__score {
+  margin-left: auto;
+  color: var(--color-stone-100);
+  font-weight: 800;
+  font-size: 1rem;
+  font-family: var(--font-display);
+}
+.sheet-skill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+.sheet-skill_small {
+  margin-bottom: 0.45rem;
+}
+.sheet-skill__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: var(--color-stone-400);
+  font-size: 0.75rem;
+}
+.sheet-skill__label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-stone-500);
+  margin: 1.25rem 0 0.75rem;
+}
+.sheet-section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-stone-700) 70%, transparent), transparent);
+}
+
+.sheet-passive {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.sheet-passive__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.5rem;
+  background: var(--color-stone-900);
+  border: 1px solid var(--color-stone-800);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.sheet-passive__item:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--color-ember) 45%, var(--color-stone-700));
+}
+.sheet-passive__icon {
+  color: var(--color-ember);
+  display: inline-flex;
+}
+.sheet-passive__name {
+  font-size: 0.7rem;
+  color: var(--color-stone-400);
+  flex: 1;
+}
+.sheet-passive__value {
+  font-weight: 700;
+  color: var(--color-stone-100);
+  font-size: 0.8125rem;
+  font-family: var(--font-sans);
+}
+
+.sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.sheet-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-stone-500);
+  border-bottom: 1px solid var(--color-stone-700);
+  font-weight: 700;
+}
+.sheet-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-stone-700) 45%, transparent);
+  color: var(--color-stone-300);
+}
+.sheet-table tr:last-child td {
+  border-bottom: none;
+}

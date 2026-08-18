@@ -6,7 +6,7 @@ export function Spinner({ label = 'Загрузка...' }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-stone-400">
       <div className="size-8 animate-spin rounded-full border-2 border-ember border-t-transparent" />
-      <p className="text-sm">{label}</p>
+      <p className="text-hint">{label}</p>
     </div>
   )
 }
@@ -30,13 +30,13 @@ export function ErrorBox({ error, onRetry, className = '' }) {
 }
 
 export function EmptyState({ text }) {
-  return <p className="py-8 text-center text-sm text-stone-500">{text}</p>
+  return <p className="py-8 text-center text-muted">{text}</p>
 }
 
 export function Field({ label, children, className = '' }) {
   return (
     <label className={`flex flex-col gap-1.5 ${className}`}>
-      <span className="text-xs font-medium uppercase tracking-wide text-stone-400">{label}</span>
+      <span className="text-label">{label}</span>
       {children}
     </label>
   )
@@ -46,7 +46,7 @@ export function Input(props) {
   return (
     <input
       {...props}
-      className="w-full rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember"
+      className="input-base"
     />
   )
 }
@@ -55,7 +55,7 @@ export function TextArea(props) {
   return (
     <textarea
       {...props}
-      className="w-full resize-y rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember"
+      className="input-base"
     />
   )
 }
@@ -243,8 +243,8 @@ export function PageHeader({ title, subtitle, actions, centered = false }) {
       }`}
     >
       <div className={centered ? 'w-full' : 'min-w-0 flex-1'}>
-        <h1 className="font-display text-2xl font-bold text-stone-100">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-stone-400">{subtitle}</p>}
+        <h1 className="heading-page">{title}</h1>
+        {subtitle && <p className="subtitle">{subtitle}</p>}
         <div className={`ornate-rule mt-3 ${centered ? 'mx-auto max-w-md' : ''}`}>
           <span aria-hidden className="text-xs">✦</span>
         </div>
@@ -264,7 +264,7 @@ export function Card({ className = '', children }) {
 
 export function Chip({ children, className = '' }) {
   return (
-    <span className={`inline-block rounded border border-stone-700 bg-stone-800/80 px-2 py-0.5 text-xs text-stone-200 ${className}`}>
+    <span className={`badge-row ${className}`}>
       {children}
     </span>
   )
@@ -330,8 +330,8 @@ export function Modal({
             }
           >
             <div>
-              {title && <h2 className="font-display text-xl font-bold text-stone-100">{title}</h2>}
-              {subtitle && <p className="mt-0.5 text-sm text-stone-400">{subtitle}</p>}
+              {title && <h2 className="heading-section">{title}</h2>}
+              {subtitle && <p className="subtitle">{subtitle}</p>}
             </div>
             {onClose && (
               <button
@@ -374,7 +374,7 @@ export function ConfirmDialog({
 }) {
   return (
     <Modal title={title} onClose={busy ? undefined : onCancel} tone="danger">
-      <p className="text-sm leading-relaxed text-stone-300">{message}</p>
+      <p className="text-body">{message}</p>
       {error && (
         <div className="mt-3">
           <ErrorBox error={error} onRetry={() => {}} />
@@ -395,14 +395,12 @@ export function ConfirmDialog({
 export function StatTable({ rows }) {
   if (!rows || rows.length === 0) return null
   return (
-    <table className="w-full text-sm">
+    <table className="sheet-table">
       <tbody>
         {rows.map(([k, v]) => (
-          <tr key={k} className="border-b border-stone-700/40 align-top last:border-b-0">
-            <th className="w-2/5 px-3 py-2.5 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-              {k}
-            </th>
-            <td className="px-3 py-2.5 text-stone-200">{v}</td>
+          <tr key={k}>
+            <th>{k}</th>
+            <td>{v}</td>
           </tr>
         ))}
       </tbody>
@@ -416,7 +414,7 @@ export function FactList({ children }) {
 
 export function FactRow({ label: lbl, value }) {
   return (
-    <li className="text-sm leading-relaxed text-stone-300">
+    <li className="text-body">
       <span className="font-medium text-stone-200">{lbl}: </span>
       <span>{value}</span>
     </li>

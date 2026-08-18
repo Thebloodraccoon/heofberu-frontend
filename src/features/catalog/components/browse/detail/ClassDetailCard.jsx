@@ -47,7 +47,7 @@ function buildRows(cls, extraFeatures) {
 
 function Section({ title, children, noBorder }) {
   return (
-    <div className={`mb-[5px] mt-6 pt-4 ${noBorder ? '' : 'border-t border-stone-700/70'}`}>
+    <div className={`mb-[3px] mt-4 pt-3 ${noBorder ? '' : 'border-t border-stone-700/70'}`}>
       <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-stone-500">{title}</h2>
       {children}
     </div>
@@ -78,8 +78,8 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
   ].sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || a.id - b.id)
 
   return (
-    <Card className="my-[5px] p-6">
-      <div className="mb-3">
+    <Card className="my-[3px] p-4">
+      <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold text-stone-100">{cls.name}</h1>
           <Badge className="my-[5px]">{`Кость хитов ${diceRu}`}</Badge>

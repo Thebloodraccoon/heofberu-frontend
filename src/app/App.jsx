@@ -16,6 +16,7 @@ const CatalogListPage = lazy(() => import('@/features/catalog/pages/CatalogPage.
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage.jsx'))
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage.jsx'))
 const GmEditorPage = lazy(() => import('@/features/catalog/pages/GmEditorPage.jsx'))
+const GuidePage = lazy(() => import('@/features/guide/pages/GuidePage.jsx'))
 
 function RootRedirect() {
   const { authenticated } = useAuth()
@@ -37,6 +38,7 @@ function App() {
 
             <Route element={<Layout />}>
               <Route index element={<LandingPage />} />
+              <Route path="guide" element={<GuidePage />} />
               <Route path="catalog/:resource" element={<CatalogListPage />} />
               <Route path="catalog/:resource/:id" element={<CatalogListPage />} />
             </Route>

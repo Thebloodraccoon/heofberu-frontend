@@ -16,9 +16,7 @@ const catalogLinks = [
 
 function Crest({ size = 'size-9', text = 'text-base' }) {
   return (
-    <span
-      className={`${size} flex shrink-0 items-center justify-center rounded-full border border-stone-600 bg-stone-900 font-display font-black text-stone-100 shadow-[inset_0_0_0_2px_rgba(0,0,0,0.35)] ${text}`}
-    >
+    <span className={`avatar ${size} ${text}`}>
       H
     </span>
   )
@@ -45,7 +43,7 @@ function SidebarLink({ to, end, label, onClick, className = '' }) {
 
 function SectionTitle({ children }) {
   return (
-    <p className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+    <p className="text-label-sm px-3 pb-1 pt-4">
       <span aria-hidden className="mr-1.5 text-[0.7em] text-ember/70">✦</span>
       {children}
     </p>
@@ -127,14 +125,13 @@ export default function Layout() {
                 aria-label="Развернуть меню"
                 title="Развернуть меню"
               >
-                ▸ Меню
+                Меню
               </button>
             </aside>
           ) : (
             <aside className="hidden w-[16.75rem] shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-3 lg:sticky lg:top-16 lg:flex lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto">
               <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2 pl-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                  <span aria-hidden className="mr-1.5 text-[0.7em] text-ember/70">✦</span>
                   Меню
                 </span>
                 <button
@@ -149,6 +146,7 @@ export default function Layout() {
               </div>
               <nav className="flex flex-col gap-0.5">
                 <SidebarLink to="/" end label="Главная" onClick={close} />
+                <SidebarLink to="/guide" label="Руководство" onClick={close} />
 
                 <SectionTitle>Справочники</SectionTitle>
                 {catalogLinks.map((l) => (
@@ -175,7 +173,7 @@ export default function Layout() {
           )}
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 sm:px-7">
+            <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-8 sm:px-7">
               <Outlet />
             </main>
           </div>
@@ -196,6 +194,7 @@ export default function Layout() {
               </div>
               <nav className="flex flex-col gap-0.5">
                 <SidebarLink to="/" end label="Главная" onClick={close} />
+                <SidebarLink to="/guide" label="Руководство" onClick={close} />
 
                 <SectionTitle>Справочники</SectionTitle>
                 {catalogLinks.map((l) => (

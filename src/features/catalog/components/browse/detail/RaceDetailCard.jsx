@@ -14,8 +14,8 @@ export default function RaceDetailCard({ race, selectedSub }) {
   const features = [...raceFeatures, ...subFeatures]
 
   return (
-    <Card className="my-[5px] p-6">
-      <div className="mb-3">
+    <Card className="my-[3px] p-4">
+      <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold text-stone-100">{race.name}</h1>
         </div>
@@ -24,7 +24,7 @@ export default function RaceDetailCard({ race, selectedSub }) {
         )}
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-1.5">
+      <div className="mb-4 flex flex-wrap gap-1.5">
         <Badge className="my-[5px]">Размер: {raceSizeLabels[race.size] ?? race.size}</Badge>
         <Badge className="my-[5px]">Скорость: {race.speed} фт.</Badge>
       </div>
@@ -42,7 +42,7 @@ export default function RaceDetailCard({ race, selectedSub }) {
           )}
 
       {((selectedSub ? selectedSub.ability_bonuses : race.ability_bonuses) ?? []).length > 0 && (
-        <p className="mt-4 text-sm leading-relaxed">
+        <p className="mt-3 text-sm leading-relaxed">
           <span className="font-semibold text-stone-100">Бонусы характеристик: </span>
           <span className="font-semibold text-stone-100">
             {(selectedSub ? selectedSub.ability_bonuses : race.ability_bonuses)
@@ -53,7 +53,7 @@ export default function RaceDetailCard({ race, selectedSub }) {
       )}
 
       {race.granted_skills && race.granted_skills.length > 0 && (
-        <p className="mt-4 text-sm leading-relaxed">
+        <p className="mt-3 text-sm leading-relaxed">
           <span className="font-semibold text-stone-100">Навыки расы: </span>
           <span className="font-semibold text-stone-100">{race.granted_skills.map((s) => s.name).join(' ')}</span>
         </p>
@@ -63,11 +63,11 @@ export default function RaceDetailCard({ race, selectedSub }) {
         {features.length === 0 ? (
           <p className="text-sm text-stone-500">Особенностей не указано</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {features.map((feature) => (
               <li
                 key={feature.id}
-                className={`my-[5px] rounded-lg border p-3 ${
+                className={`my-[3px] rounded-lg border p-2.5 ${
                   feature.fromSubrace
                     ? 'border-ember/60 bg-ember/5'
                     : 'border-stone-700/60 bg-stone-900/60'

@@ -42,13 +42,13 @@ export default function CharactersPage() {
               <Link
                 key={c.id}
                 to={`/characters/${c.id}`}
-                className="group card-hover fantasy-panel rounded-lg p-4 transition hover:border-ember/70"
+                className="catalog-tile"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-display font-semibold text-stone-100 group-hover:text-ember">{c.name}</p>
+                <div className="list-row">
+                  <p className="item-name group-hover:text-ember">{c.name}</p>
                   <Badge tone="accent">Ур. {c.level}</Badge>
                 </div>
-                <p className="mt-1 text-sm text-stone-400">
+                <p className="text-hint mt-1">
                   {[cls?.name, subcls?.name, race?.name, bg?.name].filter(Boolean).join(' · ') || 'Без класса'}
                 </p>
                 <p className="mt-3 text-sm">

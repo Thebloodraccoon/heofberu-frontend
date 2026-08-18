@@ -1,0 +1,119 @@
+/* ============================================================
+   catalog.css — Стили каталога и детальных карточек
+   ============================================================ */
+
+/* --- Карточка каталога (плитка) --- */
+
+.catalog-tile {
+  @apply rounded-lg p-4 transition;
+  @apply hover:border-ember/70;
+  position: relative;
+  border: 1px solid rgba(168, 133, 61, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
+    var(--color-stone-900);
+  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.catalog-tile:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-stone-700));
+  box-shadow:
+    0 18px 42px -18px rgba(0, 0, 0, 0.85),
+    0 0 0 1px color-mix(in srgb, var(--color-gold) 20%, transparent),
+    0 0 28px -8px color-mix(in srgb, var(--color-gold) 30%, transparent);
+}
+.catalog-tile::before,
+.catalog-tile::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+.catalog-tile::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--color-gold);
+  border-left: 2px solid var(--color-gold);
+}
+.catalog-tile::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--color-gold);
+  border-right: 2px solid var(--color-gold);
+}
+
+.catalog-tile-icon {
+  @apply flex size-11 items-center justify-center rounded border border-stone-700 bg-stone-800/70 font-display text-lg font-bold text-ember;
+}
+
+.catalog-tile-title {
+  @apply mt-2 font-display text-lg font-bold text-stone-100 group-hover:text-ember;
+}
+
+.catalog-tile-desc {
+  @apply mt-1 text-sm text-stone-400;
+}
+
+/* --- Детальная карточка --- */
+
+.detail-card {
+  @apply my-[3px] rounded-lg bg-stone-900 p-4;
+}
+
+.detail-title {
+  @apply font-display text-2xl font-bold text-stone-100;
+}
+
+.detail-badges {
+  @apply flex flex-wrap gap-1.5;
+}
+
+.detail-description {
+  @apply mb-4 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200;
+}
+
+.detail-text {
+  @apply whitespace-pre-wrap text-sm leading-relaxed text-stone-300;
+}
+
+/* --- Секция внутри карточки --- */
+
+.detail-section {
+  @apply mb-[3px] mt-4;
+  border-top: 1px solid rgba(87, 78, 72, 0.7);
+  padding-top: 0.75rem;
+}
+
+.detail-section-title {
+  @apply text-xs font-semibold uppercase tracking-wide text-stone-500;
+  @apply mb-3 flex items-center gap-3;
+}
+
+/* --- Пара поле-значение --- */
+
+.detail-field {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.detail-field-label {
+  @apply font-medium text-stone-100;
+}
+
+.detail-field-value {
+  @apply text-stone-200;
+}
+
+/* --- Сетка каталога --- */
+
+.catalog-grid {
+  @apply grid gap-3 sm:grid-cols-2 xl:grid-cols-3;
+}
+
+/* --- Двухколоночный макет каталога --- */
+
+.catalog-layout {
+  @apply grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)];
+}
