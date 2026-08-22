@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import {
@@ -62,47 +62,96 @@ function MaxHpSection({ character, onError, reload }) {
   )
 }
 
-function MaxLevelSection({ characterId, level, onError, reload }) {
+function LevelSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
-  const { data: maxLevelData } = useCharacterMaxLevel(characterId)
-  const [value, setValue] = useState('')
-  const [busy, setBusy] = useState(false)
-  const current = maxLevelData?.max_level ?? '—'
+  const { data: canLevelUp } = useCanLevelUp(character.id)
+  const { data: maxLevelData } = useCharacterMaxLevel(character.id)
+  const featsQ = useFeatsFull()
+  const [asiPromptLevel, setAsiPromptLevel] = useState(null)
+  const [newCeiling, setNewCeiling] = useState('')
+  const [ceilingBusy, setCeilingBusy] = useState(false)
 
-  const save = async () => {
-    setBusy(true)
+  const levelUp = async (choice) => {
+    setAsiPromptLevel(null)
     try {
-      await charactersApi.gmPanel.maxLevel.set(characterId, { max_level: Number(value) })
-      setValue('')
-      await queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'gm-panel', 'max-level'] })
-      await queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'progression', 'can-level-up'] })
+      await charactersApi.progression.levelUp(character.id, choice ? { choice } : {})
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
+      await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'progression', 'can-level-up'] })
+      await reload()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const onLevelUpClick = async () => {
+    const nextLevel = (Number(character.level) || 1) + 1
+    if (ASI_LEVELS.includes(nextLevel)) {
+      await featsQ.refetch().catch(() => null)
+      setAsiPromptLevel(nextLevel)
+    } else {
+      levelUp(null)
+    }
+  }
+
+  const raiseCeiling = async () => {
+    setCeilingBusy(true)
+    try {
+      await charactersApi.gmPanel.maxLevel.set(character.id, { max_level: Number(newCeiling) })
+      setNewCeiling('')
+      await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'gm-panel', 'max-level'] })
+      await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'progression', 'can-level-up'] })
       await reload()
     } catch (e) {
       onError(e)
     } finally {
-      setBusy(false)
+      setCeilingBusy(false)
     }
   }
 
   return (
-    <Section title="Максимальный уровень">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-stone-200">
-          сейчас: {current} (персонаж ур. {level})
+    <Section title="Уровень персонажа">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-stone-200">
+        <span>
+          Текущий уровень: <b>{character.level}</b>
         </span>
-        <Input
-          type="number"
-          min="1"
-          max="20"
-          className="!w-20"
-          value={value}
-          placeholder="новый"
-          onChange={(e) => setValue(e.target.value)}
-        />
-        <Button size="sm" disabled={busy || !value} onClick={save}>
-          Поднять
+        <span className="text-stone-500">·</span>
+        <span>Потолок: {maxLevelData?.max_level ?? '—'}</span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {canLevelUp?.can_level_up ? (
+          <Button size="sm" onClick={onLevelUpClick}>
+            Повысить до ур. {(Number(character.level) || 1) + 1}
+          </Button>
+        ) : (
+          <span className="text-xs text-stone-500">Повышение недоступно — сначала поднимите потолок.</span>
+        )}
+        <label className="flex items-center gap-1.5 text-xs text-stone-400">
+          Новый потолок:
+          <Input
+            type="number"
+            min="1"
+            max="20"
+            className="!w-20"
+            value={newCeiling}
+            onChange={(e) => setNewCeiling(e.target.value)}
+          />
+        </label>
+        <Button size="sm" variant="ghost" disabled={ceilingBusy || !newCeiling} onClick={raiseCeiling}>
+          Поднять потолок
         </Button>
       </div>
+
+      {asiPromptLevel && (
+        <AsiChoiceModal
+          level={asiPromptLevel}
+          abilityTotals={statsToTotals(character.ability_scores)}
+          feats={featsQ.data ?? []}
+          featsLoading={featsQ.isFetching}
+          onCancel={() => setAsiPromptLevel(null)}
+          onConfirm={levelUp}
+        />
+      )}
     </Section>
   )
 }
@@ -235,7 +284,7 @@ function ExpertiseSection({ character, onError, reload }) {
     }
   }
 
-  if (proficiencies.length === 0) return null
+  if (proficiencies.length === 0) return <p className="text-sm text-stone-500">У персонажа нет навыков.</p>
 
   return (
     <Section title="Экспертиза навыков">
@@ -362,7 +411,7 @@ function ItemsSection({ character, onError, reload }) {
   const nameOf = (idv) => catalog.find((x) => Number(x.id) === Number(idv))?.name
 
   return (
-    <Section title="Инвентарь (GM)">
+    <Section title="Инвентарь">
       {items.length === 0 ? (
         <EmptyState text="Инвентарь пуст" />
       ) : (
@@ -441,81 +490,60 @@ function ItemsSection({ character, onError, reload }) {
   )
 }
 
-function LevelUpSection({ character, onError, reload }) {
-  const queryClient = useQueryClient()
-  const { data: canLevelUp } = useCanLevelUp(character.id)
-  const featsQ = useFeatsFull()
-  const [asiPromptLevel, setAsiPromptLevel] = useState(null)
+const SECTIONS = [
+  { id: 'level', label: 'Уровень' },
+  { id: 'hp', label: 'Хиты' },
+  { id: 'stats', label: 'Характеристики' },
+  { id: 'skills', label: 'Навыки' },
+  { id: 'feats', label: 'Черты' },
+  { id: 'items', label: 'Инвентарь' },
+]
 
-  const levelUp = async (choice) => {
-    setAsiPromptLevel(null)
-    try {
-      await charactersApi.progression.levelUp(character.id, choice ? { choice } : {})
-      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
-      await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'progression', 'can-level-up'] })
-      await reload()
-    } catch (e) {
-      onError(e)
+export default function GmCharacterPanel({ character, onError, reload, section, onSectionChange }) {
+  const [internalSection, setInternalSection] = useState('level')
+  const active = section ?? internalSection
+  const setActive = onSectionChange ?? setInternalSection
+
+  const renderSection = () => {
+    switch (active) {
+      case 'level':
+        return <LevelSection character={character} onError={onError} reload={reload} />
+      case 'hp':
+        return <MaxHpSection character={character} onError={onError} reload={reload} />
+      case 'stats':
+        return <StatsSection characterId={character.id} onError={onError} reload={reload} />
+      case 'skills':
+        return <ExpertiseSection character={character} onError={onError} reload={reload} />
+      case 'feats':
+        return <FeatsFeaturesSection character={character} onError={onError} reload={reload} />
+      case 'items':
+        return <ItemsSection character={character} onError={onError} reload={reload} />
+      default:
+        return null
     }
   }
-
-  const onLevelUpClick = async () => {
-    const nextLevel = (Number(character.level) || 1) + 1
-    if (ASI_LEVELS.includes(nextLevel)) {
-      await featsQ.refetch().catch(() => null)
-      setAsiPromptLevel(nextLevel)
-    } else {
-      levelUp(null)
-    }
-  }
-
-  return (
-    <Section title="Уровень">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-stone-200">
-          ур. {character.level}
-          {canLevelUp ? ` · потолок ${canLevelUp.max_level}` : ''}
-        </span>
-        {canLevelUp?.can_level_up ? (
-          <Button size="sm" onClick={onLevelUpClick}>
-            Повысить до ур. {(Number(character.level) || 1) + 1}
-          </Button>
-        ) : (
-          <span className="text-xs text-stone-500">Повышение недоступно — поднимите потолок уровня.</span>
-        )}
-      </div>
-      {asiPromptLevel && (
-        <AsiChoiceModal
-          level={asiPromptLevel}
-          abilityTotals={statsToTotals(character.ability_scores)}
-          feats={featsQ.data ?? []}
-          featsLoading={featsQ.isFetching}
-          onCancel={() => setAsiPromptLevel(null)}
-          onConfirm={levelUp}
-        />
-      )}
-    </Section>
-  )
-}
-
-export default function GmCharacterPanel({ character, onError, reload }) {
-  const sections = useMemo(
-    () => [
-      <MaxHpSection key="hp" character={character} onError={onError} reload={reload} />,
-      <MaxLevelSection key="level" characterId={character.id} level={character.level} onError={onError} reload={reload} />,
-      <StatsSection key="stats" characterId={character.id} onError={onError} reload={reload} />,
-      <ExpertiseSection key="expertise" character={character} onError={onError} reload={reload} />,
-      <FeatsFeaturesSection key="feats" character={character} onError={onError} reload={reload} />,
-      <ItemsSection key="items" character={character} onError={onError} reload={reload} />,
-      <LevelUpSection key="levelup" character={character} onError={onError} reload={reload} />,
-    ],
-    [character, onError, reload],
-  )
 
   return (
     <div className="space-y-4">
-      <p className="-mt-1 text-xs text-stone-500">Панель редакции: правки применяются сразу и видны игроку.</p>
-      {sections}
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Что редактируем">
+        {SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            role="tab"
+            aria-selected={active === s.id}
+            onClick={() => setActive(s.id)}
+            className={`rounded-full px-3 py-1.5 text-sm transition ${
+              active === s.id
+                ? 'bg-ember font-medium text-white'
+                : 'border border-stone-700 text-stone-300 hover:bg-stone-800'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {renderSection()}
     </div>
   )
 }
