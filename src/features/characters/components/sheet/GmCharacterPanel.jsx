@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import {
   useCanLevelUp,
@@ -9,12 +9,13 @@ import {
   useCharacterItems,
   useCharacterMaxLevel,
 } from '@/features/characters/queries.js'
-import { useFeats, useFeatsFull, useItems, useSkills } from '@/features/catalog/queries.js'
+import { useFeats, useFeatsFull, useItems, useRaceDetail, useSkills, useSubraceDetail } from '@/features/catalog/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { ASI_LEVELS, abilityName } from '@/lib/utils/ability.js'
+import { ASI_LEVELS, STATS, bonusMap } from '@/lib/utils/ability.js'
 import { statsToTotals } from '@/lib/utils/characterCreate.js'
-import { Button, EmptyState, Input, Select } from '@/components/ui'
+import { Button, ConfirmDialog, Input, Select } from '@/components/ui'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
+import { label } from '@/lib/i18n/index.js'
 
 function Section({ title, children }) {
   return (
@@ -25,16 +26,18 @@ function Section({ title, children }) {
   )
 }
 
-const ABILITIES = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma']
+const ABILITY_CODE_BY_KEY = Object.fromEntries(STATS.map((s) => [s.key, s.code]))
 
-function MaxHpSection({ character, onError, reload }) {
-  const [value, setValue] = useState(null)
+function HpSection({ character, onError, reload }) {
+  const [maxHp, setMaxHp] = useState(null)
+  const [delta, setDelta] = useState('')
+  const [tempHp, setTempHp] = useState(null)
   const [busy, setBusy] = useState(false)
-  const save = async () => {
+
+  const run = async (fn) => {
     setBusy(true)
     try {
-      await charactersApi.gmPanel.maxHp(character.id, { max_hp: Number(value) })
-      setValue(null)
+      await fn()
       await reload()
     } catch (e) {
       onError(e)
@@ -42,21 +45,80 @@ function MaxHpSection({ character, onError, reload }) {
       setBusy(false)
     }
   }
+
+  const applyMaxHp = () =>
+    run(async () => {
+      await charactersApi.gmPanel.maxHp(character.id, { max_hp: Number(maxHp) })
+      setMaxHp(null)
+    })
+
+  const applyDelta = (sign) =>
+    run(() => charactersApi.hp(character.id, { delta: sign * Math.abs(Number(delta)) })).then(() => setDelta(''))
+
+  const applyTempHp = () =>
+    run(async () => {
+      await charactersApi.hp(character.id, { temp_hp: Number(tempHp) })
+      setTempHp(null)
+    })
+
   return (
-    <Section title="Максимум ХП">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-stone-200">{character.max_hp} HP</span>
+    <Section title="Хиты">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-stone-200">
+        <span>
+          Текущие: <b>{character.current_hp}</b> / {character.max_hp}
+        </span>
+        {character.temp_hp > 0 && (
+          <span className="text-emerald-300">Временные: +{character.temp_hp}</span>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Input
           type="number"
           min="0"
           className="!w-24"
-          value={value ?? ''}
-          placeholder="новое"
-          onChange={(e) => setValue(e.target.value)}
+          value={delta}
+          placeholder="кол-во"
+          onChange={(e) => setDelta(e.target.value)}
         />
-        <Button size="sm" disabled={busy || value === null || value === ''} onClick={save}>
-          Задать
+        <Button size="sm" variant="danger" disabled={busy || !delta} onClick={() => applyDelta(-1)}>
+          Урон
         </Button>
+        <Button size="sm" disabled={busy || !delta} onClick={() => applyDelta(1)}>
+          Лечение
+        </Button>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Input
+          type="number"
+          min="0"
+          className="!w-24"
+          value={tempHp ?? ''}
+          placeholder="врем. ХП"
+          onChange={(e) => setTempHp(e.target.value)}
+        />
+        <Button size="sm" variant="ghost" disabled={busy || tempHp === null || tempHp === ''} onClick={applyTempHp}>
+          Выдать временные ХП
+        </Button>
+      </div>
+
+      <div className="mt-4 border-t border-stone-800 pt-3">
+        <p className="mb-2 text-xs uppercase tracking-wide text-stone-500">Максимум ХП</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-stone-200">{character.max_hp} HP</span>
+          <Input
+            type="number"
+            min="0"
+            className="!w-24"
+            value={maxHp ?? ''}
+            placeholder="новое"
+            onChange={(e) => setMaxHp(e.target.value)}
+          />
+          <Button size="sm" disabled={busy || maxHp === null || maxHp === ''} onClick={applyMaxHp}>
+            Задать
+          </Button>
+        </div>
       </div>
     </Section>
   )
@@ -156,19 +218,51 @@ function LevelSection({ character, onError, reload }) {
   )
 }
 
-function StatsSection({ characterId, onError, reload }) {
+function StatsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
+  const characterId = character.id
   const { data: stats } = useCharacterGmStats(characterId)
   const { data: adjustments = [] } = useCharacterAsiAdjustments(characterId)
+  // Выборы улучшений на уровнях (ASI) — аудит с бэкенда.
+  const { data: asiChoices = [] } = useQuery({
+    queryKey: queryKeys.characters.asiChoices(Number(characterId)),
+    queryFn: () => charactersApi.progression.asiChoices(Number(characterId)),
+    enabled: !!characterId,
+  })
+  // Расовые/подрасовые бонусы — чтобы показать, откуда что взялось.
+  const { data: raceDetail } = useRaceDetail(character.race_id)
+  const { data: subraceDetail } = useSubraceDetail(character.race_id, character.subrace_id)
   const [increases, setIncreases] = useState([])
   const [amounts, setAmounts] = useState({})
   const [busy, setBusy] = useState(false)
 
-  const toggleAbility = (ability) =>
-    setIncreases((prev) => (prev.includes(ability) ? prev.filter((a) => a !== ability) : [...prev, ability]))
+  // Разбор итогового значения по каждой характеристике.
+  const breakdownByCode = useMemo(() => {
+    const raceBonus = bonusMap(raceDetail?.ability_bonuses)
+    const subraceBonus = bonusMap(subraceDetail?.ability_bonuses)
+    const levelUp = {}
+    for (const choice of asiChoices) {
+      for (const inc of choice.increases ?? []) {
+        levelUp[inc.ability] = (levelUp[inc.ability] ?? 0) + inc.amount
+      }
+    }
+    const gm = {}
+    for (const adj of adjustments) {
+      for (const inc of adj.increases ?? []) {
+        gm[inc.ability] = (gm[inc.ability] ?? 0) + inc.amount
+      }
+    }
+    return { raceBonus, subraceBonus, levelUp, gm }
+  }, [raceDetail, subraceDetail, asiChoices, adjustments])
+
+  const toggleAbility = (code) =>
+    setIncreases((prev) => (prev.includes(code) ? prev.filter((a) => a !== code) : [...prev, code]))
 
   const addAdjustment = async () => {
-    const payload = increases.map((ability) => ({ ability, amount: Number(amounts[ability] ?? 1) }))
+    const payload = increases.map((code) => ({
+      ability: Object.entries(ABILITY_CODE_BY_KEY).find(([, c]) => c === code)?.[0] ?? code,
+      amount: Number(amounts[code] ?? 1),
+    }))
     if (payload.length === 0) return
     setBusy(true)
     try {
@@ -194,75 +288,124 @@ function StatsSection({ characterId, onError, reload }) {
     }
   }
 
+  const chip = (text, tone = 'dim') => (
+    <span
+      key={text}
+      className={`rounded px-1.5 py-0.5 text-[10px] ${
+        tone === 'good'
+          ? 'bg-emerald-900/50 text-emerald-200'
+          : tone === 'bad'
+            ? 'bg-red-900/40 text-red-200'
+            : 'bg-stone-800 text-stone-400'
+      }`}
+    >
+      {text}
+    </span>
+  )
+
   return (
-    <Section title="Характеристики (база → итог)">
+    <Section title="Характеристики">
       {!stats && <p className="text-sm text-stone-500">Загрузка...</p>}
       {stats && (
-        <ul className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
-          {ABILITIES.map((key) => (
-            <li key={key} className="flex justify-between text-stone-300">
-              <span>{abilityName(key.toUpperCase())}</span>
-              <span className="font-mono">
-                {stats[key]?.base ?? '—'} → <span className="text-ember">{stats[key]?.total ?? '—'}</span>
-              </span>
-            </li>
-          ))}
+        <ul className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {STATS.map((s) => {
+            const view = stats[s.key]
+            if (!view) return null
+            const { raceBonus, subraceBonus, levelUp, gm } = breakdownByCode
+            const parts = []
+            if (raceBonus[s.code]) parts.push(chip(`Раса +${raceBonus[s.code]}`, 'good'))
+            if (subraceBonus[s.code]) parts.push(chip(`Подраса +${subraceBonus[s.code]}`, 'good'))
+            if (levelUp[s.code]) parts.push(chip(`Уровни +${levelUp[s.code]}`, 'good'))
+            if (gm[s.code]) parts.push(chip(`ГМ ${gm[s.code] > 0 ? `+${gm[s.code]}` : gm[s.code]}`, 'bad'))
+            const known =
+              view.base +
+              (raceBonus[s.code] ?? 0) +
+              (subraceBonus[s.code] ?? 0) +
+              (levelUp[s.code] ?? 0) +
+              (gm[s.code] ?? 0)
+            const other = view.total - known
+            if (other !== 0) parts.push(chip(`Прочее ${other > 0 ? `+${other}` : other}`))
+            return (
+              <li key={s.key} className="rounded border border-stone-800 bg-stone-900/70 px-3 py-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-sm text-stone-300">{s.label}</span>
+                  <span className="font-mono text-sm text-stone-100">
+                    {view.base} → <b className="text-ember">{view.total}</b>
+                  </span>
+                </div>
+                {parts.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{parts}</div>}
+                {parts.length === 0 && <p className="mt-1 text-[11px] text-stone-600">Без бонусов</p>}
+              </li>
+            )
+          })}
         </ul>
       )}
+
+      <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Добавить изменение (ГМ)</p>
       <div className="flex flex-wrap items-center gap-1.5">
-        {ABILITIES.map((ability) => (
+        {STATS.map((s) => (
           <button
-            key={ability}
+            key={s.code}
             type="button"
-            onClick={() => toggleAbility(ability)}
+            onClick={() => toggleAbility(s.code)}
             className={`rounded-full border px-2.5 py-1 text-xs transition ${
-              increases.includes(ability)
+              increases.includes(s.code)
                 ? 'border-ember bg-ember/10 text-ember'
                 : 'border-stone-700 text-stone-400 hover:border-stone-500'
             }`}
           >
-            {abilityName(ability.toUpperCase())}
+            {s.label}
           </button>
         ))}
-        {increases.map((ability) => (
-          <label key={`amt-${ability}`} className="flex items-center gap-1 text-xs text-stone-400">
+        {increases.map((code) => (
+          <label key={`amt-${code}`} className="flex items-center gap-1 text-xs text-stone-400">
             ±
             <Input
               type="number"
               className="!w-16"
-              value={amounts[ability] ?? ''}
+              value={amounts[code] ?? ''}
               placeholder="0"
-              onChange={(e) => setAmounts({ ...amounts, [ability]: e.target.value })}
+              onChange={(e) => setAmounts({ ...amounts, [code]: e.target.value })}
             />
           </label>
         ))}
         <Button size="sm" disabled={busy || increases.length === 0} onClick={addAdjustment}>
-          Применить ASI
+          Применить
         </Button>
       </div>
+
       {adjustments.length > 0 && (
-        <ul className="mt-2 space-y-1">
-          {adjustments.map((adj) => (
-            <li key={adj.id} className="flex items-center justify-between rounded border border-stone-800 px-2.5 py-1.5 text-xs text-stone-300">
-              <span>
-                {(adj.increases ?? [])
-                  .map((inc) => `${abilityName(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
-                  .join(', ') || 'без изменений'}
-              </span>
-              <button
-                type="button"
-                className="text-red-300 transition hover:text-red-200"
-                onClick={() => removeAdjustment(adj.id)}
-                title="Откатить"
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="mb-1.5 mt-3 text-xs uppercase tracking-wide text-stone-500">Правки ГМа</p>
+          <ul className="space-y-1">
+            {adjustments.map((adj) => (
+              <li key={adj.id} className="flex items-center justify-between rounded border border-stone-800 px-2.5 py-1.5 text-xs text-stone-300">
+                <span>
+                  {(adj.increases ?? [])
+                    .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
+                    .join(', ') || 'без изменений'}
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-red-300 transition hover:text-red-200"
+                  onClick={() => removeAdjustment(adj.id)}
+                  title="Откатить"
+                >
+                  ✕ Откатить
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </Section>
   )
+}
+
+// Бэкенд присылает полные ключи ('strength'), приводим к коду STAT'а.
+function abilityLabel(ability) {
+  const code = ABILITY_CODE_BY_KEY[String(ability).toLowerCase()] ?? String(ability).toUpperCase()
+  return STATS.find((s) => s.code === code)?.label ?? code
 }
 
 function ExpertiseSection({ character, onError, reload }) {
@@ -270,7 +413,7 @@ function ExpertiseSection({ character, onError, reload }) {
   const proficiencies = character.skill_proficiencies ?? []
   const [busyId, setBusyId] = useState(null)
 
-  const nameOf = (skillId) => skillsCatalog.find((s) => Number(s.id) === Number(skillId))?.name ?? `Навык #${skillId}`
+  const skillById = useMemo(() => new Map(skillsCatalog.map((s) => [Number(s.id), s])), [skillsCatalog])
 
   const toggle = async (skillId, next) => {
     setBusyId(skillId)
@@ -284,24 +427,45 @@ function ExpertiseSection({ character, onError, reload }) {
     }
   }
 
-  if (proficiencies.length === 0) return <p className="text-sm text-stone-500">У персонажа нет навыков.</p>
+  if (proficiencies.length === 0) return <p className="text-sm text-stone-500">У персонажа нет владений навыками.</p>
 
   return (
-    <Section title="Экспертиза навыков">
-      <ul className="grid gap-1 sm:grid-cols-2">
-        {proficiencies.map((p) => (
-          <li key={p.skill_id}>
-            <label className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm ${busyId === p.skill_id ? 'opacity-50' : ''}`}>
-              <input
-                type="checkbox"
-                checked={Boolean(p.is_expertise)}
-                onChange={(e) => toggle(p.skill_id, e.target.checked)}
-                className="size-4 accent-ember"
-              />
-              <span className="text-stone-200">{nameOf(p.skill_id)}</span>
-            </label>
-          </li>
-        ))}
+    <Section title="Навыки и экспертиза">
+      <p className="-mt-1 mb-2 text-xs text-stone-500">
+        Нажмите на навык с ★, чтобы снять экспертизу; обычный навык — чтобы дать её. Бонус мастерства удваивается.
+      </p>
+      <ul className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+        {proficiencies.map((p) => {
+          const skill = skillById.get(Number(p.skill_id))
+          const expert = Boolean(p.is_expertise)
+          return (
+            <li key={p.skill_id}>
+              <button
+                type="button"
+                disabled={busyId === p.skill_id}
+                onClick={() => toggle(p.skill_id, !expert)}
+                title={expert ? 'Снять экспертизу' : 'Дать экспертизу'}
+                className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-50 ${
+                  expert
+                    ? 'border-ember/70 bg-ember/10'
+                    : 'border-stone-700/60 bg-stone-900/60 hover:border-stone-600'
+                }`}
+              >
+                <span
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs ${
+                    expert ? 'border-ember bg-ember/20 text-ember' : 'border-stone-600 text-transparent'
+                  }`}
+                >
+                  ★
+                </span>
+                <span className={`min-w-0 flex-1 truncate ${expert ? 'font-medium text-orange-100' : 'text-stone-200'}`}>
+                  {skill?.name ?? `Навык #${p.skill_id}`}
+                </span>
+                {skill?.ability && <span className="shrink-0 text-[11px] text-stone-500">{abilityLabel(skill.ability)}</span>}
+              </button>
+            </li>
+          )
+        })}
       </ul>
     </Section>
   )
@@ -371,8 +535,11 @@ function ItemsSection({ character, onError, reload }) {
   const { data: catalog = [] } = useItems({ size: 100 })
   const [itemId, setItemId] = useState('')
   const [quantity, setQuantity] = useState('1')
+  const [confirmTarget, setConfirmTarget] = useState(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.items(Number(character.id)) })
+
+  const itemById = useMemo(() => new Map(catalog.map((it) => [Number(it.id), it])), [catalog])
 
   const addItem = async () => {
     try {
@@ -408,70 +575,95 @@ function ItemsSection({ character, onError, reload }) {
     }
   }
 
-  const nameOf = (idv) => catalog.find((x) => Number(x.id) === Number(idv))?.name
-
   return (
-    <Section title="Инвентарь">
+    <Section title="Снаряжение персонажа">
       {items.length === 0 ? (
-        <EmptyState text="Инвентарь пуст" />
+        <p className="-mt-1 mb-3 text-sm text-stone-500">Снаряжения пока нет.</p>
       ) : (
-        <ul className="mb-3 space-y-1.5">
-          {items.map((ci) => (
-            <li key={ci.id} className="rounded border border-stone-800 px-2.5 py-2 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-stone-100">
-                  {nameOf(ci.item_id) || `Предмет #${ci.item_id}`}
-                  {ci.quantity > 1 && <span className="ml-1 text-xs text-stone-400">×{ci.quantity}</span>}
-                </span>
-                <button
-                  type="button"
-                  className="shrink-0 text-red-300 transition hover:text-red-200"
-                  onClick={() => removeItem(ci.id)}
-                  title="Удалить"
-                >
-                  ✕
-                </button>
+        <div className="mb-4 space-y-3">
+          {items.map((ci) => {
+            const catalogItem = itemById.get(Number(ci.item_id))
+            return (
+              <div key={ci.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-stone-100">
+                      {catalogItem?.name ?? `Предмет #${ci.item_id}`}
+                    </p>
+                    {catalogItem?.item_type && (
+                      <p className="mt-0.5 text-xs text-stone-400">{label(catalogItem.item_type)}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <label className="flex items-center gap-1 text-xs text-stone-400">
+                      кол-во
+                      <Input
+                        type="number"
+                        min="0"
+                        className="!w-16 !py-1"
+                        defaultValue={ci.quantity}
+                        onBlur={(e) => {
+                          const v = Math.max(0, Number(e.target.value) || 0)
+                          if (v !== ci.quantity) patchItem(ci.id, { quantity: v })
+                        }}
+                      />
+                    </label>
+                    <Button type="button" variant="danger" size="xs" onClick={() => setConfirmTarget(ci)}>
+                      Убрать
+                    </Button>
+                  </div>
+                </div>
+                {(ci.is_equipped || ci.is_attuned) && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {ci.is_equipped && (
+                      <button
+                        type="button"
+                        onClick={() => patchItem(ci.id, { is_equipped: false })}
+                        className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"
+                        title="Снять отметку"
+                      >
+                        <span className="sheet-chip__dot" />Экипировано ✕
+                      </button>
+                    )}
+                    {ci.is_attuned && (
+                      <button
+                        type="button"
+                        onClick={() => patchItem(ci.id, { is_attuned: false })}
+                        className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"
+                        title="Снять настройку"
+                      >
+                        <span className="sheet-chip__dot" />Настроено ✕
+                      </button>
+                    )}
+                  </div>
+                )}
+                {!ci.is_equipped && (
+                  <button
+                    type="button"
+                    onClick={() => patchItem(ci.id, { is_equipped: true })}
+                    className="mt-2 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+                  >
+                    Экипировать
+                  </button>
+                )}
+                {!ci.is_attuned && (
+                  <button
+                    type="button"
+                    onClick={() => patchItem(ci.id, { is_attuned: true })}
+                    className="ml-2 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+                  >
+                    Настроить
+                  </button>
+                )}
               </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-stone-400">
-                <label className="flex items-center gap-1">
-                  кол-во:
-                  <Input
-                    type="number"
-                    min="0"
-                    className="!w-16 !py-0.5"
-                    defaultValue={ci.quantity}
-                    onBlur={(e) => {
-                      const v = Math.max(0, Number(e.target.value) || 0)
-                      if (v !== ci.quantity) patchItem(ci.id, { quantity: v })
-                    }}
-                  />
-                </label>
-                <label className="flex cursor-pointer items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={ci.is_equipped}
-                    onChange={(e) => patchItem(ci.id, { is_equipped: e.target.checked })}
-                    className="size-3.5 accent-ember"
-                  />
-                  экипировано
-                </label>
-                <label className="flex cursor-pointer items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={ci.is_attuned}
-                    onChange={(e) => patchItem(ci.id, { is_attuned: e.target.checked })}
-                    className="size-3.5 accent-ember"
-                  />
-                  настроено
-                </label>
-              </div>
-            </li>
-          ))}
-        </ul>
+            )
+          })}
+        </div>
       )}
-      <div className="flex items-center gap-2">
-        <Select value={itemId} onChange={(e) => setItemId(e.target.value)} className="!w-auto min-w-36 flex-1">
-          <option value="">Выберите предмет...</option>
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-stone-700/70 pt-3">
+        <Select value={itemId} onChange={(e) => setItemId(e.target.value)} className="!w-auto min-w-40 flex-1">
+          <option value="">Добавить предмет из справочника...</option>
           {catalog.map((it) => (
             <option key={it.id} value={it.id}>{it.name}</option>
           ))}
@@ -486,6 +678,26 @@ function ItemsSection({ character, onError, reload }) {
         />
         <Button size="sm" disabled={!itemId} onClick={addItem}>Выдать</Button>
       </div>
+
+      {confirmTarget && (
+        <ConfirmDialog
+          title="Убрать предмет?"
+          message={
+            <>
+              Вы точно хотите убрать{' '}
+              <span className="font-semibold text-stone-100">
+                «{itemById.get(Number(confirmTarget.item_id))?.name ?? `Предмет #${confirmTarget.item_id}`}»
+              </span>{' '}
+              у персонажа? Это действие необратимо.
+            </>
+          }
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => {
+            setConfirmTarget(null)
+            removeItem(confirmTarget.id)
+          }}
+        />
+      )}
     </Section>
   )
 }
@@ -496,7 +708,7 @@ const SECTIONS = [
   { id: 'stats', label: 'Характеристики' },
   { id: 'skills', label: 'Навыки' },
   { id: 'feats', label: 'Черты' },
-  { id: 'items', label: 'Инвентарь' },
+  { id: 'items', label: 'Снаряжение' },
 ]
 
 export default function GmCharacterPanel({ character, onError, reload, section, onSectionChange }) {
@@ -509,9 +721,9 @@ export default function GmCharacterPanel({ character, onError, reload, section, 
       case 'level':
         return <LevelSection character={character} onError={onError} reload={reload} />
       case 'hp':
-        return <MaxHpSection character={character} onError={onError} reload={reload} />
+        return <HpSection character={character} onError={onError} reload={reload} />
       case 'stats':
-        return <StatsSection characterId={character.id} onError={onError} reload={reload} />
+        return <StatsSection character={character} onError={onError} reload={reload} />
       case 'skills':
         return <ExpertiseSection character={character} onError={onError} reload={reload} />
       case 'feats':

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { BoxedValue, RollButton } from '@/components/sheet/primitives.jsx'
 import { Select } from '@/components/ui'
 import RollHistory from '@/components/sheet/RollHistory.jsx'
@@ -102,14 +102,17 @@ export default function SheetHeader({
   onRollFree,
 }) {
   const { user } = useAuth()
+  // ГМ пришёл из панели персонажей — возвращаем его туда, игрок — к списку.
+  const location = useLocation()
+  const backTo = location.state?.from === 'gm' ? '/gm/characters' : '/characters'
   const allFields = user?.username ? [...fields, { label: 'Игрок', value: user.username }] : fields
   return (
     <div className="sheet-header">
       <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
         <Link
-          to="/characters"
+          to={backTo}
           className="grid size-10 shrink-0 place-items-center rounded-full border border-stone-700 bg-stone-800/70 text-lg text-stone-300 transition hover:border-ember hover:text-ember"
-          title="К списку персонажей"
+          title="Назад"
         >
           ←
         </Link>

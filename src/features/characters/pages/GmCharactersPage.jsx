@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Badge,
   Card,
   EmptyState,
   ErrorBox,
@@ -21,27 +20,22 @@ function CharacterListItem({ character, subtitle, selected, onEdit }) {
         selected ? 'border-ember/80 bg-stone-900' : 'hover:border-ember/50'
       }`}
     >
-      <button type="button" onClick={() => onEdit(character)} className="w-full text-left">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" onClick={() => onEdit(character)} className="min-w-0 flex-1 text-left">
           <p className={`font-display text-sm font-bold ${selected ? 'text-ember' : 'text-stone-100'}`}>
             {character.name || 'Безымянный'}
           </p>
-          <Badge tone="accent">Ур. {character.level}</Badge>
-        </div>
-        <p className="mt-1 text-xs text-stone-500">{subtitle}</p>
-      </button>
-      <div className="mt-2.5 flex justify-start gap-2">
+          <p className="mt-0.5 text-xs text-stone-500">{subtitle}</p>
+        </button>
         <button
           type="button"
           onClick={() => onEdit(character)}
-          className={`rounded border px-2 py-0.5 text-[11px] transition ${
-            selected ? 'border-ember text-ember' : 'border-stone-700 text-stone-300 hover:bg-stone-800'
-          }`}
+          className="my-[5px] shrink-0 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
         >
-          Изм.
+          Изменить
         </button>
-        <GoToButton characterId={character.id} />
       </div>
+      <GoToButton characterId={character.id} />
     </div>
   )
 }
@@ -53,9 +47,9 @@ function GoToButton({ characterId }) {
       type="button"
       onClick={(e) => {
         e.stopPropagation()
-        navigate(`/characters/${characterId}`)
+        navigate(`/characters/${characterId}`, { state: { from: 'gm' } })
       }}
-      className="rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+      className="mt-2 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
       title="Открыть лист персонажа как игрок"
     >
       Перейти →
@@ -144,10 +138,10 @@ export default function GmCharactersPage() {
               <Card className="detail-padded">
                 <div className="mb-4">
                   <h2 className="font-display text-xl font-bold text-stone-100">
-                    Редактирование: {selectedCharacter.name || 'Безымянный'}
+                    Редактируем персонажа «{selectedCharacter.name || 'Безымянный'}»
                   </h2>
                   <p className="mt-1 text-sm text-stone-400">
-                    Игрок: {playerNameOf(selectedCharacter.owner_id)} · Ур. {selectedCharacter.level} · HP{' '}
+                    Игрок {playerNameOf(selectedCharacter.owner_id)} · уровень {selectedCharacter.level} · хиты{' '}
                     {selectedCharacter.current_hp}/{selectedCharacter.max_hp}
                   </p>
                   <div className="ornate-rule mt-3">
