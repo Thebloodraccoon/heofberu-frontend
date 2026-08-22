@@ -1,18 +1,16 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { charactersApi as api } from '@/features/characters/api.js'
+import { recordRoll } from '@/lib/rollHistory.js'
+import { fmtBonus } from '@/lib/utils/sheet.js'
 import { useCharacter } from '@/features/characters/queries.js'
 import {
-  useBackgrounds,
-  useClasses,
+  useBackgroundDetail,
   useClassDetail,
-  useFeatures,
-  useFeats,
-  useItems,
-  useRaces,
+  useRaceDetail,
   useSkills,
-  useSpells,
-  useSubracesForRace,
+  useSubclassDetail,
+  useSubraceDetail,
 } from '@/features/catalog/queries.js'
 import { skillLabels } from '@/lib/i18n/index.js'
 import { STATS, mod } from '@/lib/utils/ability.js'
@@ -20,18 +18,18 @@ import { ErrorBox, Spinner } from '@/components/ui'
 import {
   PassiveSenses,
   ProficiencyChips,
-  RollModal,
   SheetSectionLabel,
   SheetTabs,
-  TextBlock,
 } from '@/components/sheet/primitives.jsx'
+import { EditableBlock } from '@/components/sheet/primitives.jsx'
+import SheetRollToasts from '@/components/sheet/SheetRollToasts.jsx'
 import SheetHeader from '@/features/characters/components/sheet/SheetHeader.jsx'
 import AbilityBlock from '@/features/characters/components/sheet/AbilityBlock.jsx'
 import AttacksPanel from '@/features/characters/components/sheet/AttacksPanel.jsx'
 import FeaturesPanel from '@/features/characters/components/sheet/FeaturesPanel.jsx'
 import EquipmentPanel from '@/features/characters/components/sheet/EquipmentPanel.jsx'
+import ConditionsPanel from '@/features/characters/components/sheet/ConditionsPanel.jsx'
 import PersonalityPanel from '@/features/characters/components/sheet/PersonalityPanel.jsx'
-import GoalsPanel from '@/features/characters/components/sheet/GoalsPanel.jsx'
 import NotesPanel from '@/features/characters/components/sheet/NotesPanel.jsx'
 import SpellsPanel from '@/features/characters/components/sheet/SpellsPanel.jsx'
 import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
@@ -64,31 +62,20 @@ export default function CharacterDetailPage() {
   const { data: character, error, refetch } = useCharacter(id)
   const [mutationError, setMutationError] = useState(null)
 
-  const { data: races = [] } = useRaces({ size: 100 })
-  const { data: classes = [] } = useClasses({ size: 100 })
-  const { data: backgrounds = [] } = useBackgrounds({ size: 100 })
-  const { data: skills = [] } = useSkills({ size: 100 })
-  const { data: spells = [] } = useSpells({ size: 100 })
-  const { data: items = [] } = useItems({ size: 100 })
-  const { data: feats = [] } = useFeats({ size: 100 })
-  const { data: features = [] } = useFeatures({ size: 100 })
-  const { data: subraces = [] } = useSubracesForRace(character?.race_id)
+  // Identity names resolve via get-by-id of exactly what the character
+  // references — no bulk catalog fetches on sheet load.
   const { data: classDetail } = useClassDetail(character?.class_id)
-
-  const lookups = useMemo(
-    () => ({ races, classes, backgrounds, skills, spells, items, feats, features, subraces }),
-    [races, classes, backgrounds, skills, spells, items, feats, features, subraces]
-  )
+  const { data: subclassDetail } = useSubclassDetail(character?.class_id, character?.subclass_id)
+  const { data: raceDetail } = useRaceDetail(character?.race_id)
+  const { data: subraceDetail } = useSubraceDetail(character?.race_id, character?.subrace_id)
+  const { data: backgroundDetail } = useBackgroundDetail(character?.background_id)
+  const { data: skillsCatalog = [] } = useSkills({ size: 100 })
 
   const [tab, setTab] = useState('attacks')
-  const [editing, setEditing] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-  const [rollsOn, setRollsOn] = useState(true)
-  const [roll, setRoll] = useState(null)
+  const [rollToasts, setRollToasts] = useState([])
   const [hpModal, setHpModal] = useState(false)
   const [conditionsModal, setConditionsModal] = useState(false)
   const [inspiration, setInspiration] = useState(false)
-  const [exhaustion, setExhaustion] = useState(0)
 
   const load = useCallback(async () => {
     const res = await refetch()
@@ -98,7 +85,7 @@ export default function CharacterDetailPage() {
   const saveField = useCallback(
     (field) => async (value) => {
       try {
-        await api.characters.update(id, { [field]: value })
+        await api.update(id, { [field]: value })
         await load()
       } catch (e) {
         setMutationError(e)
@@ -107,7 +94,67 @@ export default function CharacterDetailPage() {
     [id, load]
   )
 
-  const rollDice = (title, bonus) => setRoll({ title, bonus, d20: 1 + Math.floor(Math.random() * 20) })
+  const pushToast = useCallback((title, d20, bonus, total) => {
+    const toastId = Date.now() + Math.random()
+    setRollToasts((prev) => [...prev.slice(-3), { id: toastId, title, d20, bonus, total }])
+    recordRoll({ id: toastId, title, detail: bonus ? `d20 ${fmtBonus(bonus)}` : 'd20', total, at: Date.now() })
+  }, [])
+
+  const rollDice = useCallback(
+    (title, bonus) => {
+      const d20 = 1 + Math.floor(Math.random() * 20)
+      pushToast(title, d20, bonus, d20 + Number(bonus ?? 0))
+    },
+    [pushToast]
+  )
+
+  const rollFree = useCallback(
+    (counts) => {
+      const entries = Object.entries(counts).filter(([, q]) => q > 0)
+      if (entries.length === 0) return
+      const rolls = []
+      let total = 0
+      for (const [sides, qty] of entries) {
+        for (let i = 0; i < Number(qty); i += 1) {
+          const v = 1 + Math.floor(Math.random() * Number(sides))
+          rolls.push(v)
+          total += v
+        }
+      }
+      const idv = Date.now() + Math.random()
+      const title = entries.map(([s, q]) => `${q}к${s}`).join(' + ')
+      setRollToasts((prev) => [...prev.slice(-3), { id: idv, title, rolls, total }])
+      recordRoll({ id: idv, title, detail: rolls.join(' + '), total, at: Date.now() })
+    },
+    []
+  )
+
+  const dismissToast = useCallback((toastId) => {
+    setRollToasts((prev) => prev.filter((t) => t.id !== toastId))
+  }, [])
+
+  const exhaustionCondition = useMemo(
+    () => (character?.conditions ?? []).find((c) => c.condition === 'EXHAUSTION'),
+    [character]
+  )
+
+  const changeExhaustion = useCallback(
+    async (v) => {
+      try {
+        if (v === 0) {
+          if (exhaustionCondition) await api.conditions.remove(id, 'EXHAUSTION')
+        } else if (exhaustionCondition) {
+          await api.conditions.update(id, 'EXHAUSTION', { exhaustion_level: v })
+        } else {
+          await api.conditions.add(id, { condition: 'EXHAUSTION', exhaustion_level: v })
+        }
+        await load()
+      } catch (e) {
+        setMutationError(e)
+      }
+    },
+    [id, load, exhaustionCondition]
+  )
 
   const level = Number(character?.level) || 1
   const pb = 2 + Math.floor((level - 1) / 4)
@@ -123,9 +170,9 @@ export default function CharacterDetailPage() {
 
   const skillMap = useMemo(() => {
     const m = new Map()
-    for (const sk of lookups.skills ?? []) m.set(Number(sk.id), sk)
+    for (const sk of skillsCatalog) m.set(Number(sk.id), sk)
     return m
-  }, [lookups.skills])
+  }, [skillsCatalog])
 
   const profSet = useMemo(() => {
     const m = new Map()
@@ -141,17 +188,17 @@ export default function CharacterDetailPage() {
   const skillsByAbility = useMemo(() => {
     const groups = Object.fromEntries(STATS.map((s) => [s.code, []]))
     groups.other = []
-    for (const sk of lookups.skills ?? []) {
+    for (const sk of skillsCatalog) {
       const code = sk.ability && groups[sk.ability] ? sk.ability : 'other'
       groups[code].push(sk)
     }
     for (const code of Object.keys(groups)) groups[code].sort((a, b) => String(a.name).localeCompare(String(b.name)))
     return groups
-  }, [lookups.skills])
+  }, [skillsCatalog])
 
   const passiveSenses = useMemo(() => {
     const findSkill = (key) =>
-      (lookups.skills ?? []).find((s) => [s.key, s.slug, s.name].some((v) => String(v ?? '').toLowerCase() === key))
+      skillsCatalog.find((s) => [s.key, s.slug, s.name].some((v) => String(v ?? '').toLowerCase() === key))
     const build = (key, icon) => {
       const sk = findSkill(key)
       if (!sk) return null
@@ -161,7 +208,7 @@ export default function CharacterDetailPage() {
     }
     return [build('perception', <EyeIcon />), build('insight', <FaceIcon />), build('investigation', <SearchIcon />)]
       .filter(Boolean)
-  }, [lookups.skills, profSet, pb, modFor])
+  }, [skillsCatalog, profSet, pb, modFor])
 
   const armorProfs = useMemo(() => {
     const raw = classDetail?.armor_proficiencies ?? []
@@ -175,15 +222,37 @@ export default function CharacterDetailPage() {
   if (error || mutationError) return <ErrorBox error={error ?? mutationError} onRetry={load} />
   if (!character) return <Spinner />
 
-  const cls = lookups.classes.find((x) => x.id === character.class_id)
-  const race = lookups.races.find((x) => x.id === character.race_id)
-  const bg = lookups.backgrounds.find((x) => x.id === character.background_id)
-  const subcls = cls?.subclasses?.find((x) => String(x.id) === String(character.subclass_id))
-  const subrace = lookups.subraces.find((x) => x.id === character.subrace_id)
+  const identityFields = [
+    { label: 'Имя', value: character.name || 'Безымянный персонаж' },
+    { label: 'Уровень', value: String(level) },
+    { label: 'Класс', value: classDetail?.name },
+    { label: 'Подкласс', value: subclassDetail?.name },
+    { label: 'Раса', value: raceDetail?.name },
+    { label: 'Подраса', value: subraceDetail?.name },
+    { label: 'Предыстория', value: backgroundDetail?.name },
+  ]
 
-  const subtitle = [cls?.name, subcls?.name, race?.name, subrace?.name, bg?.name]
-    .filter(Boolean)
-    .join(' · ')
+  const exhaustion = exhaustionCondition?.exhaustion_level ?? 0
+
+  const initiativeBonus = modFor('DEX') + (num(character.initiative_bonus) ?? 0)
+  const initiativeKey = `heofberu:initiative:${id}`
+  let initiativeLast = null
+  try {
+    const raw = window.localStorage.getItem(initiativeKey)
+    if (raw !== null && !Number.isNaN(Number(raw))) initiativeLast = Number(raw)
+  } catch {
+    initiativeLast = null
+  }
+
+  const rollInitiative = () => {
+    const d20 = 1 + Math.floor(Math.random() * 20)
+    try {
+      window.localStorage.setItem(initiativeKey, String(d20 + initiativeBonus))
+    } catch {
+      /* localStorage недоступен */
+    }
+    pushToast('Инициатива', d20, initiativeBonus, d20 + initiativeBonus)
+  }
 
   const saveBonus = (code) => modFor(code) + (saveSet.has(code) ? pb : 0)
   const skillBonus = (sk) => {
@@ -196,7 +265,7 @@ export default function CharacterDetailPage() {
 
   const hpDelta = async (delta) => {
     try {
-      await api.characters.hp(id, { delta })
+      await api.hp(id, { delta })
       await load()
     } catch (e) {
       setMutationError(e)
@@ -205,16 +274,7 @@ export default function CharacterDetailPage() {
 
   const doRest = async (type) => {
     try {
-      await api.characters.rest(id, { type })
-      await load()
-    } catch (e) {
-      setMutationError(e)
-    }
-  }
-
-  const changeSlot = async (spellLevel, used) => {
-    try {
-      await api.characters.spellSlots.update(id, { level: spellLevel, used })
+      await api.rest(id, { type })
       await load()
     } catch (e) {
       setMutationError(e)
@@ -225,8 +285,8 @@ export default function CharacterDetailPage() {
     ['attacks', 'Атаки'],
     ['features', 'Способности'],
     ['equipment', 'Снаряжение'],
+    ['conditions', 'Состояния'],
     ['personality', 'Личность'],
-    ['goals', 'Цели'],
     ['notes', 'Заметки'],
     ['spells', 'Заклинания'],
   ]
@@ -235,128 +295,120 @@ export default function CharacterDetailPage() {
     <div className="flex flex-col gap-4">
       <SheetHeader
         character={character}
-        subtitle={subtitle}
+        fields={identityFields}
         level={level}
         pb={pb}
-        collapsed={collapsed}
-        editing={editing}
         inspiration={inspiration}
         exhaustion={exhaustion}
         conditionCount={(character.conditions ?? []).length}
-        rollsOn={rollsOn}
-        onToggleCollapse={() => setCollapsed(!collapsed)}
-        onToggleEdit={() => setEditing(!editing)}
         onInspiration={() => setInspiration(!inspiration)}
-        onExhaustion={(v) => setExhaustion(v)}
+        onExhaustion={changeExhaustion}
         onOpenHp={() => setHpModal(true)}
         onOpenConditions={() => setConditionsModal(true)}
-        onRollInitiative={() => rollDice('Инициатива', modFor('DEX') + (num(character.initiative_bonus) ?? 0))}
+        initiativeBonus={initiativeBonus}
+        initiativeLast={initiativeLast}
+        onRollInitiative={rollInitiative}
+        onRollFree={rollFree}
       />
 
       <div className="sheet-body">
-        <aside className="sheet-left fantasy-panel rounded-lg p-4">
-          {STATS.map((s) => (
-            <AbilityBlock
-              key={s.code}
-              stat={s}
-              total={totals[s.code]}
-              saveBonus={saveBonus(s.code)}
-              saveProf={saveSet.has(s.code)}
-              skills={skillsByAbility[s.code]}
-              skillMap={skillMap}
-              skillBonus={skillBonus}
-              rollsOn={rollsOn}
-              onRoll={rollDice}
-            />
-          ))}
+        <div className="sheet-col-left">
+          <aside className="sheet-left fantasy-panel rounded-lg p-4">
+          {(() => {
+            const makeProps = (s) => ({
+              key: s.code,
+              stat: s,
+              total: totals[s.code],
+              saveBonus: saveBonus(s.code),
+              saveProf: saveSet.has(s.code),
+              skills: skillsByAbility[s.code],
+              skillMap,
+              skillBonus,
+              onRoll: rollDice,
+            })
+            const paired = []
+            const [str, dex, con, int, wis, cha] = STATS
+            paired.push(
+              <div key="str-con" className="sheet-ability-pair">
+                <AbilityBlock {...makeProps(str)} />
+                <AbilityBlock {...makeProps(con)} />
+              </div>,
+            )
+            paired.push(<AbilityBlock {...makeProps(wis)} />)
+            paired.push(<AbilityBlock {...makeProps(int)} />)
+            paired.push(<AbilityBlock {...makeProps(cha)} />)
+            paired.push(<AbilityBlock {...makeProps(dex)} />)
+            return paired
+          })()}
+          </aside>
 
-          {passiveSenses.length > 0 && (
-            <>
-              <SheetSectionLabel>Пассивные чувства</SheetSectionLabel>
-              <PassiveSenses items={passiveSenses} />
-            </>
-          )}
+          <div className="fantasy-panel space-y-4 rounded-lg p-4">
+            {passiveSenses.length > 0 && (
+              <div>
+                <SheetSectionLabel>Пассивные чувства</SheetSectionLabel>
+                <PassiveSenses items={passiveSenses} />
+              </div>
+            )}
 
-          <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
-          <ProficiencyChips items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
-
-          <SheetSectionLabel>Владение оружием</SheetSectionLabel>
-          <ProficiencyChips
-            items={weaponProfs}
-            options={[
-              { value: 'SIMPLE', label: 'Простое' },
-              { value: 'MARTIAL', label: 'Воинское' },
-              { value: 'OTHER', label: 'Другое' },
-            ]}
-            empty="Не задано классом"
-          />
-
-          <div className="mt-4">
-            <TextBlock
+            <EditableBlock
               title="Прочие владения и языки"
               value={character.proficiencies}
-              editing={editing}
+              rows={3}
               onSave={saveField('proficiencies')}
             />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
+                <ProficiencyChips items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
+              </div>
+
+              <div>
+                <SheetSectionLabel>Владение оружием</SheetSectionLabel>
+                <ProficiencyChips
+                  items={weaponProfs}
+                  options={[
+                    { value: 'SIMPLE', label: 'Простое' },
+                    { value: 'MARTIAL', label: 'Воинское' },
+                    { value: 'OTHER', label: 'Другое' },
+                  ]}
+                  empty="Не задано классом"
+                />
+              </div>
+            </div>
           </div>
-        </aside>
+        </div>
 
         <section className="sheet-right fantasy-panel rounded-lg p-4">
-          <SheetTabs
-            tabs={tabs}
-            active={tab}
-            onSelect={setTab}
-            rollsOn={rollsOn}
-            onToggleRolls={setRollsOn}
-          />
+          <SheetTabs tabs={tabs} active={tab} onSelect={setTab} />
 
           <div className="pt-4">
             {tab === 'attacks' && (
               <AttacksPanel
-                character={character}
-                editing={editing}
-                rollsOn={rollsOn}
+                characterId={character.id}
                 attackBonus={attackBonus}
                 onRoll={rollDice}
-                onSaveTraits={saveField('traits')}
-                onChanged={load}
                 onError={setMutationError}
               />
             )}
             {tab === 'features' && (
-              <FeaturesPanel
-                character={character}
-                lookups={lookups}
-                editing={editing}
-                onChanged={load}
-                onError={setMutationError}
-              />
+              <FeaturesPanel character={character} onError={setMutationError} />
             )}
             {tab === 'equipment' && (
-              <EquipmentPanel
-                character={character}
-                lookups={lookups}
-                editing={editing}
-                onChanged={load}
-                onError={setMutationError}
-              />
+              <EquipmentPanel character={character} onError={setMutationError} />
+            )}
+            {tab === 'conditions' && (
+              <ConditionsPanel character={character} onError={setMutationError} />
             )}
             {tab === 'personality' && (
-              <PersonalityPanel character={character} editing={editing} onSave={saveField} />
-            )}
-            {tab === 'goals' && (
-              <GoalsPanel character={character} editing={editing} onSave={saveField} />
+              <PersonalityPanel character={character} onSave={saveField} />
             )}
             {tab === 'notes' && (
-              <NotesPanel character={character} editing={editing} onSave={saveField} />
+              <NotesPanel character={character} onSave={saveField} />
             )}
             {tab === 'spells' && (
               <SpellsPanel
                 character={character}
-                lookups={lookups}
-                editing={editing}
-                onChangeSlot={changeSlot}
-                onChanged={load}
                 onError={setMutationError}
               />
             )}
@@ -382,7 +434,7 @@ export default function CharacterDetailPage() {
         />
       )}
 
-      {roll && <RollModal title={roll.title} bonus={roll.bonus} d20={roll.d20} onClose={() => setRoll(null)} />}
+      <SheetRollToasts toasts={rollToasts} onDismiss={dismissToast} />
     </div>
   )
 }

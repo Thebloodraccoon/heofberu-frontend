@@ -117,3 +117,16 @@
 .catalog-layout {
   @apply grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)];
 }
+
+/* --- Отступы для списков в карточках детейл --- */
+
+.detail-card li,
+.fantasy-panel li {
+  @apply mb-2.5 mt-2.5;
+}
+
+/* --- Паддинг карточки детейл / редактора --- */
+
+.fantasy-panel.detail-padded {
+  padding: 30px 40px;
+}

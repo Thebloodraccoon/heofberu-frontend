@@ -10,8 +10,8 @@ export const useCharacters = () =>
 
 export const useCharacter = (id) =>
   useQuery({
-    queryKey: queryKeys.characters.detail(id),
-    queryFn: () => charactersApi.get(id),
+    queryKey: queryKeys.characters.detail(Number(id)),
+    queryFn: () => charactersApi.get(Number(id)),
     enabled: !!id,
   })
 
@@ -37,3 +37,57 @@ export const useDeleteCharacter = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.all }),
   })
 }
+
+const subResource =
+  (keyFn, fn) =>
+  (id) =>
+    useQuery({
+      queryKey: keyFn(Number(id)),
+      queryFn: () => fn(Number(id)),
+      enabled: !!id,
+      select: (d) => (Array.isArray(d) ? d : d?.items ?? d?.spells ?? []),
+    })
+
+export const useCharacterSpells = subResource(queryKeys.characters.spells, charactersApi.spells.list)
+
+export const useCharacterSpellSlots = (id) =>
+  useQuery({
+    queryKey: queryKeys.characters.spells(Number(id)),
+    queryFn: () => charactersApi.spells.list(Number(id)),
+    enabled: !!id,
+    select: (d) => d?.spell_slots ?? [],
+  })
+export const useCharacterAttacks = subResource(queryKeys.characters.attacks, charactersApi.attacks.list)
+export const useCharacterFeats = subResource(queryKeys.characters.feats, charactersApi.feats.list)
+export const useCharacterFeatures = subResource(queryKeys.characters.features, charactersApi.features.list)
+export const useCharacterItems = subResource(queryKeys.characters.items, charactersApi.gmPanel.items.list)
+export const useCharacterConditions = subResource(queryKeys.characters.conditions, charactersApi.conditions.list)
+
+export const useCharacterGmStats = (id) =>
+  useQuery({
+    queryKey: ['characters', Number(id), 'gm-panel', 'stats'],
+    queryFn: () => charactersApi.gmPanel.stats(Number(id)),
+    enabled: !!id,
+  })
+
+export const useCharacterMaxLevel = (id) =>
+  useQuery({
+    queryKey: ['characters', Number(id), 'gm-panel', 'max-level'],
+    queryFn: () => charactersApi.gmPanel.maxLevel.get(Number(id)),
+    enabled: !!id,
+  })
+
+export const useCharacterAsiAdjustments = (id) =>
+  useQuery({
+    queryKey: ['characters', Number(id), 'gm-panel', 'asi'],
+    queryFn: () => charactersApi.gmPanel.asi.list(Number(id)),
+    enabled: !!id,
+    select: (d) => (Array.isArray(d) ? d : []),
+  })
+
+export const useCanLevelUp = (id) =>
+  useQuery({
+    queryKey: ['characters', Number(id), 'progression', 'can-level-up'],
+    queryFn: () => charactersApi.progression.canLevelUp(Number(id)),
+    enabled: !!id,
+  })

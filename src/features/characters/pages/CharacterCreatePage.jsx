@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ASI_LEVELS, POINT_BUY_BUDGET, POINT_BUY_MIN, STATS, bonusMap, effectiveTotals, mod, pointCost, rollDie } from '@/lib/utils/ability.js'
-import { expertiseBudget as expertiseBudgetFn } from '@/lib/utils/expertise.js'
 import { STEPS, statsToTotals, DEFAULT_FORM } from '@/lib/utils/characterCreate.js'
 import { Button, Card, ErrorBox, PageHeader, Spinner } from '@/components/ui'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
@@ -15,6 +14,7 @@ import StepRace from '@/features/characters/components/wizard/StepRace.jsx'
 import StepReview from '@/features/characters/components/wizard/StepReview.jsx'
 import RollToasts from '@/features/characters/components/wizard/RollToasts.jsx'
 import { charactersApi } from '@/features/characters/api.js'
+import { useAuth } from '@/features/auth/useAuth.js'
 import {
   useBackgroundDetail,
   useBackgrounds,
@@ -31,6 +31,7 @@ import {
 
 export default function CharacterCreatePage() {
   const navigate = useNavigate()
+  const { isGM } = useAuth()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState(DEFAULT_FORM)
   const [error, setError] = useState(null)
@@ -99,7 +100,6 @@ export default function CharacterCreatePage() {
   const conModValue = mod(totals.CON)
   const hpLevel1 = dieSides + conModValue
   const avgGain = Math.floor(dieSides / 2) + 1 + conModValue
-  const expertiseBudgetValue = expertiseBudgetFn(classDetail?.features ?? [], level)
 
   const derived = {
     bonusByCode,
@@ -108,7 +108,6 @@ export default function CharacterCreatePage() {
     conMod: conModValue,
     hpLevel1,
     avgGain,
-    expertiseBudget: expertiseBudgetValue,
   }
 
   const canContinue = (() => {
@@ -121,13 +120,12 @@ export default function CharacterCreatePage() {
         if (!form.class_id) return false
         const count = classDetail?.skill_choice_count ?? 0
         const chosen = (form.class_skill_ids ?? []).length
-        const exp = (form.expertise_ids ?? []).length
-        return chosen >= count && exp >= expertiseBudgetValue
+        return chosen >= count
       }
       case 'abilities': {
         const allAssigned = STATS.every((s) => {
           const v = Number(form.ability_base[s.key])
-          return Number.isFinite(v) && v >= 3 && v <= 20
+          return Number.isFinite(v) && v >= 3 && v <= 18
         })
         if (form.ability_method === 'pointbuy') {
           const spent = STATS.reduce((sum, s) => sum + pointCost(Number(form.ability_base[s.key]) || POINT_BUY_MIN), 0)
@@ -204,9 +202,6 @@ export default function CharacterCreatePage() {
       const body = {
         name: form.name.trim(),
         class_id: Number(form.class_id),
-        level: 1,
-        max_hp: hpLevel1,
-        current_hp: hpLevel1,
         money_gold: Number(form.money_gold) || 0,
         money_silver: Number(form.money_silver) || 0,
         money_copper: Number(form.money_copper) || 0,
@@ -215,29 +210,20 @@ export default function CharacterCreatePage() {
       if (form.subclass_id) body.subclass_id = Number(form.subclass_id)
       if (form.race_id) body.race_id = Number(form.race_id)
       if (form.subrace_id) body.subrace_id = Number(form.subrace_id)
-      body.background_id = Number(form.background_id)
-      for (const k of ['traits', 'proficiencies', 'backstory', 'notes']) {
-        if (form[k]) body[k] = form[k]
-      }
+      if (form.background_id) body.background_id = Number(form.background_id)
+      // Только выбранные навыки класса: гранты расы и предыстории бэкенд
+      // добавляет сам, а лишние/неизвестные поля отклоняются с 422.
+      body.skill_ids = (form.class_skill_ids ?? []).map(Number)
+      if (form.backstory) body.backstory = form.backstory
+      if (form.notes) body.notes = form.notes
 
       const created = await charactersApi.create(body)
       const id = created.id
 
-      if (form.feat_id) {
-        await charactersApi.feats.add(id, { feat_id: Number(form.feat_id) })
+      // Черта вне level-up теперь выдаётся только через GM-панель.
+      if (form.feat_id && isGM) {
+        await charactersApi.gmPanel.feats.add(id, { feat_id: Number(form.feat_id) }).catch(() => null)
       }
-
-      const saves = (classDetail?.saving_throws ?? []).map((s) => s.ability)
-      if (saves.length) await charactersApi.savingThrows(id, { saving_throws: saves })
-
-      const chosen = (form.class_skill_ids ?? []).map(Number)
-      const raceGranted = (raceDetail?.granted_skills ?? []).map((s) => s.id)
-      const bgGranted = (backgroundDetail?.granted_skills ?? []).map((s) => s.id)
-      const skillIds = [...new Set([...chosen, ...raceGranted, ...bgGranted].map(Number))]
-      const expertise = new Set((form.expertise_ids ?? []).map(Number))
-      await charactersApi.skills(id, {
-        skill_proficiencies: skillIds.map((sid) => ({ skill_id: sid, is_expertise: expertise.has(sid) })),
-      })
 
       let currentStats = created.ability_scores || null
       let currentCon = currentStats ? currentStats.constitution_total : totals.CON

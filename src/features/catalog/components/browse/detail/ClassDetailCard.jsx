@@ -78,7 +78,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
   ].sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || a.id - b.id)
 
   return (
-    <Card className="my-[3px] p-4">
+    <Card className="my-[3px] detail-padded">
       <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold text-stone-100">{cls.name}</h1>

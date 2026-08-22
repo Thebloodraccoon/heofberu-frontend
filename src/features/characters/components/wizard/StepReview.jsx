@@ -21,7 +21,7 @@ const ItemList = ({ label, items }) => {
 
 export default function StepReview({ stepNo, total, form, lookups, derived, onRollHp }) {
   const { classDetail, raceDetail, backgroundDetail } = lookups
-  const { totals, bonusByCode, hpLevel1, avgGain, dieSides, conMod, expertiseBudget } = derived
+  const { totals, bonusByCode, hpLevel1, avgGain, dieSides, conMod } = derived
   const level = Number(form.level) || 1
 
   const findSkill = (id) => {
@@ -34,7 +34,6 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
   }
 
   const chosen = (form.class_skill_ids ?? []).map(Number)
-  const expertise = (form.expertise_ids ?? []).map(Number)
   const raceGranted = raceDetail?.granted_skills ?? []
   const bgGranted = backgroundDetail?.granted_skills ?? []
   const allGranted = [...raceGranted, ...bgGranted]
@@ -135,9 +134,8 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
             {chosen.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {chosen.map((id) => (
-                  <Tag key={id} tone={expertise.includes(id) ? 'good' : 'default'}>
+                  <Tag key={id}>
                     {findSkill(id)}
-                    {expertise.includes(id) ? ' ★' : ''}
                   </Tag>
                 ))}
               </div>
@@ -150,9 +148,6 @@ export default function StepReview({ stepNo, total, form, lookups, derived, onRo
                   </Tag>
                 ))}
               </div>
-            )}
-            {expertiseBudget > 0 && expertise.length === 0 && (
-              <Hint className="mt-2">Экспертиза ещё не выбрана.</Hint>
             )}
           </Section>
 

@@ -8,12 +8,47 @@ export const charactersApi = {
   remove: (id) => request(`/api/characters/${id}`, { method: 'DELETE' }),
   hp: (id, body) => request(`/api/characters/${id}/hp`, { method: 'PATCH', body }),
   rest: (id, body) => request(`/api/characters/${id}/rest`, { method: 'POST', body }),
-  skills: (id, body) => request(`/api/characters/${id}/skills`, { method: 'PUT', body }),
-  savingThrows: (id, body) =>
-    request(`/api/characters/${id}/saving-throws`, { method: 'PUT', body }),
-  spellSlots: {
-    list: (id) => request(`/api/characters/${id}/spell-slots`),
-    update: (id, body) => request(`/api/characters/${id}/spell-slots`, { method: 'PATCH', body }),
+  gmPanel: {
+    stats: (id) => request(`/api/characters/${id}/gm-panel/stats`),
+    maxHp: (id, body) =>
+      request(`/api/characters/${id}/gm-panel/max-hp`, { method: 'PATCH', body }),
+    maxLevel: {
+      get: (id) => request(`/api/characters/${id}/gm-panel/max-level`),
+      set: (id, body) =>
+        request(`/api/characters/${id}/gm-panel/max-level`, { method: 'PATCH', body }),
+    },
+    asi: {
+      list: (id) => request(`/api/characters/${id}/gm-panel/asi`),
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/asi`, { method: 'POST', body }),
+      remove: (id, adjustmentId) =>
+        request(`/api/characters/${id}/gm-panel/asi/${adjustmentId}`, { method: 'DELETE' }),
+    },
+    skills: {
+      setExpertise: (id, skillId, body) =>
+        request(`/api/characters/${id}/gm-panel/skills/${skillId}`, { method: 'PATCH', body }),
+    },
+    feats: {
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/feats`, { method: 'POST', body }),
+      update: (id, charFeatId, body) =>
+        request(`/api/characters/${id}/gm-panel/feats/${charFeatId}`, { method: 'PATCH', body }),
+      remove: (id, charFeatId) =>
+        request(`/api/characters/${id}/gm-panel/feats/${charFeatId}`, { method: 'DELETE' }),
+    },
+    features: {
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/features`, { method: 'POST', body }),
+      update: (id, charFeatureId, body) =>
+        request(`/api/characters/${id}/gm-panel/features/${charFeatureId}`, { method: 'PATCH', body }),
+      remove: (id, charFeatureId) =>
+        request(`/api/characters/${id}/gm-panel/features/${charFeatureId}`, { method: 'DELETE' }),
+    },
+    items: {
+      list: (id) => request(`/api/characters/${id}/gm-panel/items`),
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/items`, { method: 'POST', body }),
+      update: (id, charItemId, body) =>
+        request(`/api/characters/${id}/gm-panel/items/${charItemId}`, { method: 'PATCH', body }),
+      remove: (id, charItemId) =>
+        request(`/api/characters/${id}/gm-panel/items/${charItemId}`, { method: 'DELETE' }),
+    },
   },
   spells: {
     list: (id) => request(`/api/characters/${id}/spells`),
@@ -31,27 +66,9 @@ export const charactersApi = {
   },
   feats: {
     list: (id) => request(`/api/characters/${id}/feats`),
-    add: (id, body) => request(`/api/characters/${id}/feats`, { method: 'POST', body }),
-    update: (id, charFeatId, body) =>
-      request(`/api/characters/${id}/feats/${charFeatId}`, { method: 'PATCH', body }),
-    remove: (id, charFeatId) =>
-      request(`/api/characters/${id}/feats/${charFeatId}`, { method: 'DELETE' }),
   },
   features: {
     list: (id) => request(`/api/characters/${id}/features`),
-    add: (id, body) => request(`/api/characters/${id}/features`, { method: 'POST', body }),
-    update: (id, charFeatureId, body) =>
-      request(`/api/characters/${id}/features/${charFeatureId}`, { method: 'PATCH', body }),
-    remove: (id, charFeatureId) =>
-      request(`/api/characters/${id}/features/${charFeatureId}`, { method: 'DELETE' }),
-  },
-  items: {
-    list: (id) => request(`/api/characters/${id}/items`),
-    add: (id, body) => request(`/api/characters/${id}/items`, { method: 'POST', body }),
-    update: (id, charItemId, body) =>
-      request(`/api/characters/${id}/items/${charItemId}`, { method: 'PATCH', body }),
-    remove: (id, charItemId) =>
-      request(`/api/characters/${id}/items/${charItemId}`, { method: 'DELETE' }),
   },
   conditions: {
     list: (id) => request(`/api/characters/${id}/conditions`),
@@ -72,6 +89,7 @@ export const charactersApi = {
       request(`/api/characters/${id}/progression/subrace`, { method: 'PATCH', body }),
     levelUp: (id, body) =>
       request(`/api/characters/${id}/progression/level-up`, { method: 'POST', body }),
+    canLevelUp: (id) => request(`/api/characters/${id}/progression/can-level-up`),
     asiChoices: (id) => request(`/api/characters/${id}/progression/asi-choices`),
   },
 }

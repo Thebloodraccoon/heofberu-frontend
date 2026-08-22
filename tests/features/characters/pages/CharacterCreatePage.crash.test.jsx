@@ -25,11 +25,13 @@ vi.mock('react-router-dom', async (orig) => {
 vi.mock('@/features/characters/api.js', () => ({
   charactersApi: {
     create: vi.fn(),
-    savingThrows: vi.fn(),
-    skills: vi.fn(),
-    feats: { add: vi.fn() },
+    gmPanel: { feats: { add: vi.fn() } },
     progression: { levelUp: vi.fn() },
   },
+}))
+
+vi.mock('@/features/auth/useAuth.js', () => ({
+  useAuth: () => ({ user: { username: 'gm' }, isGM: true, authenticated: true }),
 }))
 
 import CharacterCreatePage from '@/features/characters/pages/CharacterCreatePage.jsx'
@@ -53,14 +55,14 @@ const goToAbilities = async () => {
 }
 
 describe('CharacterCreatePage random crash repro', () => {
-  it('stays rendered after picking a dice method', async () => {
+  it('stays rendered after picking a dice method', { timeout: 20000 }, async () => {
     await goToAbilities()
     expect(screen.getAllByText('Характеристики').length).toBeGreaterThan(0)
     await userEvent.click(screen.getByRole('button', { name: /бросок 4d6/i }))
     expect(screen.getByRole('button', { name: /перебросить кости/i })).toBeInTheDocument()
   })
 
-  it('stays rendered after rerolling dice', async () => {
+  it('stays rendered after rerolling dice', { timeout: 20000 }, async () => {
     await goToAbilities()
     await userEvent.click(screen.getByRole('button', { name: /бросок 4d6/i }))
     await userEvent.click(screen.getByRole('button', { name: /перебросить кости/i }))

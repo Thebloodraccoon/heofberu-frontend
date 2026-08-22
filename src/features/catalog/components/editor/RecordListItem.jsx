@@ -1,8 +1,6 @@
-import { useState } from 'react'
-import { Badge, Button, ConfirmDialog } from '@/components/ui'
+import { Badge } from '@/components/ui'
 
-export default function RecordListItem({ item, selectedId, badges, onEdit, onDelete }) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
+export default function RecordListItem({ item, selectedId, badges, onEdit }) {
   return (
     <div
       className={`card-hover fantasy-panel cursor-pointer rounded-lg p-3 transition ${
@@ -30,43 +28,15 @@ export default function RecordListItem({ item, selectedId, badges, onEdit, onDel
             </div>
           )}
         </button>
-        <div className="flex shrink-0 flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => onEdit(item)}
-            className="mt-[5px] rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
-          >
-            Изменить
-          </button>
-          <Button
-            type="button"
-            variant="danger"
-            size="xs"
-            className="my-[5px]"
-            onClick={() => setConfirmDelete(true)}
-          >
-            Удалить
-          </Button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onEdit(item)}
+          className="shrink-0 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+        >
+          Изменить
+        </button>
       </div>
 
-      {confirmDelete && (
-        <ConfirmDialog
-          title="Удалить запись?"
-          message={
-            <>
-              Вы точно хотите удалить{' '}
-              <span className="font-semibold text-stone-100">«{item.name}»</span>? Это действие
-              необратимо.
-            </>
-          }
-          onCancel={() => setConfirmDelete(false)}
-          onConfirm={() => {
-            setConfirmDelete(false)
-            onDelete(item)
-          }}
-        />
-      )}
     </div>
   )
 }

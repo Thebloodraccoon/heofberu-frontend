@@ -30,7 +30,6 @@ export const DEFAULT_FORM = {
   ability_base: {},
   ability_rolls: {},
   class_skill_ids: [],
-  expertise_ids: [],
   name: '',
   feat_id: '',
   traits: '',

@@ -142,3 +142,12 @@
 .highlight-active {
   @apply border-ember/60 bg-ember/5;
 }
+
+/* ===== Десктоп: минимум 14px ===== */
+@media (min-width: 1024px) {
+  .btn-add            { font-size: 0.875rem; }
+  .btn-edit-inline    { font-size: 0.875rem; }
+  .btn-delete-inline  { font-size: 0.875rem; }
+  .btn-delete         { font-size: 0.875rem; }
+  .badge-saved        { font-size: 0.875rem; }
+}
