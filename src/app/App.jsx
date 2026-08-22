@@ -12,6 +12,7 @@ const LandingPage = lazy(() => import('@/features/landing/pages/LandingPage.jsx'
 const CharactersPage = lazy(() => import('@/features/characters/pages/CharactersPage.jsx'))
 const CharacterCreatePage = lazy(() => import('@/features/characters/pages/CharacterCreatePage.jsx'))
 const CharacterDetailPage = lazy(() => import('@/features/characters/pages/CharacterDetailPage.jsx'))
+const GmCharactersPage = lazy(() => import('@/features/characters/pages/GmCharactersPage.jsx'))
 const CatalogListPage = lazy(() => import('@/features/catalog/pages/CatalogPage.jsx'))
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage.jsx'))
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage.jsx'))
@@ -61,6 +62,14 @@ function App() {
                   element={
                     <GMRoute>
                       <GmEditorPage />
+                    </GMRoute>
+                  }
+                />
+                <Route
+                  path="gm/characters"
+                  element={
+                    <GMRoute>
+                      <GmCharactersPage />
                     </GMRoute>
                   }
                 />

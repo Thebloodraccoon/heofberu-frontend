@@ -14,28 +14,25 @@ const TrashIcon = () => (
   </svg>
 )
 
-export default function SpellsPanel({ characterId, classId, raceId, onError }) {
+export default function SpellsPanel({ character, onError }) {
   const queryClient = useQueryClient()
-  const { data: spells = [] } = useCharacterSpells(characterId)
-  const { data: slots = [] } = useCharacterSpellSlots(characterId)
+  const { data: spells = [] } = useCharacterSpells(character.id)
+  const { data: slots = [] } = useCharacterSpellSlots(character.id)
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  const invalidateSlots = () =>
-    queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'spell-slots'] })
-
-  const changeSlot = async (spellLevel, used) => {
-    try {
-      await charactersApi.spellSlots.update(characterId, { level: spellLevel, used })
-      await invalidateSlots()
-    } catch (e) {
-      onError(e)
+  const knownByLevel = useMemo(() => {
+    const counts = {}
+    for (const cs of spells) {
+      const lv = cs.spell?.level ?? 'OTHER'
+      counts[lv] = (counts[lv] ?? 0) + 1
     }
-  }
+    return counts
+  }, [spells])
 
   const removeSpell = async (spellId) => {
     try {
-      await charactersApi.spells.remove(characterId, spellId)
-      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.spells(Number(characterId)) })
+      await charactersApi.spells.remove(character.id, spellId)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.spells(Number(character.id)) })
     } catch (e) {
       onError(e)
     }
@@ -56,32 +53,20 @@ export default function SpellsPanel({ characterId, classId, raceId, onError }) {
         <div>
           <p className="sheet-section-label">Слоты заклинаний</p>
           <div className="flex flex-wrap gap-2">
-            {slots.map((slot) => (
-              <div key={slot.spell_level} className="sheet-boxed">
-                <div className="sheet-boxed__box min-w-0 flex-col !gap-0.5 !px-3">
-                  <span className="text-sm">{slot.used} / {slot.total}</span>
-                  <span className="flex gap-1">
-                    <button
-                      type="button"
-                      disabled={slot.used <= 0}
-                      onClick={() => changeSlot(slot.spell_level, slot.used - 1)}
-                      className="sheet-btn !px-1.5"
-                    >
-                      −
-                    </button>
-                    <button
-                      type="button"
-                      disabled={slot.used >= slot.total}
-                      onClick={() => changeSlot(slot.spell_level, slot.used + 1)}
-                      className="sheet-btn !px-1.5"
-                    >
-                      +
-                    </button>
-                  </span>
+            {slots.map((slot) => {
+              const known = knownByLevel[slot.spell_level] ?? 0
+              const full = known >= slot.total
+              return (
+                <div key={slot.spell_level} className="sheet-boxed">
+                  <div className="sheet-boxed__box min-w-0 flex-col !gap-0.5 !px-3">
+                    <span className={`text-sm ${full ? 'text-stone-500' : 'text-stone-100'}`}>
+                      {known} / {slot.total}
+                    </span>
+                  </div>
+                  <span className="sheet-boxed__label">{label(slot.spell_level)}</span>
                 </div>
-                <span className="sheet-boxed__label">{label(slot.spell_level)}</span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -140,9 +125,7 @@ export default function SpellsPanel({ characterId, classId, raceId, onError }) {
 
       {pickerOpen && (
         <SpellPickerModal
-          characterId={characterId}
-          classId={classId}
-          raceId={raceId}
+          character={character}
           onClose={() => setPickerOpen(false)}
           onError={onError}
         />

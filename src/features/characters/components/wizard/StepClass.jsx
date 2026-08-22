@@ -5,7 +5,7 @@ import { useSearch } from './useSearch.js'
 
 const asNum = (v) => Number(v) || 0
 
-export default function StepClass({ stepNo, total, form, update, lookups, derived }) {
+export default function StepClass({ stepNo, total, form, update, lookups }) {
   const classDetail = lookups.classDetail
   const subclassDetail = lookups.subclassDetail
   const selectedClass = (lookups.classes ?? []).find((c) => String(c.id) === String(form.class_id))
@@ -14,38 +14,19 @@ export default function StepClass({ stepNo, total, form, update, lookups, derive
 
   const classSearch = useSearch(lookups.classes ?? [])
 
-  const expertiseBudget = derived.expertiseBudget
-
   const pool = (classDetail?.available_skills ?? []).filter((s) => s && s.id != null)
   const raceGranted = classDetail ? (lookups.raceDetail?.granted_skills ?? []) : []
   const bgGranted = classDetail ? (lookups.backgroundDetail?.granted_skills ?? []) : []
   const choiceCount = classDetail?.skill_choice_count ?? 0
 
   const chosen = (form.class_skill_ids ?? []).map(Number)
-  const expertise = (form.expertise_ids ?? []).map(Number)
-
-  const findName = (id) => {
-    const all = [...pool, ...raceGranted, ...bgGranted]
-    return all.find((s) => Number(s.id) === id)?.name
-  }
 
   const toggleChoice = (id) => {
     const has = chosen.includes(id)
     const atLimit = chosen.length >= choiceCount
     if (!has && atLimit) return
     const next = has ? chosen.filter((x) => x !== id) : [...chosen, id]
-    const patch = { class_skill_ids: next }
-    if (!has) patch.expertise_ids = expertise.filter((x) => x !== id)
-    update(patch)
-  }
-
-  const toggleExpertise = (id) => {
-    const has = expertise.includes(id)
-    if (has) {
-      update({ expertise_ids: expertise.filter((x) => x !== id) })
-    } else if (expertise.length < expertiseBudget) {
-      update({ expertise_ids: [...expertise, id] })
-    }
+    update({ class_skill_ids: next })
   }
 
   const spellSlots = (classDetail?.spell_slot_progression ?? []).filter((s) => s.class_level <= level)
@@ -93,7 +74,7 @@ export default function StepClass({ stepNo, total, form, update, lookups, derive
             <OptionCard
               key={c.id}
               selected={String(c.id) === String(form.class_id)}
-              onClick={() => update({ class_id: String(c.id), subclass_id: '', class_skill_ids: [], expertise_ids: [] })}
+              onClick={() => update({ class_id: String(c.id), subclass_id: '', class_skill_ids: [] })}
               title={c.name}
               subtitle={c.hit_dice ? `Кость хитов к${c.hit_dice.replace('D', '')}` : ''}
             />
@@ -217,30 +198,6 @@ export default function StepClass({ stepNo, total, form, update, lookups, derive
               <Tag key={`b${s.id}`} tone="good">
                 {s.name} · предыстория
               </Tag>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {expertiseBudget > 0 && (
-        <Section title="Экспертиза">
-          <div className="mb-3">
-            <Tag tone={expertise.length >= expertiseBudget ? 'good' : 'default'}>
-              Отмечено: {expertise.length} из {expertiseBudget}
-            </Tag>
-            <Hint className="mt-1">Отметьте {expertiseBudget} навык(а/ов) класса — их бонус мастерства удвоится.</Hint>
-          </div>
-          {chosen.length === 0 && <Hint>Сначала выберите навыки класса.</Hint>}
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {chosen.map((id) => (
-              <SkillToggle
-                key={id}
-                id={id}
-                name={findName(id) || `Навык #${id}`}
-                on={expertise.includes(id)}
-                disabled={!expertise.includes(id) && expertise.length >= expertiseBudget}
-                onClick={() => toggleExpertise(id)}
-              />
             ))}
           </div>
         </Section>

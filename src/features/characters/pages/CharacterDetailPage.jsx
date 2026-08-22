@@ -408,9 +408,7 @@ export default function CharacterDetailPage() {
             )}
             {tab === 'spells' && (
               <SpellsPanel
-                characterId={character.id}
-                classId={character.class_id}
-                raceId={character.race_id}
+                character={character}
                 onError={setMutationError}
               />
             )}

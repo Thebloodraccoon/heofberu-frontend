@@ -25,11 +25,13 @@ vi.mock('react-router-dom', async (orig) => {
 vi.mock('@/features/characters/api.js', () => ({
   charactersApi: {
     create: vi.fn(),
-    savingThrows: vi.fn(),
-    skills: vi.fn(),
-    feats: { add: vi.fn() },
+    gmPanel: { feats: { add: vi.fn() } },
     progression: { levelUp: vi.fn() },
   },
+}))
+
+vi.mock('@/features/auth/useAuth.js', () => ({
+  useAuth: () => ({ user: { username: 'gm' }, isGM: true, authenticated: true }),
 }))
 
 import CharacterCreatePage from '@/features/characters/pages/CharacterCreatePage.jsx'

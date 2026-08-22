@@ -10,12 +10,15 @@ import { SPELL_LEVEL_ORDER } from './constants.js'
 
 /**
  * Spell picker modal. Groups available spells by level, respecting:
- *  - class/race availability lists on the spell (empty = unrestricted);
+ *  - class/subclass/race/subrace availability lists on the spell — a
+ *    non-empty list requires membership, an empty list never excludes
+ *    (same four-dimension rule the backend enforces on add);
  *  - per-level capacity from the character's spell slots (known count
- *    must stay below the slot total — same rule the backend enforces).
+ *    must stay below the slot total).
  */
-export default function SpellPickerModal({ characterId, classId, raceId, onClose, onError }) {
+export default function SpellPickerModal({ character, onClose, onError }) {
   const queryClient = useQueryClient()
+  const characterId = character.id
   const { data: catalog = [] } = useSpells({ size: 100 })
   const { data: known = [] } = useCharacterSpells(characterId)
   const { data: slots = [] } = useCharacterSpellSlots(characterId)
@@ -32,12 +35,14 @@ export default function SpellPickerModal({ characterId, classId, raceId, onClose
   }, [slots, known])
 
   const groups = useMemo(() => {
+    const matches = (list, id) =>
+      !list?.length || (id != null && list.some((x) => Number(x.id) === Number(id)))
     const allowed = (sp) => {
       if (knownIds.has(sp.id)) return false
-      const classes = sp.available_classes ?? []
-      const races = sp.available_races ?? []
-      if (classes.length > 0 && !classes.some((c) => Number(c.id) === Number(classId))) return false
-      if (races.length > 0 && !races.some((r) => Number(r.id) === Number(raceId))) return false
+      if (!matches(sp.available_classes, character.class_id)) return false
+      if (!matches(sp.available_subclasses, character.subclass_id)) return false
+      if (!matches(sp.available_races, character.race_id)) return false
+      if (!matches(sp.available_subraces, character.subrace_id)) return false
       return true
     }
     const byLevel = {}
@@ -47,7 +52,7 @@ export default function SpellPickerModal({ characterId, classId, raceId, onClose
     }
     for (const list of Object.values(byLevel)) list.sort((a, b) => a.name.localeCompare(b.name))
     return byLevel
-  }, [catalog, classId, raceId, knownIds])
+  }, [catalog, character, knownIds])
 
   const levels = SPELL_LEVEL_ORDER.filter((lv) => groups[lv]?.length)
 
@@ -85,7 +90,7 @@ export default function SpellPickerModal({ characterId, classId, raceId, onClose
   return (
     <Modal title="Заклинания" onClose={onClose} size="lg">
       <p className="-mt-1 text-xs text-stone-500">
-        Доступны заклинания вашего класса и расы; количество ограничено ячейками по уровню.
+        Доступны заклинания вашего класса, подкласса, расы и подрасы; количество ограничено ячейками по уровню.
       </p>
       <div className="mt-3 max-h-[55vh] space-y-4 overflow-y-auto pr-1">
         {levels.length === 0 && <p className="text-sm text-stone-500">Нет доступных заклинаний.</p>}

@@ -118,11 +118,6 @@ describe('StepReview', () => {
     expect(screen.getByText('20')).toBeInTheDocument()
   })
 
-  it('marks expertise with a star', () => {
-    renderStep({ expertise_ids: [1] })
-    expect(screen.getByText('Атлетика ★')).toBeInTheDocument()
-  })
-
   it('shows an empty state when no skills are chosen', () => {
     renderStep({ class_skill_ids: [] }, vi.fn(), {
       raceDetail: { ...lookups.raceDetail, granted_skills: [] },

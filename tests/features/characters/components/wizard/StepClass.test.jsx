@@ -40,17 +40,17 @@ const classDetail = {
 const raceDetail = { id: 1, granted_skills: [{ id: 10, name: 'Скрытность' }] }
 const backgroundDetail = { id: 2, granted_skills: [{ id: 11, name: 'Обман' }] }
 
-const derived = { dieSides: 8, conMod: 1, hpLevel1: 9, avgGain: 6, expertiseBudget: 2 }
+const derived = { dieSides: 8, conMod: 1, hpLevel1: 9, avgGain: 6 }
 
-const renderStep = (form, { expertiseBudget = 2, classDetail: cd = classDetail, ...lookupsOverride } = {}, update = vi.fn()) =>
+const renderStep = (form, { classDetail: cd = classDetail, ...lookupsOverride } = {}, update = vi.fn()) =>
   render(
     <StepClass
       stepNo={3}
       total={7}
-      form={{ class_id: '1', level: '1', subclass_id: '', class_skill_ids: [], expertise_ids: [], ...form }}
+      form={{ class_id: '1', level: '1', subclass_id: '', class_skill_ids: [], ...form }}
       update={update}
       lookups={{ classes, classDetail: cd, subclassDetail: null, raceDetail, backgroundDetail, ...lookupsOverride }}
-      derived={{ ...derived, expertiseBudget }}
+      derived={derived}
     />,
   )
 
@@ -60,7 +60,6 @@ const Harness = ({ initial = {}, onUpdate = vi.fn(), ...props } = {}) => {
     level: '1',
     subclass_id: '',
     class_skill_ids: [],
-    expertise_ids: [],
     ...initial,
   })
   return (
@@ -99,7 +98,6 @@ describe('StepClass', () => {
       class_id: '2',
       subclass_id: '',
       class_skill_ids: [],
-      expertise_ids: [],
     })
   })
 
@@ -163,15 +161,6 @@ describe('StepClass', () => {
       expect(update).toHaveBeenCalledWith({ class_skill_ids: [] })
     })
 
-    it('strips expertise from a skill when it is added as a choice', async () => {
-      const update = vi.fn()
-      renderStep({ class_skill_ids: [1], expertise_ids: [1, 2] }, {}, update)
-      await userEvent.click(screen.getByRole('button', { name: /история/i }))
-      expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ class_skill_ids: [1, 2], expertise_ids: [1] }),
-      )
-    })
-
     it('prevents choosing more skills than the class allows', async () => {
       render(<Harness />)
       await userEvent.click(screen.getByRole('button', { name: /атлетика/i }))
@@ -185,31 +174,6 @@ describe('StepClass', () => {
     it('shows a hint when the skill limit is reached', () => {
       renderStep({ class_skill_ids: [1, 2] })
       expect(screen.getByText('Доступный лимит выбран.')).toBeInTheDocument()
-    })
-
-    it('adds expertise within the budget', async () => {
-      const update = vi.fn()
-      renderStep({ class_skill_ids: [1, 2], expertise_ids: [1] }, {}, update)
-      await userEvent.click(within(section('Экспертиза')).getByRole('button', { name: /история/i }))
-      expect(update).toHaveBeenCalledWith({ expertise_ids: [1, 2] })
-    })
-
-    it('removes expertise on a second click', async () => {
-      const update = vi.fn()
-      renderStep({ class_skill_ids: [1, 2], expertise_ids: [1, 2] }, {}, update)
-      await userEvent.click(within(section('Экспертиза')).getByRole('button', { name: /история/i }))
-      expect(update).toHaveBeenCalledWith({ expertise_ids: [1] })
-    })
-
-    it('disables expertise selection once the budget is reached', () => {
-      renderStep({ class_skill_ids: [1, 2, 3], expertise_ids: [1, 2] })
-      const perception = within(section('Экспертиза')).getByRole('button', { name: /восприятие/i })
-      expect(perception).toBeDisabled()
-    })
-
-    it('hides the expertise section when the budget is zero', () => {
-      renderStep({}, { expertiseBudget: 0 })
-      expect(screen.queryByText('Экспертиза')).not.toBeInTheDocument()
     })
 
     it('renders class saving throws with full Russian names', () => {
