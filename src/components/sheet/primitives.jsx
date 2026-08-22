@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { fmtBonus } from '@/lib/utils/sheet.js'
 
-export function RollButton({ bonus, onClick, disabled, compact = false, className = '', title }) {
+export function RollButton({ bonus, onClick, disabled, compact = false, className = '', title, label }) {
   return (
     <button
       type="button"
@@ -10,7 +10,7 @@ export function RollButton({ bonus, onClick, disabled, compact = false, classNam
       onClick={onClick}
       title={title}
     >
-      {fmtBonus(bonus)}
+      {label ?? fmtBonus(bonus)}
     </button>
   )
 }
@@ -60,18 +60,69 @@ export function SheetSectionLabel({ children }) {
 }
 
 const ChevronIcon = ({ className = '' }) => (
-  <svg className={className} height="24" viewBox="0 0 24 24" width="24" fill="#000000">
+  <svg className={className} height="24" viewBox="0 0 24 24" width="24" fill="currentColor">
     <path d="M0 0h24v24H0z" fill="none" />
     <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
   </svg>
 )
 
 const PencilIcon = () => (
-  <svg enableBackground="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24" fill="#000000">
+  <svg enableBackground="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24" fill="currentColor">
     <rect fill="none" height="24" width="24" />
     <path d="M3,10h11v2H3V10z M3,8h11V6H3V8z M3,16h7v-2H3V16z M18.01,12.87l0.71-0.71c0.39-0.39,1.02-0.39,1.41,0l0.71,0.71 c0.39,0.39,0.39,1.02,0,1.41l-0.71,0.71L18.01,12.87z M17.3,13.58l-5.3,5.3V21h2.12l5.3-5.3L17.3,13.58z" />
   </svg>
 )
+
+export function EditableBlock({ title, value = '', onSave, rows = 4 }) {
+  const [edit, setEdit] = useState(false)
+  const [draft, setDraft] = useState(value)
+
+  const startEdit = () => {
+    setDraft(value ?? '')
+    setEdit(true)
+  }
+
+  const cancel = () => {
+    setDraft(value)
+    setEdit(false)
+  }
+
+  const save = async () => {
+    await onSave?.(draft)
+    setEdit(false)
+  }
+
+  return (
+    <div className="sheet-text-block">
+      <div className="sheet-text-block__head">
+        <span className="sheet-section-label !mt-0">{title}</span>
+        {!edit && (
+          <button type="button" className="sheet-edit-note text-stone-300 hover:text-ember" title="Изменить" onClick={startEdit}>
+            <PencilIcon />
+          </button>
+        )}
+      </div>
+      {edit ? (
+        <div className="px-4 py-3">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={rows}
+            className="w-full resize-y rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember"
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <button type="button" className="sheet-btn sheet-btn_primary" onClick={save}>Сохранить</button>
+            <button type="button" className="sheet-btn" onClick={cancel}>Отмена</button>
+          </div>
+        </div>
+      ) : (
+        <p className="mx-1 mb-1 whitespace-pre-wrap rounded-lg bg-stone-900/60 px-4 py-3 text-sm text-stone-300">
+          {value || '—'}
+        </p>
+      )}
+    </div>
+  )
+}
 
 export function TextBlock({ title, value = '', editing = false, onSave, hint }) {
   const [open, setOpen] = useState(false)
@@ -175,48 +226,39 @@ export function PassiveSenses({ items = [] }) {
   )
 }
 
-export function SheetTabs({ tabs, active, onSelect, rollsOn = true, onToggleRolls }) {
+export function SheetTabs({ tabs, active, onSelect }) {
+  const scrollerRef = useRef(null)
+  const scrollBy = (dir) => scrollerRef.current?.scrollBy({ left: dir * 140, behavior: 'smooth' })
   return (
-    <div className="flex items-end justify-between gap-3">
-      <div className="sheet-tabs flex-1">
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        aria-label="Прокрутить влево"
+        className="sheet-btn shrink-0 !px-2"
+        onClick={() => scrollBy(-1)}
+      >
+        ‹
+      </button>
+      <div ref={scrollerRef} className="sheet-tabs flex-1 overflow-x-auto scrollbar-none">
         {tabs.map(([key, labelText]) => (
           <button
             key={key}
             type="button"
-            className={`sheet-tabs__btn ${active === key ? 'sheet-tabs__btn_active' : ''}`}
+            className={`sheet-tabs__btn shrink-0 ${active === key ? 'sheet-tabs__btn_active' : ''}`}
             onClick={() => onSelect(key)}
           >
             {labelText}
           </button>
         ))}
       </div>
-      {onToggleRolls && (
-        <label
-          className="flex shrink-0 cursor-pointer items-center gap-2 pb-2 pl-1 text-xs text-stone-500"
-          title="Включить броски на листе"
-        >
-          <svg width="16" height="16" viewBox="0 0 33 33" stroke="currentColor" fill="none">
-            <path d="M16.4997 1.99976L28.4997 9.95628M16.4997 1.99976L4.49969 9.95628M16.4997 1.99976V9.69541M28.4997 9.95628L16.4997 9.69541M28.4997 9.95628L23.9345 21.1737M28.4997 9.95628V22.3476M28.4997 22.3476L16.4997 30.4345M28.4997 22.3476L23.9345 21.1737M16.4997 30.4345L4.49969 22.3476M16.4997 30.4345L9.06491 21.1737M16.4997 30.4345L23.9345 21.1737M4.49969 22.3476V9.95628M4.49969 22.3476L9.06491 21.1737M4.49969 9.95628L16.4997 9.69541M4.49969 9.95628L9.06491 21.1737M16.4997 9.69541L9.06491 21.1737M16.4997 9.69541L23.9345 21.1737M9.06491 21.1737H23.9345" stroke="inherit" />
-          </svg>
-          <input
-            type="checkbox"
-            checked={rollsOn}
-            onChange={(e) => onToggleRolls(e.target.checked)}
-            className="sr-only"
-          />
-          <span
-            className={`relative h-4 w-8 rounded-full border transition ${
-              rollsOn ? 'border-ember bg-ember/30' : 'border-stone-600 bg-stone-800'
-            }`}
-          >
-            <span
-              className={`absolute top-1/2 block size-3 -translate-y-1/2 rounded-full transition ${
-                rollsOn ? 'left-4 bg-ember' : 'left-0.5 bg-stone-500'
-              }`}
-            />
-          </span>
-        </label>
-      )}
+      <button
+        type="button"
+        aria-label="Прокрутить вправо"
+        className="sheet-btn shrink-0 !px-2"
+        onClick={() => scrollBy(1)}
+      >
+        ›
+      </button>
     </div>
   )
 }

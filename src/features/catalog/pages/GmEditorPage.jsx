@@ -610,7 +610,6 @@ export default function GmEditorPage() {
                 selectedId={selectedId}
                 badges={cfg.listBadges(it)}
                 onEdit={openEdit}
-                onDelete={setDeleteTarget}
               />
             ))
             )}
@@ -618,7 +617,7 @@ export default function GmEditorPage() {
 
           <section className="min-w-0">
             {showForm && form ? (
-              <Card className="p-6 sm:p-8">
+              <Card className="detail-padded">
                 <div className="mb-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="font-display text-xl font-bold text-stone-100">

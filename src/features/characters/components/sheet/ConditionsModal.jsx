@@ -6,19 +6,18 @@ import { CONDITIONS } from './constants.js'
 
 export default function ConditionsModal({ character, onClose, onChanged, onError }) {
   const [condition, setCondition] = useState('')
-  const [exhaustion, setExhaustion] = useState('')
   const [source, setSource] = useState('')
+  const [exhaustionLevel, setExhaustionLevel] = useState('1')
   const conditions = character.conditions ?? []
 
   const add = async () => {
     if (!condition) return
     try {
-      await api.characters.conditions.add(character.id, {
+      await api.conditions.add(character.id, {
         condition,
-        exhaustion_level: exhaustion ? Number(exhaustion) : null,
         source: source || undefined,
+        exhaustion_level: condition === 'EXHAUSTION' ? Number(exhaustionLevel) || 1 : undefined,
       })
-      setExhaustion('')
       setSource('')
       await onChanged()
     } catch (e) {
@@ -28,7 +27,7 @@ export default function ConditionsModal({ character, onClose, onChanged, onError
 
   const remove = async (cond) => {
     try {
-      await api.characters.conditions.remove(character.id, cond)
+      await api.conditions.remove(character.id, cond)
       await onChanged()
     } catch (e) {
       onError(e)
@@ -53,23 +52,29 @@ export default function ConditionsModal({ character, onClose, onChanged, onError
           </div>
         )}
         <div className="mt-5 grid gap-3 border-t border-stone-700/70 pt-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Field label="Состояние">
-              <Select value={condition} onChange={(e) => setCondition(e.target.value)}>
-                <option value="">Выберите...</option>
-                {CONDITIONS.map((c) => <option key={c} value={c}>{conditionLabels[c] ?? label(c)}</option>)}
+          <Field label="Состояние">
+            <Select value={condition} onChange={(e) => setCondition(e.target.value)}>
+              <option value="">Выберите...</option>
+              {CONDITIONS.map((c) => (
+                <option key={c} value={c}>{conditionLabels[c] ?? label(c)}</option>
+              ))}
+            </Select>
+          </Field>
+          {condition === 'EXHAUSTION' && (
+            <Field label="Уровень истощения">
+              <Select value={exhaustionLevel} onChange={(e) => setExhaustionLevel(e.target.value)}>
+                {[1, 2, 3, 4, 5, 6].map((lv) => (
+                  <option key={lv} value={lv}>{lv}</option>
+                ))}
               </Select>
             </Field>
-          </div>
-          <Field label="Уровень истощения">
-            <Input type="number" min="1" max="6" value={exhaustion} onChange={(e) => setExhaustion(e.target.value)} />
-          </Field>
-          <div className="flex items-end">
-            <Button onClick={add} className="w-full">Добавить</Button>
-          </div>
+          )}
           <Field label="Источник">
             <Input value={source} onChange={(e) => setSource(e.target.value)} />
           </Field>
+          <div className="sm:col-span-2">
+            <Button onClick={add} className="w-full" disabled={!condition}>Добавить</Button>
+          </div>
         </div>
     </Modal>
   )

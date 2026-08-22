@@ -1,120 +1,100 @@
-import { useState } from 'react'
-import { charactersApi as api } from '@/features/characters/api.js'
-import { Button, Field, Select } from '@/components/ui'
+import { useMemo } from 'react'
+import { useCharacterFeatures, useCharacterFeats } from '@/features/characters/queries.js'
+import { useUiSet } from '@/lib/uiState.js'
 
-function FeatSection({ title, items, editing, renderName, onRemove }) {
+const SOURCE_LABELS = {
+  CLASS: 'Класс',
+  SUBCLASS: 'Подкласс',
+  RACE: 'Раса',
+  SUBRACE: 'Подраса',
+  BACKGROUND: 'Предыстория',
+  OTHER: 'Особая',
+}
+
+function AccordionItem({ name, badge, level, open, onToggle, children }) {
   return (
-    <div className="space-y-2">
-      <p className="sheet-section-label">{title}</p>
-      {items.length === 0 ? (
-        <p className="text-sm text-stone-500">Ничего не добавлено</p>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((cf) => (
-            <li key={cf.id} className="flex items-start justify-between gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-stone-100">{renderName(cf)}</p>
-              </div>
-              {editing && (
-                <button type="button" className="sheet-btn shrink-0" onClick={() => onRemove(cf)}>
-                  Убрать
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+    <div className="rounded-lg border border-stone-700/60 bg-stone-900/60">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-left"
+      >
+        <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">{name}</span>
+        {level != null && (
+          <span className="rounded bg-stone-800 px-1.5 py-0.5 text-xs text-stone-400">ур. {level}</span>
+        )}
+        {badge && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]">{badge}</span>}
+      </button>
+      {open && (
+        <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">{children}</div>
       )}
     </div>
   )
 }
 
-export default function FeaturesPanel({ character, lookups, editing, onChanged, onError }) {
-  const feats = character.feats ?? []
-  const features = character.features ?? []
-  const [featId, setFeatId] = useState('')
-  const [featureId, setFeatureId] = useState('')
-  const findFeat = (idv) => lookups.feats.find((x) => x.id === idv)?.name
-  const findFeature = (idv) => lookups.features.find((x) => x.id === idv)?.name
+const SOURCE_RANK = { FEAT: 0, RACE: 1, SUBRACE: 2, BACKGROUND: 3, CLASS: 4, SUBCLASS: 4 }
 
-  const addFeat = async () => {
-    if (!featId) return
-    try {
-      await api.characters.feats.add(character.id, { feat_id: Number(featId) })
-      setFeatId('')
-      await onChanged()
-    } catch (e) {
-      onError(e)
-    }
-  }
+export default function FeaturesPanel({ character }) {
+  const characterId = character.id
+  const { data: feats = [] } = useCharacterFeats(characterId)
+  const { data: features = [] } = useCharacterFeatures(characterId)
+  const [openKeys, toggleKey] = useUiSet(`features:${characterId}`)
 
-  const addFeature = async () => {
-    if (!featureId) return
-    try {
-      await api.characters.features.add(character.id, { feature_id: Number(featureId) })
-      setFeatureId('')
-      await onChanged()
-    } catch (e) {
-      onError(e)
-    }
-  }
-
-  const removeFeat = async (cfId) => {
-    try {
-      await api.characters.feats.remove(character.id, cfId)
-      await onChanged()
-    } catch (e) {
-      onError(e)
-    }
-  }
-
-  const removeFeature = async (cfId) => {
-    try {
-      await api.characters.features.remove(character.id, cfId)
-      await onChanged()
-    } catch (e) {
-      onError(e)
-    }
-  }
+  const items = useMemo(() => {
+    const featNames = new Set(feats.map((cf) => (cf.feat?.name ?? '').toLowerCase()).filter(Boolean))
+    const featItems = feats.map((cf) => ({
+      key: `feat-${cf.id}`,
+      name: cf.feat?.name || `Черта #${cf.feat_id}`,
+      description: cf.feat?.description,
+      notes: null,
+      level: null,
+      rank: 0,
+      badge: 'Черта',
+    }))
+    const featureItems = features
+      .map((cf) => {
+        const st = cf.feature?.source_type ?? 'OTHER'
+        return {
+          key: `feature-${cf.id}`,
+          name: cf.feature?.name || `Свойство #${cf.feature_id}`,
+          description: cf.feature?.description,
+          notes: cf.notes,
+          level: st === 'CLASS' || st === 'SUBCLASS' ? cf.feature?.level ?? null : null,
+          rank: SOURCE_RANK[st] ?? 5,
+          badge: st === 'FEAT' ? 'Черта' : SOURCE_LABELS[st] ?? 'Особая',
+        }
+      })
+      .filter((it) => !(it.badge === 'Черта' && featNames.has(it.name.toLowerCase())))
+    return [...featItems, ...featureItems].sort(
+      (a, b) => a.rank - b.rank || (a.level ?? 99) - (b.level ?? 99) || a.name.localeCompare(b.name),
+    )
+  }, [feats, features])
 
   return (
-    <div className="space-y-5">
-      <FeatSection
-        title="Черты"
-        items={feats.map((cf) => ({ ...cf, is_feat: true }))}
-        editing={editing}
-        renderName={(cf) => findFeat(cf.feat_id) || `Черта #${cf.feat_id}`}
-        onRemove={(cf) => (cf.is_feat ? removeFeat(cf.id) : removeFeature(cf.id))}
-      />
-      <FeatSection
-        title="Свойства"
-        items={features.map((cf) => ({ ...cf, is_feat: false }))}
-        editing={editing}
-        renderName={(cf) => findFeature(cf.feature_id) || `Свойство #${cf.feature_id}`}
-        onRemove={(cf) => (cf.is_feat ? removeFeat(cf.id) : removeFeature(cf.id))}
-      />
+    <div className="space-y-4">
+      {items.length === 0 && <p className="text-sm text-stone-500">Пока ничего нет</p>}
 
-      {editing && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex items-end gap-2">
-            <Field label="Добавить черту">
-              <Select value={featId} onChange={(e) => setFeatId(e.target.value)}>
-                <option value="">Выберите...</option>
-                {lookups.feats.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </Select>
-            </Field>
-            <Button onClick={addFeat}>+</Button>
-          </div>
-          <div className="flex items-end gap-2">
-            <Field label="Добавить свойство">
-              <Select value={featureId} onChange={(e) => setFeatureId(e.target.value)}>
-                <option value="">Выберите...</option>
-                {lookups.features.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </Select>
-            </Field>
-            <Button onClick={addFeature}>+</Button>
-          </div>
-        </div>
-      )}
+      <ul className="space-y-2">
+        {items.map((it) => (
+          <li key={it.key}>
+            <AccordionItem
+              name={it.name}
+              badge={it.badge}
+              level={it.level}
+              open={openKeys.includes(it.key)}
+              onToggle={() => toggleKey(it.key)}
+            >
+              {it.description ? (
+                <p className="whitespace-pre-wrap">{it.description}</p>
+              ) : (
+                <p className="text-stone-500">Нет описания</p>
+              )}
+              {it.notes && <p className="mt-1.5 text-stone-500">Заметка: {it.notes}</p>}
+            </AccordionItem>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

@@ -101,6 +101,7 @@ h4 {
 /* Панель-«фолиант»: бронзовая рамка с уголками-скобками */
 .fantasy-panel {
   position: relative;
+  padding: 20px;
   border: 1px solid rgba(168, 133, 61, 0.26);
   background:
     linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
@@ -153,64 +154,26 @@ h4 {
   --color-gold-light: #c0cce0;
 }
 
-[data-theme="forest"] {
-  --color-stone-50: #eff3ea;
-  --color-stone-100: #e3ebd8;
-  --color-stone-200: #c9d8b8;
-  --color-stone-300: #a7bf92;
-  --color-stone-400: #83a26d;
-  --color-stone-500: #66854f;
-  --color-stone-600: #4f6940;
-  --color-stone-700: #3f5233;
-  --color-stone-800: #2c3a23;
-  --color-stone-900: #1e2919;
-  --color-stone-950: #141b11;
-  --color-parchment: #e3ebd8;
-  --color-ink: #141b11;
-  --color-ember: #5d8a4e;
-  --color-ember-dark: #446b3a;
-  --color-gold: #9da97c;
-  --color-gold-light: #ccd5b0;
-}
-
-[data-theme="crimson"] {
-  --color-stone-50: #f8edea;
-  --color-stone-100: #f1ddda;
-  --color-stone-200: #e3c0bb;
-  --color-stone-300: #cf9a93;
-  --color-stone-400: #b5756c;
-  --color-stone-500: #9a5a51;
-  --color-stone-600: #7e4740;
-  --color-stone-700: #623733;
-  --color-stone-800: #462724;
-  --color-stone-900: #2f1a18;
-  --color-stone-950: #201112;
-  --color-parchment: #f1ddda;
-  --color-ink: #201112;
-  --color-ember: #b5574a;
-  --color-ember-dark: #8c4238;
-  --color-gold: #b09263;
-  --color-gold-light: #d9c195;
-}
-
-[data-theme="twilight"] {
-  --color-stone-50: #f0eef6;
-  --color-stone-100: #e6e2f0;
-  --color-stone-200: #cfc7e3;
-  --color-stone-300: #b1a5cf;
-  --color-stone-400: #9183b5;
-  --color-stone-500: #746699;
-  --color-stone-600: #5c507b;
-  --color-stone-700: #484061;
-  --color-stone-800: #332d45;
-  --color-stone-900: #221e2e;
-  --color-stone-950: #16131e;
-  --color-parchment: #e6e2f0;
-  --color-ink: #16131e;
-  --color-ember: #8a74b5;
-  --color-ember-dark: #69558f;
-  --color-gold: #a292bd;
-  --color-gold-light: #cec4e2;
+/* Светлая тема — тот же пергамент, но заметно светлее (не белая бумага):
+   вся тёплая палитра поднята на пару тонов вверх */
+[data-theme="light"] {
+  --color-stone-50: #fdf8ec;
+  --color-stone-100: #f9f0da;
+  --color-stone-200: #efe2c2;
+  --color-stone-300: #dcc79c;
+  --color-stone-400: #bfa87e;
+  --color-stone-500: #a08a63;
+  --color-stone-600: #7f6a48;
+  --color-stone-700: #63502f;
+  --color-stone-800: #4a361e;
+  --color-stone-900: #3a2915;
+  --color-stone-950: #2c1e10;
+  --color-parchment: #f9f0da;
+  --color-ink: #2c1e10;
+  --color-ember: #d4552a;
+  --color-ember-dark: #9a3a16;
+  --color-gold: #b9954c;
+  --color-gold-light: #ddc08a;
 }
 
 [data-theme="arcana"] body {
@@ -221,28 +184,12 @@ h4 {
     radial-gradient(1200px 800px at 0% 110%, rgba(40, 55, 75, 0.24) 0%, rgba(40, 55, 75, 0) 55%);
 }
 
-[data-theme="forest"] body {
-  background-color: #0c110a;
+[data-theme="light"] body {
+  background-color: #241709;
   background-image:
-    radial-gradient(1100px 520px at 50% -5%, #1a2514 0%, rgba(26, 37, 20, 0) 60%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(52, 74, 40, 0.28) 0%, rgba(52, 74, 40, 0) 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(40, 58, 30, 0.24) 0%, rgba(40, 58, 30, 0) 55%);
-}
-
-[data-theme="crimson"] body {
-  background-color: #120a0a;
-  background-image:
-    radial-gradient(1100px 520px at 50% -5%, #2b1715 0%, rgba(43, 23, 21, 0) 60%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(90, 40, 35, 0.28) 0%, rgba(90, 40, 35, 0) 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(70, 32, 28, 0.24) 0%, rgba(70, 32, 28, 0) 55%);
-}
-
-[data-theme="twilight"] body {
-  background-color: #100d17;
-  background-image:
-    radial-gradient(1100px 520px at 50% -5%, #221b31 0%, rgba(34, 27, 49, 0) 60%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(70, 55, 95, 0.28) 0%, rgba(70, 55, 95, 0) 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(55, 42, 75, 0.24) 0%, rgba(55, 42, 75, 0) 55%);
+    radial-gradient(1100px 520px at 50% -5%, #3d2b17 0%, rgba(61, 43, 23, 0) 60%),
+    radial-gradient(1400px 900px at 100% 110%, rgba(122, 78, 32, 0.4) 0%, rgba(122, 78, 32, 0) 55%),
+    radial-gradient(1200px 800px at 0% 110%, rgba(96, 64, 28, 0.35) 0%, rgba(96, 64, 28, 0) 55%);
 }
 
 /* ===== Кликабельный курсор ===== */
@@ -322,4 +269,27 @@ main > * {
   main > * {
     animation: none;
   }
+}
+
+/* ===== Минимальный шрифт 14 px на десктопе + адаптивное масштабирование ===== */
+@media (min-width: 1024px) {
+  /* Базовый текст */
+  html { font-size: 14px; }
+
+  /* Масштабирование по ширине экрана */
+  @media (min-width: 1280px) { html { font-size: 15px; } }
+  @media (min-width: 1536px) { html { font-size: 16px; } }
+
+  /* --- Tailwind-утилиты шрифтов: поднимаем минимум до 14px (0.875rem) --- */
+  .text-xs  { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-sm  { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-base { font-size: 1rem;    line-height: 1.5rem; }
+  .text-lg  { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-xl  { font-size: 1.25rem;  line-height: 1.75rem; }
+  .text-2xl { font-size: 1.5rem;   line-height: 2rem; }
+  .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+  .text-4xl { font-size: 2.25rem;  line-height: 2.5rem; }
+
+  /* Tailwind-утилита с произвольным размером */
+  .text-\[11px\] { font-size: 0.875rem; }
 }

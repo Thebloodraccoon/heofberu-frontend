@@ -53,3 +53,8 @@
 .tab-inactive {
   @apply border border-stone-700 text-stone-300 hover:bg-stone-800;
 }
+
+/* ===== Десктоп: минимум 14px ===== */
+@media (min-width: 1024px) {
+  .editor-section-title { font-size: 0.875rem; }
+}

@@ -1,43 +1,54 @@
 import { useMemo, useState } from 'react'
-import { charactersApi as api } from '@/features/characters/api.js'
+import { useQueryClient } from '@tanstack/react-query'
+import { charactersApi } from '@/features/characters/api.js'
+import { useCharacterSpellSlots, useCharacterSpells } from '@/features/characters/queries.js'
+import { queryKeys } from '@/lib/api/queryKeys.js'
 import { label } from '@/lib/i18n/index.js'
-import { Button, EmptyState, Field, Select } from '@/components/ui'
+import { EmptyState } from '@/components/ui'
 import { SPELL_LEVEL_ORDER } from './constants.js'
+import SpellPickerModal from './SpellPickerModal.jsx'
 
-export default function SpellsPanel({ character, lookups, editing, onChangeSlot, onChanged, onError }) {
-  const [spellId, setSpellId] = useState('')
-  const spells = character.spells ?? []
-  const slots = character.spell_slots ?? []
+const TrashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+  </svg>
+)
+
+export default function SpellsPanel({ characterId, classId, raceId, onError }) {
+  const queryClient = useQueryClient()
+  const { data: spells = [] } = useCharacterSpells(characterId)
+  const { data: slots = [] } = useCharacterSpellSlots(characterId)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  const invalidateSlots = () =>
+    queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'spell-slots'] })
+
+  const changeSlot = async (spellLevel, used) => {
+    try {
+      await charactersApi.spellSlots.update(characterId, { level: spellLevel, used })
+      await invalidateSlots()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const removeSpell = async (spellId) => {
+    try {
+      await charactersApi.spells.remove(characterId, spellId)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.spells(Number(characterId)) })
+    } catch (e) {
+      onError(e)
+    }
+  }
 
   const byLevel = useMemo(() => {
     const groups = {}
-    for (const cs of character.spells ?? []) {
+    for (const cs of spells) {
       const lv = cs.spell?.level ?? 'OTHER'
-      if (!groups[lv]) groups[lv] = []
-      groups[lv].push(cs)
+      ;(groups[lv] ??= []).push(cs)
     }
     return groups
-  }, [character.spells])
-
-  const add = async () => {
-    if (!spellId) return
-    try {
-      await api.characters.spells.add(character.id, { spell_id: Number(spellId) })
-      setSpellId('')
-      await onChanged()
-    } catch (e) {
-      onError(e)
-    }
-  }
-
-  const remove = async (sid) => {
-    try {
-      await api.characters.spells.remove(character.id, sid)
-      await onChanged()
-    } catch (e) {
-      onError(e)
-    }
-  }
+  }, [spells])
 
   return (
     <div className="space-y-5">
@@ -53,7 +64,7 @@ export default function SpellsPanel({ character, lookups, editing, onChangeSlot,
                     <button
                       type="button"
                       disabled={slot.used <= 0}
-                      onClick={() => onChangeSlot(slot.spell_level, slot.used - 1)}
+                      onClick={() => changeSlot(slot.spell_level, slot.used - 1)}
                       className="sheet-btn !px-1.5"
                     >
                       −
@@ -61,7 +72,7 @@ export default function SpellsPanel({ character, lookups, editing, onChangeSlot,
                     <button
                       type="button"
                       disabled={slot.used >= slot.total}
-                      onClick={() => onChangeSlot(slot.spell_level, slot.used + 1)}
+                      onClick={() => changeSlot(slot.spell_level, slot.used + 1)}
                       className="sheet-btn !px-1.5"
                     >
                       +
@@ -76,7 +87,13 @@ export default function SpellsPanel({ character, lookups, editing, onChangeSlot,
       )}
 
       <div>
-        <p className="sheet-section-label">Заклинания</p>
+        <div className="flex items-center justify-between">
+          <p className="sheet-section-label">Заклинания</p>
+          <button type="button" className="sheet-btn sheet-btn_primary" onClick={() => setPickerOpen(true)}>
+            + Добавить заклинание
+          </button>
+        </div>
+
         {spells.length === 0 && <EmptyState text="Заклинаний пока нет" />}
         <div className="space-y-4">
           {SPELL_LEVEL_ORDER.filter((lv) => byLevel[lv]).map((lv) => (
@@ -102,11 +119,14 @@ export default function SpellsPanel({ character, lookups, editing, onChangeSlot,
                             </p>
                           )}
                         </div>
-                        {editing && (
-                          <button type="button" className="sheet-btn shrink-0" onClick={() => remove(cs.spell_id)}>
-                            Убрать
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="shrink-0 rounded p-1.5 text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
+                          title="Забыть заклинание"
+                          onClick={() => removeSpell(cs.spell_id)}
+                        >
+                          <TrashIcon />
+                        </button>
                       </div>
                       {sp.description && <p className="mt-2 text-sm text-stone-400">{sp.description}</p>}
                     </li>
@@ -118,18 +138,14 @@ export default function SpellsPanel({ character, lookups, editing, onChangeSlot,
         </div>
       </div>
 
-      {editing && (
-        <div className="flex items-end gap-2">
-          <Field label="Добавить заклинание">
-            <Select value={spellId} onChange={(e) => setSpellId(e.target.value)}>
-              <option value="">Выберите...</option>
-              {lookups.spells.map((sp) => (
-                <option key={sp.id} value={sp.id}>{sp.name}</option>
-              ))}
-            </Select>
-          </Field>
-          <Button onClick={add}>Добавить</Button>
-        </div>
+      {pickerOpen && (
+        <SpellPickerModal
+          characterId={characterId}
+          classId={classId}
+          raceId={raceId}
+          onClose={() => setPickerOpen(false)}
+          onError={onError}
+        />
       )}
     </div>
   )

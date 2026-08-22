@@ -52,8 +52,39 @@ function SectionTitle({ children }) {
 
 const SIDEBAR_KEY = 'heofberu.sidebar.collapsed'
 
+function SidebarContent({ onClick }) {
+  const { authenticated, isGM } = useAuth()
+  return (
+    <nav className="flex flex-col gap-0.5">
+      <SidebarLink to="/" end label="Главная" onClick={onClick} />
+      <SidebarLink to="/guide" label="Руководство" onClick={onClick} />
+
+      <SectionTitle>Справочники</SectionTitle>
+      {catalogLinks.map((l) => (
+        <SidebarLink key={l.to} to={l.to} end={l.to === '/catalog/races'} label={l.label} onClick={onClick} />
+      ))}
+
+      {authenticated && (
+        <>
+          <SectionTitle>Личное</SectionTitle>
+          <SidebarLink to="/profile" label="Профиль" onClick={onClick} />
+          <SidebarLink to="/characters" label="Персонажи" onClick={onClick} />
+        </>
+      )}
+
+      {authenticated && isGM && (
+        <>
+          <SectionTitle>ГМ</SectionTitle>
+          <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={onClick} />
+          <SidebarLink to="/users" label="Пользователи" onClick={onClick} />
+        </>
+      )}
+    </nav>
+  )
+}
+
 export default function Layout() {
-  const { authenticated, user, isGM, logout } = useAuth()
+  const { authenticated, user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const navigate = useNavigate()
@@ -70,157 +101,109 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-stone-950">
-      <div className="mx-auto flex min-h-screen w-full max-w-[90rem] flex-col border-x border-stone-800/80 bg-stone-950/90 shadow-[0_0_70px_rgba(0,0,0,0.75)]">
-        <header className="sticky top-0 z-40 border-b border-stone-800 bg-stone-950/85 backdrop-blur">
-          <nav className="flex h-16 w-full items-center gap-3 px-4 sm:px-6">
-            <Link to="/" className="flex items-center gap-2 text-sm font-medium text-stone-300 transition hover:text-stone-100">
-              <Crest size="size-8 text-sm" />
-              <span className="hidden text-base font-bold tracking-wide text-stone-100 sm:block">Heofberu</span>
-            </Link>
+      <header className="sticky top-0 z-40 border-b border-stone-800 bg-stone-950/85 backdrop-blur">
+        <nav className="mx-auto flex h-16 max-w-[80rem] items-center gap-3 px-6 sm:px-8">
+          <Link to="/" className="flex items-center gap-2 text-sm font-medium text-stone-300 transition hover:text-stone-100">
+            <Crest size="size-8 text-sm" />
+            <span className="hidden text-base font-bold tracking-wide text-stone-100 sm:block">Heofberu</span>
+          </Link>
 
-            <div className="ml-auto flex items-center gap-2">
-              <ThemeSwitcher />
-              {authenticated ? (
-                <>
-                  <span className="hidden text-sm text-stone-300 md:block">{user?.username}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logout()
-                      navigate('/')
-                    }}
-                    className="hidden rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-block"
-                  >
-                    Выйти
-                  </button>
-                </>
-              ) : (
-                <Link
-                  to="/login"
-                  className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeSwitcher />
+            {authenticated ? (
+              <>
+                <span className="hidden text-sm text-stone-300 md:block">{user?.username}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout()
+                    navigate('/')
+                  }}
+                  className="hidden rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-block"
                 >
-                  Войти
-                </Link>
-              )}
-            </div>
+                  Выйти
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+              >
+                Войти
+              </Link>
+            )}
+          </div>
 
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="rounded border border-stone-700 px-2 py-1 text-sm text-stone-300 transition hover:bg-stone-800 lg:hidden"
+            aria-label="Открыть меню"
+          >
+            ☰
+          </button>
+        </nav>
+      </header>
+
+      {collapsed ? (
+        <aside className="hidden shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-2 lg:fixed lg:left-0 lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)]">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2.5 py-1.5 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
+            aria-label="Развернуть меню"
+            title="Развернуть меню"
+          >
+            Меню
+          </button>
+        </aside>
+      ) : (
+        <aside className="hidden w-[16.75rem] shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-3 lg:fixed lg:left-0 lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)] lg:overflow-y-auto">
+          <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2 pl-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+              Меню
+            </span>
             <button
               type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="rounded border border-stone-700 px-2 py-1 text-sm text-stone-300 transition hover:bg-stone-800 lg:hidden"
-              aria-label="Открыть меню"
+              onClick={toggleCollapsed}
+              className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
+              aria-label="Свернуть меню"
+              title="Свернуть меню"
             >
-              ☰
+              « Свернуть
             </button>
-          </nav>
-        </header>
+          </div>
+          <SidebarContent onClick={close} />
+        </aside>
+      )}
 
-        <div className="flex flex-1">
-          {collapsed ? (
-            <aside className="hidden shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-2 lg:flex">
+      <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col border-x border-stone-800/80 bg-stone-950/90 shadow-[0_0_70px_rgba(0,0,0,0.75)]">
+        <main className="flex-1 px-6 py-10 sm:px-8">
+          <Outlet />
+        </main>
+
+        <footer className="border-t border-stone-800/80 px-5 py-6 text-center text-xs text-stone-500 sm:px-7">
+          &copy; {new Date().getFullYear()} Heofberu. Все права защищены.
+        </footer>
+      </div>
+
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 lg:hidden" onClick={close}>
+          <aside className="flex h-full w-[16.75rem] flex-col border-r border-stone-800 bg-stone-950 p-3" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2">
+              <span className="text-sm font-semibold text-stone-100">Меню</span>
               <button
                 type="button"
-                onClick={toggleCollapsed}
-                className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2.5 py-1.5 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
-                aria-label="Развернуть меню"
-                title="Развернуть меню"
+                onClick={close}
+                className="rounded px-2 text-sm text-stone-400 hover:text-stone-100"
               >
-                Меню
+                ✕
               </button>
-            </aside>
-          ) : (
-            <aside className="hidden w-[16.75rem] shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-3 lg:sticky lg:top-16 lg:flex lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto">
-              <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2 pl-1">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                  Меню
-                </span>
-                <button
-                  type="button"
-                  onClick={toggleCollapsed}
-                  className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
-                  aria-label="Свернуть меню"
-                  title="Свернуть меню"
-                >
-                  « Свернуть
-                </button>
-              </div>
-              <nav className="flex flex-col gap-0.5">
-                <SidebarLink to="/" end label="Главная" onClick={close} />
-                <SidebarLink to="/guide" label="Руководство" onClick={close} />
-
-                <SectionTitle>Справочники</SectionTitle>
-                {catalogLinks.map((l) => (
-                  <SidebarLink key={l.to} to={l.to} end={l.to === '/catalog/races'} label={l.label} onClick={close} />
-                ))}
-
-                {authenticated && (
-                  <>
-                    <SectionTitle>Личное</SectionTitle>
-                    <SidebarLink to="/profile" label="Профиль" onClick={close} />
-                    <SidebarLink to="/characters" label="Персонажи" onClick={close} />
-                  </>
-                )}
-
-                {authenticated && isGM && (
-                  <>
-                    <SectionTitle>ГМ</SectionTitle>
-                    <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={close} />
-                    <SidebarLink to="/users" label="Пользователи" onClick={close} />
-                  </>
-                )}
-              </nav>
-            </aside>
-          )}
-
-          <div className="flex min-w-0 flex-1 flex-col">
-            <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-8 sm:px-7">
-              <Outlet />
-            </main>
-          </div>
+            </div>
+            <SidebarContent onClick={close} />
+          </aside>
         </div>
-
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-50 bg-black/60 lg:hidden" onClick={close}>
-            <aside className="flex h-full w-[16.75rem] flex-col border-r border-stone-800 bg-stone-950 p-3" onClick={(e) => e.stopPropagation()}>
-              <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2">
-                <span className="text-sm font-semibold text-stone-100">Меню</span>
-                <button
-                  type="button"
-                  onClick={close}
-                  className="rounded px-2 text-sm text-stone-400 hover:text-stone-100"
-                >
-                  ✕
-                </button>
-              </div>
-              <nav className="flex flex-col gap-0.5">
-                <SidebarLink to="/" end label="Главная" onClick={close} />
-                <SidebarLink to="/guide" label="Руководство" onClick={close} />
-
-                <SectionTitle>Справочники</SectionTitle>
-                {catalogLinks.map((l) => (
-                  <SidebarLink key={l.to} to={l.to} end={l.to === '/catalog/races'} label={l.label} onClick={close} />
-                ))}
-
-                {authenticated && (
-                  <>
-                    <SectionTitle>Личное</SectionTitle>
-                    <SidebarLink to="/profile" label="Мой профиль" onClick={close} />
-                    <SidebarLink to="/characters" label="Мои персонажи" onClick={close} />
-                  </>
-                )}
-
-                {authenticated && isGM && (
-                  <>
-                    <SectionTitle>ГМ</SectionTitle>
-                    <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={close} />
-                    <SidebarLink to="/users" label="Пользователи" onClick={close} />
-                  </>
-                )}
-              </nav>
-            </aside>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

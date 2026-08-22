@@ -1,9 +1,7 @@
-import { TextBlock } from '@/components/sheet/primitives.jsx'
+import { EditableBlock } from '@/components/sheet/primitives.jsx'
 
-export default function NotesPanel({ character, editing, onSave }) {
+export default function NotesPanel({ character, onSave }) {
   return (
-    <div className="space-y-3">
-      <TextBlock title="Заметки" value={character.notes} editing={editing} onSave={onSave('notes')} />
-    </div>
+    <EditableBlock title="Заметки" value={character.notes} rows={10} onSave={onSave('notes')} />
   )
 }

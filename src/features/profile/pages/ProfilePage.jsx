@@ -227,19 +227,6 @@ function GmPanel({ userCount }) {
           </li>
         </ul>
       </Card>
-
-      <Card className="p-5">
-        <h3 className="heading-sub">Наполнение справочника</h3>
-        <p className="subtitle">
-          Справочники можно наполнить дефолтным контентом D&D из репозитория:
-        </p>
-        <pre className="mt-3 overflow-x-auto rounded bg-stone-950 p-3 text-xs text-stone-300">
-          npm run seed -- GM_EMAIL GM_PASSWORD
-        </pre>
-        <p className="mt-2 text-muted text-xs">
-          Загружаются расы, классы, навыки, предыстории, черты, заклинания и предметы. Уже существующие записи пропускаются.
-        </p>
-      </Card>
     </>
   )
 }

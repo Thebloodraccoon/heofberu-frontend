@@ -63,6 +63,13 @@ export const useSubclassDetail = (classId, subclassId) =>
     enabled: !!classId && !!subclassId,
   })
 
+export const useItemDetail = (id) =>
+  useQuery({
+    queryKey: ['catalog', 'items', id],
+    queryFn: () => catalogApi.items.get(Number(id)),
+    enabled: !!id,
+  })
+
 export const useBackgroundDetail = (id) =>
   useQuery({
     queryKey: queryKeys.catalog.backgroundDetail(id),

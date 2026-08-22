@@ -10,8 +10,8 @@ export const useCharacters = () =>
 
 export const useCharacter = (id) =>
   useQuery({
-    queryKey: queryKeys.characters.detail(id),
-    queryFn: () => charactersApi.get(id),
+    queryKey: queryKeys.characters.detail(Number(id)),
+    queryFn: () => charactersApi.get(Number(id)),
     enabled: !!id,
   })
 
@@ -37,3 +37,24 @@ export const useDeleteCharacter = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.all }),
   })
 }
+
+const subResource =
+  (keyFn, fn) =>
+  (id) =>
+    useQuery({
+      queryKey: keyFn(Number(id)),
+      queryFn: () => fn(Number(id)),
+      enabled: !!id,
+      select: (d) => (Array.isArray(d) ? d : d?.items ?? []),
+    })
+
+export const useCharacterSpells = subResource(queryKeys.characters.spells, charactersApi.spells.list)
+export const useCharacterAttacks = subResource(queryKeys.characters.attacks, charactersApi.attacks.list)
+export const useCharacterFeats = subResource(queryKeys.characters.feats, charactersApi.feats.list)
+export const useCharacterFeatures = subResource(queryKeys.characters.features, charactersApi.features.list)
+export const useCharacterItems = subResource(queryKeys.characters.items, charactersApi.items.list)
+export const useCharacterSpellSlots = subResource(
+  (id) => ['characters', id, 'spell-slots'],
+  charactersApi.spellSlots.list
+)
+export const useCharacterConditions = subResource(queryKeys.characters.conditions, charactersApi.conditions.list)
