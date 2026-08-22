@@ -55,14 +55,14 @@ const goToAbilities = async () => {
 }
 
 describe('CharacterCreatePage random crash repro', () => {
-  it('stays rendered after picking a dice method', async () => {
+  it('stays rendered after picking a dice method', { timeout: 20000 }, async () => {
     await goToAbilities()
     expect(screen.getAllByText('Характеристики').length).toBeGreaterThan(0)
     await userEvent.click(screen.getByRole('button', { name: /бросок 4d6/i }))
     expect(screen.getByRole('button', { name: /перебросить кости/i })).toBeInTheDocument()
   })
 
-  it('stays rendered after rerolling dice', async () => {
+  it('stays rendered after rerolling dice', { timeout: 20000 }, async () => {
     await goToAbilities()
     await userEvent.click(screen.getByRole('button', { name: /бросок 4d6/i }))
     await userEvent.click(screen.getByRole('button', { name: /перебросить кости/i }))

@@ -52,7 +52,7 @@ function GoToButton({ characterId }) {
       className="mt-2 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
       title="Открыть лист персонажа как игрок"
     >
-      Перейти →
+      Перейти
     </button>
   )
 }

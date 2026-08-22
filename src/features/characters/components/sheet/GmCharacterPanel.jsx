@@ -13,7 +13,7 @@ import { useFeats, useFeatsFull, useItems, useRaceDetail, useSkills, useSubraceD
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { ASI_LEVELS, STATS, bonusMap } from '@/lib/utils/ability.js'
 import { statsToTotals } from '@/lib/utils/characterCreate.js'
-import { Button, ConfirmDialog, Input, Select } from '@/components/ui'
+import { Button, ConfirmDialog, Field, Input, Modal, Select, TextArea } from '@/components/ui'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
 import { label } from '@/lib/i18n/index.js'
 
@@ -29,9 +29,9 @@ function Section({ title, children }) {
 const ABILITY_CODE_BY_KEY = Object.fromEntries(STATS.map((s) => [s.key, s.code]))
 
 function HpSection({ character, onError, reload }) {
-  const [maxHp, setMaxHp] = useState(null)
   const [delta, setDelta] = useState('')
   const [tempHp, setTempHp] = useState(null)
+  const [maxHp, setMaxHp] = useState(null)
   const [busy, setBusy] = useState(false)
 
   const run = async (fn) => {
@@ -46,78 +46,107 @@ function HpSection({ character, onError, reload }) {
     }
   }
 
+  // Как в окне хитов персонажа: положительное — лечение, отрицательное — урон.
+  const applyDelta = () =>
+    run(async () => {
+      await charactersApi.hp(character.id, { delta: Number(delta) })
+      setDelta('')
+    })
+
+  const applyTempHp = () =>
+    run(async () => {
+      await charactersApi.hp(character.id, { temp_hp: Math.max(0, Number(tempHp)) })
+      setTempHp(null)
+    })
+
   const applyMaxHp = () =>
     run(async () => {
       await charactersApi.gmPanel.maxHp(character.id, { max_hp: Number(maxHp) })
       setMaxHp(null)
     })
 
-  const applyDelta = (sign) =>
-    run(() => charactersApi.hp(character.id, { delta: sign * Math.abs(Number(delta)) })).then(() => setDelta(''))
-
-  const applyTempHp = () =>
-    run(async () => {
-      await charactersApi.hp(character.id, { temp_hp: Number(tempHp) })
-      setTempHp(null)
-    })
+  const doRest = (type) => run(() => charactersApi.rest(character.id, { type }))
 
   return (
-    <Section title="Хиты">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-stone-200">
-        <span>
-          Текущие: <b>{character.current_hp}</b> / {character.max_hp}
-        </span>
+    <Section title="Хиты и отдых">
+      <div className="text-center">
+        <p className="font-display text-3xl font-bold text-stone-100">
+          {character.current_hp}
+          <span className="text-base font-normal text-stone-400"> / {character.max_hp}</span>
+        </p>
         {character.temp_hp > 0 && (
-          <span className="text-emerald-300">Временные: +{character.temp_hp}</span>
+          <p className="mt-1 text-xs text-emerald-300">Временные ХП: +{character.temp_hp}</p>
         )}
+        <p className="mt-1 text-xs text-stone-500">Кость хитов: {character.hit_dice || '—'}</p>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex gap-2">
         <Input
           type="number"
-          min="0"
-          className="!w-24"
+          placeholder="Введите число"
           value={delta}
-          placeholder="кол-во"
           onChange={(e) => setDelta(e.target.value)}
+          title="Положительное — лечение, отрицательное — урон"
         />
-        <Button size="sm" variant="danger" disabled={busy || !delta} onClick={() => applyDelta(-1)}>
-          Урон
-        </Button>
-        <Button size="sm" disabled={busy || !delta} onClick={() => applyDelta(1)}>
-          Лечение
-        </Button>
+        <button type="button" className="sheet-btn sheet-btn_primary" disabled={busy || delta === ''} onClick={applyDelta}>
+          Применить
+        </button>
+      </div>
+      <p className="mt-1.5 text-center text-[11px] text-stone-500">
+        Положительное число — лечение, отрицательное — урон.
+      </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-stone-700/70 pt-4">
+        <button type="button" className="sheet-btn" disabled={busy} onClick={() => doRest('short')}>
+          Короткий отдых
+        </button>
+        <button type="button" className="sheet-btn" disabled={busy} onClick={() => doRest('long')}>
+          Длинный отдых
+        </button>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Input
-          type="number"
-          min="0"
-          className="!w-24"
-          value={tempHp ?? ''}
-          placeholder="врем. ХП"
-          onChange={(e) => setTempHp(e.target.value)}
-        />
-        <Button size="sm" variant="ghost" disabled={busy || tempHp === null || tempHp === ''} onClick={applyTempHp}>
-          Выдать временные ХП
-        </Button>
-      </div>
-
-      <div className="mt-4 border-t border-stone-800 pt-3">
-        <p className="mb-2 text-xs uppercase tracking-wide text-stone-500">Максимум ХП</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-stone-200">{character.max_hp} HP</span>
-          <Input
-            type="number"
-            min="0"
-            className="!w-24"
-            value={maxHp ?? ''}
-            placeholder="новое"
-            onChange={(e) => setMaxHp(e.target.value)}
-          />
-          <Button size="sm" disabled={busy || maxHp === null || maxHp === ''} onClick={applyMaxHp}>
-            Задать
-          </Button>
+      <div className="mt-4 space-y-3 border-t border-stone-700/70 pt-4">
+        <div>
+          <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Временные ХП</p>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              min="0"
+              className="!w-28"
+              value={tempHp ?? ''}
+              placeholder="кол-во"
+              onChange={(e) => setTempHp(e.target.value)}
+            />
+            <button
+              type="button"
+              className="sheet-btn"
+              disabled={busy || tempHp === null || tempHp === ''}
+              onClick={applyTempHp}
+            >
+              Выдать
+            </button>
+          </div>
+        </div>
+        <div>
+          <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Максимум ХП (ГМ)</p>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              min="0"
+              className="!w-28"
+              value={maxHp ?? ''}
+              placeholder="новое"
+              onChange={(e) => setMaxHp(e.target.value)}
+            />
+            <button
+              type="button"
+              className="sheet-btn sheet-btn_primary"
+              disabled={busy || maxHp === null || maxHp === ''}
+              onClick={applyMaxHp}
+            >
+              Задать
+            </button>
+          </div>
         </div>
       </div>
     </Section>
@@ -232,43 +261,29 @@ function StatsSection({ character, onError, reload }) {
   // Расовые/подрасовые бонусы — чтобы показать, откуда что взялось.
   const { data: raceDetail } = useRaceDetail(character.race_id)
   const { data: subraceDetail } = useSubraceDetail(character.race_id, character.subrace_id)
-  const [increases, setIncreases] = useState([])
-  const [amounts, setAmounts] = useState({})
+  const { data: featsCatalog = [] } = useFeats({ size: 100 })
+  const [newAbility, setNewAbility] = useState('strength')
+  const [newAmount, setNewAmount] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // Разбор итогового значения по каждой характеристике.
-  const breakdownByCode = useMemo(() => {
+  // Итог = база (уже включает выборы уровней и правки ГМа) + раса + подраса
+  // (+ бонусы черт — остаются в остатке).
+  const bonusByCode = useMemo(() => {
     const raceBonus = bonusMap(raceDetail?.ability_bonuses)
     const subraceBonus = bonusMap(subraceDetail?.ability_bonuses)
-    const levelUp = {}
-    for (const choice of asiChoices) {
-      for (const inc of choice.increases ?? []) {
-        levelUp[inc.ability] = (levelUp[inc.ability] ?? 0) + inc.amount
-      }
-    }
-    const gm = {}
-    for (const adj of adjustments) {
-      for (const inc of adj.increases ?? []) {
-        gm[inc.ability] = (gm[inc.ability] ?? 0) + inc.amount
-      }
-    }
-    return { raceBonus, subraceBonus, levelUp, gm }
-  }, [raceDetail, subraceDetail, asiChoices, adjustments])
+    return { raceBonus, subraceBonus }
+  }, [raceDetail, subraceDetail])
 
-  const toggleAbility = (code) =>
-    setIncreases((prev) => (prev.includes(code) ? prev.filter((a) => a !== code) : [...prev, code]))
+  const featNameById = useMemo(() => new Map(featsCatalog.map((f) => [Number(f.id), f.name])), [featsCatalog])
 
   const addAdjustment = async () => {
-    const payload = increases.map((code) => ({
-      ability: Object.entries(ABILITY_CODE_BY_KEY).find(([, c]) => c === code)?.[0] ?? code,
-      amount: Number(amounts[code] ?? 1),
-    }))
-    if (payload.length === 0) return
+    if (!newAbility || newAmount === '') return
     setBusy(true)
     try {
-      await charactersApi.gmPanel.asi.add(characterId, { increases: payload })
-      setIncreases([])
-      setAmounts({})
+      await charactersApi.gmPanel.asi.add(characterId, {
+        increases: [{ ability: newAbility, amount: Number(newAmount) }],
+      })
+      setNewAmount('')
       await queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'gm-panel'] })
       await reload()
     } catch (e) {
@@ -311,20 +326,13 @@ function StatsSection({ character, onError, reload }) {
           {STATS.map((s) => {
             const view = stats[s.key]
             if (!view) return null
-            const { raceBonus, subraceBonus, levelUp, gm } = breakdownByCode
+            const { raceBonus, subraceBonus } = bonusByCode
             const parts = []
             if (raceBonus[s.code]) parts.push(chip(`Раса +${raceBonus[s.code]}`, 'good'))
             if (subraceBonus[s.code]) parts.push(chip(`Подраса +${subraceBonus[s.code]}`, 'good'))
-            if (levelUp[s.code]) parts.push(chip(`Уровни +${levelUp[s.code]}`, 'good'))
-            if (gm[s.code]) parts.push(chip(`ГМ ${gm[s.code] > 0 ? `+${gm[s.code]}` : gm[s.code]}`, 'bad'))
-            const known =
-              view.base +
-              (raceBonus[s.code] ?? 0) +
-              (subraceBonus[s.code] ?? 0) +
-              (levelUp[s.code] ?? 0) +
-              (gm[s.code] ?? 0)
+            const known = view.base + (raceBonus[s.code] ?? 0) + (subraceBonus[s.code] ?? 0)
             const other = view.total - known
-            if (other !== 0) parts.push(chip(`Прочее ${other > 0 ? `+${other}` : other}`))
+            if (other !== 0) parts.push(chip(`Черты и прочее ${other > 0 ? `+${other}` : other}`))
             return (
               <li key={s.key} className="rounded border border-stone-800 bg-stone-900/70 px-3 py-2">
                 <div className="flex items-baseline justify-between gap-2">
@@ -341,45 +349,36 @@ function StatsSection({ character, onError, reload }) {
         </ul>
       )}
 
-      <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Добавить изменение (ГМ)</p>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {STATS.map((s) => (
-          <button
-            key={s.code}
-            type="button"
-            onClick={() => toggleAbility(s.code)}
-            className={`rounded-full border px-2.5 py-1 text-xs transition ${
-              increases.includes(s.code)
-                ? 'border-ember bg-ember/10 text-ember'
-                : 'border-stone-700 text-stone-400 hover:border-stone-500'
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
-        {increases.map((code) => (
-          <label key={`amt-${code}`} className="flex items-center gap-1 text-xs text-stone-400">
-            ±
-            <Input
-              type="number"
-              className="!w-16"
-              value={amounts[code] ?? ''}
-              placeholder="0"
-              onChange={(e) => setAmounts({ ...amounts, [code]: e.target.value })}
-            />
-          </label>
-        ))}
-        <Button size="sm" disabled={busy || increases.length === 0} onClick={addAdjustment}>
-          Применить
-        </Button>
-      </div>
+      {/* Выборы игрока на уровнях улучшений */}
+      <p className="mb-1.5 mt-4 border-t border-stone-800 pt-3 text-xs uppercase tracking-wide text-stone-500">
+        Выборы игрока на уровнях
+      </p>
+      {asiChoices.length === 0 ? (
+        <p className="text-xs text-stone-600">Улучшений характеристик пока не было.</p>
+      ) : (
+        <ul className="mb-3 space-y-1">
+          {asiChoices.map((choice) => (
+            <li key={choice.id} className="flex items-center justify-between gap-2 rounded border border-stone-800 px-2.5 py-1.5 text-xs">
+              <span className="shrink-0 font-medium text-stone-200">Уровень {choice.class_level}</span>
+              <span className="min-w-0 flex-1 truncate text-right text-stone-400">
+                {choice.choice_type === 'ASI'
+                  ? (choice.increases ?? [])
+                      .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
+                      .join(', ') || 'улучшение характеристик'
+                  : `Черта: ${featNameById.get(Number(choice.feat_id)) ?? `#${choice.feat_id}`}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
+      {/* Правки ГМа */}
       {adjustments.length > 0 && (
         <>
-          <p className="mb-1.5 mt-3 text-xs uppercase tracking-wide text-stone-500">Правки ГМа</p>
-          <ul className="space-y-1">
+          <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Правки ГМа</p>
+          <ul className="mb-3 space-y-1">
             {adjustments.map((adj) => (
-              <li key={adj.id} className="flex items-center justify-between rounded border border-stone-800 px-2.5 py-1.5 text-xs text-stone-300">
+              <li key={adj.id} className="flex items-center justify-between rounded border border-red-900/40 bg-red-950/20 px-2.5 py-1.5 text-xs text-stone-300">
                 <span>
                   {(adj.increases ?? [])
                     .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
@@ -389,7 +388,7 @@ function StatsSection({ character, onError, reload }) {
                   type="button"
                   className="shrink-0 text-red-300 transition hover:text-red-200"
                   onClick={() => removeAdjustment(adj.id)}
-                  title="Откатить"
+                  title="Откатить правку"
                 >
                   ✕ Откатить
                 </button>
@@ -398,6 +397,36 @@ function StatsSection({ character, onError, reload }) {
           </ul>
         </>
       )}
+
+      {/* Добавление одной правки за раз */}
+      <div className="mt-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+        <Button size="sm" disabled={busy || !newAbility || newAmount === ''} onClick={addAdjustment}>
+          Добавить характеристику
+        </Button>
+        <p className="mt-2 text-[11px] leading-relaxed text-stone-500">
+          Работает как выбор игрока при улучшении характеристик, но не привязан к уровню и не даёт черту.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-stone-400">
+            Характеристика
+            <Select value={newAbility} onChange={(e) => setNewAbility(e.target.value)} className="!w-auto">
+              {STATS.map((s) => (
+                <option key={s.key} value={s.key}>{s.label}</option>
+              ))}
+            </Select>
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-stone-400">
+            Изменение ±
+            <Input
+              type="number"
+              className="!w-20"
+              value={newAmount}
+              placeholder="+1 / −1"
+              onChange={(e) => setNewAmount(e.target.value)}
+            />
+          </label>
+        </div>
+      </div>
     </Section>
   )
 }
@@ -471,16 +500,53 @@ function ExpertiseSection({ character, onError, reload }) {
   )
 }
 
+function FeatPickerModal({ feats, onPick, onClose }) {
+  const [query, setQuery] = useState('')
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return feats
+    return feats.filter((f) => String(f.name ?? '').toLowerCase().includes(q))
+  }, [feats, query])
+
+  return (
+    <Modal title="Выдать черту" subtitle="Поиск по справочнику черт" onClose={onClose} size="md" scroll>
+      <Input
+        type="search"
+        placeholder="Поиск черты..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        autoFocus
+      />
+      <div className="mt-3 max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
+        {filtered.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено.</p>}
+        {filtered.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => onPick(f)}
+            className="w-full rounded-lg border border-stone-700/60 bg-stone-900/60 p-3 text-left transition hover:border-ember/50"
+          >
+            <p className="text-sm font-medium text-stone-100">{f.name}</p>
+            {f.description && (
+              <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{f.description}</p>
+            )}
+          </button>
+        ))}
+      </div>
+    </Modal>
+  )
+}
+
 function FeatsFeaturesSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: charFeats = [] } = useCharacterFeats(character.id)
   const { data: catalogFeats = [] } = useFeats({ size: 100 })
-  const [featId, setFeatId] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
 
-  const grantFeat = async () => {
+  const grantFeat = async (feat) => {
+    setPickerOpen(false)
     try {
-      await charactersApi.gmPanel.feats.add(character.id, { feat_id: Number(featId) })
-      setFeatId('')
+      await charactersApi.gmPanel.feats.add(character.id, { feat_id: Number(feat.id) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.characters.feats(Number(character.id)) })
       await reload()
     } catch (e) {
@@ -500,32 +566,153 @@ function FeatsFeaturesSection({ character, onError, reload }) {
 
   return (
     <Section title="Черты персонажа">
-      <ul className="mb-2 space-y-1">
-        {charFeats.length === 0 && <li className="text-sm text-stone-500">Черт нет.</li>}
-        {charFeats.map((cf) => (
-          <li key={cf.id} className="flex items-center justify-between rounded border border-stone-800 px-2.5 py-1.5 text-sm text-stone-200">
-            <span className="min-w-0 truncate">{cf.feat?.name || `Черта #${cf.feat_id}`}</span>
-            <button
-              type="button"
-              className="shrink-0 text-red-300 transition hover:text-red-200"
-              onClick={() => removeFeat(cf.id)}
-              title="Снять черту"
-            >
-              ✕
-            </button>
-          </li>
-        ))}
-      </ul>
-      <div className="flex items-center gap-2">
-        <Select value={featId} onChange={(e) => setFeatId(e.target.value)} className="!w-auto min-w-40 flex-1">
-          <option value="">Выберите черту...</option>
-          {catalogFeats.map((f) => (
-            <option key={f.id} value={f.id}>{f.name}</option>
-          ))}
-        </Select>
-        <Button size="sm" disabled={!featId} onClick={grantFeat}>Выдать</Button>
+      <div className="-mt-1 mb-3 flex items-center justify-between">
+        <p className="text-sm text-stone-400">Черт: {charFeats.length}</p>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+        >
+          Добавить...
+        </button>
       </div>
+
+      {charFeats.length === 0 ? (
+        <p className="text-sm text-stone-500">Черт нет.</p>
+      ) : (
+        <ul className="space-y-2">
+          {charFeats.map((cf) => (
+            <li key={cf.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-stone-100">{cf.feat?.name || `Черта #${cf.feat_id}`}</p>
+                {cf.feat?.description && (
+                  <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{cf.feat.description}</p>
+                )}
+              </div>
+              <Button type="button" variant="danger" size="xs" className="shrink-0" onClick={() => removeFeat(cf.id)}>
+                Убрать
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pickerOpen && (
+        <FeatPickerModal feats={catalogFeats} onPick={grantFeat} onClose={() => setPickerOpen(false)} />
+      )}
     </Section>
+  )
+}
+
+function ItemEditModal({ title, subtitle, value, catalogItem, onSave, onClose }) {
+  const [edit, setEdit] = useState(() => ({
+    quantity: value?.quantity ?? 1,
+    is_equipped: Boolean(value?.is_equipped),
+    is_attuned: Boolean(value?.is_attuned),
+    notes: value?.notes ?? '',
+  }))
+
+  return (
+    <Modal
+      title={title}
+      subtitle={subtitle}
+      onClose={onClose}
+      size="md"
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            ������
+          </Button>
+          <Button type="button" onClick={() => onSave(edit)}>
+            ���������
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="����������">
+          <Input
+            type="number"
+            min={0}
+            value={edit.quantity}
+            onChange={(e) => setEdit({ ...edit, quantity: Math.max(0, Number(e.target.value) || 0) })}
+            autoFocus
+          />
+        </Field>
+        <div className="flex flex-col justify-center gap-1.5">
+          <label className="flex cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-200">
+            <input
+              type="checkbox"
+              checked={edit.is_equipped}
+              onChange={(e) => setEdit({ ...edit, is_equipped: e.target.checked })}
+              className="size-4 accent-ember"
+            />
+            �����������
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-200">
+            <input
+              type="checkbox"
+              checked={edit.is_attuned}
+              onChange={(e) => setEdit({ ...edit, is_attuned: e.target.checked })}
+              className="size-4 accent-ember"
+            />
+            ���������
+          </label>
+        </div>
+      </div>
+      <Field label="�������">
+        <TextArea rows={3} value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} placeholder="�������������" />
+      </Field>
+      {catalogItem?.description && (
+        <p className="line-clamp-3 text-xs text-stone-500">{catalogItem.description}</p>
+      )}
+    </Modal>
+  )
+}
+
+function ItemPickerModal({ catalog, onPick, onClose }) {
+  const [query, setQuery] = useState('')
+  const [quantity, setQuantity] = useState('1')
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return catalog
+    return catalog.filter((it) => String(it.name ?? '').toLowerCase().includes(q))
+  }, [catalog, query])
+
+  return (
+    <Modal
+      title="�������� �������"
+      subtitle="����� �� ����������� ���������"
+      onClose={onClose}
+      size="md"
+      scroll
+      footer={
+        <>
+          <span className="flex items-center gap-1.5 text-xs text-stone-400">
+            ����������
+            <Input type="number" min="0" className="!w-20" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          </span>
+        </>
+      }
+    >
+      <Input type="search" placeholder="����� ��������..." value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
+      <div className="mt-3 max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
+        {filtered.length === 0 && <p className="text-sm text-stone-500">������ �� �������.</p>}
+        {filtered.map((it) => (
+          <button
+            key={it.id}
+            type="button"
+            onClick={() =>
+              onPick(it, Math.max(0, Number(quantity) || 1))
+            }
+            className="w-full rounded-lg border border-stone-700/60 bg-stone-900/60 p-3 text-left transition hover:border-ember/50"
+          >
+            <p className="text-sm font-medium text-stone-100">{it.name}</p>
+            {it.item_type && <p className="mt-0.5 text-xs text-stone-500">{label(it.item_type)}</p>}
+          </button>
+        ))}
+      </div>
+    </Modal>
   )
 }
 
@@ -533,22 +720,18 @@ function ItemsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: items = [] } = useCharacterItems(character.id)
   const { data: catalog = [] } = useItems({ size: 100 })
-  const [itemId, setItemId] = useState('')
-  const [quantity, setQuantity] = useState('1')
   const [confirmTarget, setConfirmTarget] = useState(null)
+  const [editTarget, setEditTarget] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.items(Number(character.id)) })
 
   const itemById = useMemo(() => new Map(catalog.map((it) => [Number(it.id), it])), [catalog])
 
-  const addItem = async () => {
+  const addItem = async (catalogItem, qty) => {
+    setPickerOpen(false)
     try {
-      await charactersApi.gmPanel.items.add(character.id, {
-        item_id: Number(itemId),
-        quantity: Math.max(0, Number(quantity) || 1),
-      })
-      setItemId('')
-      setQuantity('1')
+      await charactersApi.gmPanel.items.add(character.id, { item_id: Number(catalogItem.id), quantity: qty })
       await invalidate()
       await reload()
     } catch (e) {
@@ -556,10 +739,17 @@ function ItemsSection({ character, onError, reload }) {
     }
   }
 
-  const patchItem = async (charItemId, body) => {
+  const saveEdit = async (ci, form) => {
+    setEditTarget(null)
     try {
-      await charactersApi.gmPanel.items.update(character.id, charItemId, body)
+      await charactersApi.gmPanel.items.update(character.id, ci.id, {
+        quantity: form.quantity,
+        is_equipped: form.is_equipped,
+        is_attuned: form.is_attuned,
+        notes: form.notes,
+      })
       await invalidate()
+      await reload()
     } catch (e) {
       onError(e)
     }
@@ -577,10 +767,21 @@ function ItemsSection({ character, onError, reload }) {
 
   return (
     <Section title="Снаряжение персонажа">
+      <div className="-mt-1 mb-3 flex items-center justify-between">
+        <p className="text-sm text-stone-400">Предметов: {items.length}</p>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+        >
+          Добавить...
+        </button>
+      </div>
+
       {items.length === 0 ? (
-        <p className="-mt-1 mb-3 text-sm text-stone-500">Снаряжения пока нет.</p>
+        <p className="text-sm text-stone-500">Снаряжения пока нет.</p>
       ) : (
-        <div className="mb-4 space-y-3">
+        <div className="space-y-3">
           {items.map((ci) => {
             const catalogItem = itemById.get(Number(ci.item_id))
             return (
@@ -595,65 +796,21 @@ function ItemsSection({ character, onError, reload }) {
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <label className="flex items-center gap-1 text-xs text-stone-400">
-                      кол-во
-                      <Input
-                        type="number"
-                        min="0"
-                        className="!w-16 !py-1"
-                        defaultValue={ci.quantity}
-                        onBlur={(e) => {
-                          const v = Math.max(0, Number(e.target.value) || 0)
-                          if (v !== ci.quantity) patchItem(ci.id, { quantity: v })
-                        }}
-                      />
-                    </label>
+                    <span className="text-sm text-stone-300">× {ci.quantity}</span>
+                    <Button type="button" size="xs" onClick={() => setEditTarget(ci)}>
+                      Изменить
+                    </Button>
                     <Button type="button" variant="danger" size="xs" onClick={() => setConfirmTarget(ci)}>
                       Убрать
                     </Button>
                   </div>
                 </div>
-                {(ci.is_equipped || ci.is_attuned) && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {ci.is_equipped && (
-                      <button
-                        type="button"
-                        onClick={() => patchItem(ci.id, { is_equipped: false })}
-                        className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"
-                        title="Снять отметку"
-                      >
-                        <span className="sheet-chip__dot" />Экипировано ✕
-                      </button>
-                    )}
-                    {ci.is_attuned && (
-                      <button
-                        type="button"
-                        onClick={() => patchItem(ci.id, { is_attuned: false })}
-                        className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"
-                        title="Снять настройку"
-                      >
-                        <span className="sheet-chip__dot" />Настроено ✕
-                      </button>
-                    )}
+                {(ci.is_equipped || ci.is_attuned || ci.notes) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {ci.is_equipped && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Экипировано</span>}
+                    {ci.is_attuned && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Настроено</span>}
+                    {ci.notes && <span className="text-xs text-stone-500">Заметка: {ci.notes}</span>}
                   </div>
-                )}
-                {!ci.is_equipped && (
-                  <button
-                    type="button"
-                    onClick={() => patchItem(ci.id, { is_equipped: true })}
-                    className="mt-2 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
-                  >
-                    Экипировать
-                  </button>
-                )}
-                {!ci.is_attuned && (
-                  <button
-                    type="button"
-                    onClick={() => patchItem(ci.id, { is_attuned: true })}
-                    className="ml-2 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
-                  >
-                    Настроить
-                  </button>
                 )}
               </div>
             )
@@ -661,23 +818,19 @@ function ItemsSection({ character, onError, reload }) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-stone-700/70 pt-3">
-        <Select value={itemId} onChange={(e) => setItemId(e.target.value)} className="!w-auto min-w-40 flex-1">
-          <option value="">Добавить предмет из справочника...</option>
-          {catalog.map((it) => (
-            <option key={it.id} value={it.id}>{it.name}</option>
-          ))}
-        </Select>
-        <Input
-          type="number"
-          min="0"
-          className="!w-20"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          title="Количество"
+      {pickerOpen && (
+        <ItemPickerModal catalog={catalog} onPick={addItem} onClose={() => setPickerOpen(false)} />
+      )}
+
+      {editTarget && (
+        <ItemEditModal
+          title={`Изменить: ${itemById.get(Number(editTarget.item_id))?.name ?? `Предмет #${editTarget.item_id}`}`}
+          value={editTarget}
+          catalogItem={itemById.get(Number(editTarget.item_id))}
+          onSave={(form) => saveEdit(editTarget, form)}
+          onClose={() => setEditTarget(null)}
         />
-        <Button size="sm" disabled={!itemId} onClick={addItem}>Выдать</Button>
-      </div>
+      )}
 
       {confirmTarget && (
         <ConfirmDialog
