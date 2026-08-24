@@ -13,47 +13,60 @@ import { useCharacters } from '@/features/characters/queries.js'
 import { useClasses } from '@/features/catalog/queries.js'
 import { useUsers } from '@/features/users/queries.js'
 
-function CharacterListItem({ character, subtitle, selected, onEdit }) {
+function CharacterListItem({ character, playerName, className: classNameName, selected, onEdit }) {
+  const navigate = useNavigate()
+  const hpPct = character.max_hp > 0 ? Math.min(100, Math.round((character.current_hp / character.max_hp) * 100)) : 0
   return (
     <div
-      className={`fantasy-panel card-hover cursor-pointer rounded-lg p-3 transition ${
+      className={`fantasy-panel card-hover rounded-lg p-3 transition ${
         selected ? 'border-ember/80 bg-stone-900' : 'hover:border-ember/50'
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <button type="button" onClick={() => onEdit(character)} className="min-w-0 flex-1 text-left">
-          <p className={`font-display text-sm font-bold ${selected ? 'text-ember' : 'text-stone-100'}`}>
-            {character.name || 'Безымянный'}
-          </p>
-          <p className="mt-0.5 text-xs text-stone-500">{subtitle}</p>
-        </button>
+      <button type="button" onClick={() => onEdit(character)} className="flex w-full items-center gap-3 text-left">
+        <span className="sheet-avatar shrink-0">{(character.name || '?').slice(0, 1).toUpperCase()}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className={`truncate font-display text-sm font-bold ${selected ? 'text-ember' : 'text-stone-100'}`}>
+              {character.name || 'Безымянный'}
+            </span>
+            <span className="shrink-0 rounded border border-gold/50 px-1.5 py-0.5 font-display text-[10px] font-bold text-gold-light">
+              ур. {character.level}
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-stone-500">
+            {[playerName, classNameName].filter(Boolean).join(' · ')}
+          </span>
+          <span className="mt-1.5 flex items-center gap-2">
+            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-800">
+              <span
+                className={`block h-full rounded-full ${hpPct > 50 ? 'bg-emerald-600' : hpPct > 25 ? 'bg-ember' : 'bg-red-700'}`}
+                style={{ width: `${Math.max(hpPct, 4)}%` }}
+              />
+            </span>
+            <span className="shrink-0 text-[11px] tabular-nums text-stone-400">
+              {character.current_hp}/{character.max_hp}
+            </span>
+          </span>
+        </span>
+      </button>
+      <div className="mt-2.5 flex gap-2 border-t border-stone-800 pt-2.5">
         <button
           type="button"
           onClick={() => onEdit(character)}
-          className="my-[5px] shrink-0 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+          className="flex-1 rounded border border-stone-700 px-2 py-1 text-[11px] text-stone-300 transition hover:border-ember/50 hover:bg-stone-800"
         >
           Изменить
         </button>
+        <button
+          type="button"
+          onClick={() => navigate(`/characters/${character.id}`, { state: { from: 'gm' } })}
+          className="flex-1 rounded border border-stone-700 px-2 py-1 text-[11px] text-stone-300 transition hover:border-ember/50 hover:bg-stone-800"
+          title="Открыть лист персонажа как игрок"
+        >
+          Перейти →
+        </button>
       </div>
-      <GoToButton characterId={character.id} />
     </div>
-  )
-}
-
-function GoToButton({ characterId }) {
-  const navigate = useNavigate()
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        navigate(`/characters/${characterId}`, { state: { from: 'gm' } })
-      }}
-      className="mt-2 rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
-      title="Открыть лист персонажа как игрок"
-    >
-      Перейти
-    </button>
   )
 }
 
@@ -125,7 +138,8 @@ export default function GmCharactersPage() {
                 <CharacterListItem
                   key={c.id}
                   character={c}
-                  subtitle={[playerNameOf(c.owner_id), classById.get(Number(c.class_id))?.name].filter(Boolean).join(' · ')}
+                  playerName={playerNameOf(c.owner_id)}
+                  className={classById.get(Number(c.class_id))?.name}
                   selected={selectedId === c.id}
                   onEdit={openEditor}
                 />

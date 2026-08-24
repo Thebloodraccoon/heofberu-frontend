@@ -97,7 +97,10 @@ export default function SheetHeader({
   onInspiration,
   onExhaustion,
   onOpenHp,
+  onOpenAc,
   onOpenConditions,
+  levelUpInfo,
+  onOpenLevelUp,
   onRollInitiative,
   onRollFree,
 }) {
@@ -130,6 +133,16 @@ export default function SheetHeader({
           </div>
         </div>
         <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+          {levelUpInfo?.can_level_up && (
+            <button
+              type="button"
+              className="sheet-levelup-btn"
+              onClick={onOpenLevelUp}
+              title={`Доступен потолок ${levelUpInfo.max_level} — повышаемся с уровня ${levelUpInfo.current_level}`}
+            >
+              ↑ Уровень {(Number(levelUpInfo.current_level) || 1) + 1}
+            </button>
+          )}
           <RollHistory />
           <DicePicker onRoll={onRollFree} />
         </div>
@@ -141,11 +154,27 @@ export default function SheetHeader({
             <span className="sheet-hp__heart">♥</span>
             {character.current_hp ?? 0}/{character.max_hp ?? 0}
           </button>
-          {character.temp_hp > 0 && (
-            <span className="sheet-hp__temp" title="Временные хиты">✚ {character.temp_hp}</span>
+          {(character.temp_hp > 0 || character.shield > 0) && (
+            <span className="flex items-center gap-1">
+              {character.shield > 0 && (
+                <span className="sheet-hp__temp" title="Щит">🛡 {character.shield}</span>
+              )}
+              {character.temp_hp > 0 && (
+                <span className="sheet-hp__temp" title="Временные хиты">✚ {character.temp_hp}</span>
+              )}
+            </span>
           )}
         </div>
-        <BoxedValue label="КД">{character.armor_class ?? '—'}</BoxedValue>
+        <BoxedValue label="КД" boxClassName="p-0">
+          <button
+            type="button"
+            className="h-full w-full rounded-[inherit] px-2 text-inherit"
+            onClick={onOpenAc}
+            title="Класс доспеха и щит"
+          >
+            {(character.armor_class ?? 0) + (character.shield ?? 0)}
+          </button>
+        </BoxedValue>
         <BoxedValue label="Скорость">{character.speed ?? '—'}</BoxedValue>
         <BoxedValue label="Владение">+{pb}</BoxedValue>
         <BoxedValue label="Вдохновение" boxClassName="p-0">

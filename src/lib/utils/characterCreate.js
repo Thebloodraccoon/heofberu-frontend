@@ -1,11 +1,10 @@
 export const STEPS = [
+  { id: 'name', title: 'Имя' },
   { id: 'race', title: 'Раса' },
   { id: 'background', title: 'Предыстория' },
   { id: 'class', title: 'Класс' },
   { id: 'abilities', title: 'Характеристики' },
-  { id: 'level', title: 'Уровень и ХП' },
-  { id: 'personality', title: 'Личность' },
-  { id: 'review', title: 'Сводка' },
+  { id: 'feat', title: 'Черта' },
 ]
 
 export const statsToTotals = (stats) => ({
@@ -23,20 +22,11 @@ export const DEFAULT_FORM = {
   background_id: '',
   class_id: '',
   subclass_id: '',
-  level: '1',
-  hp_mode: 'average',
-  rolled_dice: {},
   ability_method: 'array',
   ability_base: {},
   ability_rolls: {},
   class_skill_ids: [],
   name: '',
   feat_id: '',
-  traits: '',
-  proficiencies: '',
   backstory: '',
-  notes: '',
-  money_gold: 0,
-  money_silver: 0,
-  money_copper: 0,
 }

@@ -1,17 +1,14 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ASI_LEVELS, POINT_BUY_BUDGET, POINT_BUY_MIN, STATS, bonusMap, effectiveTotals, mod, pointCost, rollDie } from '@/lib/utils/ability.js'
-import { STEPS, statsToTotals, DEFAULT_FORM } from '@/lib/utils/characterCreate.js'
+import { POINT_BUY_BUDGET, POINT_BUY_MIN, STATS, bonusMap, effectiveTotals, pointCost } from '@/lib/utils/ability.js'
+import { STEPS, DEFAULT_FORM } from '@/lib/utils/characterCreate.js'
 import { Button, Card, ErrorBox, PageHeader, Spinner } from '@/components/ui'
-import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
-import CreateProgress from '@/features/characters/components/wizard/CreateProgress.jsx'
 import StepAbilities from '@/features/characters/components/wizard/StepAbilities.jsx'
 import StepBackground from '@/features/characters/components/wizard/StepBackground.jsx'
 import StepClass from '@/features/characters/components/wizard/StepClass.jsx'
-import StepLevel from '@/features/characters/components/wizard/StepLevel.jsx'
-import StepPersonality from '@/features/characters/components/wizard/StepPersonality.jsx'
+import StepFeat from '@/features/characters/components/wizard/StepFeat.jsx'
+import StepName from '@/features/characters/components/wizard/StepName.jsx'
 import StepRace from '@/features/characters/components/wizard/StepRace.jsx'
-import StepReview from '@/features/characters/components/wizard/StepReview.jsx'
 import RollToasts from '@/features/characters/components/wizard/RollToasts.jsx'
 import { charactersApi } from '@/features/characters/api.js'
 import { useAuth } from '@/features/auth/useAuth.js'
@@ -57,8 +54,6 @@ export default function CharacterCreatePage() {
   const feats = featsQ.data ?? []
 
   const [creating, setCreating] = useState(false)
-  const [createProgress, setCreateProgress] = useState(null)
-  const [asiPrompt, setAsiPrompt] = useState(null)
   const [rolls, setRolls] = useState([])
   const rollSeq = useRef(0)
 
@@ -70,7 +65,30 @@ export default function CharacterCreatePage() {
   }
   const dismissRoll = (id) => setRolls((prev) => prev.filter((r) => r.id !== id))
 
-  const update = (patch) => setForm((f) => ({ ...f, ...patch }))
+  // При смене расы/предыстории вычищаем из выбранных навыков класса те,
+  // что теперь выдаются автоматически, чтобы не было дублей.
+  const update = (patch) =>
+    setForm((f) => {
+      const next = { ...f, ...patch }
+      if (
+        (patch.race_id !== undefined || patch.background_id !== undefined) &&
+        (next.class_skill_ids ?? []).length > 0
+      ) {
+        // Детали только что выбранной расы/предыстории ещё не загружены —
+        // сверяемся с деталями неизменённого источника.
+        const unchanged = [patch.race_id === undefined ? raceDetail : null, patch.background_id === undefined ? backgroundDetail : null]
+        const grantedIds = new Set(
+          unchanged
+            .flatMap((d) => d?.granted_skills ?? [])
+            .map((s) => Number(s?.id))
+            .filter(Number.isFinite),
+        )
+        if (grantedIds.size > 0) {
+          next.class_skill_ids = next.class_skill_ids.filter((id) => !grantedIds.has(Number(id)))
+        }
+      }
+      return next
+    })
 
   const lookups = {
     races,
@@ -87,40 +105,38 @@ export default function CharacterCreatePage() {
     feats,
   }
 
-  const level = Number(form.level) || 1
   const dieSides = classDetail?.hit_dice ? Number(String(classDetail.hit_dice).replace('D', '')) : 8
   const bonusByCode = {
     ...bonusMap(raceDetail?.ability_bonuses),
     ...bonusMap(subraceDetail?.ability_bonuses),
   }
-  const totals = effectiveTotals(
-    Object.fromEntries(STATS.map((s) => [s.key, form.ability_base[s.key] ?? 8])),
-    bonusByCode,
+  const totals = useMemo(
+    () =>
+      effectiveTotals(
+        Object.fromEntries(STATS.map((s) => [s.key, form.ability_base[s.key] ?? 8])),
+        bonusByCode,
+      ),
+    [form.ability_base, raceDetail, subraceDetail],
   )
-  const conModValue = mod(totals.CON)
-  const hpLevel1 = dieSides + conModValue
-  const avgGain = Math.floor(dieSides / 2) + 1 + conModValue
 
   const derived = {
     bonusByCode,
     totals,
     dieSides,
-    conMod: conModValue,
-    hpLevel1,
-    avgGain,
   }
 
   const canContinue = (() => {
     switch (STEPS[step].id) {
+      case 'name':
+        return Boolean(form.name.trim())
       case 'race':
         return Boolean(form.race_id)
       case 'background':
-        return Boolean(form.background_id)
+        return true
       case 'class': {
         if (!form.class_id) return false
         const count = classDetail?.skill_choice_count ?? 0
-        const chosen = (form.class_skill_ids ?? []).length
-        return chosen >= count
+        return (form.class_skill_ids ?? []).length >= count
       }
       case 'abilities': {
         const allAssigned = STATS.every((s) => {
@@ -133,78 +149,21 @@ export default function CharacterCreatePage() {
         }
         return allAssigned
       }
-      case 'level':
-        return level >= 1 && level <= 20
-      case 'personality':
-        return Boolean(form.name.trim())
-      case 'review':
+      case 'feat':
         return true
       default:
         return true
     }
   })()
 
-  const ensureHpRolls = () => {
-    if (form.hp_mode !== 'roll') return
-    const dice = { ...(form.rolled_dice || {}) }
-    const fresh = []
-    let changed = false
-    for (let l = 2; l <= level; l++) {
-      if (dice[l] == null) {
-        dice[l] = rollDie(dieSides)
-        fresh.push({ level: l, value: dice[l] })
-        changed = true
-      }
-    }
-    if (changed) {
-      update({ rolled_dice: dice })
-      pushRolls(fresh.map((r) => ({ title: `Уровень ${r.level} · к${dieSides}`, dice: [r.value], total: r.value + conModValue })))
-    }
-  }
-
-  const rollHpDice = () => {
-    const dice = {}
-    const fresh = []
-    for (let l = 2; l <= level; l++) {
-      dice[l] = rollDie(dieSides)
-      fresh.push({ level: l, value: dice[l] })
-    }
-    update({ rolled_dice: dice })
-    pushRolls(fresh.map((r) => ({ title: `Уровень ${r.level} · к${dieSides}`, dice: [r.value], total: r.value + conModValue })))
-  }
-
-  const next = () => {
-    if (STEPS[step].id === 'level') ensureHpRolls()
-    setStep((s) => Math.min(s + 1, STEPS.length - 1))
-  }
-
-  const back = () => setStep((s) => Math.max(s - 1, 0))
-
-  const askAsi = (lvl, characterId, currentStats) =>
-    new Promise((resolve) => {
-      setAsiPrompt({ level: lvl, characterId, totals: statsToTotals(currentStats), resolve })
-    })
-
-  const resolveAsi = (choice) => {
-    const resolve = asiPrompt?.resolve
-    setAsiPrompt(null)
-    if (resolve) resolve(choice)
-  }
-
   const create = async () => {
     if (!canContinue) return
     setError(null)
     setCreating(true)
     try {
-      const featsResult = await featsQ.refetch()
-      const featsList = featsResult.data ?? feats
-
       const body = {
         name: form.name.trim(),
         class_id: Number(form.class_id),
-        money_gold: Number(form.money_gold) || 0,
-        money_silver: Number(form.money_silver) || 0,
-        money_copper: Number(form.money_copper) || 0,
       }
       for (const s of STATS) body[s.key] = Number(form.ability_base[s.key])
       if (form.subclass_id) body.subclass_id = Number(form.subclass_id)
@@ -214,62 +173,20 @@ export default function CharacterCreatePage() {
       // Только выбранные навыки класса: гранты расы и предыстории бэкенд
       // добавляет сам, а лишние/неизвестные поля отклоняются с 422.
       body.skill_ids = (form.class_skill_ids ?? []).map(Number)
-      if (form.backstory) body.backstory = form.backstory
-      if (form.notes) body.notes = form.notes
+      if (form.backstory?.trim()) body.backstory = form.backstory.trim()
 
       const created = await charactersApi.create(body)
-      const id = created.id
 
-      // Черта вне level-up теперь выдаётся только через GM-панель.
+      // Черта вне level-up выдаётся только через GM-панель.
       if (form.feat_id && isGM) {
-        await charactersApi.gmPanel.feats.add(id, { feat_id: Number(form.feat_id) }).catch(() => null)
+        await charactersApi.gmPanel.feats.add(created.id, { feat_id: Number(form.feat_id) }).catch(() => null)
       }
 
-      let currentStats = created.ability_scores || null
-      let currentCon = currentStats ? currentStats.constitution_total : totals.CON
-      setCreateProgress({ current: 1, target: level })
-
-      for (let lvl = 2; lvl <= level; lvl++) {
-        setCreateProgress({ current: lvl, target: level })
-        const req = {}
-
-        if (ASI_LEVELS.includes(lvl)) {
-          const choice = await askAsi(lvl, id, currentStats)
-          if (!choice) {
-            navigate(`/characters/${id}`)
-            return
-          }
-          req.choice = choice
-          if (choice.type === 'ASI') {
-            for (const inc of choice.increases || []) {
-              if (inc.ability === 'CON') currentCon += inc.amount
-            }
-          } else if (choice.type === 'FEAT' && choice.ability_score_increase_id) {
-            const feat = featsList.find((f) => String(f.id) === String(choice.feat_id))
-            const inc = feat?.ability_score_increases?.find(
-              (ai) => String(ai.id) === String(choice.ability_score_increase_id),
-            )
-            if (inc?.ability === 'CON') currentCon += inc.amount
-          }
-        }
-
-        if (form.hp_mode === 'roll') {
-          req.hit_points_gained = (form.rolled_dice?.[lvl] ?? Math.floor(dieSides / 2) + 1) + mod(currentCon)
-        } else {
-          req.hit_points_gained = avgGain
-        }
-
-        const response = await charactersApi.progression.levelUp(id, req)
-        currentStats = response?.ability_scores || currentStats
-        currentCon = currentStats.constitution_total ?? currentCon
-      }
-
-      navigate(`/characters/${id}`)
+      navigate(`/characters/${created.id}`)
     } catch (e) {
       setError(e)
     } finally {
       setCreating(false)
-      setCreateProgress(null)
     }
   }
 
@@ -281,8 +198,11 @@ export default function CharacterCreatePage() {
       update,
       lookups,
       derived,
+      isGM,
     }
     switch (STEPS[step].id) {
+      case 'name':
+        return <StepName {...props} />
       case 'race':
         return <StepRace {...props} />
       case 'background':
@@ -291,12 +211,8 @@ export default function CharacterCreatePage() {
         return <StepClass {...props} />
       case 'abilities':
         return <StepAbilities {...props} onRoll={pushRolls} />
-      case 'level':
-        return <StepLevel {...props} />
-      case 'personality':
-        return <StepPersonality {...props} />
-      case 'review':
-        return <StepReview {...props} onRollHp={rollHpDice} />
+      case 'feat':
+        return <StepFeat {...props} />
       default:
         return null
     }
@@ -312,7 +228,7 @@ export default function CharacterCreatePage() {
         </Link>
       </div>
 
-      <PageHeader title="Новый персонаж" subtitle="Пошаговое создание героя в стиле классического D&D" />
+      <PageHeader title="Новый персонаж" subtitle="Пошаговое создание героя 1 уровня в стиле классического D&D" />
 
       {error && <div className="mb-6"><ErrorBox error={error} /></div>}
 
@@ -358,11 +274,11 @@ export default function CharacterCreatePage() {
           <Card className="p-5 sm:p-6">
             {renderStep()}
             <div className="mt-6 flex items-center justify-between gap-3 border-t border-stone-700/40 pt-4">
-              <Button variant="ghost" disabled={step === 0 || creating} onClick={back}>
+              <Button variant="ghost" disabled={step === 0 || creating} onClick={() => setStep((s) => Math.max(s - 1, 0))}>
                 ← Назад
               </Button>
               {step < STEPS.length - 1 ? (
-                <Button disabled={!canContinue} onClick={next}>
+                <Button disabled={!canContinue} onClick={() => setStep((s) => Math.min(s + 1, STEPS.length - 1))}>
                   Далее →
                 </Button>
               ) : (
@@ -374,20 +290,6 @@ export default function CharacterCreatePage() {
           </Card>
         </div>
       </div>
-
-      {asiPrompt && (
-        <AsiChoiceModal
-          level={asiPrompt.level}
-          abilityTotals={asiPrompt.totals}
-          feats={featsQ.data ?? []}
-          featsLoading={featsQ.isFetching}
-          onCancel={() => resolveAsi(null)}
-          onConfirm={resolveAsi}
-        />
-      )}
-      {creating && createProgress && (
-        <CreateProgress current={createProgress.current} target={createProgress.target} />
-      )}
 
       <RollToasts toasts={rolls} onDismiss={dismissRoll} />
     </div>

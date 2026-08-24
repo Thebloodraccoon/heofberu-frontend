@@ -1,6 +1,6 @@
 import { abilityName, bonusMap } from '@/lib/utils/ability.js'
-import { OptionCard } from './OptionCard.jsx'
-import { Feature, Hint, Search, Section, StepShell, Tag } from './StepShell.jsx'
+import { Feature, Hint, Section, StepShell, Tag } from './StepShell.jsx'
+import PickerGrid from './PickerGrid.jsx'
 import { useSearch } from './useSearch.js'
 
 const sizeLabel = (size) =>
@@ -21,6 +21,7 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
   const subraces = raceDetail?.subraces ?? []
 
   const raceSearch = useSearch(lookups.races ?? [])
+  const subraceSearch = useSearch(subraces)
 
   const raceBonuses = bonusMap(raceDetail?.ability_bonuses)
   const subraceBonuses = bonusMap(subraceDetail?.ability_bonuses)
@@ -42,23 +43,14 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
   return (
     <StepShell stepNo={stepNo} total={total} title="Раса" subtitle="Выберите расу героя">
       <Section title="Раса">
-        <Search
-          className="mb-3 max-w-sm"
-          placeholder="Поиск расы…"
-          value={raceSearch.query}
-          onChange={raceSearch.setQuery}
+        <PickerGrid
+          items={raceSearch.filtered}
+          query={raceSearch.query}
+          onQueryChange={raceSearch.setQuery}
+          searchPlaceholder="Поиск расы по названию и описанию…"
+          selectedId={form.race_id}
+          onSelect={(r) => update({ race_id: String(r.id), subrace_id: '' })}
         />
-        <div className="grid gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
-          {raceSearch.filtered.map((r) => (
-            <OptionCard
-              key={r.id}
-              selected={String(r.id) === String(form.race_id)}
-              onClick={() => update({ race_id: String(r.id), subrace_id: '' })}
-              title={r.name}
-            />
-          ))}
-          {raceSearch.filtered.length === 0 && <Hint>Ничего не найдено.</Hint>}
-        </div>
         {raceDetail && (
           <div className="mt-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -81,22 +73,14 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
 
       {subraces.length > 0 && (
         <Section title="Подраса (необязательно)">
-          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-            <OptionCard
-              selected={!form.subrace_id}
-              onClick={() => update({ subrace_id: '' })}
-              title="Без подрасы"
-              subtitle="Основная раса"
-            />
-            {subraces.map((s) => (
-              <OptionCard
-                key={s.id}
-                selected={String(s.id) === String(form.subrace_id)}
-                onClick={() => update({ subrace_id: String(s.id) })}
-                title={s.name}
-              />
-            ))}
-          </div>
+          <PickerGrid
+            items={[{ id: '', name: 'Без подрасы', description: 'Основная раса' }, ...subraceSearch.filtered]}
+            query={subraceSearch.query}
+            onQueryChange={subraceSearch.setQuery}
+            searchPlaceholder="Поиск подрасы…"
+            selectedId={form.subrace_id}
+            onSelect={(s) => update({ subrace_id: String(s.id) })}
+          />
           {subraceDetail && (
             <div className="mt-4 space-y-3">
               {renderBonuses(subraceBonuses)}

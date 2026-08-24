@@ -4,15 +4,6 @@ import { opt, optOptional, toNum, toStr } from './shared.js'
 
 export const featsCfg = {
   singular: 'черта',
-  featuresSource: { type: 'FEAT', fk: 'feat_id' },
-  featuresOps: api.feats.features,
-  featuresModal: { showLevel: false, levelHint: '' },
-  featuresBlock: {
-    label: 'Умения',
-    addLabel: '+ Добавить умение',
-    empty: 'Умений нет',
-    noun: 'умение',
-  },
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Проворный' },
     { key: 'prerequisite_ability', label: 'Требуемая характеристика', type: 'select', options: optOptional(abilityLabels), inline: true },

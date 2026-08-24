@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { catalogApi as api } from '@/features/catalog/api.js'
-import { catalog } from '../catalog.js'
-import { useCatalogList } from '@/features/catalog/queries.js'
+import { catalog, PAGE_SIZE } from '../catalog.js'
+import { useCatalogPage } from '@/features/catalog/queries.js'
 import { Badge, Card, EmptyState, ErrorBox, PageHeader, Spinner } from '@/components/ui'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
+import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import TileCard from '@/features/catalog/components/browse/TileCard.jsx'
 import DetailPanel from '@/features/catalog/components/browse/detail/DetailPanel.jsx'
 import { summaryBadges } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
@@ -48,61 +49,77 @@ async function fetchDetail(resource, selectedId) {
 export function CatalogListPage() {
   const { resource, id } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const cfg = catalog[resource]
-  const filterFields = useMemo(() => cfg.filters ?? [], [cfg])
+
+  const pageParam = Number(searchParams.get('page')) || 1
 
   const selectedId = id ? Number(id) : null
-  const listQ = useCatalogList(resource, cfg.listParams ?? {})
-  const items = listQ.data ?? null
+
+  // Поиск и фильтры применяются только по кнопке «Найти» / выбору фильтра.
+  const [queryInput, setQueryInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [filters, setFilters] = useState({})
+  const [showFilters, setShowFilters] = useState(false)
+  const [subSel, setSubSel] = useState({ parentId: null, id: null })
+  const selectedSubId = subSel.parentId === selectedId ? subSel.id : null
+
+  useEffect(() => {
+    setQueryInput('')
+    setAppliedSearch('')
+    setFilters({})
+    setSubSel({ parentId: null, id: null })
+    if (searchParams.get('page')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('page')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resource])
+
+  const listParams = useMemo(() => {
+    const params = { page: pageParam, size: PAGE_SIZE, ...(cfg.listParams ?? {}) }
+    if (appliedSearch.trim()) params.search = appliedSearch.trim()
+    for (const f of cfg.filters ?? []) {
+      if (Array.isArray(filters[f.name]) && filters[f.name].length > 0) {
+        params[f.name] = filters[f.name]
+      }
+    }
+    return params
+  }, [cfg, pageParam, appliedSearch, filters])
+
+  const listQ = useCatalogPage(resource, listParams)
+  const pageData = listQ.data ?? null
+  const items = pageData?.items ?? null
+  const total = pageData?.total ?? 0
+
+  const setPage = (p) => {
+    window.scrollTo({ top: 0 })
+    const next = new URLSearchParams(searchParams)
+    if (p <= 1) next.delete('page')
+    else next.set('page', String(p))
+    setSearchParams(next)
+  }
+
+  const applySearch = () => {
+    setAppliedSearch(queryInput)
+    setPage(1)
+  }
+
+  const applyFilters = (next) => {
+    setFilters(next)
+    setShowFilters(false)
+    setPage(1)
+  }
+
   const detailQ = useQuery({
     queryKey: ['catalog', resource, selectedId],
     queryFn: () => fetchDetail(resource, selectedId),
     enabled: !!selectedId,
   })
 
-  const [query, setQuery] = useState('')
-  const [filters, setFilters] = useState({})
-  const [showFilters, setShowFilters] = useState(false)
-  const [subSel, setSubSel] = useState({ parentId: null, id: null })
-  const selectedSubId = subSel.parentId === selectedId ? subSel.id : null
-
-  const filterOptions = useMemo(() => {
-    if (!items) return {}
-    const opts = {}
-    for (const field of filterFields) {
-      const values = new Set()
-      for (const it of items) {
-        const v = it[field]
-        if (Array.isArray(v)) {
-          for (const x of v) if (x != null && x !== '') values.add(String(x))
-        } else if (v != null && v !== '') values.add(String(v))
-      }
-      opts[field] = Array.from(values).sort()
-    }
-    return opts
-  }, [items, filterFields])
-
-  const filtered = useMemo(() => {
-    if (!items) return null
-    return items.filter((it) => {
-      for (const field of filterFields) {
-        const sel = filters[field]
-        if (!sel || sel.length === 0) continue
-        const v = it[field]
-        if (Array.isArray(v)) {
-          if (!v.some((x) => sel.includes(String(x)))) return false
-        } else if (!sel.includes(String(v))) return false
-      }
-      const q = query.trim().toLowerCase()
-      if (!q) return true
-      return Object.values(it)
-        .filter((v) => typeof v === 'string')
-        .some((v) => v.toLowerCase().includes(q))
-    })
-  }, [items, filters, query, filterFields])
-
-  const error = listQ.error ?? detailQ.error
-  const activeCount = Object.values(filters).reduce((n, arr) => n + (arr?.length ?? 0), 0)
+  const activeCount = Object.keys(filters).length + (appliedSearch.trim() ? 1 : 0)
+  const hasQuery = Boolean(appliedSearch.trim()) || Object.keys(filters).length > 0
 
   return (
     <div>
@@ -110,13 +127,22 @@ export function CatalogListPage() {
         title={cfg.label}
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск: имя, описание..."
-              className="input-search sm:w-64"
-            />
-            {filterFields.length > 0 && (
+            <div className="flex gap-2">
+              <input
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+                placeholder="Поиск: имя, описание..."
+                className="input-search w-full sm:w-64"
+              />
+              <button
+                type="button"
+                onClick={applySearch}
+                className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
+                title="Искать на сервере"
+              >
+                ⌕
+              </button>
               <button
                 type="button"
                 onClick={() => setShowFilters(true)}
@@ -124,40 +150,44 @@ export function CatalogListPage() {
               >
                 Фильтр{activeCount > 0 ? ` (${activeCount})` : ''}
               </button>
-            )}
+            </div>
           </div>
         }
       />
 
-      {error && (
+      {(listQ.error ?? detailQ.error) && (
         <ErrorBox
-          error={error}
+          error={listQ.error ?? detailQ.error}
           onRetry={() => {
             listQ.refetch()
             detailQ.refetch()
           }}
         />
       )}
-      {items === null && !error && <Spinner />}
+      {items === null && !listQ.error && <Spinner />}
       {items !== null && items.length === 0 && (
-        <EmptyState text="Справочник пуст. Попросите ГМ наполнить его через npm run seed" />
-      )}
-      {items !== null && items.length > 0 && filtered.length === 0 && (
-        <EmptyState text="Ничего не найдено по запросу" />
+        <EmptyState
+          text={
+            hasQuery
+              ? 'Ничего не найдено по запросу'
+              : 'Справочник пуст. Попросите ГМ наполнить его через npm run seed'
+          }
+        />
       )}
 
-      {items && filtered && filtered.length > 0 && (
-        selectedId ? (
+      {items !== null &&
+        items.length > 0 &&
+        (selectedId ? (
           <div className="catalog-layout">
             <aside className="max-h-[calc(100vh-220px)] overflow-y-auto pr-1 lg:sticky lg:top-24">
               <Link
-                to={`/catalog/${resource}`}
+                to={pageParam > 1 ? `/catalog/${resource}?page=${pageParam}` : `/catalog/${resource}`}
                 className="mb-2 my-[5px] block link-back"
               >
                 ← Ко всем записям
               </Link>
               <div className="flex flex-col gap-1">
-                {filtered.map((it) => {
+                {items.map((it) => {
                   const isActive = Number(it.id) === selectedId
                   const activeSubs =
                     resource === 'classes'
@@ -176,7 +206,12 @@ export function CatalogListPage() {
                     >
                       <button
                         type="button"
-                        onClick={() => navigate(`/catalog/${resource}/${it.id}`)}
+                        onClick={() =>
+                          navigate({
+                            pathname: `/catalog/${resource}/${it.id}`,
+                            search: searchParams.toString(),
+                          })
+                        }
                         className="w-full text-left"
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -235,6 +270,7 @@ export function CatalogListPage() {
                   )
                 })}
               </div>
+              <Pagination page={pageParam} total={total} size={PAGE_SIZE} onPage={setPage} />
             </aside>
 
             <section className="min-w-0">
@@ -253,20 +289,21 @@ export function CatalogListPage() {
             </section>
           </div>
         ) : (
-          <div className="catalog-grid">
-            {filtered.map((it) => (
-              <TileCard key={it.id} item={it} resource={resource} />
-            ))}
-          </div>
-        )
-      )}
+          <>
+            <div className="catalog-grid">
+              {items.map((it) => (
+                <TileCard key={it.id} item={it} resource={resource} />
+              ))}
+            </div>
+            <Pagination page={pageParam} total={total} size={PAGE_SIZE} onPage={setPage} />
+          </>
+        ))}
 
       {showFilters && (
         <FilterModal
-          fields={filterFields}
-          options={filterOptions}
+          filters={cfg.filters ?? []}
           value={filters}
-          onChange={setFilters}
+          onChange={applyFilters}
           onClose={() => setShowFilters(false)}
         />
       )}

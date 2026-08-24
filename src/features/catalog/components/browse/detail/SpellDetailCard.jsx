@@ -1,6 +1,7 @@
 import { diceTypeLabels, label } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow } from '@/components/ui'
 import { spellLevel, Section } from './detailHelpers.jsx'
+import SpellAvailability from '../SpellAvailability.jsx'
 
 const COMPONENT_FULL = { VERBAL: 'Вербальный', SOMATIC: 'Соматический', MATERIAL: 'Материальный' }
 
@@ -78,6 +79,8 @@ export default function SpellDetailCard({ spell }) {
           {spell.description}
         </p>
       )}
+
+      <SpellAvailability spell={spell} />
 
       {spell.higher_levels && (
         <Section title="На более высоких уровнях">

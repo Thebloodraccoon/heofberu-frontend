@@ -46,6 +46,8 @@ const goToAbilities = async () => {
       <CharacterCreatePage />
     </MemoryRouter>,
   )
+  await userEvent.type(screen.getByPlaceholderText(/аравель/i), 'Тест')
+  await userEvent.click(screen.getByRole('button', { name: /далее/i }))
   await userEvent.click(screen.getByRole('button', { name: /эльф/i }))
   await userEvent.click(screen.getByRole('button', { name: /далее/i }))
   await userEvent.click(screen.getByRole('button', { name: /благородный/i }))

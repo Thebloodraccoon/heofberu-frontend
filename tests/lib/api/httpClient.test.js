@@ -123,6 +123,20 @@ describe('request', () => {
     expect(await request('/api/auth/logout', { method: 'POST' })).toBeNull()
   })
 
+  it('uses the backend {error:{message}} envelope', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ error: { type: 'SpellNotFoundException', message: 'Заклинание не найдено', status_code: 404 } }, 404),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const err = await request('/api/x').catch((e) => e)
+    expect(err.message).toBe('Заклинание не найдено')
+    expect(err.status).toBe(404)
+    expect(err.data.error.type).toBe('SpellNotFoundException')
+  })
+
   it('throws with a string detail message', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: 'Неверные данные' }, 400))
     vi.stubGlobal('fetch', fetchMock)

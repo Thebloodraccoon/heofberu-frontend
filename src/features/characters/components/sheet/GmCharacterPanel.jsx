@@ -856,12 +856,12 @@ function ItemsSection({ character, onError, reload }) {
 }
 
 const SECTIONS = [
-  { id: 'level', label: 'Уровень' },
-  { id: 'hp', label: 'Хиты' },
-  { id: 'stats', label: 'Характеристики' },
-  { id: 'skills', label: 'Навыки' },
-  { id: 'feats', label: 'Черты' },
-  { id: 'items', label: 'Снаряжение' },
+  { id: 'level', label: 'Уровень', icon: '↑', hint: 'Повышение уровня и потолок' },
+  { id: 'hp', label: 'Хиты', icon: '♥', hint: 'Хиты, временные хиты и отдых' },
+  { id: 'stats', label: 'Характеристики', icon: '✦', hint: 'Базовые значения и ASI-коррекции' },
+  { id: 'skills', label: 'Навыки', icon: '✔', hint: 'Экспертизы навыков' },
+  { id: 'feats', label: 'Черты', icon: '★', hint: 'Выданные черты и умения' },
+  { id: 'items', label: 'Снаряжение', icon: '⛁', hint: 'Инвентарь, экипировка и деньги' },
 ]
 
 export default function GmCharacterPanel({ character, onError, reload, section, onSectionChange }) {
@@ -888,9 +888,11 @@ export default function GmCharacterPanel({ character, onError, reload, section, 
     }
   }
 
+  const activeMeta = SECTIONS.find((s) => s.id === active)
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Что редактируем">
+      <div className="sheet-tabs" role="tablist" aria-label="Что редактируем">
         {SECTIONS.map((s) => (
           <button
             key={s.id}
@@ -898,16 +900,16 @@ export default function GmCharacterPanel({ character, onError, reload, section, 
             role="tab"
             aria-selected={active === s.id}
             onClick={() => setActive(s.id)}
-            className={`rounded-full px-3 py-1.5 text-sm transition ${
-              active === s.id
-                ? 'bg-ember font-medium text-white'
-                : 'border border-stone-700 text-stone-300 hover:bg-stone-800'
-            }`}
+            className={`sheet-tabs__btn ${active === s.id ? 'sheet-tabs__btn_active' : ''}`}
           >
+            <span aria-hidden className="mr-1.5">{s.icon}</span>
             {s.label}
           </button>
         ))}
       </div>
+      {activeMeta && (
+        <p className="-mt-2 text-xs text-stone-500">{activeMeta.hint}</p>
+      )}
       {renderSection()}
     </div>
   )

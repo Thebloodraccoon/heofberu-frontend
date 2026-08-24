@@ -35,7 +35,7 @@ describe('StepBackground', () => {
     const update = vi.fn()
     renderStep({ background_id: '' }, update)
     await userEvent.click(screen.getByRole('button', { name: /благородный/i }))
-    expect(update).toHaveBeenCalledWith({ background_id: '1' })
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ background_id: '1' }))
   })
 
   it('shows an empty state when no backgrounds are loaded', () => {

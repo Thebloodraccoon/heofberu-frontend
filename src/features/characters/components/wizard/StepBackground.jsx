@@ -1,6 +1,7 @@
+import { Field } from '@/components/ui'
 import { EmptyState } from '@/components/ui'
-import { OptionCard } from './OptionCard.jsx'
-import { Feature, Hint, Search, Section, StepShell, Tag } from './StepShell.jsx'
+import { Feature, Hint, Section, StepShell, Tag } from './StepShell.jsx'
+import PickerGrid from './PickerGrid.jsx'
 import { useSearch } from './useSearch.js'
 
 export default function StepBackground({ stepNo, total, form, update, lookups }) {
@@ -11,27 +12,30 @@ export default function StepBackground({ stepNo, total, form, update, lookups })
   const search = useSearch(lookups.backgrounds ?? [])
 
   return (
-    <StepShell stepNo={stepNo} total={total} title="Предыстория" subtitle="Выберите предысторию героя">
-      <Section title="Предыстория">
+    <StepShell stepNo={stepNo} total={total} title="Предыстория" subtitle="Кем герой был до начала приключений">
+      <Section title="Предыстория (необязательно)">
         {(lookups.backgrounds ?? []).length === 0 && <EmptyState text="Предыстории не загружены" />}
-        <Search
-          className="mb-3 max-w-sm"
-          placeholder="Поиск предыстории…"
-          value={search.query}
-          onChange={search.setQuery}
-        />
-        <div className="grid gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
-          {search.filtered.map((b) => (
-            <OptionCard
-              key={b.id}
-              selected={String(b.id) === String(form.background_id)}
-              onClick={() => update({ background_id: String(b.id) })}
-              title={b.name}
-            />
-          ))}
-          {search.filtered.length === 0 && <Hint>Ничего не найдено.</Hint>}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {form.background_id && <Tag tone="good">Выбрано: {selectedBackground?.name}</Tag>}
+          {form.background_id && (
+            <button
+              type="button"
+              className="text-xs text-stone-400 underline decoration-dotted hover:text-ember"
+              onClick={() => update({ background_id: '' })}
+            >
+              сбросить
+            </button>
+          )}
         </div>
-        {selectedBackground && !backgroundDetail && <Hint className="mt-3">Загружаем предысторию…</Hint>}
+        <PickerGrid
+          items={search.filtered}
+          query={search.query}
+          onQueryChange={search.setQuery}
+          searchPlaceholder="Поиск предыстории по названию и описанию…"
+          selectedId={form.background_id}
+          onSelect={(b) => update({ background_id: String(b.id), class_skill_ids: [] })}
+        />
+        {form.background_id && !backgroundDetail && <Hint className="mt-3">Загружаем предысторию…</Hint>}
         {backgroundDetail && (
           <div className="mt-4 space-y-3">
             {backgroundDetail.description && <p className="text-sm leading-relaxed text-stone-300">{backgroundDetail.description}</p>}
@@ -62,6 +66,18 @@ export default function StepBackground({ stepNo, total, form, update, lookups })
             )}
           </div>
         )}
+      </Section>
+
+      <Section title="История героя (необязательно)">
+        <Field label="Предыстория персонажа">
+          <textarea
+            rows={4}
+            value={form.backstory}
+            onChange={(e) => update({ backstory: e.target.value })}
+            placeholder="Откуда родом, зачем отправился в путь…"
+            className="input-base"
+          />
+        </Field>
       </Section>
     </StepShell>
   )

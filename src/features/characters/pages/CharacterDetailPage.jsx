@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { fmtBonus } from '@/lib/utils/sheet.js'
-import { useCharacter } from '@/features/characters/queries.js'
+import { useCharacter, useCanLevelUp } from '@/features/characters/queries.js'
 import {
   useBackgroundDetail,
   useClassDetail,
@@ -33,6 +33,8 @@ import PersonalityPanel from '@/features/characters/components/sheet/Personality
 import NotesPanel from '@/features/characters/components/sheet/NotesPanel.jsx'
 import SpellsPanel from '@/features/characters/components/sheet/SpellsPanel.jsx'
 import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
+import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
+import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
 import ConditionsModal from '@/features/characters/components/sheet/ConditionsModal.jsx'
 import { ARMOR_OPTIONS, num } from '@/features/characters/components/sheet/constants.js'
 
@@ -74,6 +76,9 @@ export default function CharacterDetailPage() {
   const [tab, setTab] = useState('attacks')
   const [rollToasts, setRollToasts] = useState([])
   const [hpModal, setHpModal] = useState(false)
+  const [armorModal, setArmorModal] = useState(false)
+  const [levelUpOpen, setLevelUpOpen] = useState(false)
+  const { data: canLevelUpData } = useCanLevelUp(id)
   const [conditionsModal, setConditionsModal] = useState(false)
   const [inspiration, setInspiration] = useState(false)
 
@@ -272,10 +277,29 @@ export default function CharacterDetailPage() {
     }
   }
 
+  const setTempHp = async (temp_hp) => {
+    try {
+      await api.hp(id, { temp_hp })
+      await load()
+    } catch (e) {
+      setMutationError(e)
+    }
+  }
+
   const doRest = async (type) => {
     try {
       await api.rest(id, { type })
       await load()
+    } catch (e) {
+      setMutationError(e)
+    }
+  }
+
+  const saveArmor = async ({ armor_class, shield }) => {
+    try {
+      await api.update(id, { armor_class, shield })
+      await load()
+      setArmorModal(false)
     } catch (e) {
       setMutationError(e)
     }
@@ -304,6 +328,9 @@ export default function CharacterDetailPage() {
         onInspiration={() => setInspiration(!inspiration)}
         onExhaustion={changeExhaustion}
         onOpenHp={() => setHpModal(true)}
+        onOpenAc={() => setArmorModal(true)}
+        levelUpInfo={canLevelUpData}
+        onOpenLevelUp={() => setLevelUpOpen(true)}
         onOpenConditions={() => setConditionsModal(true)}
         initiativeBonus={initiativeBonus}
         initiativeLast={initiativeLast}
@@ -421,7 +448,21 @@ export default function CharacterDetailPage() {
           character={character}
           onClose={() => setHpModal(false)}
           onDelta={hpDelta}
+          onTempHp={setTempHp}
           onRest={doRest}
+        />
+      )}
+
+      {armorModal && (
+        <ArmorModal character={character} onClose={() => setArmorModal(false)} onSave={saveArmor} />
+      )}
+
+      {levelUpOpen && (
+        <LevelUpModal
+          character={character}
+          onClose={() => setLevelUpOpen(false)}
+          onError={setMutationError}
+          onRollToast={pushToast}
         />
       )}
 

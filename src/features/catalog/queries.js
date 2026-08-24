@@ -83,6 +83,12 @@ export const useCatalogList = (resource, params = {}) =>
     queryFn: () => catalogApi[resource].list({ size: 100, ...params }).then(items),
   })
 
+export const useCatalogPage = (resource, params = {}) =>
+  useQuery({
+    queryKey: ['catalog', resource, 'page', params],
+    queryFn: () => catalogApi[resource].list({ size: 20, ...params }),
+  })
+
 export const useFeatsFull = () =>
   useQuery({
     queryKey: ['catalog', 'feats', 'full'],
