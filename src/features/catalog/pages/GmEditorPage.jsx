@@ -648,11 +648,6 @@ export default function GmEditorPage() {
                       </Button>
                     )}
                   </div>
-                  <div className="ornate-rule mt-3">
-                    <span aria-hidden className="text-xs">
-                      ✦
-                    </span>
-                  </div>
                 </div>
 
                 <form onSubmit={editing ? saveFields : createSubmit} className="flex flex-col gap-5">

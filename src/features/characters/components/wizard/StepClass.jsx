@@ -1,7 +1,13 @@
 import { abilityName } from '@/lib/utils/ability.js'
+import { label, skillLabels } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
 import { useSearch } from './useSearch.js'
+
+const skillName = (s) => {
+  const n = typeof s === 'string' ? s : (s?.name ?? '')
+  return skillLabels[n] ?? label(n)
+}
 
 export default function StepClass({ stepNo, total, form, update, lookups }) {
   const classDetail = lookups.classDetail
@@ -127,12 +133,12 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
                 <div className="mb-4 flex flex-wrap gap-1.5">
                   {raceGranted.map((s) => (
                     <Tag key={`r${s.id}`} tone="good">
-                      {s.name} · раса
+                      {skillName(s)} · раса
                     </Tag>
                   ))}
                   {bgGranted.map((s) => (
                     <Tag key={`b${s.id}`} tone="good">
-                      {s.name} · предыстория
+                      {skillName(s)} · предыстория
                     </Tag>
                   ))}
                 </div>
@@ -151,7 +157,7 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
                     {pool.map((s) => (
                       <SkillToggle
                         key={s.id}
-                        name={s.name}
+                        name={skillName(s)}
                         sub={abilityName(s.ability)}
                         on={chosen.includes(Number(s.id))}
                         disabled={!chosen.includes(Number(s.id)) && chosen.length >= choiceCount}

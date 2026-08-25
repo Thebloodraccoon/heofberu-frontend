@@ -121,14 +121,14 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
         </ul>
       </Section>
 
-      <Section title="Таблица" noBorder>
+      <Section title="Развитие по уровням" noBorder>
         <div className="overflow-x-auto rounded-lg bg-stone-900/40">
           <table className="w-full min-w-max text-sm">
             <thead>
               <tr className="border-b border-stone-700/60 bg-stone-800/50 text-left text-xs uppercase tracking-wide text-stone-400">
-                <th className="px-3 py-2 font-medium">Ур.</th>
-                <th className="px-3 py-2 font-medium">БМ</th>
-                <th className="px-3 py-2 font-medium">Умения</th>
+                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">Ур.</th>
+                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">БМ</th>
+                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">Умения</th>
                 {hasSlots && (
                   <th colSpan={9} className="px-3 py-2 text-center font-medium">
                     Ячейки заклинаний
@@ -137,7 +137,6 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
               </tr>
               {hasSlots && (
                 <tr className="border-b border-stone-700/60 bg-stone-800/30 text-center text-xs text-stone-400">
-                  <th colSpan={3} className="py-1 font-normal" />
                   {SPELL_LEVELS.map((lv, i) => (
                     <th key={lv} className="px-1 py-1 font-normal">
                       {i + 1}
@@ -149,20 +148,21 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.level} className="border-b border-stone-700/40 align-top odd:bg-stone-900/40">
-                  <td className="px-3 py-2 font-medium text-stone-100">{row.level}</td>
-                  <td className="px-3 py-2 text-stone-200">+{row.proficiencyBonus}</td>
-                  <td className="px-3 py-2 text-stone-300">
+                  <td className="px-3 py-2 align-top font-medium text-stone-100">{row.level}</td>
+                  <td className="px-3 py-2 align-top text-stone-200">+{row.proficiencyBonus}</td>
+                  <td className="px-3 py-2 align-top text-stone-300">
                     {row.features.length > 0 ? (
-                      row.features.map((f, i) => (
-                        <span key={f.id ?? `x-${i}`}>
-                          {i > 0 && ', '}
-                          <span className={f.fromSubclass ? 'rounded bg-ember/10 px-0.5' : ''}>
-                            <span className={f.fromSubclass ? 'font-medium text-ember' : ''}>
-                              {f.name}
+                      <span className="flex flex-col gap-0.5">
+                        {row.features.map((f, i) => (
+                          <span key={f.id ?? `x-${i}`}>
+                            <span className={f.fromSubclass ? 'rounded bg-ember/10 px-0.5' : ''}>
+                              <span className={f.fromSubclass ? 'font-medium text-ember' : ''}>
+                                {f.name}
+                              </span>
                             </span>
                           </span>
-                        </span>
-                      ))
+                        ))}
+                      </span>
                     ) : '—'}
                   </td>
                   {hasSlots &&
@@ -208,7 +208,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             />
           </div>
           <div>
-            <dt className="inline font-medium text-stone-200">Владение бронёй: </dt>
+            <dt className="inline font-medium text-stone-200">Владение доспехами: </dt>
             <dd className="inline">
               {(cls.armor_proficiencies ?? []).length === 0
                 ? '—'

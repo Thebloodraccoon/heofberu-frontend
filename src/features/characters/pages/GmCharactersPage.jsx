@@ -158,11 +158,6 @@ export default function GmCharactersPage() {
                     Игрок {playerNameOf(selectedCharacter.owner_id)} · уровень {selectedCharacter.level} · хиты{' '}
                     {selectedCharacter.current_hp}/{selectedCharacter.max_hp}
                   </p>
-                  <div className="ornate-rule mt-3">
-                    <span aria-hidden className="text-xs">
-                      ✦
-                    </span>
-                  </div>
                 </div>
                 {panelError && (
                   <div className="mb-3">

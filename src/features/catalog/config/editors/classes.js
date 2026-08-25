@@ -34,7 +34,7 @@ export const classesCfg = {
   sections: [
     { type: 'pills', key: 'primary_abilities', label: 'Основные характеристики', options: opt(abilityLabels), empty: 'Не выбрано' },
     { type: 'pills', key: 'saving_throws', label: 'Спасброски', options: opt(abilityLabels), empty: 'Не выбрано' },
-    { type: 'pills', key: 'armor_proficiencies', label: 'Владение бронёй', options: opt(armorProficiencyLabels), empty: 'Не выбрано' },
+    { type: 'pills', key: 'armor_proficiencies', label: 'Владение доспехами', options: opt(armorProficiencyLabels), empty: 'Не выбрано' },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Доступные навыки', empty: 'Навыков в справочнике нет' },
     {
       type: 'spellcasting',

@@ -76,7 +76,7 @@ export const catalog = {
   items: {
     label: 'Предметы',
     icon: 'Пр',
-    desc: 'Оружие, броня и артефакты',
+    desc: 'Оружие, доспехи и артефакты',
     api: api.items,
     filters: [
       { name: 'item_type', label: 'Тип предмета', options: enumOptions(itemTypeLabels) },

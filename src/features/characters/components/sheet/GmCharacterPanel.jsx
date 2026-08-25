@@ -18,7 +18,7 @@ import { queryKeys } from '@/lib/api/queryKeys.js'
 import { ASI_LEVELS, STATS, bonusMap } from '@/lib/utils/ability.js'
 import { Button, Badge, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Spinner, TextArea } from '@/components/ui'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
-import { label } from '@/lib/i18n/index.js'
+import { label, skillLabels } from '@/lib/i18n/index.js'
 
 function Section({ title, children }) {
   return (
@@ -444,6 +444,11 @@ function abilityLabel(ability) {
   return STATS.find((s) => s.code === code)?.label ?? code
 }
 
+function skillName(skill) {
+  const n = typeof skill === 'string' ? skill : (skill?.name ?? '')
+  return skillLabels[n] ?? label(n)
+}
+
 function ExpertiseSection({ character, onError, reload }) {
   const { data: skillsCatalog = [] } = useSkills({ size: 100 })
   const proficiencies = character.skill_proficiencies ?? []
@@ -495,7 +500,7 @@ function ExpertiseSection({ character, onError, reload }) {
                   ★
                 </span>
                 <span className={`min-w-0 flex-1 truncate ${expert ? 'font-medium text-orange-100' : 'text-stone-200'}`}>
-                  {skill?.name ?? `Навык #${p.skill_id}`}
+                  {skill ? skillName(skill) : `Навык #${p.skill_id}`}
                 </span>
                 {skill?.ability && <span className="shrink-0 text-[11px] text-stone-500">{abilityLabel(skill.ability)}</span>}
               </button>

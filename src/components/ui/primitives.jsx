@@ -269,9 +269,6 @@ export function PageHeader({ title, subtitle, actions, centered = false }) {
       <div className={centered ? 'w-full' : 'min-w-0 flex-1'}>
         <h1 className="heading-page">{title}</h1>
         {subtitle && <p className="subtitle">{subtitle}</p>}
-        <div className={`ornate-rule mt-3 ${centered ? 'mx-auto max-w-md' : ''}`}>
-          <span aria-hidden className="text-xs">✦</span>
-        </div>
       </div>
       {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
     </div>

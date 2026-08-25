@@ -71,7 +71,7 @@ export const spellRangeLabels = {
 
 export const itemTypeLabels = {
   WEAPON: 'Оружие',
-  ARMOR: 'Броня',
+  ARMOR: 'Доспехи',
   SHIELD: 'Щит',
   POTION: 'Зелье',
   SCROLL: 'Свиток',
@@ -167,9 +167,9 @@ export const sourceTypeLabels = {
 }
 
 export const armorProficiencyLabels = {
-  LIGHT: 'Лёгкая броня',
-  MEDIUM: 'Средняя броня',
-  HEAVY: 'Тяжёлая броня',
+  LIGHT: 'Лёгкие доспехи',
+  MEDIUM: 'Средние доспехи',
+  HEAVY: 'Тяжёлые доспехи',
   SHIELD: 'Щит',
 }
 
@@ -317,7 +317,7 @@ export const fieldLabels = {
   flaws_suggestions: 'Слабости',
   available_subclasses: 'Подклассы',
   available_races: 'Доступно расам',
-  armor_proficiencies: 'Владение бронёй',
+  armor_proficiencies: 'Владение доспехами',
   starting_items: 'Стартовое снаряжение',
   subraces: 'Подрасы',
   subrace_id: 'Подраса',
