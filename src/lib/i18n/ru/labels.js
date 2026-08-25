@@ -359,6 +359,13 @@ export function label(value) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+// Первая буква заглавная, остальное — как есть (для имён из БД: «уход за животными» → «Уход за животными»).
+export function sentenceCase(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  const s = String(value)
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 export function fieldLabel(key) {
   if (fieldLabels[key]) return fieldLabels[key]
   return String(key)

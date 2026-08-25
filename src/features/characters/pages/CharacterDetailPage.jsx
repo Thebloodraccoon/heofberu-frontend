@@ -12,7 +12,7 @@ import {
   useSubclassDetail,
   useSubraceDetail,
 } from '@/features/catalog/queries.js'
-import { label, skillLabels } from '@/lib/i18n/index.js'
+import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { STATS, mod } from '@/lib/utils/ability.js'
 import { ErrorBox, Spinner } from '@/components/ui'
 import {
@@ -217,7 +217,7 @@ export default function CharacterDetailPage() {
       const prof = profSet.has(Number(sk.id))
       const expertise = expertiseSet.has(Number(sk.id))
       const value = 10 + modFor(sk.ability) + (prof ? pb : 0) + (expertise ? pb : 0)
-      return { name: skillLabels[key] ?? label(sk.name), value, icon }
+      return { name: skillLabels[key] ?? sentenceCase(sk.name), value, icon }
     }
     return [build('perception', <EyeIcon />), build('insight', <FaceIcon />), build('investigation', <SearchIcon />)]
       .filter(Boolean)

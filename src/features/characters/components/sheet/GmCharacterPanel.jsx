@@ -18,7 +18,7 @@ import { queryKeys } from '@/lib/api/queryKeys.js'
 import { ASI_LEVELS, STATS, bonusMap } from '@/lib/utils/ability.js'
 import { Button, Badge, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Spinner, TextArea } from '@/components/ui'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
-import { label, skillLabels } from '@/lib/i18n/index.js'
+import { label, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 
 function Section({ title, children }) {
   return (
@@ -446,7 +446,7 @@ function abilityLabel(ability) {
 
 function skillName(skill) {
   const n = typeof skill === 'string' ? skill : (skill?.name ?? '')
-  return skillLabels[n] ?? label(n)
+  return skillLabels[n] ?? sentenceCase(n)
 }
 
 function ExpertiseSection({ character, onError, reload }) {

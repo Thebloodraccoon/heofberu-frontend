@@ -1,4 +1,4 @@
-import { fieldLabel, label, skillLabels } from '@/lib/i18n/index.js'
+import { fieldLabel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Card, StatTable } from '@/components/ui'
 import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue, SkillChips } from './detailHelpers.jsx'
 
@@ -6,7 +6,7 @@ export default function BackgroundDetailCard({ bg }) {
   const skills = bg.granted_skills ?? []
   const skillText = (s) => {
     const n = itemName(s)
-    return skillLabels[n] ?? label(n)
+    return skillLabels[n] ?? sentenceCase(n)
   }
 
   const suggestionFields = [

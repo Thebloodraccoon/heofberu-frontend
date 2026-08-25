@@ -1,4 +1,4 @@
-import { abilityLabels, label, raceSizeLabels, ruLevel, skillLabels } from '@/lib/i18n/index.js'
+import { abilityLabels, raceSizeLabels, ruLevel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Badge, Card } from '@/components/ui'
 import { Section, SkillChips, formatBonus, itemName } from './detailHelpers.jsx'
 
@@ -58,7 +58,7 @@ export default function RaceDetailCard({ race, selectedSub }) {
           <SkillChips
             names={race.granted_skills.map((s) => {
               const n = itemName(s)
-              return skillLabels[n] ?? label(n)
+              return skillLabels[n] ?? sentenceCase(n)
             })}
           />
         </p>

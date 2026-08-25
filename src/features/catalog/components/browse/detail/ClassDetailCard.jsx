@@ -1,4 +1,4 @@
-import { abilityLabels, armorProficiencyLabels, diceTypeLabels, label, ruLevel, skillLabels } from '@/lib/i18n/index.js'
+import { abilityLabels, armorProficiencyLabels, diceTypeLabels, label, ruLevel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Badge, Card } from '@/components/ui'
 import { SkillChips, itemName } from './detailHelpers.jsx'
 
@@ -177,8 +177,8 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
           </table>
         </div>
         {subFeatures.length > 0 && (
-          <p className="mt-2 text-xs text-stone-500">
-            Умения подкласса подсвечены <span className="text-ember">янтарным</span>.
+          <p className="sr-only">
+            Умения подкласса подсвечены янтарным.
           </p>
         )}
       </Section>
@@ -203,7 +203,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             <SkillChips
               names={cls.available_skills.map((s) => {
                 const n = itemName(s)
-                return skillLabels[n] ?? label(n)
+                return skillLabels[n] ?? sentenceCase(n)
               })}
             />
           </div>

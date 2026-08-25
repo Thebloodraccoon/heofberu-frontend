@@ -1,5 +1,5 @@
 import { mod } from '@/lib/utils/ability.js'
-import { label, skillLabels } from '@/lib/i18n/index.js'
+import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { CheckDot, RollButton } from '@/components/sheet/primitives.jsx'
 
 function SkillRow({ labelText, bonus, onRoll, dot }) {
@@ -50,7 +50,7 @@ export default function AbilityBlock({
 
       {(skills ?? []).map((sk) => {
         const raw = skillMap.get(Number(sk.id))?.name ?? sk.name
-        const name = skillLabels[raw] ?? label(raw)
+        const name = skillLabels[raw] ?? sentenceCase(raw)
         const bonus = skillBonus(sk)
         return (
           <SkillRow
