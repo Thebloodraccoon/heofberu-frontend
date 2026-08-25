@@ -16,6 +16,19 @@ const SPELL_LEVELS = [
 
 const DICE_MAX = { D4: 4, D6: 6, D8: 8, D10: 10, D12: 12, D20: 20, D100: 100 }
 
+// Статичное умение PHB: показывается в таблице у всех классов, но нигде не хранится.
+export const ASI_LEVELS = [4, 8, 12, 16, 19]
+const ASI_FEATURE_DESCRIPTION =
+  'При достижении 4, 8, 12, 16 и 19 уровней вы можете повысить значение одной из ваших характеристик на 2 ' +
+  'или двух характеристик на 1 или выбрать черту. Как обычно, значение характеристики при этом не должно превысить 20.'
+
+const asiFeature = (level) => ({
+  id: `asi-${level}`,
+  name: 'Улучшение характеристик',
+  description: ASI_FEATURE_DESCRIPTION,
+  isStaticAsi: true,
+})
+
 function buildRows(cls, extraFeatures) {
   const featuresByLevel = {}
   for (const feature of cls.features ?? []) {
@@ -36,10 +49,11 @@ function buildRows(cls, extraFeatures) {
   const hasSlots = (cls.spell_slot_progression ?? []).some((slot) => slot.slots > 0)
   const rows = []
   for (let level = 1; level <= 20; level += 1) {
+    const staticAsi = ASI_LEVELS.includes(level) ? [asiFeature(level)] : []
     rows.push({
       level,
       proficiencyBonus: Math.ceil(level / 4) + 1,
-      features: featuresByLevel[level] ?? [],
+      features: [...staticAsi, ...(featuresByLevel[level] ?? [])],
       slots: slotsByLevel[level] ?? {},
     })
   }
@@ -154,12 +168,19 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                     {row.features.length > 0 ? (
                       <span className="flex flex-col gap-0.5">
                         {row.features.map((f, i) => (
-                          <span key={f.id ?? `x-${i}`}>
-                            <span className={f.fromSubclass ? 'rounded bg-ember/10 px-0.5' : ''}>
-                              <span className={f.fromSubclass ? 'font-medium text-ember' : ''}>
-                                {f.name}
+                          <span
+                            key={f.id ?? `x-${i}`}
+                            title={f.isStaticAsi ? f.description : undefined}
+                          >
+                            {f.isStaticAsi ? (
+                              <span className="italic text-stone-400">{f.name}</span>
+                            ) : (
+                              <span className={f.fromSubclass ? 'rounded bg-ember/10 px-0.5' : ''}>
+                                <span className={f.fromSubclass ? 'font-medium text-ember' : ''}>
+                                  {f.name}
+                                </span>
                               </span>
-                            </span>
+                            )}
                           </span>
                         ))}
                       </span>
@@ -176,6 +197,10 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             </tbody>
           </table>
         </div>
+        <p className="mt-2 text-xs leading-relaxed text-stone-500">
+          <span className="font-medium text-stone-400">Улучшение характеристик. </span>
+          {ASI_FEATURE_DESCRIPTION}
+        </p>
         {subFeatures.length > 0 && (
           <p className="sr-only">
             Умения подкласса подсвечены янтарным.
