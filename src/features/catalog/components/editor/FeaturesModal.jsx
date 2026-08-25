@@ -5,14 +5,31 @@ function blankFeature() {
   return { name: '', description: '', level: null }
 }
 
-export default function FeatureModal({ title, subtitle, value = null, showLevel = false, levelHint, onSave, onClose }) {
+export default function FeatureModal({ title, subtitle, value = null, showLevel = false, levelRequired = false, levelHint, onSave, onClose }) {
   const [edit, setEdit] = useState(() => ({ ...blankFeature(), ...(value ?? {}) }))
+  const [levelError, setLevelError] = useState(false)
+
+  const LEVEL_MIN = 1
+  const LEVEL_MAX = 20
 
   const setField = (key) => (e) =>
     setEdit((d) => ({
       ...d,
-      [key]: key === 'level' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value,
+      [key]:
+        key === 'level'
+          ? e.target.value === ''
+            ? null
+            : Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Number(e.target.value)))
+          : e.target.value,
     }))
+
+  const save = () => {
+    if (showLevel && levelRequired && edit.level == null) {
+      setLevelError(true)
+      return
+    }
+    onSave(edit)
+  }
 
   return (
     <Modal
@@ -26,7 +43,7 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
           <Button type="button" variant="ghost" onClick={onClose}>
             Отмена
           </Button>
-          <Button type="button" onClick={() => onSave(edit)}>
+          <Button type="button" onClick={save}>
             Сохранить
           </Button>
         </>
@@ -37,18 +54,24 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
             <Input value={edit.name} onChange={setField('name')} placeholder="Например, Тёмное зрение" autoFocus />
           </Field>
           {showLevel && (
-            <Field label="Уровень получения">
+            <Field label={levelRequired ? 'Уровень получения (обязательно)' : 'Уровень получения'}>
               <Input
                 type="number"
-                min={1}
-                max={20}
+                min={LEVEL_MIN}
+                max={LEVEL_MAX}
                 value={edit.level ?? ''}
-                onChange={setField('level')}
-                placeholder="Пусто = сразу"
+                onChange={(e) => {
+                  setLevelError(false)
+                  setField('level')(e)
+                }}
+                placeholder={levelRequired ? 'Обязательно' : 'Пусто = сразу'}
               />
             </Field>
           )}
         </div>
+        {showLevel && levelRequired && levelError && (
+          <p className="mt-1 text-xs text-red-400">Укажите уровень, с которого умение доступно.</p>
+        )}
         {showLevel && levelHint && <p className="text-xs text-stone-500">{levelHint}</p>}
 
         <Field label="Описание">

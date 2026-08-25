@@ -1,6 +1,6 @@
 import { OptionCard } from './OptionCard.jsx'
 import { Hint, Search } from './StepShell.jsx'
-import { Highlight } from './useSearch.js'
+import Highlight from './Highlight.jsx'
 
 export default function PickerGrid({
   items,

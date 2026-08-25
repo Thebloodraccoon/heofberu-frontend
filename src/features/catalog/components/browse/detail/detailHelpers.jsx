@@ -10,6 +10,24 @@ import {
 } from '@/lib/i18n/index.js'
 import { Badge, Chip } from '@/components/ui'
 
+export const formatBonus = (n) => (n == null ? '' : n >= 0 ? `+${n}` : `${n}`)
+
+export function SkillChips({ names = [] }) {
+  if (names.length === 0) return null
+  return (
+    <span className="badge-row align-middle">
+      {names.map((n, i) => (
+        <span
+          key={i}
+          className="rounded bg-stone-800/80 px-1.5 py-0.5 text-sm font-semibold text-stone-100"
+        >
+          {n}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export const skipFields = new Set([
   'id',
   'name',
@@ -139,9 +157,9 @@ export function FieldValue({ value }) {
         {value.map((item, i) => {
           const text =
             item && typeof item === 'object'
-              ? (item.name ??
+              ?                 (item.name ??
                 (item.ability && (item.bonus ?? item.amount) != null
-                  ? `${abilityLabels[item.ability] ?? item.ability} +${item.bonus ?? item.amount}`
+                  ? `${abilityLabels[item.ability] ?? item.ability} ${formatBonus(item.bonus ?? item.amount)}`
                   : item.spell_level ??
                     item.ability ??
                     label(item)))

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { featurePayload, subclassPayload } from '@/features/catalog/config/editors/index.js'
-import { ruLevel } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
-import { Badge, Button, ConfirmDialog, ErrorBox, Field, Input, TextArea } from '@/components/ui'
+import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
+import { Button, ErrorBox, Field, Input, TextArea } from '@/components/ui'
 
 const SUBFEATURE_LEVEL_HINT =
-  'Уровень, с которого умение доступно. Оставьте пустым — доступно сразу.'
+  'Уровень, с которого умение доступно. Обязательно для заполнения.'
 
 function blankSubclass() {
   return {
@@ -19,7 +19,6 @@ function blankSubclass() {
 export default function SubclassEditor({ classId, detail, features, busy = false, error = null, onRefresh }) {
   const [draft, setDraft] = useState(() => ({ ...blankSubclass(), ...(detail ?? {}) }))
   const [featureModal, setFeatureModal] = useState(null)
-  const [confirmFeature, setConfirmFeature] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [saved, setSaved] = useState(false)
@@ -101,53 +100,21 @@ export default function SubclassEditor({ classId, detail, features, busy = false
           </div>
 
           <div className="border-t border-stone-700/70 pt-3">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Умения подкласса</p>
-              <button
-                type="button"
-                onClick={() => setFeatureModal({ index: null })}
-                className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-              >
-                + Добавить умение
-              </button>
-            </div>
-            {features.length === 0 ? (
-              <p className="text-sm text-stone-500">Умений нет</p>
-            ) : (
-              <div className="space-y-2">
-                {features.map((f, i) => (
-                  <div key={f.id ?? i} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium text-stone-100">{f.name || 'Без названия'}</p>
-                          {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-                        </div>
-                        {f.description && (
-                          <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-stone-400">{f.description}</p>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setFeatureModal({ index: i })}
-                          className="mt-[5px] rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
-                        >
-                          Изменить
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmFeature(f)}
-                          className="my-[5px] rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
-                        >
-                          Удалить
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <FeaturesEditorBlock
+              block={{
+                label: 'Умения подкласса',
+                addLabel: '+ Добавить умение',
+                empty: 'Умений нет',
+                noun: 'умение',
+              }}
+              items={features}
+              error={error}
+              showLevel
+              onAdd={() => setFeatureModal({ index: null })}
+              onEdit={(i) => setFeatureModal({ index: i })}
+              onRemove={removeFeature}
+              onRetry={onRefresh}
+            />
           </div>
         </div>
       )}
@@ -164,30 +131,13 @@ export default function SubclassEditor({ classId, detail, features, busy = false
             subtitle={detail.name}
             value={row}
             showLevel
+            levelRequired
             levelHint={SUBFEATURE_LEVEL_HINT}
             onSave={saveFeature}
             onClose={() => setFeatureModal(null)}
           />
         )
       })()}
-
-      {confirmFeature && (
-        <ConfirmDialog
-          title="Удалить умение?"
-          message={
-            <>
-              Вы точно хотите удалить{' '}
-              <span className="font-semibold text-stone-100">«{confirmFeature.name}»</span>? Это
-              действие необратимо.
-            </>
-          }
-          onCancel={() => setConfirmFeature(null)}
-          onConfirm={() => {
-            setConfirmFeature(null)
-            removeFeature(confirmFeature)
-          }}
-        />
-      )}
     </div>
   )
 }

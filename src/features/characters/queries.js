@@ -2,12 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 
-export const useCharacters = () =>
-  useQuery({
-    queryKey: queryKeys.characters.all,
-    queryFn: () => charactersApi.list({ size: 100 }).then((p) => p?.items ?? []),
-  })
-
 export const useCharacter = (id) =>
   useQuery({
     queryKey: queryKeys.characters.detail(Number(id)),
@@ -15,10 +9,22 @@ export const useCharacter = (id) =>
     enabled: !!id,
   })
 
+export const useMyCharacters = () =>
+  useQuery({
+    queryKey: queryKeys.characters.mine,
+    queryFn: () => charactersApi.listMine({ size: 100 }).then((p) => p?.items ?? []),
+  })
+
+export const useAllCharacters = () =>
+  useQuery({
+    queryKey: queryKeys.characters.allCharacters,
+    queryFn: () => charactersApi.listAll({ size: 100 }).then((p) => p?.items ?? []),
+  })
+
 export const useCharacterCount = (enabled = true) =>
   useQuery({
     queryKey: ['characters', 'count'],
-    queryFn: () => charactersApi.list({ size: 1 }).then((p) => p?.total ?? p?.items?.length ?? 0),
+    queryFn: () => charactersApi.listMine({ size: 1 }).then((p) => p?.total ?? p?.items?.length ?? 0),
     enabled,
   })
 

@@ -9,7 +9,7 @@ import {
   Spinner,
 } from '@/components/ui'
 import GmCharacterPanel from '@/features/characters/components/sheet/GmCharacterPanel.jsx'
-import { useCharacters } from '@/features/characters/queries.js'
+import { useAllCharacters } from '@/features/characters/queries.js'
 import { useClasses } from '@/features/catalog/queries.js'
 import { useUsers } from '@/features/users/queries.js'
 
@@ -71,7 +71,7 @@ function CharacterListItem({ character, playerName, className: classNameName, se
 }
 
 export default function GmCharactersPage() {
-  const { data: characters = [], isLoading, error, refetch } = useCharacters()
+  const { data: characters = [], isLoading, error, refetch } = useAllCharacters()
   const { data: users = [] } = useUsers()
   const { data: classes = [] } = useClasses({ size: 100 })
 

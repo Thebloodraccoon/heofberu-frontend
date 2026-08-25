@@ -14,6 +14,7 @@ export {
   featurePayload,
   featuresFromRecord,
   saveSpellSlots,
+  sortedByLevel,
   subclassPayload,
   subracePayload,
 } from './shared.js'

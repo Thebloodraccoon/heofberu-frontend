@@ -92,7 +92,7 @@
 }
 
 .item-desc-preview {
-  @apply mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-stone-400;
+  @apply mt-0.5 line-clamp-2 break-words whitespace-pre-wrap text-sm text-stone-400;
 }
 
 /* --- Ряд с чипсами / бейджами --- */
@@ -114,11 +114,11 @@
 /* --- Описание-цитата (с полоской слева) --- */
 
 .description-blockquote {
-  @apply mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200;
+  @apply mb-6 break-words whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200;
 }
 
 .description-secondary {
-  @apply mb-6 whitespace-pre-wrap text-sm leading-relaxed text-stone-300;
+  @apply mb-6 break-words whitespace-pre-wrap text-sm leading-relaxed text-stone-300;
 }
 
 /* --- Оверлей / модалка --- */

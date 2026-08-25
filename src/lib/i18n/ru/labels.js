@@ -94,7 +94,7 @@ export const itemRarityLabels = {
   VERY_RARE: 'Очень редкий',
   LEGENDARY: 'Легендарный',
   ARTIFACT: 'Артефакт',
-  NONE: 'Обычный',
+  NONE: 'Неопределено',
 }
 
 export const raceSizeLabels = {

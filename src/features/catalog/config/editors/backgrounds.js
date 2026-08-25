@@ -14,7 +14,7 @@ export const backgroundsCfg = {
   itemsOps: api.backgrounds.items,
   itemsBlock: {
     label: 'Стартовое снаряжение',
-    addLabel: '+ Добавить',
+    addLabel: 'Изменить',
     empty: 'Снаряжения нет',
     noun: 'предмет',
   },

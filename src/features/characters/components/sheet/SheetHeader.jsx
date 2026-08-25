@@ -99,6 +99,7 @@ export default function SheetHeader({
   onOpenHp,
   onOpenAc,
   onOpenConditions,
+  onOpenMoney,
   levelUpInfo,
   onOpenLevelUp,
   onRollInitiative,
@@ -160,7 +161,7 @@ export default function SheetHeader({
                 <span className="sheet-hp__temp" title="Щит">🛡 {character.shield}</span>
               )}
               {character.temp_hp > 0 && (
-                <span className="sheet-hp__temp" title="Временные хиты">✚ {character.temp_hp}</span>
+                <span className="sheet-hp__temp" title="Временные хиты">🛡 {character.temp_hp}</span>
               )}
             </span>
           )}
@@ -177,6 +178,18 @@ export default function SheetHeader({
         </BoxedValue>
         <BoxedValue label="Скорость">{character.speed ?? '—'}</BoxedValue>
         <BoxedValue label="Владение">+{pb}</BoxedValue>
+        <BoxedValue label="Деньги" boxClassName="p-0">
+          <button
+            type="button"
+            className="h-full w-full rounded-[inherit] px-2 py-1 text-left text-xs text-stone-200"
+            onClick={onOpenMoney}
+            title="Изменить деньги"
+          >
+            <span className="text-yellow-300">⛁</span> {character.money_gold ?? 0}{' '}
+            <span className="text-stone-300">⛀</span> {character.money_silver ?? 0}{' '}
+            <span className="text-amber-700">⛁</span> {character.money_copper ?? 0}
+          </button>
+        </BoxedValue>
         <BoxedValue label="Вдохновение" boxClassName="p-0">
           <input
             type="checkbox"

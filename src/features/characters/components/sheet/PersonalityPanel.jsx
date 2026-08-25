@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { useUiSet } from '@/lib/uiState.js'
 
 const FIELDS = [
-  ['personality_traits', 'Черты характера', true],
-  ['ideals', 'Идеалы', true],
-  ['bonds', 'Привязанности', true],
-  ['flaws', 'Слабости', true],
-  ['backstory', 'Предыстория', false],
+  ['personality_traits', 'Черты характера'],
+  ['ideals', 'Идеалы'],
+  ['bonds', 'Привязанности'],
+  ['flaws', 'Слабости'],
 ]
+
+const FIELD_MAX = 500
 
 const PencilIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -15,7 +15,7 @@ const PencilIcon = () => (
   </svg>
 )
 
-function Field({ title, value, open, onToggle, onSave }) {
+function Field({ title, value, onSave }) {
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
 
@@ -31,69 +31,48 @@ function Field({ title, value, open, onToggle, onSave }) {
 
   return (
     <div className="rounded-lg border border-stone-700/60 bg-stone-900/60">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-2 px-4 py-2.5 text-left"
-      >
-        <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">{title}</span>
+      <div className="flex items-center justify-between gap-2 px-4 pt-2.5">
+        <span className="text-sm font-medium text-stone-100">{title}</span>
         {!edit && (
           <button
             type="button"
             className="rounded p-1 text-stone-400 transition hover:text-ember"
             title="Изменить"
-            onClick={(e) => {
-              e.stopPropagation()
-              if (!open) onToggle()
-              startEdit()
-            }}
+            onClick={startEdit}
           >
             <PencilIcon />
           </button>
         )}
-      </button>
-      {open && (
-        <div className="border-t border-stone-800 px-4 py-3">
-        {edit ? (
-          <>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={4}
-              className="w-full resize-y rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember"
-            />
-            <div className="mt-2 flex items-center gap-2">
-              <button type="button" className="sheet-btn sheet-btn_primary" onClick={save}>Сохранить</button>
-              <button type="button" className="sheet-btn" onClick={() => setEdit(false)}>Отмена</button>
-            </div>
-          </>
-        ) : (
-          <p className="whitespace-pre-wrap text-sm text-stone-300">{value || '—'}</p>
-        )}
+      </div>
+      {edit ? (
+        <div className="px-4 py-2.5">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value.slice(0, FIELD_MAX))}
+            rows={3}
+            maxLength={FIELD_MAX}
+            className="w-full resize-y rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember"
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <button type="button" className="sheet-btn sheet-btn_primary" onClick={save}>Сохранить</button>
+            <button type="button" className="sheet-btn" onClick={() => setEdit(false)}>Отмена</button>
+            <span className="ml-auto text-xs text-stone-500">
+              {draft.length}/{FIELD_MAX}
+            </span>
+          </div>
         </div>
+      ) : (
+        <p className="whitespace-pre-wrap px-4 pb-3 text-sm text-stone-300">{value || '—'}</p>
       )}
     </div>
   )
 }
 
 export default function PersonalityPanel({ character, onSave }) {
-  const [openKeys, toggleKey] = useUiSet(
-    `personality:${character.id}`,
-    FIELDS.filter(([, , open]) => open).map(([field]) => field),
-  )
-
   return (
     <div className="space-y-2">
       {FIELDS.map(([field, title]) => (
-        <Field
-          key={field}
-          title={title}
-          value={character[field]}
-          open={openKeys.includes(field)}
-          onToggle={() => toggleKey(field)}
-          onSave={onSave(field)}
-        />
+        <Field key={field} title={title} value={character[field]} onSave={onSave(field)} />
       ))}
     </div>
   )

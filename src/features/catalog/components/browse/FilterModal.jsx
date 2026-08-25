@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { Modal, PillToggle } from '@/components/ui'
 
 export default function FilterModal({ filters, value, onChange, onClose }) {
+  const [draft, setDraft] = useState(value)
+
   const toggle = (name, v) => {
-    const cur = value[name] ?? []
-    const next = { ...value }
+    const cur = draft[name] ?? []
+    const next = { ...draft }
     if (cur.includes(v)) {
       const rest = cur.filter((x) => x !== v)
       if (rest.length === 0) delete next[name]
@@ -11,11 +14,17 @@ export default function FilterModal({ filters, value, onChange, onClose }) {
     } else {
       next[name] = [...cur, v]
     }
-    onChange(next)
+    setDraft(next)
+  }
+
+  // Фильтры применяются только при закрытии модального окна.
+  const applyAndClose = () => {
+    onChange(draft)
+    onClose()
   }
 
   return (
-    <Modal title="Фильтр" onClose={onClose} size="md" align="top">
+    <Modal title="Фильтр" onClose={applyAndClose} size="md" align="top">
       <div className="max-h-[60vh] space-y-5 overflow-y-auto pr-1">
         {filters.length === 0 && <p className="text-sm text-stone-500">Фильтров нет</p>}
         {filters.map((f) => (
@@ -25,18 +34,18 @@ export default function FilterModal({ filters, value, onChange, onClose }) {
             </h3>
             <PillToggle
               options={f.options}
-              selected={value[f.name] ?? []}
+              selected={draft[f.name] ?? []}
               onToggle={(v) => toggle(f.name, v)}
               className="max-h-52 border-0 bg-transparent p-0"
             />
           </section>
         ))}
       </div>
-      {Object.keys(value).length > 0 && (
+      {Object.keys(draft).length > 0 && (
         <button
           type="button"
           className="mt-4 w-full rounded border border-stone-700 py-1.5 text-xs text-stone-400 transition hover:bg-stone-800"
-          onClick={() => onChange({})}
+          onClick={() => setDraft({})}
         >
           Сбросить все фильтры
         </button>

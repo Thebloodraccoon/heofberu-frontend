@@ -5,7 +5,7 @@ function SkillRow({ labelText, bonus, onRoll, dot }) {
   return (
     <div className="sheet-skill">
       <span className="sheet-skill__label">
-        {dot != null && <CheckDot checked={dot.checked} onChange={dot.onChange} />}
+        {dot != null && <CheckDot checked={dot.checked} expertise={dot.expertise} />}
         <span>{labelText}</span>
       </span>
       <RollButton bonus={bonus} onClick={onRoll} compact title={`Бросок: ${labelText}`} />
@@ -13,7 +13,18 @@ function SkillRow({ labelText, bonus, onRoll, dot }) {
   )
 }
 
-export default function AbilityBlock({ stat, total, saveBonus, saveProf, skills, skillMap, skillBonus, onRoll }) {
+export default function AbilityBlock({
+  stat,
+  total,
+  saveBonus,
+  saveProf,
+  skills,
+  skillMap,
+  skillBonus,
+  skillChecked,
+  skillExpertise,
+  onRoll,
+}) {
   const m = mod(total)
   return (
     <div className="sheet-ability">
@@ -25,25 +36,30 @@ export default function AbilityBlock({ stat, total, saveBonus, saveProf, skills,
       </div>
 
       <SkillRow
+        labelText="Проверка"
+        bonus={m}
+        onRoll={() => onRoll(`${stat.label}: проверка`, m)}
+      />
+      <SkillRow
         labelText="Спасбросок"
         bonus={saveBonus}
         dot={{ checked: saveProf }}
         onRoll={() => onRoll(`${stat.label}: спасбросок`, saveBonus)}
       />
-      <SkillRow
-        labelText="Проверка"
-        bonus={m}
-        onRoll={() => onRoll(`${stat.label}: проверка`, m)}
-      />
 
-      {(skills ?? []).map((sk) => (
-        <SkillRow
-          key={sk.id}
-          labelText={skillMap.get(Number(sk.id))?.name ?? sk.name}
-          bonus={skillBonus(sk)}
-          onRoll={() => onRoll(`Навык: ${skillMap.get(Number(sk.id))?.name ?? sk.name}`, skillBonus(sk))}
-        />
-      ))}
+      {(skills ?? []).map((sk) => {
+        const name = skillMap.get(Number(sk.id))?.name ?? sk.name
+        const bonus = skillBonus(sk)
+        return (
+          <SkillRow
+            key={sk.id}
+            labelText={name}
+            bonus={bonus}
+            dot={{ checked: skillChecked?.(sk) ?? false, expertise: skillExpertise?.(sk) ?? false }}
+            onRoll={() => onRoll(`Навык: ${name}`, bonus)}
+          />
+        )
+      })}
     </div>
   )
 }

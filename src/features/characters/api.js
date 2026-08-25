@@ -2,6 +2,8 @@ import request from '@/lib/api/httpClient.js'
 
 export const charactersApi = {
   list: (params) => request('/api/characters', { params }),
+  listMine: (params) => request('/api/characters/mine', { params }),
+  listAll: (params) => request('/api/characters/all', { params }),
   create: (body) => request('/api/characters', { method: 'POST', body }),
   get: (id) => request(`/api/characters/${id}`),
   update: (id, body) => request(`/api/characters/${id}`, { method: 'PATCH', body }),

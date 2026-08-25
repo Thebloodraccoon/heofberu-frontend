@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
-import { editorConfig, featurePayload, featuresFromRecord, subclassPayload, subracePayload, SPELL_LEVEL_KEYS } from '@/features/catalog/config/editors/index.js'
+import { editorConfig, featurePayload, featuresFromRecord, sortedByLevel, subclassPayload, subracePayload, SPELL_LEVEL_KEYS } from '@/features/catalog/config/editors/index.js'
 import FeatureModal from '@/features/catalog/components/editor/FeaturesModal.jsx'
 import SubclassEditor from '@/features/catalog/components/editor/SubclassEditor.jsx'
 import SubraceEditor from '@/features/catalog/components/editor/SubraceEditor.jsx'
@@ -98,8 +98,28 @@ export default function GmEditorPage() {
       const needed = pillKeys.filter((key) => key !== resource)
       if (needed.length === 0) return {}
       const apis = { skills: api.skills, classes: api.classes, races: api.races, items: api.items }
+      const loaders = {
+        subclasses: async () => {
+          const parents = await api.classes.list({ size: 100 }).then((p) => p.items ?? [])
+          const details = await Promise.all(parents.map((c) => api.classes.get(c.id).catch(() => null)))
+          return details.flatMap((d, i) =>
+            (d?.subclasses ?? []).map((s) => ({ ...s, parentName: parents[i]?.name }))
+          )
+        },
+        subraces: async () => {
+          const parents = await api.races.list({ size: 100 }).then((p) => p.items ?? [])
+          const details = await Promise.all(parents.map((rc) => api.races.get(rc.id).catch(() => null)))
+          return details.flatMap((d, i) =>
+            (d?.subraces ?? []).map((s) => ({ ...s, parentName: parents[i]?.name }))
+          )
+        },
+      }
       const arrays = await Promise.all(
-        needed.map((key) => apis[key].list({ size: 100 }).then((page) => page.items ?? []))
+        needed.map((key) =>
+          loaders[key]
+            ? loaders[key]()
+            : apis[key].list({ size: 100 }).then((page) => page.items ?? [])
+        )
       )
       const next = {}
       needed.forEach((key, i) => {
@@ -118,7 +138,7 @@ export default function GmEditorPage() {
     setSubDetail(sub.id, { loading: true, error: null })
     try {
       const detail = await api.classes.subclasses.get(classId, sub.id)
-      setSubDetail(sub.id, { detail, features: detail.features ?? [], loading: false })
+      setSubDetail(sub.id, { detail, features: sortedByLevel(detail.features), loading: false })
     } catch (e) {
       setSubDetail(sub.id, { loading: false, error: e })
     }
@@ -172,19 +192,6 @@ export default function GmEditorPage() {
     try {
       await cfg.itemsOps.set(editing.id, { items: rows })
       setItemsModalOpen(false)
-      await reloadItems()
-    } catch (e) {
-      setStartingItemsError(e)
-    }
-  }
-
-  const removeItem = async (it) => {
-    try {
-      await cfg.itemsOps.set(editing.id, {
-        items: startingItems
-          .filter((x) => x.item_id !== it.item_id)
-          .map((x) => ({ item_id: x.item_id, quantity: x.quantity })),
-      })
       await reloadItems()
     } catch (e) {
       setStartingItemsError(e)
@@ -388,13 +395,19 @@ export default function GmEditorPage() {
     })
 
   const listOptions = (() => {
-    const toOptions = (arr) => arr.map((x) => ({ value: x.id, label: x.name }))
+    const toOptions = (arr) =>
+      arr.map((x) => ({
+        value: x.id,
+        label: x.parentName ? `${x.parentName} — ${x.name}` : x.name,
+      }))
     const srcFor = (key) => (key === resource && records ? records : pills[key] ?? [])
     return {
       skills: toOptions(srcFor('skills')),
       classes: toOptions(srcFor('classes')),
       races: toOptions(srcFor('races')),
       items: toOptions(srcFor('items')),
+      subclasses: toOptions(srcFor('subclasses')),
+      subraces: toOptions(srcFor('subraces')),
     }
   })()
 
@@ -801,6 +814,37 @@ export default function GmEditorPage() {
                         </div>
                       )
                     }
+                    if (section.type === 'spellcasting') {
+                      const ability = form[section.key] ?? ''
+                      return (
+                        <div key={section.key}>
+                          <div className="mb-2">
+                            <SectionTitle>{section.label}</SectionTitle>
+                          </div>
+                          <Select
+                            value={ability}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              setForm((f) => ({
+                                ...f,
+                                [section.key]: value,
+                                ...(value ? {} : { [section.slotsKey]: {} }),
+                              }))
+                            }}
+                            className="w-48"
+                          >
+                            {(section.options ?? []).map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </Select>
+                          <p className="mt-1 text-xs text-stone-500">
+                            {ability ? section.hint : section.chooseHint}
+                          </p>
+                        </div>
+                      )
+                    }
                     if (section.type === 'rows') {
                       const selCol = section.columns?.find((c) => c.type === 'select')
                       const selOptions = selCol ? selCol.options ?? listOptions[selCol.listKey] ?? [] : []
@@ -831,9 +875,12 @@ export default function GmEditorPage() {
                               Все доступные варианты использованы — каждый вариант не может повторяться.
                             </p>
                           )}
-                          <div className="flex flex-col gap-2">
+                          <div className="flex flex-wrap gap-2">
                             {form[section.key].map((row, i) => (
-                              <div key={i} className="flex items-center gap-2">
+                              <div
+                                key={i}
+                                className="flex w-[calc(50%-0.5rem)] min-w-[260px] items-center gap-2"
+                              >
                                 {section.columns.map((col) => {
                                   const control = (() => {
                                     if (col.type === 'select') {
@@ -961,6 +1008,7 @@ export default function GmEditorPage() {
                     items={features}
                     loading={featuresLoading}
                     error={featuresError}
+                    showLevel={cfg.featuresModal.showLevel}
                     onAdd={() => openFeatureModal(null, null)}
                     onEdit={(i) => openFeatureModal(null, i)}
                     onRemove={removeFeature}
@@ -975,7 +1023,6 @@ export default function GmEditorPage() {
                     loading={startingItemsLoading}
                     error={startingItemsError}
                     onAdd={() => setItemsModalOpen(true)}
-                    onRemove={removeItem}
                     onRetry={reloadItems}
                   />
                 )}
@@ -1230,6 +1277,7 @@ export default function GmEditorPage() {
             subtitle={editing?.name}
             value={row}
             showLevel={cfg.featuresModal.showLevel}
+            levelRequired={cfg.featuresModal.levelRequired}
             levelHint={cfg.featuresModal.levelHint}
             onSave={saveFeature}
             onClose={() => setFeatureModal(null)}

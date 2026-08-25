@@ -19,7 +19,7 @@ const boolOptions = [
   { value: 'false', label: 'Нет' },
 ]
 
-export const PAGE_SIZE = 20
+export const PAGE_SIZE = 50
 
 export const catalog = {
   races: {

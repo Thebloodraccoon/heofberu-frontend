@@ -5,7 +5,7 @@ import { queryKeys } from '@/lib/api/queryKeys.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { ASI_LEVELS, mod, rollDie } from '@/lib/utils/ability.js'
 import { Button, Modal } from '@/components/ui'
-import { useClassDetail, useFeatsFull } from '@/features/catalog/queries.js'
+import { useClassDetail } from '@/features/catalog/queries.js'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
 import { OptionCard } from '@/features/characters/components/wizard/OptionCard.jsx'
 
@@ -14,7 +14,6 @@ const asNum = (v) => Number(v) || 0
 export default function LevelUpModal({ character, onClose, onError, onRollToast }) {
   const queryClient = useQueryClient()
   const { data: classDetail } = useClassDetail(character?.class_id)
-  const featsQ = useFeatsFull()
   const [phase, setPhase] = useState('hp')
   const [hpMode, setHpMode] = useState(null)
   const [rolled, setRolled] = useState(null)
@@ -82,7 +81,6 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
   const confirmHp = async () => {
     if (hpGain() == null || busy) return
     if (ASI_LEVELS.includes(targetLevel)) {
-      await featsQ.refetch().catch(() => null)
       setPhase('asi')
     } else {
       submit(null)
@@ -172,8 +170,6 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
             wisdom: character?.ability_scores?.wisdom_total ?? 10,
             charisma: character?.ability_scores?.charisma_total ?? 10,
           }}
-          feats={featsQ.data ?? []}
-          featsLoading={featsQ.isFetching}
           onCancel={() => setPhase('hp')}
           onConfirm={(choice) => submit(choice)}
         />

@@ -56,7 +56,7 @@ export function CatalogListPage() {
 
   const selectedId = id ? Number(id) : null
 
-  // Поиск и фильтры применяются только по кнопке «Найти» / выбору фильтра.
+  // Поиск применяется по кнопке «Найти», фильтры — при закрытии модального окна.
   const [queryInput, setQueryInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState({})
@@ -108,7 +108,6 @@ export function CatalogListPage() {
 
   const applyFilters = (next) => {
     setFilters(next)
-    setShowFilters(false)
     setPage(1)
   }
 
@@ -118,8 +117,8 @@ export function CatalogListPage() {
     enabled: !!selectedId,
   })
 
-  const activeCount = Object.keys(filters).length + (appliedSearch.trim() ? 1 : 0)
-  const hasQuery = Boolean(appliedSearch.trim()) || Object.keys(filters).length > 0
+  const hasActiveFilters = Object.keys(filters).length > 0
+  const hasQuery = Boolean(appliedSearch.trim()) || hasActiveFilters
 
   return (
     <div>
@@ -146,9 +145,13 @@ export function CatalogListPage() {
               <button
                 type="button"
                 onClick={() => setShowFilters(true)}
-                className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-4 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
+                className={`shrink-0 rounded border px-4 py-2.5 text-sm font-medium transition ${
+                  hasActiveFilters
+                    ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
+                    : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
+                }`}
               >
-                Фильтр{activeCount > 0 ? ` (${activeCount})` : ''}
+                Фильтр
               </button>
             </div>
           </div>
@@ -220,7 +223,7 @@ export function CatalogListPage() {
                           </p>
                         </div>
                         {it.description && (
-                          <p className="mt-1.5 line-clamp-2 whitespace-pre-wrap text-xs text-stone-400">{it.description}</p>
+                          <p className="mt-1.5 line-clamp-2 break-words whitespace-pre-wrap text-xs text-stone-400">{it.description}</p>
                         )}
                         {summaryBadges(it).length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">

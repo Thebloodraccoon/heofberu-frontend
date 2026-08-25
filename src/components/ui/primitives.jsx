@@ -51,11 +51,35 @@ export function Input(props) {
   )
 }
 
-export function TextArea(props) {
+export function TextArea({ value, onChange, rows, ...props }) {
+  const ref = useRef(null)
+
+  // Высота подстраивается под содержимое сразу (и при вводе), тянуть не нужно.
+  const resize = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = ''
+    const minHeight = el.offsetHeight
+    el.style.height = 'auto'
+    el.style.height = `${Math.max(el.scrollHeight, minHeight)}px`
+  }
+
+  useEffect(() => {
+    resize()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
   return (
     <textarea
-      {...props}
+      ref={ref}
+      rows={rows}
+      value={value}
+      onChange={(e) => {
+        resize()
+        onChange?.(e)
+      }}
       className="input-base"
+      {...props}
     />
   )
 }
@@ -304,7 +328,7 @@ export function Modal({
   tone = 'default',
   className = '',
 }) {
-  const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', '2xl': 'max-w-2xl' }
+  const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', '2xl': 'max-w-2xl', '4xl': 'max-w-4xl' }
   const maxW = sizes[size] ?? sizes.md
   const overlay =
     align === 'top'

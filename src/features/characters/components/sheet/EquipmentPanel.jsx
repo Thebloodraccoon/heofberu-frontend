@@ -1,12 +1,8 @@
-import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { charactersApi as api } from '@/features/characters/api.js'
 import { useCharacterItems } from '@/features/characters/queries.js'
 import { useItemDetail, useItems } from '@/features/catalog/queries.js'
-import { queryKeys } from '@/lib/api/queryKeys.js'
 import { useUiSet } from '@/lib/uiState.js'
 import { diceTypeLabels, label } from '@/lib/i18n/index.js'
-import { Button, EmptyState, Input } from '@/components/ui'
+import { EmptyState } from '@/components/ui'
 
 function ItemFacts({ detail }) {
   const damage =
@@ -78,7 +74,7 @@ function ItemRow({ ci, catalogName, open, onToggle }) {
           {detail && <ItemFacts detail={detail} />}
           {description ? (
             <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-3 leading-relaxed text-stone-200">
-              {description.length > 600 ? `${description.slice(0, 600)}…` : description}
+              {description}
             </p>
           ) : (
             !detail && <p className="text-stone-500">Загрузка...</p>
@@ -90,37 +86,11 @@ function ItemRow({ ci, catalogName, open, onToggle }) {
   )
 }
 
-export default function EquipmentPanel({ character, onError }) {
-  const queryClient = useQueryClient()
+export default function EquipmentPanel({ character }) {
   const { data: items = [] } = useCharacterItems(character.id)
   const { data: catalog = [] } = useItems({ size: 100 })
   const [openIds, toggleId] = useUiSet(`equipment:${character.id}`)
   const nameOf = (idv) => catalog.find((x) => Number(x.id) === Number(idv))?.name
-  const [editMoney, setEditMoney] = useState(false)
-  const [money, setMoney] = useState({ gold: '', silver: '', copper: '' })
-
-  const startMoneyEdit = () => {
-    setMoney({
-      gold: String(character.money_gold ?? 0),
-      silver: String(character.money_silver ?? 0),
-      copper: String(character.money_copper ?? 0),
-    })
-    setEditMoney(true)
-  }
-
-  const saveMoney = async () => {
-    try {
-      await api.update(character.id, {
-        money_gold: Math.max(0, Number(money.gold) || 0),
-        money_silver: Math.max(0, Number(money.silver) || 0),
-        money_copper: Math.max(0, Number(money.copper) || 0),
-      })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
-      setEditMoney(false)
-    } catch (e) {
-      onError(e)
-    }
-  }
 
   return (
     <div className="space-y-4">
@@ -139,50 +109,6 @@ export default function EquipmentPanel({ character, onError }) {
           ))}
         </ul>
       )}
-
-      <div className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-        <div className="flex items-center justify-between">
-          <p className="sheet-section-label !mt-0">Деньги</p>
-          {!editMoney && (
-            <button
-              type="button"
-              className="rounded p-1.5 text-stone-400 transition hover:bg-stone-800 hover:text-ember"
-              title="Изменить деньги"
-              onClick={startMoneyEdit}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-              </svg>
-            </button>
-          )}
-        </div>
-        {editMoney ? (
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="text-xs text-stone-500">
-              зм
-              <Input type="number" min="0" className="!w-20" value={money.gold} onChange={(e) => setMoney({ ...money, gold: e.target.value })} />
-            </label>
-            <label className="text-xs text-stone-500">
-              см
-              <Input type="number" min="0" className="!w-20" value={money.silver} onChange={(e) => setMoney({ ...money, silver: e.target.value })} />
-            </label>
-            <label className="text-xs text-stone-500">
-              мм
-              <Input type="number" min="0" className="!w-20" value={money.copper} onChange={(e) => setMoney({ ...money, copper: e.target.value })} />
-            </label>
-            <div className="flex gap-2">
-              <Button onClick={saveMoney}>Сохранить</Button>
-              <Button variant="ghost" onClick={() => setEditMoney(false)}>Отмена</Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-5 text-sm">
-            <span className="text-stone-200"><span className="text-yellow-300">⛁</span> {character.money_gold ?? 0} зм</span>
-            <span className="text-stone-200"><span className="text-stone-300">⛀</span> {character.money_silver ?? 0} см</span>
-            <span className="text-stone-200"><span className="text-amber-700">⛁</span> {character.money_copper ?? 0} мм</span>
-          </div>
-        )}
-      </div>
     </div>
   )
 }

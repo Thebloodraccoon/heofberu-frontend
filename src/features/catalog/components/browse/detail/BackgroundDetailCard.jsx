@@ -1,6 +1,6 @@
 import { fieldLabel, label, skillLabels } from '@/lib/i18n/index.js'
 import { Card, StatTable } from '@/components/ui'
-import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue } from './detailHelpers.jsx'
+import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue, SkillChips } from './detailHelpers.jsx'
 
 export default function BackgroundDetailCard({ bg }) {
   const skills = bg.granted_skills ?? []
@@ -42,9 +42,9 @@ export default function BackgroundDetailCard({ bg }) {
       )}
 
       {skills.length > 0 && (
-        <p className="mt-4 text-sm leading-relaxed">
+        <p className="mt-4 flex flex-wrap items-center gap-2 text-sm leading-relaxed">
           <span className="font-semibold text-stone-100">Владение навыками: </span>
-          <span className="font-semibold text-stone-100">{skills.map((s) => skillText(s)).join(' ')}</span>
+          <SkillChips names={skills.map(skillText)} />
         </p>
       )}
 

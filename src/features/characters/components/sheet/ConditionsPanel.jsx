@@ -6,6 +6,8 @@ import { conditionLabels, label } from '@/lib/i18n/index.js'
 import { Button, EmptyState, Field, Input, Select } from '@/components/ui'
 import { CONDITIONS } from './constants.js'
 
+const SOURCE_MAX = 50
+
 export default function ConditionsPanel({ character, onError }) {
   const queryClient = useQueryClient()
   const [formOpen, setFormOpen] = useState(false)
@@ -110,7 +112,12 @@ export default function ConditionsPanel({ character, onError }) {
               </Field>
             )}
             <Field label="Источник (необязательно)">
-              <Input value={source} onChange={(e) => setSource(e.target.value)} placeholder="Например: заклинание" />
+              <Input
+                value={source}
+                onChange={(e) => setSource(e.target.value.slice(0, SOURCE_MAX))}
+                placeholder="Например: заклинание"
+                maxLength={SOURCE_MAX}
+              />
             </Field>
             <div className="flex items-end gap-2 sm:col-span-2">
               <Button onClick={add} disabled={!condition}>Добавить</Button>
