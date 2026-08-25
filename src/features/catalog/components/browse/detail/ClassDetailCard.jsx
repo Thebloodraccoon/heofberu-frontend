@@ -153,8 +153,8 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
           <table className="w-full min-w-max text-sm">
             <thead>
               <tr className="border-b border-stone-700/60 bg-stone-800/50 text-left text-xs uppercase tracking-wide text-stone-400">
-                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">Ур.</th>
-                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">БМ</th>
+                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 text-center align-middle font-medium">Ур.</th>
+                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 text-center align-middle font-medium">БМ</th>
                 <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">Умения</th>
                 {hasCantrips && (
                   <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle text-center font-medium">
@@ -180,8 +180,8 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.level} className="border-b border-stone-700/40 align-top odd:bg-stone-900/40">
-                  <td className="px-3 py-2 align-top font-medium text-stone-100">{row.level}</td>
-                  <td className="px-3 py-2 align-top text-stone-200">+{row.proficiencyBonus}</td>
+                  <td className="px-3 py-2 text-center align-top font-medium text-stone-100">{row.level}</td>
+                  <td className="px-3 py-2 text-center align-top text-stone-200">+{row.proficiencyBonus}</td>
                   <td className="px-3 py-2 align-top text-stone-300">
                     {row.features.length > 0 ? (
                       <span className="flex flex-col gap-0.5">
