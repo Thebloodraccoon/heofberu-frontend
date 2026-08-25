@@ -149,7 +149,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
       </Section>
 
       <Section title="Развитие по уровням" noBorder>
-        <div className="overflow-x-auto rounded-lg bg-stone-900/40">
+        <div className="overflow-x-auto rounded-lg border-x border-stone-500/60 bg-stone-900/40 px-2">
           <table className="w-full min-w-max text-sm">
             <thead>
               <tr className="border-b border-stone-700/60 bg-stone-800/50 text-left text-xs uppercase tracking-wide text-stone-400">
@@ -245,10 +245,12 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
               <dd className="inline text-stone-300">{`выберите ${cls.skill_choice_count}:`}</dd>
             )}
             <SkillChips
-              names={cls.available_skills.map((s) => {
-                const n = itemName(s)
-                return skillLabels[n] ?? sentenceCase(n)
-              })}
+              names={cls.available_skills
+                .map((s) => {
+                  const n = itemName(s)
+                  return skillLabels[n] ?? sentenceCase(n)
+                })
+                .sort((a, b) => a.localeCompare(b, 'ru'))}
             />
           </div>
           <div>

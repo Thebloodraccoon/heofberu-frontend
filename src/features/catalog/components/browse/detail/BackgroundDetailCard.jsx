@@ -44,7 +44,11 @@ export default function BackgroundDetailCard({ bg }) {
       {skills.length > 0 && (
         <p className="mt-4 flex flex-wrap items-center gap-2 text-sm leading-relaxed">
           <span className="font-semibold text-stone-100">Владение навыками: </span>
-          <SkillChips names={skills.map(skillText)} />
+          <SkillChips
+            names={skills
+              .map(skillText)
+              .sort((a, b) => a.localeCompare(b, 'ru'))}
+          />
         </p>
       )}
 

@@ -56,10 +56,12 @@ export default function RaceDetailCard({ race, selectedSub }) {
         <p className="mt-3 flex flex-wrap items-center gap-2 text-sm leading-relaxed">
           <span className="font-semibold text-stone-100">Навыки расы: </span>
           <SkillChips
-            names={race.granted_skills.map((s) => {
-              const n = itemName(s)
-              return skillLabels[n] ?? sentenceCase(n)
-            })}
+            names={race.granted_skills
+              .map((s) => {
+                const n = itemName(s)
+                return skillLabels[n] ?? sentenceCase(n)
+              })
+              .sort((a, b) => a.localeCompare(b, 'ru'))}
           />
         </p>
       )}

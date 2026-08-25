@@ -476,7 +476,9 @@ function ExpertiseSection({ character, onError, reload }) {
         Нажмите на навык с ★, чтобы снять экспертизу; обычный навык — чтобы дать её. Бонус мастерства удваивается.
       </p>
       <ul className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
-        {proficiencies.map((p) => {
+        {[...proficiencies]
+          .sort((a, b) => skillName(skillById.get(Number(a.skill_id))).localeCompare(skillName(skillById.get(Number(b.skill_id))), 'ru'))
+          .map((p) => {
           const skill = skillById.get(Number(p.skill_id))
           const expert = Boolean(p.is_expertise)
           return (

@@ -204,7 +204,13 @@ export default function CharacterDetailPage() {
       const code = sk.ability && groups[sk.ability] ? sk.ability : 'other'
       groups[code].push(sk)
     }
-    for (const code of Object.keys(groups)) groups[code].sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    const displayName = (sk) => {
+      const raw = sk.name ?? ''
+      return skillLabels[raw] ?? sentenceCase(raw)
+    }
+    for (const code of Object.keys(groups)) {
+      groups[code].sort((a, b) => displayName(a).localeCompare(displayName(b), 'ru'))
+    }
     return groups
   }, [skillsCatalog])
 

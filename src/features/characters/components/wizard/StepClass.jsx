@@ -131,16 +131,20 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
             <>
               {(raceGranted.length > 0 || bgGranted.length > 0) && (
                 <div className="mb-4 flex flex-wrap gap-1.5">
-                  {raceGranted.map((s) => (
-                    <Tag key={`r${s.id}`} tone="good">
-                      {skillName(s)} · раса
-                    </Tag>
-                  ))}
-                  {bgGranted.map((s) => (
-                    <Tag key={`b${s.id}`} tone="good">
-                      {skillName(s)} · предыстория
-                    </Tag>
-                  ))}
+                  {[...raceGranted]
+                    .sort((a, b) => skillName(a).localeCompare(skillName(b), 'ru'))
+                    .map((s) => (
+                      <Tag key={`r${s.id}`} tone="good">
+                        {skillName(s)} · раса
+                      </Tag>
+                    ))}
+                  {[...bgGranted]
+                    .sort((a, b) => skillName(a).localeCompare(skillName(b), 'ru'))
+                    .map((s) => (
+                      <Tag key={`b${s.id}`} tone="good">
+                        {skillName(s)} · предыстория
+                      </Tag>
+                    ))}
                 </div>
               )}
               {choiceCount === 0 ? (
@@ -154,16 +158,18 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
                     {pool.length === 0 && <Hint>Все доступные навыки уже выданы расой и предысторией.</Hint>}
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {pool.map((s) => (
-                      <SkillToggle
-                        key={s.id}
-                        name={skillName(s)}
-                        sub={abilityName(s.ability)}
-                        on={chosen.includes(Number(s.id))}
-                        disabled={!chosen.includes(Number(s.id)) && chosen.length >= choiceCount}
-                        onClick={() => toggleChoice(Number(s.id))}
-                      />
-                    ))}
+                    {[...pool]
+                      .sort((a, b) => skillName(a).localeCompare(skillName(b), 'ru'))
+                      .map((s) => (
+                        <SkillToggle
+                          key={s.id}
+                          name={skillName(s)}
+                          sub={abilityName(s.ability)}
+                          on={chosen.includes(Number(s.id))}
+                          disabled={!chosen.includes(Number(s.id)) && chosen.length >= choiceCount}
+                          onClick={() => toggleChoice(Number(s.id))}
+                        />
+                      ))}
                   </div>
                 </>
               )}
