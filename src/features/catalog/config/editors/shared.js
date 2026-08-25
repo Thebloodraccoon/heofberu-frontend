@@ -42,13 +42,24 @@ export const featurePayload = (f) => ({
   level: f.level ?? null,
 })
 
+const byLevelThenName = (a, b) => {
+  const la = a.level ?? Number.POSITIVE_INFINITY
+  const lb = b.level ?? Number.POSITIVE_INFINITY
+  if (la !== lb) return la - lb
+  return (a.name ?? '').localeCompare(b.name ?? '', 'ru')
+}
+
+export const sortedByLevel = (list) => [...(list ?? [])].sort(byLevelThenName)
+
 export const featuresFromRecord = (r) =>
-  (Array.isArray(r) ? r : r?.features ?? []).map((f) => ({
-    id: f.id,
-    name: f.name,
-    description: f.description ?? '',
-    level: f.level ?? null,
-  }))
+  (Array.isArray(r) ? r : r?.features ?? [])
+    .map((f) => ({
+      id: f.id,
+      name: f.name,
+      description: f.description ?? '',
+      level: f.level ?? null,
+    }))
+    .sort(byLevelThenName)
 
 export const subclassFromRecord = (s) => ({
   id: s.id,

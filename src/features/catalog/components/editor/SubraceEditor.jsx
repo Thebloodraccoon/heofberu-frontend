@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { featurePayload, subracePayload } from '@/features/catalog/config/editors/index.js'
-import { abilityLabels, ruLevel } from '@/lib/i18n/index.js'
+import { abilityLabels } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
-import { Badge, Button, ConfirmDialog, ErrorBox, Field, Input, Select, TextArea } from '@/components/ui'
+import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
+import { Button, ErrorBox, Field, Input, Select, TextArea } from '@/components/ui'
 
 function blankSubrace() {
   return {
@@ -16,7 +17,6 @@ function blankSubrace() {
 export default function SubraceEditor({ raceId, detail, features, busy = false, error = null, onRefresh }) {
   const [draft, setDraft] = useState(() => ({ ...blankSubrace(), ...(detail ?? {}) }))
   const [featureModal, setFeatureModal] = useState(null)
-  const [confirmFeature, setConfirmFeature] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [saved, setSaved] = useState(false)
@@ -109,9 +109,12 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
             {draft.ability_bonuses.length === 0 ? (
               <p className="text-sm text-stone-500">Бонусов нет</p>
             ) : (
-              <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
                 {draft.ability_bonuses.map((row, i) => (
-                  <div key={i} className="flex items-center gap-2">
+                  <div
+                    key={i}
+                    className="flex w-[calc(50%-0.5rem)] min-w-[260px] items-center gap-2"
+                  >
                     <div className="w-48">
                       <Select
                         value={row.ability}
@@ -155,53 +158,20 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
           </div>
 
           <div className="border-t border-stone-700/70 pt-3">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Особенности подрасы</p>
-              <button
-                type="button"
-                onClick={() => setFeatureModal({ index: null })}
-                className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-              >
-                + Добавить особенность
-              </button>
-            </div>
-            {features.length === 0 ? (
-              <p className="text-sm text-stone-500">Особенностей нет</p>
-            ) : (
-              <div className="space-y-2">
-                {features.map((f, i) => (
-                  <div key={f.id ?? i} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium text-stone-100">{f.name || 'Без названия'}</p>
-                          {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-                        </div>
-                        {f.description && (
-                          <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-stone-400">{f.description}</p>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setFeatureModal({ index: i })}
-                          className="mt-[5px] rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
-                        >
-                          Изменить
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmFeature(f)}
-                          className="my-[5px] rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
-                        >
-                          Удалить
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <FeaturesEditorBlock
+              block={{
+                label: 'Особенности подрасы',
+                addLabel: '+ Добавить особенность',
+                empty: 'Особенностей нет',
+                noun: 'особенность',
+              }}
+              items={features}
+              error={error}
+              onAdd={() => setFeatureModal({ index: null })}
+              onEdit={(i) => setFeatureModal({ index: i })}
+              onRemove={removeFeature}
+              onRetry={onRefresh}
+            />
           </div>
         </div>
       )}
@@ -218,24 +188,6 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
           />
         )
       })()}
-
-      {confirmFeature && (
-        <ConfirmDialog
-          title="Удалить особенность?"
-          message={
-            <>
-              Вы точно хотите удалить{' '}
-              <span className="font-semibold text-stone-100">«{confirmFeature.name}»</span>? Это
-              действие необратимо.
-            </>
-          }
-          onCancel={() => setConfirmFeature(null)}
-          onConfirm={() => {
-            setConfirmFeature(null)
-            removeFeature(confirmFeature)
-          }}
-        />
-      )}
     </div>
   )
 }

@@ -9,11 +9,14 @@ import {
   useCharacterItems,
   useCharacterMaxLevel,
 } from '@/features/characters/queries.js'
-import { useFeats, useFeatsFull, useItems, useRaceDetail, useSkills, useSubraceDetail } from '@/features/catalog/queries.js'
+import { useFeats, useItems, useRaceDetail, useSkills, useSubraceDetail, useCatalogPage } from '@/features/catalog/queries.js'
+import { ITEM_FILTERS } from '@/features/catalog/components/editor/ItemPickerModal.jsx'
+import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
+import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
+import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { ASI_LEVELS, STATS, bonusMap } from '@/lib/utils/ability.js'
-import { statsToTotals } from '@/lib/utils/characterCreate.js'
-import { Button, ConfirmDialog, Field, Input, Modal, Select, TextArea } from '@/components/ui'
+import { Button, Badge, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Spinner, TextArea } from '@/components/ui'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
 import { label } from '@/lib/i18n/index.js'
 
@@ -157,10 +160,16 @@ function LevelSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: canLevelUp } = useCanLevelUp(character.id)
   const { data: maxLevelData } = useCharacterMaxLevel(character.id)
-  const featsQ = useFeatsFull()
+  // В списке персонажей ability_scores нет (лёгкие строки) — берём свежие итоги из GM-статистики.
+  const { data: gmStats } = useCharacterGmStats(character.id)
   const [asiPromptLevel, setAsiPromptLevel] = useState(null)
   const [newCeiling, setNewCeiling] = useState('')
   const [ceilingBusy, setCeilingBusy] = useState(false)
+
+  const abilityTotals = useMemo(
+    () => Object.fromEntries(STATS.map((s) => [s.code, gmStats?.[s.key]?.total ?? 10])),
+    [gmStats],
+  )
 
   const levelUp = async (choice) => {
     setAsiPromptLevel(null)
@@ -177,7 +186,6 @@ function LevelSection({ character, onError, reload }) {
   const onLevelUpClick = async () => {
     const nextLevel = (Number(character.level) || 1) + 1
     if (ASI_LEVELS.includes(nextLevel)) {
-      await featsQ.refetch().catch(() => null)
       setAsiPromptLevel(nextLevel)
     } else {
       levelUp(null)
@@ -185,9 +193,11 @@ function LevelSection({ character, onError, reload }) {
   }
 
   const raiseCeiling = async () => {
+    const next = Number(newCeiling)
+    if (!Number.isFinite(next) || next < (Number(character.level) || 1)) return
     setCeilingBusy(true)
     try {
-      await charactersApi.gmPanel.maxLevel.set(character.id, { max_level: Number(newCeiling) })
+      await charactersApi.gmPanel.maxLevel.set(character.id, { max_level: next })
       setNewCeiling('')
       await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'gm-panel', 'max-level'] })
       await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'progression', 'can-level-up'] })
@@ -201,44 +211,39 @@ function LevelSection({ character, onError, reload }) {
 
   return (
     <Section title="Уровень персонажа">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-stone-200">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-200">
         <span>
-          Текущий уровень: <b>{character.level}</b>
+          Уровень <b>{character.level}</b> · потолок <b>{maxLevelData?.max_level ?? '—'}</b>
         </span>
-        <span className="text-stone-500">·</span>
-        <span>Потолок: {maxLevelData?.max_level ?? '—'}</span>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {canLevelUp?.can_level_up ? (
+        {canLevelUp?.can_level_up && (
           <Button size="sm" onClick={onLevelUpClick}>
-            Повысить до ур. {(Number(character.level) || 1) + 1}
+            ↑ До ур. {(Number(character.level) || 1) + 1}
           </Button>
-        ) : (
-          <span className="text-xs text-stone-500">Повышение недоступно — сначала поднимите потолок.</span>
         )}
         <label className="flex items-center gap-1.5 text-xs text-stone-400">
           Новый потолок:
           <Input
             type="number"
-            min="1"
+            min={Number(character.level) || 1}
             max="20"
             className="!w-20"
             value={newCeiling}
             onChange={(e) => setNewCeiling(e.target.value)}
+            placeholder={`≥ ${character.level}`}
           />
         </label>
         <Button size="sm" variant="ghost" disabled={ceilingBusy || !newCeiling} onClick={raiseCeiling}>
-          Поднять потолок
+          Задать
         </Button>
+        {!canLevelUp?.can_level_up && (
+          <span className="text-xs text-stone-500">Повышение недоступно — сначала поднимите потолок.</span>
+        )}
       </div>
 
       {asiPromptLevel && (
         <AsiChoiceModal
           level={asiPromptLevel}
-          abilityTotals={statsToTotals(character.ability_scores)}
-          feats={featsQ.data ?? []}
-          featsLoading={featsQ.isFetching}
+          abilityTotals={abilityTotals}
           onCancel={() => setAsiPromptLevel(null)}
           onConfirm={levelUp}
         />
@@ -262,7 +267,7 @@ function StatsSection({ character, onError, reload }) {
   const { data: raceDetail } = useRaceDetail(character.race_id)
   const { data: subraceDetail } = useSubraceDetail(character.race_id, character.subrace_id)
   const { data: featsCatalog = [] } = useFeats({ size: 100 })
-  const [newAbility, setNewAbility] = useState('strength')
+  const [newAbility, setNewAbility] = useState('STR')
   const [newAmount, setNewAmount] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -322,111 +327,113 @@ function StatsSection({ character, onError, reload }) {
     <Section title="Характеристики">
       {!stats && <p className="text-sm text-stone-500">Загрузка...</p>}
       {stats && (
-        <ul className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {STATS.map((s) => {
-            const view = stats[s.key]
-            if (!view) return null
-            const { raceBonus, subraceBonus } = bonusByCode
-            const parts = []
-            if (raceBonus[s.code]) parts.push(chip(`Раса +${raceBonus[s.code]}`, 'good'))
-            if (subraceBonus[s.code]) parts.push(chip(`Подраса +${subraceBonus[s.code]}`, 'good'))
-            const known = view.base + (raceBonus[s.code] ?? 0) + (subraceBonus[s.code] ?? 0)
-            const other = view.total - known
-            if (other !== 0) parts.push(chip(`Черты и прочее ${other > 0 ? `+${other}` : other}`))
-            return (
-              <li key={s.key} className="rounded border border-stone-800 bg-stone-900/70 px-3 py-2">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-sm text-stone-300">{s.label}</span>
-                  <span className="font-mono text-sm text-stone-100">
-                    {view.base} → <b className="text-ember">{view.total}</b>
-                  </span>
-                </div>
-                {parts.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{parts}</div>}
-                {parts.length === 0 && <p className="mt-1 text-[11px] text-stone-600">Без бонусов</p>}
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
-      {/* Выборы игрока на уровнях улучшений */}
-      <p className="mb-1.5 mt-4 border-t border-stone-800 pt-3 text-xs uppercase tracking-wide text-stone-500">
-        Выборы игрока на уровнях
-      </p>
-      {asiChoices.length === 0 ? (
-        <p className="text-xs text-stone-600">Улучшений характеристик пока не было.</p>
-      ) : (
-        <ul className="mb-3 space-y-1">
-          {asiChoices.map((choice) => (
-            <li key={choice.id} className="flex items-center justify-between gap-2 rounded border border-stone-800 px-2.5 py-1.5 text-xs">
-              <span className="shrink-0 font-medium text-stone-200">Уровень {choice.class_level}</span>
-              <span className="min-w-0 flex-1 truncate text-right text-stone-400">
-                {choice.choice_type === 'ASI'
-                  ? (choice.increases ?? [])
-                      .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
-                      .join(', ') || 'улучшение характеристик'
-                  : `Черта: ${featNameById.get(Number(choice.feat_id)) ?? `#${choice.feat_id}`}`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Правки ГМа */}
-      {adjustments.length > 0 && (
-        <>
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Правки ГМа</p>
-          <ul className="mb-3 space-y-1">
-            {adjustments.map((adj) => (
-              <li key={adj.id} className="flex items-center justify-between rounded border border-red-900/40 bg-red-950/20 px-2.5 py-1.5 text-xs text-stone-300">
-                <span>
-                  {(adj.increases ?? [])
-                    .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
-                    .join(', ') || 'без изменений'}
-                </span>
-                <button
-                  type="button"
-                  className="shrink-0 text-red-300 transition hover:text-red-200"
-                  onClick={() => removeAdjustment(adj.id)}
-                  title="Откатить правку"
-                >
-                  ✕ Откатить
-                </button>
-              </li>
-            ))}
+        <div className="grid gap-5 lg:grid-cols-2">
+          {/* Левый столбик: база → итог */}
+          <ul className="space-y-2">
+            {STATS.map((s) => {
+              const view = stats[s.key]
+              if (!view) return null
+              const { raceBonus, subraceBonus } = bonusByCode
+              const parts = []
+              if (raceBonus[s.code]) parts.push(chip(`Раса +${raceBonus[s.code]}`, 'good'))
+              if (subraceBonus[s.code]) parts.push(chip(`Подраса +${subraceBonus[s.code]}`, 'good'))
+              const known = view.base + (raceBonus[s.code] ?? 0) + (subraceBonus[s.code] ?? 0)
+              const other = view.total - known
+              if (other !== 0) parts.push(chip(`Черты и прочее ${other > 0 ? `+${other}` : other}`))
+              return (
+                <li key={s.key} className="rounded border border-stone-800 bg-stone-900/70 px-3 py-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm text-stone-300">{s.label}</span>
+                    <span className="font-mono text-sm text-stone-100">
+                      {view.base} → <b className="text-ember">{view.total}</b>
+                    </span>
+                  </div>
+                  {parts.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{parts}</div>}
+                  {parts.length === 0 && <p className="mt-1 text-[11px] text-stone-600">Без бонусов</p>}
+                </li>
+              )
+            })}
           </ul>
-        </>
-      )}
 
-      {/* Добавление одной правки за раз */}
-      <div className="mt-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-        <Button size="sm" disabled={busy || !newAbility || newAmount === ''} onClick={addAdjustment}>
-          Добавить характеристику
-        </Button>
-        <p className="mt-2 text-[11px] leading-relaxed text-stone-500">
-          Работает как выбор игрока при улучшении характеристик, но не привязан к уровню и не даёт черту.
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-stone-400">
-            Характеристика
-            <Select value={newAbility} onChange={(e) => setNewAbility(e.target.value)} className="!w-auto">
-              {STATS.map((s) => (
-                <option key={s.key} value={s.key}>{s.label}</option>
-              ))}
-            </Select>
-          </label>
-          <label className="flex items-center gap-1.5 text-xs text-stone-400">
-            Изменение ±
-            <Input
-              type="number"
-              className="!w-20"
-              value={newAmount}
-              placeholder="+1 / −1"
-              onChange={(e) => setNewAmount(e.target.value)}
-            />
-          </label>
+          {/* Правый столбик: выборы игрока + правки ГМа */}
+          <div>
+            <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Выборы игрока на уровнях</p>
+            {asiChoices.length === 0 ? (
+              <p className="text-xs text-stone-600">Улучшений характеристик пока не было.</p>
+            ) : (
+              <ul className="space-y-1">
+                {asiChoices.map((choice) => (
+                  <li key={choice.id} className="flex items-center justify-between gap-2 rounded border border-stone-800 px-2.5 py-1.5 text-xs">
+                    <span className="shrink-0 font-medium text-stone-200">Уровень {choice.class_level}</span>
+                    <span className="min-w-0 flex-1 truncate text-right text-stone-400">
+                      {choice.choice_type === 'ASI'
+                        ? (choice.increases ?? [])
+                            .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
+                            .join(', ') || 'улучшение характеристик'
+                        : `Черта: ${featNameById.get(Number(choice.feat_id)) ?? `#${choice.feat_id}`}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <p className="mb-1.5 mt-4 text-xs uppercase tracking-wide text-stone-500">Правки ГМа</p>
+            {adjustments.length === 0 ? (
+              <p className="text-xs text-stone-600">Правок ГМа нет.</p>
+            ) : (
+              <ul className="space-y-1">
+                {adjustments.map((adj) => (
+                  <li key={adj.id} className="flex items-center justify-between rounded border border-red-900/40 bg-red-950/20 px-2.5 py-1.5 text-xs text-stone-300">
+                    <span>
+                      {(adj.increases ?? [])
+                        .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
+                        .join(', ') || 'без изменений'}
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 text-red-300 transition hover:text-red-200"
+                      onClick={() => removeAdjustment(adj.id)}
+                      title="Откатить правку"
+                    >
+                      ✕ Откатить
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* Добавление одной правки за раз */}
+            <div className="mt-4 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+              <p className="text-[11px] leading-relaxed text-stone-500">
+                Работает как выбор игрока при улучшении, но не привязан к уровню и не даёт черту.
+              </p>
+              <div className="mt-2 flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 text-xs text-stone-400">
+                  Характеристика
+                  <Select value={newAbility} onChange={(e) => setNewAbility(e.target.value)} className="!w-auto">
+                    {STATS.map((s) => (
+                      <option key={s.code} value={s.code}>{s.label}</option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-stone-400">
+                  Изменение ±
+                  <Input
+                    type="number"
+                    className="!w-20"
+                    value={newAmount}
+                    placeholder="+1 / −1"
+                    onChange={(e) => setNewAmount(e.target.value)}
+                  />
+                </label>
+                <Button size="sm" disabled={busy || !newAbility || newAmount === ''} onClick={addAdjustment}>
+                  Добавить изменение
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </Section>
   )
 }
@@ -621,16 +628,16 @@ function ItemEditModal({ title, subtitle, value, catalogItem, onSave, onClose })
       footer={
         <>
           <Button type="button" variant="ghost" onClick={onClose}>
-            ������
+            Отмена
           </Button>
           <Button type="button" onClick={() => onSave(edit)}>
-            ���������
+            Сохранить
           </Button>
         </>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="����������">
+        <Field label="Количество">
           <Input
             type="number"
             min={0}
@@ -647,7 +654,7 @@ function ItemEditModal({ title, subtitle, value, catalogItem, onSave, onClose })
               onChange={(e) => setEdit({ ...edit, is_equipped: e.target.checked })}
               className="size-4 accent-ember"
             />
-            �����������
+            Экипировано
           </label>
           <label className="flex cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-200">
             <input
@@ -656,12 +663,12 @@ function ItemEditModal({ title, subtitle, value, catalogItem, onSave, onClose })
               onChange={(e) => setEdit({ ...edit, is_attuned: e.target.checked })}
               className="size-4 accent-ember"
             />
-            ���������
+            Настроено
           </label>
         </div>
       </div>
-      <Field label="�������">
-        <TextArea rows={3} value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} placeholder="�������������" />
+      <Field label="Заметка">
+        <TextArea rows={3} value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} placeholder="Необязательно" />
       </Field>
       {catalogItem?.description && (
         <p className="line-clamp-3 text-xs text-stone-500">{catalogItem.description}</p>
@@ -670,51 +677,34 @@ function ItemEditModal({ title, subtitle, value, catalogItem, onSave, onClose })
   )
 }
 
-function ItemPickerModal({ catalog, onPick, onClose }) {
-  const [query, setQuery] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return catalog
-    return catalog.filter((it) => String(it.name ?? '').toLowerCase().includes(q))
-  }, [catalog, query])
+function ItemGrantModal({ catalogItem, onConfirm, onClose }) {
+  const [qty, setQty] = useState('1')
 
   return (
-    <Modal
-      title="�������� �������"
-      subtitle="����� �� ����������� ���������"
-      onClose={onClose}
-      size="md"
-      scroll
-      footer={
-        <>
-          <span className="flex items-center gap-1.5 text-xs text-stone-400">
-            ����������
-            <Input type="number" min="0" className="!w-20" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-          </span>
-        </>
-      }
-    >
-      <Input type="search" placeholder="����� ��������..." value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
-      <div className="mt-3 max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
-        {filtered.length === 0 && <p className="text-sm text-stone-500">������ �� �������.</p>}
-        {filtered.map((it) => (
-          <button
-            key={it.id}
-            type="button"
-            onClick={() =>
-              onPick(it, Math.max(0, Number(quantity) || 1))
-            }
-            className="w-full rounded-lg border border-stone-700/60 bg-stone-900/60 p-3 text-left transition hover:border-ember/50"
-          >
-            <p className="text-sm font-medium text-stone-100">{it.name}</p>
-            {it.item_type && <p className="mt-0.5 text-xs text-stone-500">{label(it.item_type)}</p>}
-          </button>
-        ))}
+    <Modal title="Выдать предмет" subtitle={catalogItem?.name} onClose={onClose} size="sm">
+      <Field label="Количество">
+        <Input
+          type="number"
+          min={1}
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onConfirm(Math.max(1, Number(qty) || 1))}
+          autoFocus
+        />
+      </Field>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onClose}>
+          Отмена
+        </Button>
+        <Button type="button" onClick={() => onConfirm(Math.max(1, Number(qty) || 1))}>
+          Выдать
+        </Button>
       </div>
     </Modal>
   )
 }
+
+const PICKER_PAGE_SIZE = 50
 
 function ItemsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
@@ -722,14 +712,43 @@ function ItemsSection({ character, onError, reload }) {
   const { data: catalog = [] } = useItems({ size: 100 })
   const [confirmTarget, setConfirmTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
+  const [infoItemId, setInfoItemId] = useState(null)
+  const [addTarget, setAddTarget] = useState(null)
+
+  // Встроенная панель выдачи предметов: серверный поиск, фильтры и пагинация — как в справочнике.
+  const [queryInput, setQueryInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [filters, setFilters] = useState({})
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage] = useState(1)
+
+  const listParams = useMemo(() => {
+    const params = { page, size: PICKER_PAGE_SIZE }
+    if (appliedSearch.trim()) params.search = appliedSearch.trim()
+    if (Array.isArray(filters.item_type) && filters.item_type.length > 0) params.item_type = filters.item_type
+    if (Array.isArray(filters.rarity) && filters.rarity.length > 0) params.rarity = filters.rarity
+    return params
+  }, [page, appliedSearch, filters])
+
+  const listQ = useCatalogPage('items', listParams)
+  const pageItems = listQ.data?.items ?? []
+  const total = listQ.data?.total ?? 0
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.items(Number(character.id)) })
 
   const itemById = useMemo(() => new Map(catalog.map((it) => [Number(it.id), it])), [catalog])
 
+  const applySearch = () => {
+    setAppliedSearch(queryInput)
+    setPage(1)
+  }
+
+  const applyFilters = (next) => {
+    setFilters(next)
+    setPage(1)
+  }
+
   const addItem = async (catalogItem, qty) => {
-    setPickerOpen(false)
     try {
       await charactersApi.gmPanel.items.add(character.id, { item_id: Number(catalogItem.id), quantity: qty })
       await invalidate()
@@ -767,59 +786,128 @@ function ItemsSection({ character, onError, reload }) {
 
   return (
     <Section title="Снаряжение персонажа">
-      <div className="-mt-1 mb-3 flex items-center justify-between">
-        <p className="text-sm text-stone-400">Предметов: {items.length}</p>
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-        >
-          Добавить...
-        </button>
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* Левая колонка: выдача предметов */}
+        <section>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Выдать предмет</p>
+          <div className="mb-2 flex gap-2">
+            <Input
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+              placeholder="Поиск: имя, описание..."
+            />
+            <button
+              type="button"
+              onClick={applySearch}
+              className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
+              title="Искать на сервере"
+            >
+              ⌕
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowFilters(true)}
+              className={`shrink-0 rounded border px-3 py-2.5 text-sm font-medium transition ${
+                Object.keys(filters).length > 0
+                  ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
+                  : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
+              }`}
+            >
+              Фильтр
+            </button>
+          </div>
+
+          {listQ.error && <ErrorBox error={listQ.error} onRetry={() => listQ.refetch()} />}
+          {!listQ.data && !listQ.error && <Spinner />}
+
+          <div id="gm-item-picker-list" className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
+            {pageItems.length === 0 ? (
+              <p className="text-sm text-stone-500">Предметов не найдено.</p>
+            ) : (
+              pageItems.map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={() => setAddTarget(it)}
+                  disabled={!listQ.data}
+                  className="w-full rounded-lg border border-stone-700/60 bg-stone-900/60 p-3 text-left transition hover:border-ember/50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <p className="text-sm font-medium text-stone-100">{it.name}</p>
+                  <p className="mt-0.5 text-xs text-stone-500">
+                    {[it.item_type ? label(it.item_type) : null, it.rarity && it.rarity !== 'NONE' ? label(it.rarity) : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+          <Pagination
+            page={page}
+            total={total}
+            size={PICKER_PAGE_SIZE}
+            onPage={(p) => {
+              setPage(p)
+              document.getElementById('gm-item-picker-list')?.scrollIntoView({ block: 'start' })
+            }}
+          />
+        </section>
+
+        {/* Правая колонка: инвентарь персонажа */}
+        <section>
+          <div className="-mt-1 mb-3 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">
+              Инвентарь ({items.length})
+            </p>
+          </div>
+
+          {items.length === 0 ? (
+            <p className="text-sm text-stone-500">Снаряжения пока нет.</p>
+          ) : (
+            <ul className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+              {items.map((ci) => {
+                const catalogItem = itemById.get(Number(ci.item_id))
+                return (
+                  <li key={ci.id} className="flex items-center gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setInfoItemId(ci.item_id)}
+                      className="link-ember min-w-0 flex-1 truncate text-left font-display text-sm font-bold"
+                      title="Показать предмет"
+                    >
+                      {catalogItem?.name ?? `Предмет #${ci.item_id}`}
+                      <span className="ml-2 font-sans text-xs font-normal tabular-nums text-stone-400">× {ci.quantity}</span>
+                    </button>
+                    {(ci.is_equipped || ci.is_attuned) && (
+                      <span className="hidden shrink-0 items-center gap-1.5 sm:flex">
+                        {ci.is_equipped && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Экип.</span>}
+                        {ci.is_attuned && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Настр.</span>}
+                      </span>
+                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button type="button" size="xs" onClick={() => setEditTarget(ci)}>
+                        Изменить
+                      </Button>
+                      <Button type="button" variant="danger" size="xs" onClick={() => setConfirmTarget(ci)}>
+                        Убрать
+                      </Button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
       </div>
 
-      {items.length === 0 ? (
-        <p className="text-sm text-stone-500">Снаряжения пока нет.</p>
-      ) : (
-        <div className="space-y-3">
-          {items.map((ci) => {
-            const catalogItem = itemById.get(Number(ci.item_id))
-            return (
-              <div key={ci.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-stone-100">
-                      {catalogItem?.name ?? `Предмет #${ci.item_id}`}
-                    </p>
-                    {catalogItem?.item_type && (
-                      <p className="mt-0.5 text-xs text-stone-400">{label(catalogItem.item_type)}</p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-sm text-stone-300">× {ci.quantity}</span>
-                    <Button type="button" size="xs" onClick={() => setEditTarget(ci)}>
-                      Изменить
-                    </Button>
-                    <Button type="button" variant="danger" size="xs" onClick={() => setConfirmTarget(ci)}>
-                      Убрать
-                    </Button>
-                  </div>
-                </div>
-                {(ci.is_equipped || ci.is_attuned || ci.notes) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {ci.is_equipped && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Экипировано</span>}
-                    {ci.is_attuned && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Настроено</span>}
-                    {ci.notes && <span className="text-xs text-stone-500">Заметка: {ci.notes}</span>}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {pickerOpen && (
-        <ItemPickerModal catalog={catalog} onPick={addItem} onClose={() => setPickerOpen(false)} />
+      {showFilters && (
+        <FilterModal
+          filters={ITEM_FILTERS}
+          value={filters}
+          onChange={applyFilters}
+          onClose={() => setShowFilters(false)}
+        />
       )}
 
       {editTarget && (
@@ -830,6 +918,10 @@ function ItemsSection({ character, onError, reload }) {
           onSave={(form) => saveEdit(editTarget, form)}
           onClose={() => setEditTarget(null)}
         />
+      )}
+
+      {infoItemId != null && (
+        <ItemInfoModal itemId={infoItemId} onClose={() => setInfoItemId(null)} />
       )}
 
       {confirmTarget && (
@@ -851,17 +943,29 @@ function ItemsSection({ character, onError, reload }) {
           }}
         />
       )}
+
+      {addTarget && (
+        <ItemGrantModal
+          catalogItem={addTarget}
+          onClose={() => setAddTarget(null)}
+          onConfirm={(qty) => {
+            const target = addTarget
+            setAddTarget(null)
+            addItem(target, qty)
+          }}
+        />
+      )}
     </Section>
   )
 }
 
 const SECTIONS = [
-  { id: 'level', label: 'Уровень' },
-  { id: 'hp', label: 'Хиты' },
-  { id: 'stats', label: 'Характеристики' },
-  { id: 'skills', label: 'Навыки' },
-  { id: 'feats', label: 'Черты' },
-  { id: 'items', label: 'Снаряжение' },
+  { id: 'level', label: 'Уровень', icon: '↑', hint: 'Повышение уровня и потолок' },
+  { id: 'hp', label: 'Хиты', icon: '♥', hint: 'Хиты, временные хиты и отдых' },
+  { id: 'stats', label: 'Характеристики', icon: '✦', hint: 'Базовые значения и ASI-коррекции' },
+  { id: 'skills', label: 'Навыки', icon: '✔', hint: 'Экспертизы навыков' },
+  { id: 'feats', label: 'Черты', icon: '★', hint: 'Выданные черты и умения' },
+  { id: 'items', label: 'Снаряжение', icon: '⛁', hint: 'Инвентарь, экипировка и деньги' },
 ]
 
 export default function GmCharacterPanel({ character, onError, reload, section, onSectionChange }) {
@@ -888,9 +992,11 @@ export default function GmCharacterPanel({ character, onError, reload, section, 
     }
   }
 
+  const activeMeta = SECTIONS.find((s) => s.id === active)
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Что редактируем">
+      <div className="sheet-tabs" role="tablist" aria-label="Что редактируем">
         {SECTIONS.map((s) => (
           <button
             key={s.id}
@@ -898,16 +1004,16 @@ export default function GmCharacterPanel({ character, onError, reload, section, 
             role="tab"
             aria-selected={active === s.id}
             onClick={() => setActive(s.id)}
-            className={`rounded-full px-3 py-1.5 text-sm transition ${
-              active === s.id
-                ? 'bg-ember font-medium text-white'
-                : 'border border-stone-700 text-stone-300 hover:bg-stone-800'
-            }`}
+            className={`sheet-tabs__btn ${active === s.id ? 'sheet-tabs__btn_active' : ''}`}
           >
+            <span aria-hidden className="mr-1.5">{s.icon}</span>
             {s.label}
           </button>
         ))}
       </div>
+      {activeMeta && (
+        <p className="-mt-2 text-xs text-stone-500">{activeMeta.hint}</p>
+      )}
       {renderSection()}
     </div>
   )

@@ -47,7 +47,9 @@ export const spellsCfg = {
   sections: [
     { type: 'pills', key: 'components', label: 'Компоненты', options: opt(componentLabels), empty: 'Не выбрано' },
     { type: 'pillsFrom', listKey: 'classes', key: 'class_ids', label: 'Доступно классам (пусто — без ограничений)', empty: 'Классов в справочнике нет' },
+    { type: 'pillsFrom', listKey: 'subclasses', key: 'subclass_ids', label: 'Доступно подклассам (пусто — без ограничений)', empty: 'Подклассов в справочнике нет' },
     { type: 'pillsFrom', listKey: 'races', key: 'race_ids', label: 'Доступно расам (пусто — без ограничений)', empty: 'Рас в справочнике нет' },
+    { type: 'pillsFrom', listKey: 'subraces', key: 'subrace_ids', label: 'Доступно подрасам (пусто — без ограничений)', empty: 'Подрас в справочнике нет' },
   ],
   emptyForm: () => ({
     name: '',
@@ -73,7 +75,9 @@ export const spellsCfg = {
     higher_levels: '',
     components: [],
     class_ids: [],
+    subclass_ids: [],
     race_ids: [],
+    subrace_ids: [],
   }),
   fromRecord: (r) => ({
     name: r.name,
@@ -99,7 +103,9 @@ export const spellsCfg = {
     higher_levels: r.higher_levels ?? '',
     components: r.components ?? [],
     class_ids: (r.available_classes ?? []).map((c) => c.id),
+    subclass_ids: (r.available_subclasses ?? []).map((c) => c.id),
     race_ids: (r.available_races ?? []).map((x) => x.id),
+    subrace_ids: (r.available_subraces ?? []).map((x) => x.id),
   }),
   submitFields: async (form, rec) => {
     const base = {
@@ -141,12 +147,16 @@ export const spellsCfg = {
     if (rec) {
       await api.spells.update(rec.id, base)
       await api.spells.classes(rec.id, { class_ids: form.class_ids })
+      await api.spells.subclasses(rec.id, { subclass_ids: form.subclass_ids })
       await api.spells.races(rec.id, { race_ids: form.race_ids })
+      await api.spells.subraces(rec.id, { subrace_ids: form.subrace_ids })
     } else {
       await api.spells.create({
         ...base,
         available_classes: form.class_ids,
+        available_subclasses: form.subclass_ids,
         available_races: form.race_ids,
+        available_subraces: form.subrace_ids,
       })
     }
   },

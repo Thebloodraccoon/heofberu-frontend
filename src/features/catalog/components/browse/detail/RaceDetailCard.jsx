@@ -1,6 +1,6 @@
-import { abilityLabels, raceSizeLabels, ruLevel } from '@/lib/i18n/index.js'
+import { abilityLabels, label, raceSizeLabels, ruLevel, skillLabels } from '@/lib/i18n/index.js'
 import { Badge, Card } from '@/components/ui'
-import { Section } from './detailHelpers.jsx'
+import { Section, SkillChips, formatBonus, itemName } from './detailHelpers.jsx'
 
 export default function RaceDetailCard({ race, selectedSub }) {
   const raceFeatures = (race.features ?? []).map((f) => ({ ...f, fromSubrace: false }))
@@ -46,16 +46,21 @@ export default function RaceDetailCard({ race, selectedSub }) {
           <span className="font-semibold text-stone-100">Бонусы характеристик: </span>
           <span className="font-semibold text-stone-100">
             {(selectedSub ? selectedSub.ability_bonuses : race.ability_bonuses)
-              .map((b) => `${abilityLabels[b.ability] ?? b.ability} +${b.bonus}`)
+              .map((b) => `${abilityLabels[b.ability] ?? b.ability} ${formatBonus(b.bonus)}`)
               .join(' ')}
           </span>
         </p>
       )}
 
       {race.granted_skills && race.granted_skills.length > 0 && (
-        <p className="mt-3 text-sm leading-relaxed">
+        <p className="mt-3 flex flex-wrap items-center gap-2 text-sm leading-relaxed">
           <span className="font-semibold text-stone-100">Навыки расы: </span>
-          <span className="font-semibold text-stone-100">{race.granted_skills.map((s) => s.name).join(' ')}</span>
+          <SkillChips
+            names={race.granted_skills.map((s) => {
+              const n = itemName(s)
+              return skillLabels[n] ?? label(n)
+            })}
+          />
         </p>
       )}
 

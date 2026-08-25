@@ -83,6 +83,12 @@ export const useCatalogList = (resource, params = {}) =>
     queryFn: () => catalogApi[resource].list({ size: 100, ...params }).then(items),
   })
 
+export const useCatalogPage = (resource, params = {}) =>
+  useQuery({
+    queryKey: ['catalog', resource, 'page', params],
+    queryFn: () => catalogApi[resource].list({ size: 20, ...params }),
+  })
+
 export const useFeatsFull = () =>
   useQuery({
     queryKey: ['catalog', 'feats', 'full'],
@@ -94,4 +100,32 @@ export const useFeatsFull = () =>
     },
     enabled: false,
     staleTime: Infinity,
+  })
+
+const fetchAllPages = async (fn, params = {}) => {
+  const size = 100
+  let page = 1
+  let out = []
+  for (;;) {
+    const res = await fn({ ...params, page, size })
+    const batch = res?.items ?? []
+    out = out.concat(batch)
+    const total = Number(res?.total ?? 0)
+    if (batch.length < size || (total > 0 && out.length >= total) || page >= 50) return out
+    page += 1
+  }
+}
+
+export const useAllFeats = (search = '') =>
+  useQuery({
+    queryKey: ['catalog', 'feats', 'all', search],
+    queryFn: () => fetchAllPages(catalogApi.feats.list, { search: search || undefined }),
+    placeholderData: (prev) => prev,
+  })
+
+export const useFeatDetail = (id) =>
+  useQuery({
+    queryKey: ['catalog', 'feats', Number(id)],
+    queryFn: () => catalogApi.feats.get(Number(id)),
+    enabled: !!id,
   })

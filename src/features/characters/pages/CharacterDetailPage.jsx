@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { fmtBonus } from '@/lib/utils/sheet.js'
-import { useCharacter } from '@/features/characters/queries.js'
+import { useCharacter, useCanLevelUp } from '@/features/characters/queries.js'
 import {
   useBackgroundDetail,
   useClassDetail,
@@ -30,10 +30,13 @@ import FeaturesPanel from '@/features/characters/components/sheet/FeaturesPanel.
 import EquipmentPanel from '@/features/characters/components/sheet/EquipmentPanel.jsx'
 import ConditionsPanel from '@/features/characters/components/sheet/ConditionsPanel.jsx'
 import PersonalityPanel from '@/features/characters/components/sheet/PersonalityPanel.jsx'
+import BackstoryPanel from '@/features/characters/components/sheet/BackstoryPanel.jsx'
 import NotesPanel from '@/features/characters/components/sheet/NotesPanel.jsx'
 import SpellsPanel from '@/features/characters/components/sheet/SpellsPanel.jsx'
 import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
-import ConditionsModal from '@/features/characters/components/sheet/ConditionsModal.jsx'
+import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
+import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
+import MoneyModal from '@/features/characters/components/sheet/MoneyModal.jsx'
 import { ARMOR_OPTIONS, num } from '@/features/characters/components/sheet/constants.js'
 
 const EyeIcon = () => (
@@ -74,7 +77,10 @@ export default function CharacterDetailPage() {
   const [tab, setTab] = useState('attacks')
   const [rollToasts, setRollToasts] = useState([])
   const [hpModal, setHpModal] = useState(false)
-  const [conditionsModal, setConditionsModal] = useState(false)
+  const [armorModal, setArmorModal] = useState(false)
+  const [levelUpOpen, setLevelUpOpen] = useState(false)
+  const { data: canLevelUpData } = useCanLevelUp(id)
+  const [moneyModal, setMoneyModal] = useState(false)
   const [inspiration, setInspiration] = useState(false)
 
   const load = useCallback(async () => {
@@ -174,10 +180,16 @@ export default function CharacterDetailPage() {
     return m
   }, [skillsCatalog])
 
-  const profSet = useMemo(() => {
-    const m = new Map()
-    for (const p of character?.skill_proficiencies ?? []) m.set(Number(p.skill_id), p.is_expertise ?? false)
-    return m
+  const { profSet, expertiseSet } = useMemo(() => {
+    const profs = new Set()
+    const experts = new Set()
+    for (const p of character?.skill_proficiencies ?? []) {
+      const sid = Number(p.skill_id)
+      if (Number.isNaN(sid)) continue
+      profs.add(sid)
+      if (p.is_expertise) experts.add(sid)
+    }
+    return { profSet: profs, expertiseSet: experts }
   }, [character?.skill_proficiencies])
 
   const saveSet = useMemo(
@@ -202,8 +214,9 @@ export default function CharacterDetailPage() {
     const build = (key, icon) => {
       const sk = findSkill(key)
       if (!sk) return null
-      const prof = profSet.get(Number(sk.id))
-      const value = 10 + modFor(sk.ability) + (prof ? pb : 0)
+      const prof = profSet.has(Number(sk.id))
+      const expertise = expertiseSet.has(Number(sk.id))
+      const value = 10 + modFor(sk.ability) + (prof ? pb : 0) + (expertise ? pb : 0)
       return { name: skillLabels[key] ?? sk.name, value, icon }
     }
     return [build('perception', <EyeIcon />), build('insight', <FaceIcon />), build('investigation', <SearchIcon />)]
@@ -256,8 +269,9 @@ export default function CharacterDetailPage() {
 
   const saveBonus = (code) => modFor(code) + (saveSet.has(code) ? pb : 0)
   const skillBonus = (sk) => {
-    const prof = profSet.get(Number(sk.id))
-    const expertise = prof && (character.skill_proficiencies ?? []).find((p) => Number(p.skill_id) === Number(sk.id))?.is_expertise
+    const sid = Number(sk.id)
+    const prof = profSet.has(sid)
+    const expertise = expertiseSet.has(sid)
     return modFor(sk.ability) + (prof ? pb : 0) + (expertise ? pb : 0)
   }
 
@@ -266,6 +280,15 @@ export default function CharacterDetailPage() {
   const hpDelta = async (delta) => {
     try {
       await api.hp(id, { delta })
+      await load()
+    } catch (e) {
+      setMutationError(e)
+    }
+  }
+
+  const setTempHp = async (temp_hp) => {
+    try {
+      await api.hp(id, { temp_hp })
       await load()
     } catch (e) {
       setMutationError(e)
@@ -281,12 +304,23 @@ export default function CharacterDetailPage() {
     }
   }
 
+  const saveArmor = async ({ armor_class, shield }) => {
+    try {
+      await api.update(id, { armor_class, shield })
+      await load()
+      setArmorModal(false)
+    } catch (e) {
+      setMutationError(e)
+    }
+  }
+
   const tabs = [
     ['attacks', 'Атаки'],
     ['features', 'Способности'],
     ['equipment', 'Снаряжение'],
     ['conditions', 'Состояния'],
     ['personality', 'Личность'],
+    ['backstory', 'Предыстория'],
     ['notes', 'Заметки'],
     ['spells', 'Заклинания'],
   ]
@@ -304,7 +338,11 @@ export default function CharacterDetailPage() {
         onInspiration={() => setInspiration(!inspiration)}
         onExhaustion={changeExhaustion}
         onOpenHp={() => setHpModal(true)}
-        onOpenConditions={() => setConditionsModal(true)}
+        onOpenAc={() => setArmorModal(true)}
+        levelUpInfo={canLevelUpData}
+        onOpenLevelUp={() => setLevelUpOpen(true)}
+        onOpenConditions={() => setTab('conditions')}
+        onOpenMoney={() => setMoneyModal(true)}
         initiativeBonus={initiativeBonus}
         initiativeLast={initiativeLast}
         onRollInitiative={rollInitiative}
@@ -324,6 +362,8 @@ export default function CharacterDetailPage() {
               skills: skillsByAbility[s.code],
               skillMap,
               skillBonus,
+              skillChecked: (sk) => profSet.has(Number(sk.id)),
+              skillExpertise: (sk) => expertiseSet.has(Number(sk.id)),
               onRoll: rollDice,
             })
             const paired = []
@@ -338,32 +378,22 @@ export default function CharacterDetailPage() {
             paired.push(<AbilityBlock {...makeProps(int)} />)
             paired.push(<AbilityBlock {...makeProps(cha)} />)
             paired.push(<AbilityBlock {...makeProps(dex)} />)
-            return paired
-          })()}
-          </aside>
-
-          <div className="fantasy-panel space-y-4 rounded-lg p-4">
-            {passiveSenses.length > 0 && (
-              <div>
-                <SheetSectionLabel>Пассивные чувства</SheetSectionLabel>
-                <PassiveSenses items={passiveSenses} />
-              </div>
-            )}
-
-            <EditableBlock
-              title="Прочие владения и языки"
-              value={character.proficiencies}
-              rows={3}
-              onSave={saveField('proficiencies')}
-            />
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
+            if (passiveSenses.length > 0) {
+              paired.push(
+                <div key="passive-senses" className="py-1">
+                  <SheetSectionLabel className="!mt-0">Пассивные чувства</SheetSectionLabel>
+                  <PassiveSenses items={passiveSenses} />
+                </div>
+              )
+            }
+            paired.push(
+              <div key="armor-profs">
                 <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
                 <ProficiencyChips items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
-              </div>
-
-              <div>
+              </div>,
+            )
+            paired.push(
+              <div key="weapon-profs">
                 <SheetSectionLabel>Владение оружием</SheetSectionLabel>
                 <ProficiencyChips
                   items={weaponProfs}
@@ -374,9 +404,11 @@ export default function CharacterDetailPage() {
                   ]}
                   empty="Не задано классом"
                 />
-              </div>
-            </div>
-          </div>
+              </div>,
+            )
+            return paired
+          })()}
+          </aside>
         </div>
 
         <section className="sheet-right fantasy-panel rounded-lg p-4">
@@ -403,6 +435,9 @@ export default function CharacterDetailPage() {
             {tab === 'personality' && (
               <PersonalityPanel character={character} onSave={saveField} />
             )}
+            {tab === 'backstory' && (
+              <BackstoryPanel character={character} onSave={saveField} />
+            )}
             {tab === 'notes' && (
               <NotesPanel character={character} onSave={saveField} />
             )}
@@ -421,17 +456,26 @@ export default function CharacterDetailPage() {
           character={character}
           onClose={() => setHpModal(false)}
           onDelta={hpDelta}
+          onTempHp={setTempHp}
           onRest={doRest}
         />
       )}
 
-      {conditionsModal && (
-        <ConditionsModal
+      {armorModal && (
+        <ArmorModal character={character} onClose={() => setArmorModal(false)} onSave={saveArmor} />
+      )}
+
+      {levelUpOpen && (
+        <LevelUpModal
           character={character}
-          onClose={() => setConditionsModal(false)}
-          onChanged={load}
+          onClose={() => setLevelUpOpen(false)}
           onError={setMutationError}
+          onRollToast={pushToast}
         />
+      )}
+
+      {moneyModal && (
+        <MoneyModal character={character} onClose={() => setMoneyModal(false)} onError={setMutationError} />
       )}
 
       <SheetRollToasts toasts={rollToasts} onDismiss={dismissToast} />

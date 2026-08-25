@@ -68,7 +68,7 @@ function SidebarContent({ onClick }) {
         <>
           <SectionTitle>Личное</SectionTitle>
           <SidebarLink to="/profile" label="Профиль" onClick={onClick} />
-          <SidebarLink to="/characters" label="Персонажи" onClick={onClick} />
+          <SidebarLink to="/characters" label="Мои персонажи" onClick={onClick} />
         </>
       )}
 

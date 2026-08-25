@@ -8,6 +8,8 @@ export const queryKeys = {
   },
   characters: {
     all: ['characters'],
+    mine: ['characters', 'mine'],
+    allCharacters: ['characters', 'all-users'],
     detail: (id) => ['characters', id],
     spells: (id) => ['characters', id, 'spells'],
     attacks: (id) => ['characters', id, 'attacks'],

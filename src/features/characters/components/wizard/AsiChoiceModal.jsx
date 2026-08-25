@@ -1,13 +1,25 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ABILITY_CAP, STATS, abilityName } from '@/lib/utils/ability.js'
-import { Button } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
+import { useAllFeats, useFeatDetail } from '@/features/catalog/queries.js'
 import { Tag } from './StepShell.jsx'
 
-export default function AsiChoiceModal({ level, abilityTotals, feats, featsLoading, onConfirm, onCancel }) {
+export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCancel }) {
   const [mode, setMode] = useState('asi')
   const [increases, setIncreases] = useState({})
   const [featId, setFeatId] = useState(null)
   const [increaseId, setIncreaseId] = useState(null)
+  const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [expandedId, setExpandedId] = useState(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const featsQ = useAllFeats(debouncedQuery)
+  const feats = featsQ.data ?? []
 
   const totals = { ...increases }
   const budget = Object.values(totals).reduce((a, b) => a + b, 0)
@@ -21,11 +33,16 @@ export default function AsiChoiceModal({ level, abilityTotals, feats, featsLoadi
     setIncreases({ ...totals, [code]: next })
   }
 
+  const detailId = featId ?? expandedId
+  const detailQ = useFeatDetail(detailId)
+  const detail = detailId ? detailQ.data : null
+
   const selectedFeat = feats.find((f) => String(f.id) === String(featId))
   const featPrereqOk = (f) => {
     if (!f.prerequisite_ability || f.prerequisite_minimum_score == null) return true
     return (abilityTotals[f.prerequisite_ability] || 0) >= f.prerequisite_minimum_score
   }
+  const featLevelOk = (f) => f.min_level == null || Number(f.min_level) <= Number(level)
 
   const confirm = () => {
     if (mode === 'asi') {
@@ -49,11 +66,9 @@ export default function AsiChoiceModal({ level, abilityTotals, feats, featsLoadi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
       <div className="fantasy-panel w-full max-w-2xl rounded-lg">
-        <div className="border-b border-stone-700/60 px-6 py-4">
+        <div className="px-6 py-4">
           <h3 className="font-display text-lg font-bold text-stone-100">Улучшение характеристик</h3>
-          <p className="mt-0.5 text-sm text-stone-400">
-            Уровень {level}: выберите улучшение характеристик или черту вместо него.
-          </p>
+          <p className="mt-0.5 text-sm text-stone-400">Уровень {level}: вы на развилке — у вас есть выбор.</p>
         </div>
 
         <div className="px-6 py-4">
@@ -121,78 +136,124 @@ export default function AsiChoiceModal({ level, abilityTotals, feats, featsLoadi
 
           {mode === 'feat' && (
             <>
-              {featsLoading && <p className="py-6 text-center text-sm text-stone-400">Загружаем черты…</p>}
-              {!featsLoading && feats.length === 0 && (
-                <p className="py-6 text-center text-sm text-stone-400">Черты не найдены.</p>
+              <div className="mb-3">
+                <Input
+                  type="search"
+                  placeholder="Поиск черты..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              {featsQ.isFetching && feats.length === 0 && (
+                <p className="py-6 text-center text-sm text-stone-400">Загружаем черты…</p>
+              )}
+              {!featsQ.isFetching && feats.length === 0 && (
+                <p className="py-6 text-center text-sm text-stone-400">
+                  {debouncedQuery ? 'Ничего не найдено по запросу.' : 'Черты не найдены.'}
+                </p>
               )}
               <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
                 {feats.map((f) => {
-                  const ok = featPrereqOk(f)
+                  const ok = featPrereqOk(f) && featLevelOk(f)
                   const selected = String(f.id) === String(featId)
+                  const expanded = String(expandedId) === String(f.id)
+                  const rowDetail = expanded ? detail : null
                   return (
-                    <button
+                    <div
                       key={f.id}
-                      type="button"
-                      disabled={!ok}
-                      onClick={() => {
-                        setFeatId(f.id)
-                        setIncreaseId(null)
-                      }}
-                      className={`w-full rounded-lg border p-3 text-left transition ${
-                        selected
-                          ? 'border-ember/80 bg-ember/10'
-                          : ok
-                            ? 'border-stone-700/50 bg-stone-800/40 hover:border-ember/40'
-                            : 'border-stone-800 bg-stone-900/40 opacity-50'
+                      className={`rounded-lg border p-3 transition ${
+                        selected ? 'border-ember/80 bg-ember/10' : ok ? 'border-stone-700/50 bg-stone-800/40' : 'border-stone-800 bg-stone-900/40 opacity-60'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-stone-100">{f.name}</span>
-                        {!ok && (
-                          <Tag tone="bad">
-                            Нужно: {abilityName(f.prerequisite_ability)} ≥ {f.prerequisite_minimum_score}
-                          </Tag>
-                        )}
+                      <div className="flex items-start gap-2">
+                        <button
+                          type="button"
+                          disabled={!ok}
+                          onClick={() => {
+                            setFeatId(f.id)
+                            setIncreaseId(null)
+                          }}
+                          className={`min-w-0 flex-1 rounded text-left font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                        >
+                          {f.name}
+                        </button>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          {!featLevelOk(f) && <Tag tone="bad">С уровня {f.min_level}</Tag>}
+                          {!featPrereqOk(f) && (
+                            <Tag tone="bad">
+                              Нужно: {abilityName(f.prerequisite_ability)} ≥ {f.prerequisite_minimum_score}
+                            </Tag>
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`Посмотреть: ${f.name}`}
+                            onClick={() => setExpandedId(expanded ? null : f.id)}
+                            className="rounded border border-stone-700 px-2 py-1 text-[11px] text-stone-300 transition hover:border-ember/50 hover:bg-stone-800"
+                          >
+                            Посмотреть
+                          </button>
+                        </span>
                       </div>
-                      {f.description && <p className="mt-1 text-xs text-stone-400">{f.description}</p>}
-                      {(f.ability_score_increases ?? []).length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {(f.ability_score_increases ?? []).map((ai) => (
-                            <span
-                              key={ai.id}
-                              className={`rounded border px-2 py-0.5 text-xs ${
-                                String(ai.id) === String(increaseId) && selected
-                                  ? 'border-ember bg-ember/20 text-orange-100'
-                                  : 'border-stone-700 text-stone-400'
-                              }`}
-                            >
-                              +{ai.amount} {abilityName(ai.ability)}
-                            </span>
-                          ))}
+                      {expanded && (
+                        <div className="mt-2 border-t border-stone-700/50 pt-2">
+                          {detailQ.isFetching && !rowDetail ? (
+                            <p className="text-xs text-stone-500">Загружаем описание…</p>
+                          ) : (
+                            <>
+                              {(rowDetail?.ability_score_increases ?? []).length > 0 && (
+                                <div className="mb-2 flex flex-wrap gap-1.5">
+                                  {rowDetail.ability_score_increases.map((ai) => (
+                                    <span
+                                      key={ai.id}
+                                      className="rounded border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-200"
+                                    >
+                                      +{ai.amount} {abilityName(ai.ability)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {rowDetail?.description ? (
+                                <p className="whitespace-pre-line text-xs text-stone-300">{rowDetail.description}</p>
+                              ) : (
+                                <p className="text-xs italic text-stone-500">Описание отсутствует.</p>
+                              )}
+                              {rowDetail?.prerequisite_description && (
+                                <p className="mt-1 text-xs text-stone-400">{rowDetail.prerequisite_description}</p>
+                              )}
+                            </>
+                          )}
                         </div>
                       )}
-                    </button>
+                    </div>
                   )
                 })}
               </div>
-              {selectedFeat && (selectedFeat.ability_score_increases ?? []).length > 0 && (
+              {selectedFeat && ((detail?.ability_score_increases ?? selectedFeat.ability_score_increases) ?? []).length > 0 && (
                 <div className="mt-3 rounded border border-stone-700/50 bg-stone-800/40 p-3">
-                  <p className="mb-2 text-sm text-stone-300">
-                    Черта даёт увеличение характеристик. Выберите вариант:
-                  </p>
-                  <div className="space-y-1.5">
-                    {(selectedFeat.ability_score_increases ?? []).map((ai) => (
-                      <label key={ai.id} className="flex cursor-pointer items-center gap-2 text-sm text-stone-200">
-                        <input
-                          type="radio"
-                          name="feat-asi"
-                          checked={String(ai.id) === String(increaseId)}
-                          onChange={() => setIncreaseId(ai.id)}
-                          className="accent-ember"
-                        />
-                        +{ai.amount} к {abilityName(ai.ability)}
-                      </label>
-                    ))}
+                  <p className="mb-2 text-sm text-stone-300">Черта даёт увеличение характеристик. Выберите вариант:</p>
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {(detail?.ability_score_increases ?? selectedFeat.ability_score_increases ?? []).map((ai) => {
+                      const checked = String(ai.id) === String(increaseId)
+                      return (
+                        <label
+                          key={ai.id}
+                          className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                            checked
+                              ? 'border-ember/80 bg-ember/10 text-orange-100'
+                              : 'border-stone-700 bg-stone-800/50 text-stone-200 hover:border-ember/40'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="feat-asi"
+                            checked={checked}
+                            onChange={() => setIncreaseId(ai.id)}
+                            className="accent-ember"
+                          />
+                          +{ai.amount} к {abilityName(ai.ability)}
+                        </label>
+                      )
+                    })}
                   </div>
                 </div>
               )}

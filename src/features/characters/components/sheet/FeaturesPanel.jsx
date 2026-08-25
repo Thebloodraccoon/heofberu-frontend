@@ -86,7 +86,7 @@ export default function FeaturesPanel({ character }) {
               onToggle={() => toggleKey(it.key)}
             >
               {it.description ? (
-                <p className="whitespace-pre-wrap">{it.description}</p>
+                <p className="whitespace-pre-wrap break-words">{it.description}</p>
               ) : (
                 <p className="text-stone-500">Нет описания</p>
               )}

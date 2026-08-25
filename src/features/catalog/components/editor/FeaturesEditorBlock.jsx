@@ -3,8 +3,46 @@ import { ruLevel } from '@/lib/i18n/index.js'
 import { Badge, Button, ConfirmDialog, ErrorBox } from '@/components/ui'
 import { SectionTitle } from './editorShared.jsx'
 
-export default function FeaturesEditorBlock({ block, items, loading, error, onAdd, onEdit, onRemove, onRetry }) {
+function Chevron({ open }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={`h-4 w-4 shrink-0 text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`}
+      aria-hidden="true"
+    >
+      <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export default function FeaturesEditorBlock({
+  block,
+  items = [],
+  loading,
+  error,
+  showLevel = false,
+  onAdd,
+  onEdit,
+  onRemove,
+  onRetry,
+}) {
+  const [expandedKeys, setExpandedKeys] = useState(() => new Set())
   const [confirmTarget, setConfirmTarget] = useState(null)
+
+  const toggle = (key) =>
+    setExpandedKeys((cur) => {
+      const next = new Set(cur)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+
   return (
     <div className="mt-6 space-y-4 border-t border-stone-700/70 pt-4">
       <div className="flex items-center justify-between">
@@ -23,41 +61,60 @@ export default function FeaturesEditorBlock({ block, items, loading, error, onAd
       ) : items.length === 0 ? (
         <p className="text-sm text-stone-500">{block.empty}</p>
       ) : (
-        <div className="space-y-3">
-          {items.map((f, i) => (
-            <div key={f.id ?? i} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-stone-100">{f.name || 'Без названия'}</p>
-                    {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-                  </div>
-                  {f.description && (
-                    <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-stone-400">{f.description}</p>
-                  )}
-                </div>
-                <div className="flex shrink-0 flex-col gap-1">
+        <ul className="space-y-2">
+          {items.map((f, i) => {
+            const key = f.id ?? i
+            const open = expandedKeys.has(key)
+            return (
+              <li
+                key={key}
+                className={`rounded-lg border p-3 transition ${
+                  open
+                    ? 'border-ember/60 bg-stone-900'
+                    : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/40'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => onEdit(i)}
-                    className="mt-[5px] cursor-pointer rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+                    onClick={() => toggle(key)}
+                    className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left"
+                    aria-expanded={open}
                   >
-                    Изменить
+                    <Chevron open={open} />
+                    <span className="min-w-0 break-words text-sm font-semibold text-stone-100">
+                      {f.name || 'Без названия'}
+                    </span>
+                    {showLevel && f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
                   </button>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    size="xs"
-                    className="my-[5px]"
-                    onClick={() => setConfirmTarget(f)}
-                  >
-                    Удалить
-                  </Button>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onEdit(i)}
+                      className="my-[5px] rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+                    >
+                      Изменить
+                    </button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="xs"
+                      className="my-[5px]"
+                      onClick={() => setConfirmTarget(f)}
+                    >
+                      Удалить
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
+                {open && f.description && (
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-300">
+                    {f.description}
+                  </p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
       )}
       {confirmTarget && (
         <ConfirmDialog

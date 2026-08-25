@@ -44,7 +44,14 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
   const url = new URL(API_BASE + path, window.location.origin)
   if (params) {
     for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)
+      if (v === undefined || v === null || v === '') continue
+      if (Array.isArray(v)) {
+        for (const item of v) {
+          if (item !== undefined && item !== null && item !== '') url.searchParams.append(k, item)
+        }
+      } else {
+        url.searchParams.set(k, v)
+      }
     }
   }
 
@@ -79,11 +86,10 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
 
   if (!res.ok) {
     const detail =
-      data?.detail && typeof data.detail === 'string'
-        ? data.detail
-        : Array.isArray(data?.detail)
-          ? data.detail.map((e) => e.msg).join('; ')
-          : `Ошибка ${res.status}`
+      (data?.error?.message && typeof data.error.message === 'string' && data.error.message) ||
+      (data?.detail && typeof data.detail === 'string' && data.detail) ||
+      (Array.isArray(data?.detail) ? data.detail.map((e) => e.msg).join('; ') : '') ||
+      `Ошибка ${res.status}`
     const error = new Error(detail)
     error.status = res.status
     error.data = data

@@ -1,65 +1,36 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
-import {
-  Badge,
-  Button,
-  EmptyState,
-  ErrorBox,
-  Modal,
-  PageHeader,
-  Select,
-  Spinner,
-} from '@/components/ui'
-import { charactersApi } from '@/features/characters/api.js'
-import { queryKeys } from '@/lib/api/queryKeys.js'
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, PageHeader, Spinner } from '@/components/ui'
 import { useBackgrounds, useClasses, useRaces } from '@/features/catalog/queries.js'
-import { useCharacters } from '@/features/characters/queries.js'
+import { useDeleteCharacter, useMyCharacters } from '@/features/characters/queries.js'
 
 export default function CharactersPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { data: characters, isLoading, error, refetch } = useCharacters()
+  const { data: characters, isLoading, error, refetch } = useMyCharacters()
 
   const { data: races = [] } = useRaces({ size: 100 })
   const { data: classes = [] } = useClasses({ size: 100 })
   const { data: backgrounds = [] } = useBackgrounds({ size: 100 })
 
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteId, setDeleteId] = useState('')
-  const [deleteError, setDeleteError] = useState(null)
-  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [confirmTarget, setConfirmTarget] = useState(null)
 
-  const target = characters?.find((c) => String(c.id) === deleteId)
+  const deleteCharacter = useDeleteCharacter()
 
   const doDelete = async () => {
     try {
-      setDeleteBusy(true)
-      await charactersApi.remove(deleteId)
-      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.all })
-      setDeleteBusy(false)
-      setDeleteOpen(false)
-      setDeleteId('')
-      setDeleteError(null)
-    } catch (e) {
-      setDeleteError(e)
-      setDeleteBusy(false)
+      await deleteCharacter.mutateAsync(confirmTarget.id)
+      setConfirmTarget(null)
+    } catch {
+      // ошибка остаётся в deleteCharacter.error и показывается в диалоге
     }
   }
 
   return (
     <div>
       <PageHeader
-        title="Персонажи"
+        title="Мои персонажи"
         subtitle="Ваши герои и их состояния"
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
-              Удалить персонажа
-            </Button>
-            <Button onClick={() => navigate('/characters/new')}>+ Новый персонаж</Button>
-          </div>
-        }
+        actions={<Button onClick={() => navigate('/characters/new')}>+ Новый персонаж</Button>}
       />
 
       {error && <ErrorBox error={error} onRetry={refetch} />}
@@ -75,77 +46,62 @@ export default function CharactersPage() {
             const bg = backgrounds.find((x) => x.id === c.background_id)
             const subcls = cls?.subclasses?.find((x) => String(x.id) === String(c.subclass_id))
             return (
-              <Link
-                key={c.id}
-                to={`/characters/${c.id}`}
-                className="catalog-tile"
-              >
-                <div className="list-row">
-                  <p className="item-name group-hover:text-ember">{c.name}</p>
-                  <Badge tone="accent">Ур. {c.level}</Badge>
-                </div>
-                <p className="text-hint mt-1">
-                  {[cls?.name, subcls?.name, race?.name, bg?.name].filter(Boolean).join(' · ') || 'Без класса'}
-                </p>
-                <p className="mt-3 text-sm">
-                  <span className="text-stone-400">HP </span>
-                  <span className="font-semibold text-stone-200">
-                    {c.current_hp} / {c.max_hp}
-                  </span>
-                  {c.temp_hp > 0 && <span className="ml-1 text-emerald-300">(+{c.temp_hp})</span>}
-                </p>
-              </Link>
+              <div key={c.id} className="catalog-tile relative">
+                <button
+                  type="button"
+                  onClick={() => setConfirmTarget(c)}
+                  title="Удалить персонажа"
+                  aria-label="Удалить персонажа"
+                  className="absolute bottom-2.5 right-2 z-10 rounded border border-stone-700 bg-stone-900/80 p-1.5 text-stone-500 transition hover:border-red-800 hover:bg-red-950/50 hover:text-red-300"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-[18px] w-[18px]" aria-hidden="true">
+                    <path
+                      fillRule="evenodd"
+                      d="M8.75 2a1.25 1.25 0 0 0-1.22 1h4.94A1.25 1.25 0 0 0 11.25 2h-2.5ZM6.24 3.5H4.5a.75.75 0 0 0 0 1.5h.57l.62 9.93A2.25 2.25 0 0 0 7.94 17h4.12a2.25 2.25 0 0 0 2.25-2.07l.62-9.93h.57a.75.75 0 0 0 0-1.5h-1.74a2.75 2.75 0 0 0-2.68-2h-2.16a2.75 2.75 0 0 0-2.68 2Zm1.01 1.5h5.5l-.61 9.84a.75.75 0 0 1-.75.66H7.94a.75.75 0 0 1-.75-.66L6.58 5h.67Z"
+                      clipRule="evenodd"
+                    />
+                    <path d="M8.5 7.25a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0V8a.75.75 0 0 1 .75-.75Zm3 0a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0V8a.75.75 0 0 1 .75-.75Z" />
+                  </svg>
+                </button>
+                <Link to={`/characters/${c.id}`} className="group block">
+                  <div className="list-row">
+                    <p className="item-name group-hover:text-ember">{c.name}</p>
+                    <Badge tone="accent">Ур. {c.level}</Badge>
+                  </div>
+                  <p className="text-hint mt-1">
+                    {[cls?.name, subcls?.name, race?.name, bg?.name].filter(Boolean).join(' · ') || 'Без класса'}
+                  </p>
+                  <p className="mt-3 pr-9 text-sm">
+                    <span className="text-stone-400">HP </span>
+                    <span className="font-semibold text-stone-200">
+                      {c.current_hp} / {c.max_hp}
+                    </span>
+                    {c.temp_hp > 0 && <span className="ml-1 text-emerald-300">(+{c.temp_hp})</span>}
+                  </p>
+                </Link>
+              </div>
             )
           })}
         </div>
       )}
 
-      {deleteOpen && (
-        <Modal title="Удалить персонажа" onClose={() => !deleteBusy && setDeleteOpen(false)} size="md">
-          {characters?.length === 0 ? (
-            <EmptyState text="Нет персонажей для удаления" />
-          ) : (
+      {confirmTarget && (
+        <ConfirmDialog
+          title="Удалить персонажа?"
+          message={
             <>
-              <p className="text-sm text-stone-400">
-                Выберите персонажа, которого нужно удалить. Действие необратимо.
-              </p>
-              <div className="mt-3">
-                <Select value={deleteId} onChange={(e) => setDeleteId(e.target.value)}>
-                  <option value="">Выберите персонажа...</option>
-                  {(characters ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} · ур. {c.level}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              {target && (
-                <p className="mt-3 rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-200">
-                  Персонаж «{target.name}» (ур. {target.level}) будет удалён безвозвратно вместе со всеми
-                  своими данными.
-                </p>
-              )}
-              {deleteError && (
-                <div className="mt-3">
-                  <ErrorBox error={deleteError} onRetry={() => setDeleteError(null)} />
-                </div>
-              )}
-              <div className="mt-4 flex justify-end gap-2 border-t border-stone-700 pt-3">
-                <Button variant="ghost" onClick={() => setDeleteOpen(false)} disabled={deleteBusy}>
-                  Отмена
-                </Button>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded bg-red-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!deleteId || deleteBusy}
-                  onClick={doDelete}
-                >
-                  {deleteBusy ? 'Удаляем...' : 'Удалить'}
-                </button>
-              </div>
+              Персонаж{' '}
+              <span className="font-semibold text-stone-100">
+                «{confirmTarget.name}» (ур. {confirmTarget.level})
+              </span>{' '}
+              будет удалён безвозвратно вместе со всеми своими данными.
             </>
-          )}
-        </Modal>
+          }
+          busy={deleteCharacter.isPending}
+          error={deleteCharacter.error}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={doDelete}
+        />
       )}
     </div>
   )

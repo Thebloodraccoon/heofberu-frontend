@@ -1,23 +1,28 @@
 import { abilityName } from '@/lib/utils/ability.js'
-import { OptionCard } from './OptionCard.jsx'
-import { Hint, Search, Section, StepShell, Tag } from './StepShell.jsx'
+import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
+import PickerGrid from './PickerGrid.jsx'
 import { useSearch } from './useSearch.js'
-
-const asNum = (v) => Number(v) || 0
 
 export default function StepClass({ stepNo, total, form, update, lookups }) {
   const classDetail = lookups.classDetail
   const subclassDetail = lookups.subclassDetail
   const selectedClass = (lookups.classes ?? []).find((c) => String(c.id) === String(form.class_id))
   const subclasses = classDetail?.subclasses ?? []
-  const level = asNum(form.level) || 1
 
   const classSearch = useSearch(lookups.classes ?? [])
+  const subclassSearch = useSearch(subclasses)
 
-  const pool = (classDetail?.available_skills ?? []).filter((s) => s && s.id != null)
-  const raceGranted = classDetail ? (lookups.raceDetail?.granted_skills ?? []) : []
-  const bgGranted = classDetail ? (lookups.backgroundDetail?.granted_skills ?? []) : []
+  const raceGranted = lookups.raceDetail?.granted_skills ?? []
+  const bgGranted = lookups.backgroundDetail?.granted_skills ?? []
+  const grantedIds = new Set(
+    [...raceGranted, ...bgGranted].map((s) => Number(s.id)).filter(Number.isFinite),
+  )
   const choiceCount = classDetail?.skill_choice_count ?? 0
+
+  // Навыки, уже выданные расой/предысторией, нельзя выбирать повторно.
+  const pool = (classDetail?.available_skills ?? []).filter(
+    (s) => s && s.id != null && !grantedIds.has(Number(s.id)),
+  )
 
   const chosen = (form.class_skill_ids ?? []).map(Number)
 
@@ -28,14 +33,6 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
     const next = has ? chosen.filter((x) => x !== id) : [...chosen, id]
     update({ class_skill_ids: next })
   }
-
-  const spellSlots = (classDetail?.spell_slot_progression ?? []).filter((s) => s.class_level <= level)
-
-  const slotSummary = {}
-  for (const row of spellSlots) {
-    slotSummary[row.spell_level] = row.slots
-  }
-  const slotEntries = Object.entries(slotSummary).filter(([, n]) => n > 0)
 
   const SkillToggle = ({ name, sub, on, disabled, onClick }) => (
     <button
@@ -63,24 +60,15 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
   return (
     <StepShell stepNo={stepNo} total={total} title="Класс" subtitle="Класс, подкласс и навыки класса">
       <Section title="Класс">
-        <Search
-          className="mb-3 max-w-sm"
-          placeholder="Поиск класса…"
-          value={classSearch.query}
-          onChange={classSearch.setQuery}
+        <PickerGrid
+          items={classSearch.filtered}
+          query={classSearch.query}
+          onQueryChange={classSearch.setQuery}
+          searchPlaceholder="Поиск класса по названию и описанию…"
+          selectedId={form.class_id}
+          onSelect={(c) => update({ class_id: String(c.id), subclass_id: '', class_skill_ids: [] })}
+          subtitleOf={(c) => (c.hit_dice ? `к${c.hit_dice.replace('D', '')}` : undefined)}
         />
-        <div className="grid gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
-          {classSearch.filtered.map((c) => (
-            <OptionCard
-              key={c.id}
-              selected={String(c.id) === String(form.class_id)}
-              onClick={() => update({ class_id: String(c.id), subclass_id: '', class_skill_ids: [] })}
-              title={c.name}
-              subtitle={c.hit_dice ? `Кость хитов к${c.hit_dice.replace('D', '')}` : ''}
-            />
-          ))}
-          {classSearch.filtered.length === 0 && <Hint>Ничего не найдено.</Hint>}
-        </div>
         {selectedClass && !classDetail && <Hint className="mt-3">Загружаем класс…</Hint>}
         {classDetail && (
           <div className="mt-4 space-y-3">
@@ -100,48 +88,20 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
               {classDetail.skill_choice_count > 0 && <Tag>Навыков на выбор: {classDetail.skill_choice_count}</Tag>}
               {classDetail.spellcasting_ability && <Tag>Заклинатель: {abilityName(classDetail.spellcasting_ability)}</Tag>}
             </div>
-            {(classDetail.starting_items ?? []).length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                <Tag>Стартовое снаряжение:</Tag>
-                {(classDetail.starting_items ?? []).map((it) => (
-                  <Tag key={it.item_id} tone="dim">
-                    {it.item?.name} {it.quantity > 1 ? `×${it.quantity}` : ''}
-                  </Tag>
-                ))}
-              </div>
-            )}
-            {slotEntries.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                <Tag>Слоты заклинаний:</Tag>
-                {slotEntries.map(([spellLevel, n]) => (
-                  <Tag key={spellLevel} tone="dim">
-                    {spellLevel === 'CANTRIP' ? 'Заговоры' : spellLevel.replace('LEVEL_', '')} ур.: {n}
-                  </Tag>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </Section>
 
       {subclasses.length > 0 && (
         <Section title="Подкласс (необязательно)">
-          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-            <OptionCard
-              selected={!form.subclass_id}
-              onClick={() => update({ subclass_id: '' })}
-              title="Без подкласса"
-              subtitle="Только основной класс"
-            />
-            {subclasses.map((s) => (
-              <OptionCard
-                key={s.id}
-                selected={String(s.id) === String(form.subclass_id)}
-                onClick={() => update({ subclass_id: String(s.id) })}
-                title={s.name}
-              />
-            ))}
-          </div>
+          <PickerGrid
+            items={[{ id: '', name: 'Без подкласса', description: 'Только основной класс' }, ...subclassSearch.filtered]}
+            query={subclassSearch.query}
+            onQueryChange={subclassSearch.setQuery}
+            searchPlaceholder="Поиск подкласса…"
+            selectedId={form.subclass_id}
+            onSelect={(s) => update({ subclass_id: String(s.id) })}
+          />
           {form.subclass_id && (
             <div className="mt-4 space-y-3">
               {!subclassDetail && <Hint>Загружаем подкласс…</Hint>}
@@ -158,48 +118,51 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
         </Section>
       )}
 
-      <Section title={classDetail?.name ? `Навыки класса «${classDetail.name}»` : 'Навыки класса'}>
-        {!classDetail && <Hint>Сначала выберите класс.</Hint>}
-        {classDetail && choiceCount === 0 && <Hint>У этого класса нет навыков на выбор.</Hint>}
-        {classDetail && choiceCount > 0 && (
-          <>
-            <div className="mb-3 flex flex-wrap items-center gap-3">
-              <Tag tone={chosen.length >= choiceCount ? 'good' : 'default'}>
-                Выбрано: {chosen.length} из {choiceCount}
-              </Tag>
-              {chosen.length >= choiceCount && <Hint>Доступный лимит выбран.</Hint>}
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {pool.map((s) => (
-                <SkillToggle
-                  key={s.id}
-                  id={s.id}
-                  name={s.name}
-                  sub={abilityName(s.ability)}
-                  on={chosen.includes(Number(s.id))}
-                  disabled={!chosen.includes(Number(s.id)) && chosen.length >= choiceCount}
-                  onClick={() => toggleChoice(Number(s.id))}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </Section>
-
-      {(raceGranted.length > 0 || bgGranted.length > 0) && (
-        <Section title="Навыки расы и предыстории">
-          <div className="flex flex-wrap gap-2">
-            {raceGranted.map((s) => (
-              <Tag key={`r${s.id}`} tone="good">
-                {s.name} · раса
-              </Tag>
-            ))}
-            {bgGranted.map((s) => (
-              <Tag key={`b${s.id}`} tone="good">
-                {s.name} · предыстория
-              </Tag>
-            ))}
-          </div>
+      {(raceGranted.length > 0 || bgGranted.length > 0 || choiceCount > 0) && (
+        <Section title={classDetail?.name ? `Навыки «${classDetail.name}»` : 'Навыки'}>
+          {!classDetail && <Hint>Сначала выберите класс.</Hint>}
+          {classDetail && (
+            <>
+              {(raceGranted.length > 0 || bgGranted.length > 0) && (
+                <div className="mb-4 flex flex-wrap gap-1.5">
+                  {raceGranted.map((s) => (
+                    <Tag key={`r${s.id}`} tone="good">
+                      {s.name} · раса
+                    </Tag>
+                  ))}
+                  {bgGranted.map((s) => (
+                    <Tag key={`b${s.id}`} tone="good">
+                      {s.name} · предыстория
+                    </Tag>
+                  ))}
+                </div>
+              )}
+              {choiceCount === 0 ? (
+                <Hint>У этого класса нет навыков на выбор.</Hint>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <Tag tone={chosen.length >= choiceCount ? 'good' : 'default'}>
+                      Выбрано: {chosen.length} из {Math.min(choiceCount, pool.length + chosen.length)}
+                    </Tag>
+                    {pool.length === 0 && <Hint>Все доступные навыки уже выданы расой и предысторией.</Hint>}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {pool.map((s) => (
+                      <SkillToggle
+                        key={s.id}
+                        name={s.name}
+                        sub={abilityName(s.ability)}
+                        on={chosen.includes(Number(s.id))}
+                        disabled={!chosen.includes(Number(s.id)) && chosen.length >= choiceCount}
+                        onClick={() => toggleChoice(Number(s.id))}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </Section>
       )}
     </StepShell>

@@ -8,7 +8,8 @@ export const classesCfg = {
   featuresOps: api.classes.features,
   featuresModal: {
     showLevel: true,
-    levelHint: 'Укажите уровень, с которого умение доступно, или оставьте пустым — тогда оно доступно сразу.',
+    levelRequired: true,
+    levelHint: 'Укажите уровень, с которого умение доступно.',
   },
   featuresBlock: {
     label: 'Умения класса',
@@ -19,7 +20,7 @@ export const classesCfg = {
   itemsOps: api.classes.items,
   itemsBlock: {
     label: 'Стартовое снаряжение',
-    addLabel: '+ Добавить',
+    addLabel: 'Изменить',
     empty: 'Снаряжения нет',
     noun: 'предмет',
   },
@@ -28,7 +29,6 @@ export const classesCfg = {
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Волшебник' },
     { key: 'hit_dice', label: 'Кость хитов', type: 'select', options: opt(diceTypeLabels) },
     { key: 'skill_choice_count', label: 'Количество навыков', type: 'number', min: 0 },
-    { key: 'spellcasting_ability', label: 'Характеристика заклинаний', type: 'select', options: optOptional(abilityLabels) },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [
@@ -36,6 +36,15 @@ export const classesCfg = {
     { type: 'pills', key: 'saving_throws', label: 'Спасброски', options: opt(abilityLabels), empty: 'Не выбрано' },
     { type: 'pills', key: 'armor_proficiencies', label: 'Владение бронёй', options: opt(armorProficiencyLabels), empty: 'Не выбрано' },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Доступные навыки', empty: 'Навыков в справочнике нет' },
+    {
+      type: 'spellcasting',
+      key: 'spellcasting_ability',
+      slotsKey: 'spell_slots',
+      label: 'Характеристика заклинаний',
+      options: optOptional(abilityLabels),
+      hint: 'Если очистить характеристику, при сохранении будут удалены все ячейки заклинаний класса.',
+      chooseHint: 'Выберите характеристику, чтобы задать ячейки заклинаний по уровням.',
+    },
     {
       type: 'spellSlots',
       key: 'spell_slots',
@@ -89,7 +98,8 @@ export const classesCfg = {
     if (rec) {
       await api.classes.update(rec.id, { ...base, primary_abilities: primary, saving_throws: form.saving_throws })
       await api.classes.availableSkills(rec.id, { skill_ids: form.skill_ids })
-      if (form.spellcasting_ability) await saveSpellSlots(form, rec, rec.spell_slot_progression)
+      const slotsForm = form.spellcasting_ability ? form : { ...form, spell_slots: {} }
+      await saveSpellSlots(slotsForm, rec, rec.spell_slot_progression)
     } else {
       const created = await api.classes.create({
         ...base,

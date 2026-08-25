@@ -1,11 +1,13 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Badge } from '@/components/ui'
 import { summaryBadges } from './detail/detailHelpers.jsx'
+import SpellAvailability from './SpellAvailability.jsx'
 
 export default function TileCard({ item, resource }) {
+  const [searchParams] = useSearchParams()
   return (
     <Link
-      to={`/catalog/${resource}/${item.id}`}
+      to={{ pathname: `/catalog/${resource}/${item.id}`, search: searchParams.toString() }}
       className="catalog-tile group my-[3px]"
     >
       <div className="list-row">
@@ -16,6 +18,7 @@ export default function TileCard({ item, resource }) {
       {item.description && (
         <p className="item-desc-preview mt-1">{item.description}</p>
       )}
+      {resource === 'spells' && <SpellAvailability spell={item} />}
       {summaryBadges(item).length > 0 && (
         <div className="badge-row mt-1.5">
           {summaryBadges(item).map((b, i) => (

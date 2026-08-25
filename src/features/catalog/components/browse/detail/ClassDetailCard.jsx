@@ -1,5 +1,6 @@
-import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel } from '@/lib/i18n/index.js'
+import { abilityLabels, armorProficiencyLabels, diceTypeLabels, label, ruLevel, skillLabels } from '@/lib/i18n/index.js'
 import { Badge, Card } from '@/components/ui'
+import { SkillChips, itemName } from './detailHelpers.jsx'
 
 const SPELL_LEVELS = [
   'LEVEL_1',
@@ -194,12 +195,17 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
               {cls.primary_abilities.map((p) => abilityLabels[p.ability]).join(', ')}
             </dd>
           </div>
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             <dt className="inline font-medium text-stone-200">Навыки </dt>
-            <dd className="inline">
-              {cls.skill_choice_count > 0 ? `выберите ${cls.skill_choice_count}: ` : ''}
-              {cls.available_skills.map((s) => s.name).join(', ')}
-            </dd>
+            {cls.skill_choice_count > 0 && (
+              <dd className="inline text-stone-300">{`выберите ${cls.skill_choice_count}:`}</dd>
+            )}
+            <SkillChips
+              names={cls.available_skills.map((s) => {
+                const n = itemName(s)
+                return skillLabels[n] ?? label(n)
+              })}
+            />
           </div>
           <div>
             <dt className="inline font-medium text-stone-200">Владение бронёй: </dt>

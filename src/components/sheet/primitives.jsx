@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { fmtBonus } from '@/lib/utils/sheet.js'
 
 export function RollButton({ bonus, onClick, disabled, compact = false, className = '', title, label }) {
@@ -15,9 +15,13 @@ export function RollButton({ bonus, onClick, disabled, compact = false, classNam
   )
 }
 
-export function CheckDot({ checked = false, onChange, id, name, disabled }) {
+export function CheckDot({ checked = false, expertise = false, onChange, id, name, disabled }) {
+  const cls = expertise && checked ? 'sheet-checkdot sheet-checkdot_expertise' : 'sheet-checkdot'
   return (
-    <label className="sheet-checkdot" title={checked ? 'Владение есть' : 'Нет владения'}>
+    <label
+      className={cls}
+      title={checked ? (expertise ? 'Экспертность (владение ×2)' : 'Владение есть') : 'Нет владения'}
+    >
       <input
         type="checkbox"
         id={id}
@@ -55,8 +59,8 @@ export function XpBar({ level = 1, current = 0, next = 300, fill = null }) {
   )
 }
 
-export function SheetSectionLabel({ children }) {
-  return <p className="sheet-section-label">{children}</p>
+export function SheetSectionLabel({ children, className = '' }) {
+  return <p className={`sheet-section-label ${className}`.trim()}>{children}</p>
 }
 
 const ChevronIcon = ({ className = '' }) => (
@@ -227,38 +231,18 @@ export function PassiveSenses({ items = [] }) {
 }
 
 export function SheetTabs({ tabs, active, onSelect }) {
-  const scrollerRef = useRef(null)
-  const scrollBy = (dir) => scrollerRef.current?.scrollBy({ left: dir * 140, behavior: 'smooth' })
   return (
-    <div className="flex items-center gap-1">
-      <button
-        type="button"
-        aria-label="Прокрутить влево"
-        className="sheet-btn shrink-0 !px-2"
-        onClick={() => scrollBy(-1)}
-      >
-        ‹
-      </button>
-      <div ref={scrollerRef} className="sheet-tabs flex-1 overflow-x-auto scrollbar-none">
-        {tabs.map(([key, labelText]) => (
-          <button
-            key={key}
-            type="button"
-            className={`sheet-tabs__btn shrink-0 ${active === key ? 'sheet-tabs__btn_active' : ''}`}
-            onClick={() => onSelect(key)}
-          >
-            {labelText}
-          </button>
-        ))}
-      </div>
-      <button
-        type="button"
-        aria-label="Прокрутить вправо"
-        className="sheet-btn shrink-0 !px-2"
-        onClick={() => scrollBy(1)}
-      >
-        ›
-      </button>
+    <div className="sheet-tabs flex-wrap">
+      {tabs.map(([key, labelText]) => (
+        <button
+          key={key}
+          type="button"
+          className={`sheet-tabs__btn ${active === key ? 'sheet-tabs__btn_active' : ''}`}
+          onClick={() => onSelect(key)}
+        >
+          {labelText}
+        </button>
+      ))}
     </div>
   )
 }
