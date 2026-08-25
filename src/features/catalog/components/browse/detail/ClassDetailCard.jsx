@@ -150,14 +150,14 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
 
       <Section title="Развитие по уровням" noBorder>
         <div className="overflow-x-auto rounded-lg border-x border-stone-500/60 bg-stone-900/40">
-          <table className="w-full min-w-max text-sm">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-stone-700/60 bg-stone-800/50 text-left text-xs uppercase tracking-wide text-stone-400">
-                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 text-center align-middle font-medium">Ур.</th>
-                <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 text-center align-middle font-medium">БМ</th>
+                <th rowSpan={hasSlots ? 2 : 1} className="w-12 px-2 py-2 text-center align-middle font-medium">Ур.</th>
+                <th rowSpan={hasSlots ? 2 : 1} className="w-14 px-2 py-2 text-center align-middle font-medium">БМ</th>
                 <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">Умения</th>
                 {hasCantrips && (
-                  <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle text-center font-medium">
+                  <th rowSpan={hasSlots ? 2 : 1} className="w-20 px-2 py-2 align-middle text-center font-medium">
                     Заговоры
                   </th>
                 )}
@@ -170,7 +170,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
               {hasSlots && (
                 <tr className="border-b border-stone-700/60 bg-stone-800/30 text-center text-xs text-stone-400">
                   {SPELL_LEVELS.map((lv, i) => (
-                    <th key={lv} className="px-1 py-1 font-normal">
+                    <th key={lv} className="w-8 px-1 py-1 font-normal">
                       {i + 1}
                     </th>
                   ))}
@@ -182,7 +182,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                 <tr key={row.level} className="border-b border-stone-700/40 align-top odd:bg-stone-900/40">
                   <td className="px-3 py-2 text-center align-top font-medium text-stone-100">{row.level}</td>
                   <td className="px-3 py-2 text-center align-top text-stone-200">+{row.proficiencyBonus}</td>
-                  <td className="px-3 py-2 align-top text-stone-300">
+                  <td className="min-w-0 max-w-0 break-words px-3 py-2 align-top text-stone-300">
                     {row.features.length > 0 ? (
                       <span className="flex flex-col gap-0.5">
                         {row.features.map((f, i) => (
@@ -205,13 +205,13 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                     ) : '—'}
                   </td>
                   {hasCantrips && (
-                    <td className="px-3 py-2 align-top text-center text-stone-300">
+                    <td className="w-20 whitespace-nowrap px-2 py-2 text-center align-top text-stone-300">
                       {row.slots.CANTRIP ?? '—'}
                     </td>
                   )}
                   {hasSlots &&
                     SPELL_LEVELS.map((lv) => (
-                      <td key={lv} className="px-1 py-2 text-center text-stone-300">
+                      <td key={lv} className="whitespace-nowrap px-1 py-2 text-center text-stone-300">
                         {row.slots[lv] ?? '—'}
                       </td>
                     ))}
