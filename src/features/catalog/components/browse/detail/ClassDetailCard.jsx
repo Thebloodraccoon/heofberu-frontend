@@ -231,12 +231,14 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
         <dl className="space-y-1 text-sm text-stone-300">
           <div>
             <dt className="inline font-medium text-stone-200">Спасброски: </dt>
-            <dd className="inline">{cls.saving_throws.map((s) => abilityLabels[s.ability]).join(', ')}</dd>
+            <dd className="inline">
+              {(cls.saving_throws ?? []).map((s) => abilityLabels[s.ability]).join(', ') || '—'}
+            </dd>
           </div>
           <div>
             <dt className="inline font-medium text-stone-200">Основные характеристики: </dt>
             <dd className="inline">
-              {cls.primary_abilities.map((p) => abilityLabels[p.ability]).join(', ')}
+              {(cls.primary_abilities ?? []).map((p) => abilityLabels[p.ability]).join(', ') || '—'}
             </dd>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -245,7 +247,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
               <dd className="inline text-stone-300">{`выберите ${cls.skill_choice_count}:`}</dd>
             )}
             <SkillChips
-              names={cls.available_skills
+              names={(cls.available_skills ?? [])
                 .map((s) => {
                   const n = itemName(s)
                   return skillLabels[n] ?? sentenceCase(n)
