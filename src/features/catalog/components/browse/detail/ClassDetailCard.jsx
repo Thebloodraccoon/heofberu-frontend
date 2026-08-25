@@ -44,9 +44,15 @@ function buildRows(cls, extraFeatures) {
   const slotsByLevel = {}
   for (const slot of cls.spell_slot_progression ?? []) {
     if (!slotsByLevel[slot.class_level]) slotsByLevel[slot.class_level] = {}
-    slotsByLevel[slot.class_level][slot.spell_level] = slot.slots
+    if (slot.spell_level === 'CANTRIP') {
+      slotsByLevel[slot.class_level].CANTRIP = slot.slots
+    } else {
+      slotsByLevel[slot.class_level][slot.spell_level] = slot.slots
+    }
   }
-  const hasSlots = (cls.spell_slot_progression ?? []).some((slot) => slot.slots > 0)
+  const progression = cls.spell_slot_progression ?? []
+  const hasSlots = progression.some((slot) => slot.spell_level !== 'CANTRIP' && slot.slots > 0)
+  const hasCantrips = progression.some((slot) => slot.spell_level === 'CANTRIP' && slot.slots > 0)
   const rows = []
   for (let level = 1; level <= 20; level += 1) {
     const staticAsi = ASI_LEVELS.includes(level) ? [asiFeature(level)] : []
@@ -57,7 +63,7 @@ function buildRows(cls, extraFeatures) {
       slots: slotsByLevel[level] ?? {},
     })
   }
-  return { rows, hasSlots }
+  return { rows, hasSlots, hasCantrips }
 }
 
 function Section({ title, children, noBorder }) {
@@ -85,12 +91,19 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
         subclassName: selectedSub.name,
       }))
     : []
-  const { rows, hasSlots } = buildRows(cls, subFeatures)
+  const { rows, hasSlots, hasCantrips } = buildRows(cls, subFeatures)
 
+  const asiCards = ASI_LEVELS.map((level) => ({ ...asiFeature(level), level }))
   const features = [
     ...(cls.features ?? []).map((f) => ({ ...f, fromSubclass: false })),
     ...subFeatures,
-  ].sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || a.id - b.id)
+    ...asiCards,
+  ].sort((a, b) => {
+    const byLevel = (a.level ?? 0) - (b.level ?? 0)
+    if (byLevel !== 0) return byLevel
+    if (!!a.isStaticAsi !== !!b.isStaticAsi) return a.isStaticAsi ? -1 : 1
+    return Number(a.id) - Number(b.id)
+  })
 
   return (
     <Card className="my-[3px] detail-padded">
@@ -143,6 +156,11 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                 <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">Ур.</th>
                 <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">БМ</th>
                 <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle font-medium">Умения</th>
+                {hasCantrips && (
+                  <th rowSpan={hasSlots ? 2 : 1} className="px-3 py-2 align-middle text-center font-medium">
+                    Заговоры
+                  </th>
+                )}
                 {hasSlots && (
                   <th colSpan={9} className="px-3 py-2 text-center font-medium">
                     Ячейки заклинаний
@@ -186,6 +204,11 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                       </span>
                     ) : '—'}
                   </td>
+                  {hasCantrips && (
+                    <td className="px-3 py-2 align-top text-center text-stone-300">
+                      {row.slots.CANTRIP ?? '—'}
+                    </td>
+                  )}
                   {hasSlots &&
                     SPELL_LEVELS.map((lv) => (
                       <td key={lv} className="px-1 py-2 text-center text-stone-300">
@@ -197,10 +220,6 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-xs leading-relaxed text-stone-500">
-          <span className="font-medium text-stone-400">Улучшение характеристик. </span>
-          {ASI_FEATURE_DESCRIPTION}
-        </p>
         {subFeatures.length > 0 && (
           <p className="sr-only">
             Умения подкласса подсвечены янтарным.
