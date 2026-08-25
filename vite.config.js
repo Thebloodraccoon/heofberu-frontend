@@ -31,9 +31,13 @@ export default defineConfig({
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          query: ['@tanstack/react-query'],
+        // Vite 8 (rolldown) поддерживает manualChunks только функцией.
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('@tanstack/react-query')) return 'query'
+            if (id.includes('react') || id.includes('scheduler')) return 'vendor'
+          }
+          return undefined
         },
       },
     },
