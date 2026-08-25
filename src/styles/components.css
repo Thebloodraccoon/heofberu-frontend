@@ -69,12 +69,6 @@
   @apply border-ember/60 bg-ember/5;
 }
 
-/* --- Секция-разделитель --- */
-
-.section-divider {
-  @apply border-t border-stone-700/70 pt-4;
-}
-
 /* --- Строка списка --- */
 
 .list-row {

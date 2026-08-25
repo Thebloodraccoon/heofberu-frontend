@@ -183,8 +183,11 @@ export function FieldValue({ value }) {
 
 export function Section({ title, children }) {
   return (
-    <div className="detail-section section-divider">
-      <h2 className="detail-section-title">{title}</h2>
+    <div className="detail-section">
+      <h2 className="detail-section-title">
+        {title}
+        <span className="h-px flex-1 bg-stone-700/70" aria-hidden="true" />
+      </h2>
       {children}
     </div>
   )

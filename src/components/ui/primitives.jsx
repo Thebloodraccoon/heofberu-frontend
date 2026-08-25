@@ -291,6 +291,32 @@ export function Chip({ children, className = '' }) {
   )
 }
 
+export function AccordionItem({ open, onToggle, header, children, className = '', bodyClassName = '' }) {
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full cursor-pointer flex-wrap items-center gap-2 text-left"
+      >
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className={`size-3.5 shrink-0 text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`}
+          aria-hidden="true"
+        >
+          <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {header}
+      </button>
+      {open && <div className={bodyClassName}>{children}</div>}
+    </div>
+  )
+}
+
 export function PillToggle({ options, selected, onToggle, className = '' }) {
   return (
     <div className={`flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded border border-stone-700/60 bg-stone-900/50 p-3 ${className}`}>
