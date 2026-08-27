@@ -15,7 +15,7 @@ import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { ASI_LEVELS, STATS, bonusMap } from '@/lib/utils/ability.js'
+import { ABILITY_CAP, ASI_LEVELS, STATS, abilityByCode, bonusMap } from '@/lib/utils/ability.js'
 import { Button, Badge, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Spinner, TextArea } from '@/components/ui'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
 import { label, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
@@ -83,7 +83,7 @@ function HpSection({ character, onError, reload }) {
         <p className="mt-1 text-xs text-stone-500">Кость хитов: {character.hit_dice || '—'}</p>
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex justify-center gap-2">
         <Input
           type="number"
           placeholder="Введите число"
@@ -211,33 +211,35 @@ function LevelSection({ character, onError, reload }) {
 
   return (
     <Section title="Уровень персонажа">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-stone-200">
-        <span>
-          Уровень <b>{character.level}</b> · потолок <b>{maxLevelData?.max_level ?? '—'}</b>
-        </span>
-        {canLevelUp?.can_level_up && (
-          <Button size="sm" onClick={onLevelUpClick}>
-            ↑ До ур. {(Number(character.level) || 1) + 1}
-          </Button>
-        )}
-        <label className="flex items-center gap-1.5 text-xs text-stone-400">
-          Новый потолок:
+      <div className="flex flex-col gap-2 text-sm text-stone-200">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span>
+            Уровень <b>{character.level}</b>
+          </span>
+          <span>
+            Потолок <b>{maxLevelData?.max_level ?? '—'}</b>
+          </span>
+          {canLevelUp?.can_level_up && (
+            <Button size="sm" onClick={onLevelUpClick}>
+              ↑ До ур. {(Number(character.level) || 1) + 1}
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center justify-center gap-2 text-xs text-stone-400">
+          <span className="whitespace-nowrap">Новый потолок:</span>
           <Input
             type="number"
-            min={Number(character.level) || 1}
+            min={Math.max(Number(character.level) || 1, Number(maxLevelData?.max_level) || 1)}
             max="20"
-            className="!w-20"
+            className="!w-10"
             value={newCeiling}
             onChange={(e) => setNewCeiling(e.target.value)}
-            placeholder={`≥ ${character.level}`}
+            placeholder={`≥ ${maxLevelData?.max_level ?? character.level}`}
           />
-        </label>
-        <Button size="sm" variant="ghost" disabled={ceilingBusy || !newCeiling} onClick={raiseCeiling}>
-          Задать
-        </Button>
-        {!canLevelUp?.can_level_up && (
-          <span className="text-xs text-stone-500">Повышение недоступно — сначала поднимите потолок.</span>
-        )}
+          <Button size="sm" variant="ghost" disabled={ceilingBusy || !newCeiling} onClick={raiseCeiling}>
+            Задать
+          </Button>
+        </div>
       </div>
 
       {asiPromptLevel && (
@@ -258,18 +260,25 @@ function StatsSection({ character, onError, reload }) {
   const { data: stats } = useCharacterGmStats(characterId)
   const { data: adjustments = [] } = useCharacterAsiAdjustments(characterId)
   // Выборы улучшений на уровнях (ASI) — аудит с бэкенда.
-  const { data: asiChoices = [] } = useQuery({
+  const { data: asiChoicesAll = [] } = useQuery({
     queryKey: queryKeys.characters.asiChoices(Number(characterId)),
     queryFn: () => charactersApi.progression.asiChoices(Number(characterId)),
     enabled: !!characterId,
   })
+  const asiChoices = useMemo(() => asiChoicesAll.filter((c) => ASI_LEVELS.includes(c.class_level)), [asiChoicesAll])
   // Расовые/подрасовые бонусы — чтобы показать, откуда что взялось.
   const { data: raceDetail } = useRaceDetail(character.race_id)
   const { data: subraceDetail } = useSubraceDetail(character.race_id, character.subrace_id)
   const { data: featsCatalog = [] } = useFeats({ size: 100 })
+  const { data: charFeats = [] } = useCharacterFeats(characterId)
   const [newAbility, setNewAbility] = useState('STR')
   const [newAmount, setNewAmount] = useState('')
   const [busy, setBusy] = useState(false)
+
+  const handleAbilityChange = (e) => {
+    setNewAbility(e.target.value)
+    setNewAmount('')
+  }
 
   // Итог = база (уже включает выборы уровней и правки ГМа) + раса + подраса
   // (+ бонусы черт — остаются в остатке).
@@ -281,12 +290,44 @@ function StatsSection({ character, onError, reload }) {
 
   const featNameById = useMemo(() => new Map(featsCatalog.map((f) => [Number(f.id), f.name])), [featsCatalog])
 
+  // Бонусы черт к характеристикам: суммируем ability_score_increases всех черт персонажа.
+  const featBonusByCode = useMemo(() => {
+    const result = Object.fromEntries(STATS.map((s) => [s.code, 0]))
+    for (const cf of charFeats) {
+      const increases = cf.feat?.ability_score_increases ?? []
+      for (const inc of increases) {
+        const code = String(inc.ability).toUpperCase()
+        if (code in result) result[code] += inc.amount
+      }
+    }
+    return result
+  }, [charFeats])
+
+  const currentTotal = stats?.[abilityByCode[newAbility]?.key]?.total ?? 10
+  const adjustMin = 1 - currentTotal
+  const adjustMax = ABILITY_CAP - currentTotal
+
+  const handleAmountChange = (e) => {
+    const raw = e.target.value
+    if (raw === '') { setNewAmount(''); return }
+    const n = Number(raw)
+    if (!Number.isFinite(n)) return
+    setNewAmount(String(Math.min(adjustMax, Math.max(adjustMin, n))))
+  }
+
+  const parsedAmount = Number(newAmount)
+  const amountValid = newAmount !== '' && Number.isFinite(parsedAmount) && parsedAmount >= adjustMin && parsedAmount <= adjustMax
+
   const addAdjustment = async () => {
-    if (!newAbility || newAmount === '') return
+    if (!newAbility || !amountValid) return
+    const liveTotal = stats?.[abilityByCode[newAbility]?.key]?.total ?? 10
+    const liveMin = 1 - liveTotal
+    const liveMax = ABILITY_CAP - liveTotal
+    const clamped = Math.min(liveMax, Math.max(liveMin, parsedAmount))
     setBusy(true)
     try {
       await charactersApi.gmPanel.asi.add(characterId, {
-        increases: [{ ability: newAbility, amount: Number(newAmount) }],
+        increases: [{ ability: newAbility, amount: clamped }],
       })
       setNewAmount('')
       await queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'gm-panel'] })
@@ -314,9 +355,11 @@ function StatsSection({ character, onError, reload }) {
       className={`rounded px-1.5 py-0.5 text-[10px] ${
         tone === 'good'
           ? 'bg-emerald-900/50 text-emerald-200'
-          : tone === 'bad'
-            ? 'bg-red-900/40 text-red-200'
-            : 'bg-stone-800 text-stone-400'
+          : tone === 'feat'
+            ? 'bg-amber-900/50 text-amber-200'
+            : tone === 'bad'
+              ? 'bg-red-900/40 text-red-200'
+              : 'bg-stone-800 text-stone-400'
       }`}
     >
       {text}
@@ -338,8 +381,10 @@ function StatsSection({ character, onError, reload }) {
               if (raceBonus[s.code]) parts.push(chip(`Раса +${raceBonus[s.code]}`, 'good'))
               if (subraceBonus[s.code]) parts.push(chip(`Подраса +${subraceBonus[s.code]}`, 'good'))
               const known = view.base + (raceBonus[s.code] ?? 0) + (subraceBonus[s.code] ?? 0)
-              const other = view.total - known
-              if (other !== 0) parts.push(chip(`Черты и прочее ${other > 0 ? `+${other}` : other}`))
+              const fb = featBonusByCode[s.code] ?? 0
+              if (fb !== 0) parts.push(chip(`Черты ${fb > 0 ? `+${fb}` : fb}`, 'feat'))
+              const other = view.total - known - fb
+              if (other !== 0) parts.push(chip(`Прочее ${other > 0 ? `+${other}` : other}`))
               return (
                 <li key={s.key} className="rounded border border-stone-800 bg-stone-900/70 px-3 py-2">
                   <div className="flex items-baseline justify-between gap-2">
@@ -377,6 +422,20 @@ function StatsSection({ character, onError, reload }) {
               </ul>
             )}
 
+            {Object.values(featBonusByCode).some((v) => v !== 0) && (
+              <>
+                <p className="mb-1.5 mt-4 text-xs uppercase tracking-wide text-stone-500">Бонусы черт</p>
+                <ul className="space-y-1">
+                  {STATS.filter((s) => featBonusByCode[s.code] !== 0).map((s) => (
+                    <li key={s.code} className="flex items-center justify-between rounded border border-amber-900/40 bg-amber-950/20 px-2.5 py-1.5 text-xs">
+                      <span className="font-medium text-stone-200">{s.label}</span>
+                      <span className="text-amber-300">{featBonusByCode[s.code] > 0 ? `+${featBonusByCode[s.code]}` : featBonusByCode[s.code]}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
             <p className="mb-1.5 mt-4 text-xs uppercase tracking-wide text-stone-500">Правки ГМа</p>
             {adjustments.length === 0 ? (
               <p className="text-xs text-stone-600">Правок ГМа нет.</p>
@@ -404,29 +463,34 @@ function StatsSection({ character, onError, reload }) {
 
             {/* Добавление одной правки за раз */}
             <div className="mt-4 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-              <p className="text-[11px] leading-relaxed text-stone-500">
-                Работает как выбор игрока при улучшении, но не привязан к уровню и не даёт черту.
-              </p>
-              <div className="mt-2 flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-1.5 text-xs text-stone-400">
-                  Характеристика
-                  <Select value={newAbility} onChange={(e) => setNewAbility(e.target.value)} className="!w-auto">
+                  <span className="whitespace-nowrap">Характеристика</span>
+                  <Select
+                    value={newAbility}
+                    onChange={handleAbilityChange}
+                    className="!w-[150px] !min-w-[150px] !max-w-[150px]"
+                  >
                     {STATS.map((s) => (
-                      <option key={s.code} value={s.code}>{s.label}</option>
+                      <option key={s.code} value={s.code}>
+                        {s.label}
+                      </option>
                     ))}
                   </Select>
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-stone-400">
-                  Изменение ±
+                  <span className="whitespace-nowrap">Изменение ±</span>
                   <Input
                     type="number"
-                    className="!w-20"
+                    className="!w-10"
                     value={newAmount}
-                    placeholder="+1 / −1"
-                    onChange={(e) => setNewAmount(e.target.value)}
+                    placeholder={`${adjustMin}…${adjustMax}`}
+                    min={adjustMin}
+                    max={adjustMax}
+                    onChange={handleAmountChange}
                   />
                 </label>
-                <Button size="sm" disabled={busy || !newAbility || newAmount === ''} onClick={addAdjustment}>
+                <Button size="sm" disabled={busy || !newAbility || !amountValid} onClick={addAdjustment}>
                   Добавить изменение
                 </Button>
               </div>
@@ -757,7 +821,14 @@ function ItemsSection({ character, onError, reload }) {
 
   const addItem = async (catalogItem, qty) => {
     try {
-      await charactersApi.gmPanel.items.add(character.id, { item_id: Number(catalogItem.id), quantity: qty })
+      const existing = items.find((ci) => Number(ci.item_id) === Number(catalogItem.id))
+      if (existing) {
+        await charactersApi.gmPanel.items.update(character.id, existing.id, {
+          quantity: (existing.quantity ?? 0) + qty,
+        })
+      } else {
+        await charactersApi.gmPanel.items.add(character.id, { item_id: Number(catalogItem.id), quantity: qty })
+      }
       await invalidate()
       await reload()
     } catch (e) {
@@ -985,7 +1056,7 @@ export default function GmCharacterPanel({ character, onError, reload, section, 
       case 'level':
         return <LevelSection character={character} onError={onError} reload={reload} />
       case 'hp':
-        return <HpSection character={character} onError={onError} reload={reload} />
+        return <div className="mx-auto max-w-[400px]"><HpSection character={character} onError={onError} reload={reload} /></div>
       case 'stats':
         return <StatsSection character={character} onError={onError} reload={reload} />
       case 'skills':
@@ -1018,9 +1089,6 @@ export default function GmCharacterPanel({ character, onError, reload, section, 
           </button>
         ))}
       </div>
-      {activeMeta && (
-        <p className="-mt-2 text-xs text-stone-500">{activeMeta.hint}</p>
-      )}
       {renderSection()}
     </div>
   )

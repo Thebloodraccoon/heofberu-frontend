@@ -216,6 +216,25 @@ export function ProficiencyChips({ items = [], options = [], empty = '—' }) {
   )
 }
 
+export function ProficiencyList({ items = [], options = [], empty = '—' }) {
+  if (options.length === 0) {
+    return <span className="text-xs text-stone-500">{empty}</span>
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((o) => {
+        const on = items.includes(o.value)
+        return (
+          <div key={o.value} className={`sheet-prof-row ${on ? 'sheet-prof-row_on' : ''}`}>
+            <span className="sheet-prof-row__dot" />
+            <span className="sheet-prof-row__label">{o.label}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function PassiveSenses({ items = [] }) {
   return (
     <div className="sheet-passive">

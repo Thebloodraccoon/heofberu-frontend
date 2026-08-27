@@ -293,8 +293,9 @@ export default function GmEditorPage() {
     setSelectedId(rec.id)
     try {
       const full = await cfg.api.get(rec.id)
-      setEditing(full)
-      setForm(cfg.fromRecord(full))
+      const enriched = cfg.enrich ? await cfg.enrich(full) : full
+      setEditing(enriched)
+      setForm(cfg.fromRecord(enriched))
       await loadNested(full.id)
     } catch (e) {
       setError(e)
@@ -419,8 +420,9 @@ export default function GmEditorPage() {
     try {
       await cfg.submitFields(form, editing)
       const full = await cfg.api.get(editing.id)
-      setEditing(full)
-      setForm(cfg.fromRecord(full))
+      const enriched = cfg.enrich ? await cfg.enrich(full) : full
+      setEditing(enriched)
+      setForm(cfg.fromRecord(enriched))
       await loadNested(full.id)
       setFieldSaved(true)
     } catch (err) {
@@ -483,7 +485,7 @@ export default function GmEditorPage() {
   }
 
   const openNewSub = () => {
-    setNewSub({ name: '', archetype_group_name: '', description: '' })
+    setNewSub({ name: '', description: '' })
     setNewSubError(null)
   }
   const setNewSubField = (key) => (e) => setNewSub((d) => ({ ...d, [key]: e.target.value }))
@@ -1040,18 +1042,9 @@ export default function GmEditorPage() {
                       <div className="mb-3 rounded-lg border border-ember/40 bg-stone-900/60 p-4">
                         <p className="mb-3 font-display text-sm font-bold text-stone-100">Новый подкласс</p>
                         {newSubError && <ErrorBox error={newSubError} onRetry={() => {}} className="mb-[5px]" />}
-                        <div className="mb-[5px] grid gap-3 sm:grid-cols-2">
-                          <Field label="Название подкласса">
-                            <Input value={newSub.name} onChange={setNewSubField('name')} placeholder="Например, Школа Воплощения" />
-                          </Field>
-                          <Field label="Название группы (архетипа)">
-                            <Input
-                              value={newSub.archetype_group_name}
-                              onChange={setNewSubField('archetype_group_name')}
-                              placeholder="Например, Школа магии"
-                            />
-                          </Field>
-                        </div>
+                        <Field label="Название подкласса">
+                          <Input value={newSub.name} onChange={setNewSubField('name')} placeholder="Например, Школа Воплощения" />
+                        </Field>
                         <Field label="Описание" className="my-[5px]">
                           <TextArea value={newSub.description} onChange={setNewSubField('description')} rows={2} />
                         </Field>
@@ -1094,11 +1087,6 @@ export default function GmEditorPage() {
                                   <span className="truncate text-sm font-medium text-stone-100">
                                     {info.detail?.name ?? sub.name}
                                   </span>
-                                  {sub.archetype_group_name && (
-                                    <span className="hidden truncate text-xs text-stone-500 sm:inline">
-                                      — {sub.archetype_group_name}
-                                    </span>
-                                  )}
                                 </button>
                                 <button
                                   type="button"

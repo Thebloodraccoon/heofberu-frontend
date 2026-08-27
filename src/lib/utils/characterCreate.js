@@ -28,5 +28,6 @@ export const DEFAULT_FORM = {
   class_skill_ids: [],
   name: '',
   feat_id: '',
+  feat_asi_id: '',
   backstory: '',
 }

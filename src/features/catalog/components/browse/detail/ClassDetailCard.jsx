@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
+import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { Badge, Card, AccordionItem } from '@/components/ui'
 import { SkillChips, itemName } from './detailHelpers.jsx'
 
@@ -281,9 +281,13 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             </dd>
           </div>
           <div>
-            <dt className="inline font-medium text-stone-200">Основные характеристики: </dt>
+            <dt className="inline font-medium text-stone-200">Владение оружием: </dt>
             <dd className="inline">
-              {(cls.primary_abilities ?? []).map((p) => abilityLabels[p.ability]).join(', ') || '—'}
+              {(cls.weapon_proficiencies ?? []).length === 0
+                ? '—'
+                : cls.weapon_proficiencies
+                    .map((w) => weaponProficiencyLabels[w.weapon_category] ?? w.weapon_category)
+                    .join(', ')}
             </dd>
           </div>
           <div className="flex flex-wrap items-center gap-2">

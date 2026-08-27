@@ -98,7 +98,6 @@ export const useFeatsFull = () =>
       const full = await Promise.all(list.map((f) => catalogApi.feats.get(f.id).catch(() => null)))
       return full.filter(Boolean)
     },
-    enabled: false,
     staleTime: Infinity,
   })
 

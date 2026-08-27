@@ -1,6 +1,6 @@
 import { catalogApi as api } from '../../api.js'
-import { abilityLabels, armorProficiencyLabels, diceTypeLabels } from '@/lib/i18n/index.js'
-import { buildSpellSlotPayload, opt, optOptional, saveSpellSlots, subclassFromRecord, toNumDefault, toStr } from './shared.js'
+import { abilityLabels, armorProficiencyLabels, diceTypeLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
+import { opt, optOptional, saveSpellSlots, subclassFromRecord, toNumDefault, toStr } from './shared.js'
 
 export const classesCfg = {
   singular: 'класс',
@@ -32,9 +32,9 @@ export const classesCfg = {
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [
-    { type: 'pills', key: 'primary_abilities', label: 'Основные характеристики', options: opt(abilityLabels), empty: 'Не выбрано' },
     { type: 'pills', key: 'saving_throws', label: 'Спасброски', options: opt(abilityLabels), empty: 'Не выбрано' },
     { type: 'pills', key: 'armor_proficiencies', label: 'Владение доспехами', options: opt(armorProficiencyLabels), empty: 'Не выбрано' },
+    { type: 'pills', key: 'weapon_proficiencies', label: 'Владение оружием', options: opt(weaponProficiencyLabels), empty: 'Не выбрано' },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Доступные навыки', empty: 'Навыков в справочнике нет' },
     {
       type: 'spellcasting',
@@ -59,9 +59,9 @@ export const classesCfg = {
     skill_choice_count: '2',
     spellcasting_ability: '',
     description: '',
-    primary_abilities: [],
     saving_throws: [],
     armor_proficiencies: [],
+    weapon_proficiencies: [],
     skill_ids: [],
     spell_slots: {},
   }),
@@ -71,9 +71,9 @@ export const classesCfg = {
     skill_choice_count: toStr(r.skill_choice_count ?? 2),
     spellcasting_ability: r.spellcasting_ability ?? '',
     description: r.description ?? '',
-    primary_abilities: (r.primary_abilities ?? []).map((p) => p.ability),
     saving_throws: (r.saving_throws ?? []).map((s) => s.ability),
     armor_proficiencies: (r.armor_proficiencies ?? []).map((a) => a.armor_type),
+    weapon_proficiencies: (r.weapon_proficiencies ?? []).map((w) => w.weapon_category),
     skill_ids: (r.available_skills ?? []).map((s) => s.id),
     spell_slots: (r.spell_slot_progression ?? []).reduce((acc, row) => {
       acc[row.class_level] = acc[row.class_level] || {}
@@ -83,33 +83,30 @@ export const classesCfg = {
     subclasses: (r.subclasses ?? []).map(subclassFromRecord),
   }),
   submitFields: async (form, rec) => {
-    let primary = [...form.primary_abilities]
-    if (form.spellcasting_ability && !primary.includes(form.spellcasting_ability)) {
-      primary = [...primary, form.spellcasting_ability]
-    }
     const base = {
       name: form.name,
       hit_dice: form.hit_dice,
       skill_choice_count: toNumDefault(form.skill_choice_count, 2),
       spellcasting_ability: form.spellcasting_ability || null,
       description: form.description,
+      saving_throws: form.saving_throws,
       armor_proficiencies: form.armor_proficiencies,
+      weapon_proficiencies: form.weapon_proficiencies,
     }
     if (rec) {
-      await api.classes.update(rec.id, { ...base, primary_abilities: primary, saving_throws: form.saving_throws })
+      await api.classes.update(rec.id, base)
       await api.classes.availableSkills(rec.id, { skill_ids: form.skill_ids })
       const slotsForm = form.spellcasting_ability ? form : { ...form, spell_slots: {} }
       await saveSpellSlots(slotsForm, rec, rec.spell_slot_progression)
-    } else {
-      const created = await api.classes.create({
-        ...base,
-        primary_abilities: primary,
-        saving_throws: form.saving_throws,
-        available_skills: form.skill_ids,
-        spell_slot_progression: buildSpellSlotPayload(form.spell_slots),
-      })
-      return created
+      return rec
     }
+    // Бэкенд принимает при создании только базовые поля и списки
+    // владений/навыков; ячейки заклинаний задаются отдельными PUT-ами.
+    const created = await api.classes.create({ ...base, available_skills: form.skill_ids })
+    if (form.spellcasting_ability) {
+      await saveSpellSlots(form, created, created.spell_slot_progression)
+    }
+    return created
   },
   listBadges: (item) =>
     item.hit_dice ? [{ text: diceTypeLabels[item.hit_dice] ?? item.hit_dice, tone: 'default' }] : [],

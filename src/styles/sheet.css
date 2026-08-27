@@ -292,7 +292,8 @@
 .sheet-tabs {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  justify-content: center;
+  align-items: center;
   gap: 0.25rem;
   border-bottom: 1px solid var(--color-stone-700);
 }
@@ -455,6 +456,41 @@
 .sheet-chip_on .sheet-chip__dot {
   border-color: var(--color-ember);
   background: var(--color-ember);
+}
+
+.sheet-prof-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-stone-800);
+  background: var(--color-stone-900);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sheet-prof-row_on {
+  border-color: color-mix(in srgb, var(--color-ember) 45%, var(--color-stone-700));
+  background: color-mix(in srgb, var(--color-ember) 8%, var(--color-stone-900));
+}
+.sheet-prof-row__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-stone-600);
+  background: transparent;
+  flex-shrink: 0;
+}
+.sheet-prof-row_on .sheet-prof-row__dot {
+  border-color: var(--color-ember);
+  background: var(--color-ember);
+}
+.sheet-prof-row__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-stone-400);
+}
+.sheet-prof-row_on .sheet-prof-row__label {
+  color: var(--color-stone-100);
 }
 
 .sheet-ability {
@@ -648,6 +684,7 @@
   .sheet-section-label       { font-size: 0.875rem; }
   .sheet-btn                 { font-size: 0.875rem; }
   .sheet-chip                { font-size: 0.875rem; }
+  .sheet-prof-row__label     { font-size: 0.875rem; }
   .sheet-table               { font-size: 0.875rem; }
   .sheet-table th            { font-size: 0.875rem; }
 }

@@ -17,7 +17,7 @@ const classDetail = {
   spellcasting_ability: null,
   description: 'Мастер войны',
   saving_throws: [{ ability: 'STR' }, { ability: 'CON' }],
-  primary_abilities: [{ ability: 'STR' }],
+  weapon_proficiencies: [{ weapon_category: 'MARTIAL' }],
   available_skills: [
     { id: 1, name: 'Атлетика', ability: 'STR' },
     { id: 2, name: 'История', ability: 'INT' },

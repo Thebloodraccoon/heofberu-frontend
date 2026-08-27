@@ -11,7 +11,6 @@ const SUBFEATURE_LEVEL_HINT =
 function blankSubclass() {
   return {
     name: '',
-    archetype_group_name: '',
     description: '',
   }
 }
@@ -75,18 +74,9 @@ export default function SubclassEditor({ classId, detail, features, busy = false
         <div className="space-y-3">
           {saveError && <ErrorBox error={saveError} onRetry={() => {}} />}
           {error && <ErrorBox error={error} onRetry={() => {}} />}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Название подкласса">
-              <Input value={draft.name} onChange={setField('name')} placeholder="Например, Школа Воплощения" />
-            </Field>
-            <Field label="Название группы (архетипа)">
-              <Input
-                value={draft.archetype_group_name}
-                onChange={setField('archetype_group_name')}
-                placeholder="Например, Школа магии"
-              />
-            </Field>
-          </div>
+          <Field label="Название подкласса">
+            <Input value={draft.name} onChange={setField('name')} placeholder="Например, Школа Воплощения" />
+          </Field>
 
           <Field label="Описание">
             <TextArea value={draft.description} onChange={setField('description')} rows={2} />

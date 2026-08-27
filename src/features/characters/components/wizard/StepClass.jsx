@@ -1,5 +1,5 @@
 import { abilityName } from '@/lib/utils/ability.js'
-import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
+import { sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
 import { useSearch } from './useSearch.js'
@@ -86,9 +86,9 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
                   Спасбросок: {abilityName(s.ability)}
                 </Tag>
               ))}
-              {(classDetail.primary_abilities ?? []).map((a) => (
-                <Tag key={a.ability} tone="dim">
-                  Основная: {abilityName(a.ability)}
+              {(classDetail.weapon_proficiencies ?? []).map((w) => (
+                <Tag key={w.weapon_category} tone="dim">
+                  Оружие: {weaponProficiencyLabels[w.weapon_category] ?? w.weapon_category}
                 </Tag>
               ))}
               {classDetail.skill_choice_count > 0 && <Tag>Навыков на выбор: {classDetail.skill_choice_count}</Tag>}
@@ -113,9 +113,6 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
               {!subclassDetail && <Hint>Загружаем подкласс…</Hint>}
               {subclassDetail && (
                 <>
-                  {subclassDetail.archetype_group_name && (
-                    <Tag tone="accent">{subclassDetail.archetype_group_name}</Tag>
-                  )}
                   {subclassDetail.description && <p className="text-sm leading-relaxed text-stone-300">{subclassDetail.description}</p>}
                 </>
               )}

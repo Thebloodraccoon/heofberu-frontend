@@ -92,6 +92,12 @@ export const catalogApi = {
         body,
         params: { class_id: id },
       }),
+    weaponProficiencies: (id, body) =>
+      request('/api/classes/weapon-proficiencies', {
+        method: 'PUT',
+        body,
+        params: { class_id: id },
+      }),
     items: {
       list: (id) => request('/api/classes/items', { params: { class_id: id } }),
       set: (id, body) =>
@@ -250,6 +256,16 @@ export const catalogApi = {
     get: (id) => request(`/api/features/${id}`),
     update: (id, body) => request(`/api/features/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/features/${id}`, { method: 'DELETE' }),
+    abilityIncreases: {
+      get: (id) =>
+        request('/api/features/ability-increases', { params: { feature_id: id } }),
+      set: (id, body) =>
+        request('/api/features/ability-increases', {
+          method: 'PUT',
+          body,
+          params: { feature_id: id },
+        }),
+    },
   },
 
   items: {

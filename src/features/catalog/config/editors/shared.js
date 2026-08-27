@@ -64,13 +64,11 @@ export const featuresFromRecord = (r) =>
 export const subclassFromRecord = (s) => ({
   id: s.id,
   name: s.name,
-  archetype_group_name: s.archetype_group_name ?? '',
   description: s.description ?? '',
 })
 
 export const subclassPayload = (s) => ({
   name: s.name,
-  archetype_group_name: s.archetype_group_name || null,
   description: s.description ?? '',
 })
 

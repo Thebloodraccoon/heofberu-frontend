@@ -149,8 +149,12 @@ export default function CharacterCreatePage() {
         }
         return allAssigned
       }
-      case 'feat':
-        return true
+      case 'feat': {
+        if (!form.feat_id) return false
+        const chosen = (lookups.feats ?? []).find((f) => String(f.id) === String(form.feat_id))
+        const needsAsiOption = (chosen?.ability_score_increases ?? []).length > 0
+        return !needsAsiOption || Boolean(form.feat_asi_id)
+      }
       default:
         return true
     }
@@ -174,13 +178,11 @@ export default function CharacterCreatePage() {
       // добавляет сам, а лишние/неизвестные поля отклоняются с 422.
       body.skill_ids = (form.class_skill_ids ?? []).map(Number)
       if (form.backstory?.trim()) body.backstory = form.backstory.trim()
+      // Origin-фит обязателен на бэкенде (source_type=ORIGIN).
+      body.feat_id = Number(form.feat_id)
+      if (form.feat_asi_id) body.ability_score_increase_id = Number(form.feat_asi_id)
 
       const created = await charactersApi.create(body)
-
-      // Черта вне level-up выдаётся только через GM-панель.
-      if (form.feat_id && isGM) {
-        await charactersApi.gmPanel.feats.add(created.id, { feat_id: Number(form.feat_id) }).catch(() => null)
-      }
 
       navigate(`/characters/${created.id}`)
     } catch (e) {

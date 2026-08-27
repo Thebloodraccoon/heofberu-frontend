@@ -12,12 +12,12 @@ import {
   useSubclassDetail,
   useSubraceDetail,
 } from '@/features/catalog/queries.js'
-import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
+import { sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { STATS, mod } from '@/lib/utils/ability.js'
 import { ErrorBox, Spinner } from '@/components/ui'
 import {
   PassiveSenses,
-  ProficiencyChips,
+  ProficiencyList,
   SheetSectionLabel,
   SheetTabs,
 } from '@/components/sheet/primitives.jsx'
@@ -235,7 +235,7 @@ export default function CharacterDetailPage() {
   }, [classDetail])
   const weaponProfs = useMemo(() => {
     const raw = classDetail?.weapon_proficiencies ?? []
-    return raw.map((a) => (typeof a === 'string' ? a : a.weapon_type))
+    return raw.map((a) => (typeof a === 'string' ? a : (a.weapon_category ?? a.weapon_type)))
   }, [classDetail])
 
   if (error || mutationError) return <ErrorBox error={error ?? mutationError} onRetry={load} />
@@ -393,21 +393,17 @@ export default function CharacterDetailPage() {
               )
             }
             paired.push(
-              <div key="armor-profs">
+              <div key="armor-profs" style={{ gridColumn: '1 / -1' }}>
                 <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
-                <ProficiencyChips items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
+                <ProficiencyList items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
               </div>,
             )
             paired.push(
-              <div key="weapon-profs">
+              <div key="weapon-profs" style={{ gridColumn: '1 / -1' }}>
                 <SheetSectionLabel>Владение оружием</SheetSectionLabel>
-                <ProficiencyChips
+                <ProficiencyList
                   items={weaponProfs}
-                  options={[
-                    { value: 'SIMPLE', label: 'Простое' },
-                    { value: 'MARTIAL', label: 'Воинское' },
-                    { value: 'OTHER', label: 'Другое' },
-                  ]}
+                  options={Object.entries(weaponProficiencyLabels).map(([value, label]) => ({ value, label }))}
                   empty="Не задано классом"
                 />
               </div>,

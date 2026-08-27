@@ -173,6 +173,11 @@ export const armorProficiencyLabels = {
   SHIELD: 'Щит',
 }
 
+export const weaponProficiencyLabels = {
+  SIMPLE: 'Простое оружие',
+  MARTIAL: 'Воинское оружие',
+}
+
 export const diceTypeLabels = {
   D4: 'к4',
   D6: 'к6',
