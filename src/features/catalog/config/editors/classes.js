@@ -24,6 +24,7 @@ export const classesCfg = {
     empty: 'Снаряжения нет',
     noun: 'предмет',
   },
+  choiceGroupsOps: api.classes.choiceGroups,
   hasSubclasses: true,
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Волшебник' },

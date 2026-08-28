@@ -136,7 +136,7 @@ export default function SpellPickerModal({ character, onClose, onError }) {
           )
         })}
       </div>
-      <div className="mt-4 flex items-center justify-end gap-2 border-t border-stone-700/70 pt-3">
+      <div className="mt-4 flex items-center justify-end gap-2 pt-3">
         <Button variant="ghost" onClick={onClose}>Отмена</Button>
         <Button onClick={submit} disabled={saving || selected.size === 0}>
           Выучить{selected.size > 0 ? ` (${selected.size})` : ''}

@@ -46,7 +46,7 @@ export default function HpModal({ character, onClose, onDelta, onTempHp, onRest 
           </button>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-stone-700/70 pt-4">
+      <div className="mt-4 grid grid-cols-2 gap-2 pt-4">
         <button type="button" className="sheet-btn" onClick={() => onRest('short')}>
           Короткий отдых
         </button>

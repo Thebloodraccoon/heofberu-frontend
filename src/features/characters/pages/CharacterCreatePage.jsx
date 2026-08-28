@@ -150,7 +150,9 @@ export default function CharacterCreatePage() {
         return allAssigned
       }
       case 'feat': {
-        if (!form.feat_id) return false
+        // Черта происхождения теперь необязательна: бэкенд не принимает
+        // feat_id при создании персонажа и сам не выдаёт исходную черту.
+        if (!form.feat_id) return true
         const chosen = (lookups.feats ?? []).find((f) => String(f.id) === String(form.feat_id))
         const needsAsiOption = (chosen?.ability_score_increases ?? []).length > 0
         return !needsAsiOption || Boolean(form.feat_asi_id)
@@ -178,9 +180,9 @@ export default function CharacterCreatePage() {
       // добавляет сам, а лишние/неизвестные поля отклоняются с 422.
       body.skill_ids = (form.class_skill_ids ?? []).map(Number)
       if (form.backstory?.trim()) body.backstory = form.backstory.trim()
-      // Origin-фит обязателен на бэкенде (source_type=ORIGIN).
-      body.feat_id = Number(form.feat_id)
-      if (form.feat_asi_id) body.ability_score_increase_id = Number(form.feat_asi_id)
+      // Бэкенд (POST /api/characters, additionalProperties=false) не принимает
+      // feat_id / ability_score_increase_id — черта происхождения выдаётся
+      // отдельно через GM-панель, поэтому не отправляем их при создании.
 
       const created = await charactersApi.create(body)
 

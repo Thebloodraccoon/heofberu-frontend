@@ -42,12 +42,14 @@ export default function SubclassEditor({ classId, detail, features, busy = false
 
   const saveFeature = async (next) => {
     setSaveError(null)
-    const body = featurePayload(next)
+    const source = { type: 'SUBCLASS', fk: 'subclass_id', sourceId: detail.id }
     try {
       if (featureModal.index == null) {
-        await api.classes.subclasses.features.add(classId, detail.id, body)
+        const created = await api.features.create(featurePayload(next, source))
+        await saveFeatureIncreases(created.id, next.ability_increases)
       } else {
-        await api.classes.subclasses.features.update(classId, detail.id, next.id, body)
+        await api.features.update(next.id, featurePayload(next))
+        await saveFeatureIncreases(next.id, next.ability_increases)
       }
       setFeatureModal(null)
       await onRefresh()
@@ -56,10 +58,15 @@ export default function SubclassEditor({ classId, detail, features, busy = false
     }
   }
 
+  const saveFeatureIncreases = async (featureId, increases = []) => {
+    const list = Array.isArray(increases) ? increases : []
+    await api.features.abilityIncreases.set(featureId, { ability_increases: list })
+  }
+
   const removeFeature = async (f) => {
     setSaveError(null)
     try {
-      await api.classes.subclasses.features.remove(classId, detail.id, f.id)
+      await api.features.remove(f.id)
       await onRefresh()
     } catch (err) {
       setSaveError(err)
@@ -89,7 +96,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
             {saved && <span className="text-xs text-emerald-400">Подкласс обновлён</span>}
           </div>
 
-          <div className="border-t border-stone-700/70 pt-3">
+          <div>
             <FeaturesEditorBlock
               block={{
                 label: 'Умения подкласса',

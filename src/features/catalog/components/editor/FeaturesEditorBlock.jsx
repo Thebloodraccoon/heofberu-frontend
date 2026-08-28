@@ -44,7 +44,7 @@ export default function FeaturesEditorBlock({
     })
 
   return (
-    <div className="mt-6 space-y-4 border-t border-stone-700/70 pt-4">
+    <div className="space-y-4 pt-4">
       <div className="flex items-center justify-between">
         <SectionTitle>{block.label}</SectionTitle>
         <button

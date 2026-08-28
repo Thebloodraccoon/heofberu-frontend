@@ -8,70 +8,26 @@ export const catalogApi = {
     update: (id, body) => request(`/api/races/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/races/${id}`, { method: 'DELETE' }),
     abilityBonuses: (id, body) =>
-      request('/api/races/ability-bonuses', { method: 'PUT', body, params: { race_id: id } }),
-    skills: (id, body) =>
-      request('/api/races/skills', { method: 'PUT', body, params: { race_id: id } }),
+      request(`/api/races/${id}/ability-bonuses`, { method: 'PUT', body }),
+    skills: (id, body) => request(`/api/races/${id}/skills`, { method: 'PUT', body }),
     features: {
-      list: (id) => request('/api/races/features', { params: { race_id: id } }),
-      add: (id, body) =>
-        request('/api/races/features', { method: 'POST', body, params: { race_id: id } }),
-      update: (id, featureId, body) =>
-        request('/api/races/features', {
-          method: 'PATCH',
-          body,
-          params: { race_id: id, feature_id: featureId },
-        }),
-      remove: (id, featureId) =>
-        request('/api/races/features', {
-          method: 'DELETE',
-          params: { race_id: id, feature_id: featureId },
-        }),
+      // Фичи централизованы: только список по источнику (GET-only на бэкенде).
+      // Создание/изменение/удаление идут через /api/features.
+      list: (id) => request(`/api/races/${id}/features`),
     },
     subraces: {
-      list: (raceId) => request('/api/races/subraces', { params: { race_id: raceId } }),
+      list: (raceId) => request('/api/subraces', { params: { race_id: raceId } }),
       create: (raceId, body) =>
-        request('/api/races/subraces', { method: 'POST', body, params: { race_id: raceId } }),
-      get: (raceId, subraceId) =>
-        request(`/api/races/subraces/${subraceId}`, { params: { race_id: raceId } }),
-      update: (raceId, subraceId, body) =>
-        request('/api/races/subraces', {
-          method: 'PATCH',
-          body,
-          params: { race_id: raceId, subrace_id: subraceId },
-        }),
-      remove: (raceId, subraceId) =>
-        request('/api/races/subraces', {
-          method: 'DELETE',
-          params: { race_id: raceId, subrace_id: subraceId },
-        }),
-      abilityBonuses: (raceId, subraceId, body) =>
-        request('/api/races/subraces/ability-bonuses', {
-          method: 'PUT',
-          body,
-          params: { race_id: raceId, subrace_id: subraceId },
-        }),
+        request('/api/subraces', { method: 'POST', body: { ...body, race_id: raceId } }),
+      get: (_raceId, subraceId) => request(`/api/subraces/${subraceId}`),
+      update: (_raceId, subraceId, body) =>
+        request(`/api/subraces/${subraceId}`, { method: 'PATCH', body }),
+      remove: (_raceId, subraceId) => request(`/api/subraces/${subraceId}`, { method: 'DELETE' }),
+      abilityBonuses: (_raceId, subraceId, body) =>
+        request(`/api/subraces/${subraceId}/ability-bonuses`, { method: 'PUT', body }),
       features: {
-        list: (raceId, subraceId) =>
-          request('/api/races/subraces/features', {
-            params: { race_id: raceId, subrace_id: subraceId },
-          }),
-        add: (raceId, subraceId, body) =>
-          request('/api/races/subraces/features', {
-            method: 'POST',
-            body,
-            params: { race_id: raceId, subrace_id: subraceId },
-          }),
-        update: (raceId, subraceId, featureId, body) =>
-          request('/api/races/subraces/features', {
-            method: 'PATCH',
-            body,
-            params: { race_id: raceId, subrace_id: subraceId, feature_id: featureId },
-          }),
-        remove: (raceId, subraceId, featureId) =>
-          request('/api/races/subraces/features', {
-            method: 'DELETE',
-            params: { race_id: raceId, subrace_id: subraceId, feature_id: featureId },
-          }),
+        // Фичи централизованы: только список по источнику (GET-only).
+        list: (_raceId, subraceId) => request(`/api/subraces/${subraceId}/features`),
       },
     },
   },
@@ -83,92 +39,43 @@ export const catalogApi = {
     update: (id, body) => request(`/api/classes/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/classes/${id}`, { method: 'DELETE' }),
     savingThrows: (id, body) =>
-      request('/api/classes/saving-throws', { method: 'PUT', body, params: { class_id: id } }),
+      request(`/api/classes/${id}/saving-throws`, { method: 'PUT', body }),
     availableSkills: (id, body) =>
-      request('/api/classes/available-skills', { method: 'PUT', body, params: { class_id: id } }),
+      request(`/api/classes/${id}/available-skills`, { method: 'PUT', body }),
     armorProficiencies: (id, body) =>
-      request('/api/classes/armor-proficiencies', {
-        method: 'PUT',
-        body,
-        params: { class_id: id },
-      }),
+      request(`/api/classes/${id}/armor-proficiencies`, { method: 'PUT', body }),
     weaponProficiencies: (id, body) =>
-      request('/api/classes/weapon-proficiencies', {
-        method: 'PUT',
-        body,
-        params: { class_id: id },
-      }),
+      request(`/api/classes/${id}/weapon-proficiencies`, { method: 'PUT', body }),
     items: {
-      list: (id) => request('/api/classes/items', { params: { class_id: id } }),
-      set: (id, body) =>
-        request('/api/classes/items', { method: 'PUT', body, params: { class_id: id } }),
+      list: (id) => request(`/api/classes/${id}/items`),
+      set: (id, body) => request(`/api/classes/${id}/items`, { method: 'PUT', body }),
+    },
+    choiceGroups: {
+      list: (id) => request(`/api/classes/${id}/choice-groups`),
+      set: (id, body) => request(`/api/classes/${id}/choice-groups`, { method: 'PUT', body }),
     },
     spellSlots: (id, level, body) =>
-      request('/api/classes/spell-slots', {
+      request(`/api/classes/${id}/spell-slots`, {
         method: 'PUT',
         body,
-        params: { class_id: id, class_level: level },
+        params: { class_level: level },
       }),
     features: {
-      list: (id) => request('/api/classes/features', { params: { class_id: id } }),
-      add: (id, body) =>
-        request('/api/classes/features', { method: 'POST', body, params: { class_id: id } }),
-      update: (id, featureId, body) =>
-        request('/api/classes/features', {
-          method: 'PATCH',
-          body,
-          params: { class_id: id, feature_id: featureId },
-        }),
-      remove: (id, featureId) =>
-        request('/api/classes/features', {
-          method: 'DELETE',
-          params: { class_id: id, feature_id: featureId },
-        }),
+      // Фичи централизованы: только список по источнику (GET-only).
+      list: (id) => request(`/api/classes/${id}/features`),
     },
-    progression: (id) => request('/api/classes/progression', { params: { class_id: id } }),
+    progression: (id) => request(`/api/classes/${id}/progression`),
     subclasses: {
-      list: (classId) => request('/api/classes/subclasses', { params: { class_id: classId } }),
+      list: (classId) => request('/api/subclasses', { params: { class_id: classId } }),
       create: (classId, body) =>
-        request('/api/classes/subclasses', {
-          method: 'POST',
-          body,
-          params: { class_id: classId },
-        }),
-      get: (classId, subclassId) =>
-        request(`/api/classes/subclasses/${subclassId}`, { params: { class_id: classId } }),
-      update: (classId, subclassId, body) =>
-        request('/api/classes/subclasses', {
-          method: 'PATCH',
-          body,
-          params: { class_id: classId, subclass_id: subclassId },
-        }),
-      remove: (classId, subclassId) =>
-        request('/api/classes/subclasses', {
-          method: 'DELETE',
-          params: { class_id: classId, subclass_id: subclassId },
-        }),
+        request('/api/subclasses', { method: 'POST', body: { ...body, class_id: classId } }),
+      get: (_classId, subclassId) => request(`/api/subclasses/${subclassId}`),
+      update: (_classId, subclassId, body) =>
+        request(`/api/subclasses/${subclassId}`, { method: 'PATCH', body }),
+      remove: (_classId, subclassId) => request(`/api/subclasses/${subclassId}`, { method: 'DELETE' }),
       features: {
-        list: (classId, subclassId) =>
-          request('/api/classes/subclasses/features', {
-            params: { class_id: classId, subclass_id: subclassId },
-          }),
-        add: (classId, subclassId, body) =>
-          request('/api/classes/subclasses/features', {
-            method: 'POST',
-            body,
-            params: { class_id: classId, subclass_id: subclassId },
-          }),
-        update: (classId, subclassId, featureId, body) =>
-          request('/api/classes/subclasses/features', {
-            method: 'PATCH',
-            body,
-            params: { class_id: classId, subclass_id: subclassId, feature_id: featureId },
-          }),
-        remove: (classId, subclassId, featureId) =>
-          request('/api/classes/subclasses/features', {
-            method: 'DELETE',
-            params: { class_id: classId, subclass_id: subclassId, feature_id: featureId },
-          }),
+        // Фичи централизованы: только список по источнику (GET-only).
+        list: (_classId, subclassId) => request(`/api/subclasses/${subclassId}/features`),
       },
     },
   },
@@ -187,14 +94,10 @@ export const catalogApi = {
     get: (id) => request(`/api/spells/${id}`),
     update: (id, body) => request(`/api/spells/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/spells/${id}`, { method: 'DELETE' }),
-    classes: (id, body) =>
-      request('/api/spells/classes', { method: 'PUT', body, params: { spell_id: id } }),
-    subclasses: (id, body) =>
-      request('/api/spells/subclasses', { method: 'PUT', body, params: { spell_id: id } }),
-    races: (id, body) =>
-      request('/api/spells/races', { method: 'PUT', body, params: { spell_id: id } }),
-    subraces: (id, body) =>
-      request('/api/spells/subraces', { method: 'PUT', body, params: { spell_id: id } }),
+    classes: (id, body) => request(`/api/spells/${id}/classes`, { method: 'PUT', body }),
+    subclasses: (id, body) => request(`/api/spells/${id}/subclasses`, { method: 'PUT', body }),
+    races: (id, body) => request(`/api/spells/${id}/races`, { method: 'PUT', body }),
+    subraces: (id, body) => request(`/api/spells/${id}/subraces`, { method: 'PUT', body }),
   },
 
   backgrounds: {
@@ -203,36 +106,14 @@ export const catalogApi = {
     get: (id) => request(`/api/backgrounds/${id}`),
     update: (id, body) => request(`/api/backgrounds/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/backgrounds/${id}`, { method: 'DELETE' }),
-    skills: (id, body) =>
-      request('/api/backgrounds/skills', { method: 'PUT', body, params: { background_id: id } }),
+    skills: (id, body) => request(`/api/backgrounds/${id}/skills`, { method: 'PUT', body }),
     items: {
-      list: (id) => request('/api/backgrounds/items', { params: { background_id: id } }),
-      set: (id, body) =>
-        request('/api/backgrounds/items', {
-          method: 'PUT',
-          body,
-          params: { background_id: id },
-        }),
+      list: (id) => request(`/api/backgrounds/${id}/items`),
+      set: (id, body) => request(`/api/backgrounds/${id}/items`, { method: 'PUT', body }),
     },
     features: {
-      list: (id) => request('/api/backgrounds/features', { params: { background_id: id } }),
-      add: (id, body) =>
-        request('/api/backgrounds/features', {
-          method: 'POST',
-          body,
-          params: { background_id: id },
-        }),
-      update: (id, featureId, body) =>
-        request('/api/backgrounds/features', {
-          method: 'PATCH',
-          body,
-          params: { background_id: id, feature_id: featureId },
-        }),
-      remove: (id, featureId) =>
-        request('/api/backgrounds/features', {
-          method: 'DELETE',
-          params: { background_id: id, feature_id: featureId },
-        }),
+      // Фичи централизованы: только список по источнику (GET-only).
+      list: (id) => request(`/api/backgrounds/${id}/features`),
     },
   },
 
@@ -243,11 +124,7 @@ export const catalogApi = {
     update: (id, body) => request(`/api/feats/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/feats/${id}`, { method: 'DELETE' }),
     abilityScoreIncreases: (id, body) =>
-      request('/api/feats/ability-score-increases', {
-        method: 'PUT',
-        body,
-        params: { feat_id: id },
-      }),
+      request(`/api/feats/${id}/ability-score-increases`, { method: 'PUT', body }),
   },
 
   features: {
@@ -257,14 +134,9 @@ export const catalogApi = {
     update: (id, body) => request(`/api/features/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/features/${id}`, { method: 'DELETE' }),
     abilityIncreases: {
-      get: (id) =>
-        request('/api/features/ability-increases', { params: { feature_id: id } }),
+      get: (id) => request(`/api/features/${id}/ability-increases`),
       set: (id, body) =>
-        request('/api/features/ability-increases', {
-          method: 'PUT',
-          body,
-          params: { feature_id: id },
-        }),
+        request(`/api/features/${id}/ability-increases`, { method: 'PUT', body }),
     },
   },
 

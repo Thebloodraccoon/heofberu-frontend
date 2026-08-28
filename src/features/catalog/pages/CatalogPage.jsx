@@ -182,13 +182,14 @@ export function CatalogListPage() {
         items.length > 0 &&
         (selectedId ? (
           <div className="catalog-layout">
-            <aside className="max-h-[calc(100vh-220px)] overflow-y-auto pr-1 lg:sticky lg:top-24">
+            <aside className="flex max-h-[calc(100vh-220px)] min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
               <Link
                 to={pageParam > 1 ? `/catalog/${resource}?page=${pageParam}` : `/catalog/${resource}`}
-                className="mb-2 my-[5px] block link-back"
+                className="mb-2 my-[5px] block shrink-0 link-back"
               >
                 ← Ко всем записям
               </Link>
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               <div className="flex flex-col gap-1">
                 {items.map((it) => {
                   const isActive = Number(it.id) === selectedId
@@ -242,7 +243,7 @@ export function CatalogListPage() {
                       >
                         <div className="overflow-hidden">
                           {(resource === 'classes' || resource === 'races') && (
-                            <div className="mt-3 border-t border-stone-700/70 pt-2">
+                            <div className="mt-3  pt-2">
                               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
                                 {resource === 'races' ? 'Подрасы' : 'Подклассы'}
                               </p>
@@ -273,7 +274,10 @@ export function CatalogListPage() {
                   )
                 })}
               </div>
-              <Pagination page={pageParam} total={total} size={PAGE_SIZE} onPage={setPage} />
+              </div>
+              <div className="shrink-0">
+                <Pagination page={pageParam} total={total} size={PAGE_SIZE} onPage={setPage} />
+              </div>
             </aside>
 
             <section className="min-w-0">

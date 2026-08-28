@@ -36,11 +36,20 @@ export const buildSpellSlotPayload = (spellSlots) =>
     }))
     .filter((entry) => entry.slots.length > 0)
 
-export const featurePayload = (f) => ({
-  name: f.name,
-  description: f.description ?? '',
-  level: f.level ?? null,
-})
+export const featurePayload = (f, source) => {
+  const body = {
+    name: f.name,
+    description: f.description ?? '',
+    level: f.level ?? null,
+  }
+  // Фичи теперь централизованы: при создании источник задаётся через
+  // source_type + внешний ключ прямо в теле POST /api/features.
+  if (source) {
+    body.source_type = source.type
+    body[source.fk] = source.sourceId
+  }
+  return body
+}
 
 const byLevelThenName = (a, b) => {
   const la = a.level ?? Number.POSITIVE_INFINITY

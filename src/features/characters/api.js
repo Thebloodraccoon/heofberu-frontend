@@ -8,188 +8,126 @@ export const charactersApi = {
   get: (id) => request(`/api/characters/${id}`),
   update: (id, body) => request(`/api/characters/${id}`, { method: 'PATCH', body }),
   remove: (id) => request(`/api/characters/${id}`, { method: 'DELETE' }),
-  hp: (id, body) =>
-    request('/api/characters/hp', { method: 'PATCH', body, params: { character_id: id } }),
-  rest: (id, body) =>
-    request('/api/characters/rest', { method: 'POST', body, params: { character_id: id } }),
+  hp: (id, body) => request(`/api/characters/${id}/hp`, { method: 'PATCH', body }),
+  rest: (id, body) => request(`/api/characters/${id}/rest`, { method: 'POST', body }),
   gmPanel: {
-    stats: (id) => request('/api/characters/gm-panel/stats', { params: { character_id: id } }),
-    maxHp: (id, body) =>
-      request('/api/characters/gm-panel/max-hp', {
-        method: 'PATCH',
-        body,
-        params: { character_id: id },
-      }),
+    stats: (id) => request(`/api/characters/${id}/gm-panel/stats`),
+    maxHp: (id, body) => request(`/api/characters/${id}/gm-panel/max-hp`, { method: 'PATCH', body }),
     maxLevel: {
-      get: (id) => request('/api/characters/gm-panel/max-level', { params: { character_id: id } }),
+      get: (id) => request(`/api/characters/${id}/gm-panel/max-level`),
       set: (id, body) =>
-        request('/api/characters/gm-panel/max-level', {
-          method: 'PATCH',
-          body,
-          params: { character_id: id },
-        }),
+        request(`/api/characters/${id}/gm-panel/max-level`, { method: 'PATCH', body }),
     },
     asi: {
-      list: (id) => request('/api/characters/gm-panel/asi', { params: { character_id: id } }),
-      add: (id, body) =>
-        request('/api/characters/gm-panel/asi', {
-          method: 'POST',
-          body,
-          params: { character_id: id },
-        }),
+      list: (id) => request(`/api/characters/${id}/gm-panel/asi`),
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/asi`, { method: 'POST', body }),
       remove: (id, adjustmentId) =>
-        request('/api/characters/gm-panel/asi', {
+        request(`/api/characters/${id}/gm-panel/asi`, {
           method: 'DELETE',
-          params: { character_id: id, adjustment_id: adjustmentId },
+          params: { adjustment_id: adjustmentId },
         }),
     },
     skills: {
       setExpertise: (id, skillId, body) =>
-        request('/api/characters/gm-panel/skills', {
+        request(`/api/characters/${id}/gm-panel/skills`, {
           method: 'PATCH',
           body,
-          params: { character_id: id, skill_id: skillId },
+          params: { skill_id: skillId },
         }),
     },
     feats: {
-      add: (id, body) =>
-        request('/api/characters/gm-panel/feats', {
-          method: 'POST',
-          body,
-          params: { character_id: id },
-        }),
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/feats`, { method: 'POST', body }),
       update: (id, charFeatId, body) =>
-        request('/api/characters/gm-panel/feats', {
+        request(`/api/characters/${id}/gm-panel/feats`, {
           method: 'PATCH',
           body,
-          params: { character_id: id, feat_id: charFeatId },
+          params: { feat_id: charFeatId },
         }),
       remove: (id, charFeatId) =>
-        request('/api/characters/gm-panel/feats', {
+        request(`/api/characters/${id}/gm-panel/feats`, {
           method: 'DELETE',
-          params: { character_id: id, feat_id: charFeatId },
+          params: { feat_id: charFeatId },
         }),
     },
     features: {
       add: (id, body) =>
-        request('/api/characters/gm-panel/features', {
-          method: 'POST',
-          body,
-          params: { character_id: id },
-        }),
+        request(`/api/characters/${id}/gm-panel/features`, { method: 'POST', body }),
       update: (id, charFeatureId, body) =>
-        request('/api/characters/gm-panel/features', {
+        request(`/api/characters/${id}/gm-panel/features`, {
           method: 'PATCH',
           body,
-          params: { character_id: id, feature_id: charFeatureId },
+          params: { feature_id: charFeatureId },
         }),
       remove: (id, charFeatureId) =>
-        request('/api/characters/gm-panel/features', {
+        request(`/api/characters/${id}/gm-panel/features`, {
           method: 'DELETE',
-          params: { character_id: id, feature_id: charFeatureId },
+          params: { feature_id: charFeatureId },
         }),
     },
     items: {
-      list: (id) => request('/api/characters/gm-panel/items', { params: { character_id: id } }),
-      add: (id, body) =>
-        request('/api/characters/gm-panel/items', {
-          method: 'POST',
-          body,
-          params: { character_id: id },
-        }),
+      list: (id) => request(`/api/characters/${id}/gm-panel/items`),
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/items`, { method: 'POST', body }),
       update: (id, charItemId, body) =>
-        request('/api/characters/gm-panel/items', {
+        request(`/api/characters/${id}/gm-panel/items`, {
           method: 'PATCH',
           body,
-          params: { character_id: id, item_id: charItemId },
+          params: { item_id: charItemId },
         }),
       remove: (id, charItemId) =>
-        request('/api/characters/gm-panel/items', {
+        request(`/api/characters/${id}/gm-panel/items`, {
           method: 'DELETE',
-          params: { character_id: id, item_id: charItemId },
+          params: { item_id: charItemId },
         }),
     },
   },
   spells: {
-    list: (id) => request('/api/characters/spells', { params: { character_id: id } }),
-    add: (id, body) =>
-      request('/api/characters/spells', { method: 'POST', body, params: { character_id: id } }),
+    list: (id) => request(`/api/characters/${id}/spells`),
+    add: (id, body) => request(`/api/characters/${id}/spells`, { method: 'POST', body }),
     remove: (id, spellId) =>
-      request('/api/characters/spells', {
+      request(`/api/characters/${id}/spells`, {
         method: 'DELETE',
-        params: { character_id: id, spell_id: spellId },
+        params: { spell_id: spellId },
       }),
   },
   attacks: {
-    list: (id) => request('/api/characters/attacks', { params: { character_id: id } }),
-    add: (id, body) =>
-      request('/api/characters/attacks', { method: 'POST', body, params: { character_id: id } }),
+    list: (id) => request(`/api/characters/${id}/attacks`),
+    add: (id, body) => request(`/api/characters/${id}/attacks`, { method: 'POST', body }),
     update: (id, attackId, body) =>
-      request('/api/characters/attacks', {
-        method: 'PATCH',
-        body,
-        params: { character_id: id, attack_id: attackId },
-      }),
+      request(`/api/characters/${id}/attacks/${attackId}`, { method: 'PATCH', body }),
     remove: (id, attackId) =>
-      request('/api/characters/attacks', {
-        method: 'DELETE',
-        params: { character_id: id, attack_id: attackId },
-      }),
+      request(`/api/characters/${id}/attacks/${attackId}`, { method: 'DELETE' }),
   },
   feats: {
-    list: (id) => request('/api/characters/feats', { params: { character_id: id } }),
+    list: (id) => request(`/api/characters/${id}/feats`),
   },
   features: {
-    list: (id) => request('/api/characters/features', { params: { character_id: id } }),
+    list: (id) => request(`/api/characters/${id}/features`),
   },
   conditions: {
-    list: (id) => request('/api/characters/conditions', { params: { character_id: id } }),
-    add: (id, body) =>
-      request('/api/characters/conditions', {
-        method: 'POST',
-        body,
-        params: { character_id: id },
-      }),
+    list: (id) => request(`/api/characters/${id}/conditions`),
+    add: (id, body) => request(`/api/characters/${id}/conditions`, { method: 'POST', body }),
     update: (id, condition, body) =>
-      request('/api/characters/conditions', {
+      request(`/api/characters/${id}/conditions`, {
         method: 'PATCH',
         body,
-        params: { character_id: id, condition },
+        params: { condition },
       }),
     remove: (id, condition) =>
-      request('/api/characters/conditions', {
+      request(`/api/characters/${id}/conditions`, {
         method: 'DELETE',
-        params: { character_id: id, condition },
+        params: { condition },
       }),
   },
   progression: {
     background: (id, body) =>
-      request('/api/characters/progression/background', {
-        method: 'PATCH',
-        body,
-        params: { character_id: id },
-      }),
+      request(`/api/characters/${id}/progression/background`, { method: 'PATCH', body }),
     subclass: (id, body) =>
-      request('/api/characters/progression/subclass', {
-        method: 'PATCH',
-        body,
-        params: { character_id: id },
-      }),
+      request(`/api/characters/${id}/progression/subclass`, { method: 'PATCH', body }),
     subrace: (id, body) =>
-      request('/api/characters/progression/subrace', {
-        method: 'PATCH',
-        body,
-        params: { character_id: id },
-      }),
+      request(`/api/characters/${id}/progression/subrace`, { method: 'PATCH', body }),
     levelUp: (id, body) =>
-      request('/api/characters/progression/level-up', {
-        method: 'POST',
-        body,
-        params: { character_id: id },
-      }),
-    canLevelUp: (id) =>
-      request('/api/characters/progression/can-level-up', { params: { character_id: id } }),
-    asiChoices: (id) =>
-      request('/api/characters/progression/asi-choices', { params: { character_id: id } }),
+      request(`/api/characters/${id}/progression/level-up`, { method: 'POST', body }),
+    canLevelUp: (id) => request(`/api/characters/${id}/progression/can-level-up`),
+    asiChoices: (id) => request(`/api/characters/${id}/progression/asi-choices`),
   },
 }

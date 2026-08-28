@@ -25,10 +25,10 @@ export default function StepFeat({ stepNo, total, form, update, lookups, derived
     <StepShell
       stepNo={stepNo}
       total={total}
-      title="Черта происхождения"
-      subtitle="Каждый герой начинает с одной чертой — она задаёт его особый стиль"
+      title="Черта"
+      subtitle="Черта происхождения — необязательно. Можно пропустить и выбрать позже через ГМ-панель."
     >
-      <Section title="Черта (обязательно)">
+      <Section title="Черта (необязательно)">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {selectedFeat && <Tag tone="good">Выбрано: {selectedFeat.name}</Tag>}
           {selectedFeat && (

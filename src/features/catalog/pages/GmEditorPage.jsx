@@ -9,19 +9,40 @@ import EditorFieldControl, { SectionTitle } from '@/features/catalog/components/
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
-import { Button, Card, ConfirmDialog, EmptyState, ErrorBox, Field, Input, PageHeader, PillToggle, Select, Spinner, TextArea } from '@/components/ui'
+import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, Select, Spinner, TextArea } from '@/components/ui'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
-import { useCatalogList } from '@/features/catalog/queries.js'
+import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
+import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
+import { useCatalogPage } from '@/features/catalog/queries.js'
+import { PAGE_SIZE } from '@/features/catalog/catalog.js'
 
 export default function GmEditorPage() {
   const [resource, setResource] = useState('races')
   const cfg = editorConfig[resource]
-  const recordsQ = useCatalogList(resource, cfg.listParams ?? {})
-  const records = recordsQ.data ?? null
   const queryClient = useQueryClient()
 
+  const [queryInput, setQueryInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [filters, setFilters] = useState({})
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage] = useState(1)
+
+  const listParams = useMemo(() => {
+    const params = { page, size: PAGE_SIZE, ...(cfg.listParams ?? {}) }
+    if (appliedSearch.trim()) params.search = appliedSearch.trim()
+    for (const f of cfg.filters ?? []) {
+      if (Array.isArray(filters[f.name]) && filters[f.name].length > 0) {
+        params[f.name] = filters[f.name]
+      }
+    }
+    return params
+  }, [cfg, page, appliedSearch, filters])
+
+  const findQ = useCatalogPage(resource, listParams)
+  const records = findQ.data?.items ?? null
+  const total = findQ.data?.total ?? 0
+
   const [error, setError] = useState(null)
-  const [query, setQuery] = useState('')
 
   const [editing, setEditing] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
@@ -41,6 +62,10 @@ export default function GmEditorPage() {
   const [startingItemsLoading, setStartingItemsLoading] = useState(false)
   const [startingItemsError, setStartingItemsError] = useState(null)
   const [itemsModalOpen, setItemsModalOpen] = useState(false)
+
+  const [choiceGroups, setChoiceGroups] = useState([])
+  const [choiceGroupsLoading, setChoiceGroupsLoading] = useState(false)
+  const [choiceGroupsError, setChoiceGroupsError] = useState(null)
 
   const [subclasses, setSubclasses] = useState([])
   const [subDetails, setSubDetails] = useState({})
@@ -74,7 +99,7 @@ export default function GmEditorPage() {
   const [deleting, setDeleting] = useState(false)
 
   const load = () => {
-    recordsQ.refetch()
+    findQ.refetch()
     queryClient.invalidateQueries({ queryKey: ['catalog', 'pills'] })
   }
 
@@ -89,6 +114,7 @@ export default function GmEditorPage() {
       }
     }
     if (cfg.itemsOps) keys.add('items')
+    if (cfg.choiceGroupsOps) keys.add('items')
     return Array.from(keys)
   }, [cfg])
 
@@ -188,13 +214,39 @@ export default function GmEditorPage() {
     }
   }
 
-  const saveItems = async (rows) => {
+  const saveItems = async (payload) => {
     try {
-      await cfg.itemsOps.set(editing.id, { items: rows })
+      const rows = Array.isArray(payload) ? payload : payload?.items
+      await cfg.itemsOps.set(editing.id, { items: rows ?? [] })
+      if (payload?.choice_groups && cfg.choiceGroupsOps) {
+        const groups = payload.choice_groups.map((g) => ({
+          pick_count: Math.max(1, Number(g.pick_count) || 1),
+          sort_order: Number(g.sort_order) || 0,
+          options: (g.options ?? []).map((o) => ({
+            item_id: Number(o.item_id),
+            quantity: Math.max(1, Number(o.quantity) || 1),
+          })),
+        }))
+        await cfg.choiceGroupsOps.set(editing.id, { choice_groups: groups })
+      }
       setItemsModalOpen(false)
       await reloadItems()
+      if (cfg.choiceGroupsOps) await reloadChoiceGroups()
     } catch (e) {
       setStartingItemsError(e)
+    }
+  }
+
+  const reloadChoiceGroups = async (id) => {
+    setChoiceGroupsLoading(true)
+    setChoiceGroupsError(null)
+    try {
+      const res = await cfg.choiceGroupsOps.list(id ?? editing.id)
+      setChoiceGroups(res?.choice_groups ?? [])
+    } catch (e) {
+      setChoiceGroupsError(e)
+    } finally {
+      setChoiceGroupsLoading(false)
     }
   }
 
@@ -266,6 +318,7 @@ export default function GmEditorPage() {
   const loadNested = async (id) => {
     if (cfg.featuresOps) await reloadFeatures(id)
     if (cfg.itemsOps) await reloadItems(id)
+    if (cfg.choiceGroupsOps) await reloadChoiceGroups(id)
     if (cfg.hasSubclasses) await reloadSubclasses(id)
     if (cfg.hasSubraces) await reloadSubraces(id)
   }
@@ -273,9 +326,23 @@ export default function GmEditorPage() {
   const selectResource = (key) => {
     if (key === resource) return
     setResource(key)
-    setQuery('')
+    setQueryInput('')
+    setAppliedSearch('')
+    setFilters({})
+    setShowFilters(false)
+    setPage(1)
     setError(null)
     closeForm()
+  }
+
+  const applySearch = () => {
+    setAppliedSearch(queryInput)
+    setPage(1)
+  }
+
+  const applyFilters = (next) => {
+    setFilters(next)
+    setPage(1)
   }
 
   const openCreate = () => {
@@ -336,15 +403,10 @@ export default function GmEditorPage() {
     setOpenSubraces(new Set())
   }
 
-  const filtered = useMemo(() => {
-    if (!records) return null
-    const q = query.trim().toLowerCase()
-    if (!q) return records
-    return records.filter((r) => {
-      const hay = [r.name, r.description ?? ''].join(' ').toLowerCase()
-      return hay.includes(q)
-    })
-  }, [records, query])
+  const hasActiveFilters = (cfg.filters ?? []).some(
+    (f) => Array.isArray(filters[f.name]) && filters[f.name].length > 0,
+  )
+  const hasQuery = appliedSearch.trim().length > 0 || hasActiveFilters
 
   const setField = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const setBool = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.checked }))
@@ -401,7 +463,7 @@ export default function GmEditorPage() {
         value: x.id,
         label: x.parentName ? `${x.parentName} — ${x.name}` : x.name,
       }))
-    const srcFor = (key) => (key === resource && records ? records : pills[key] ?? [])
+    const srcFor = (key) => pills[key] ?? []
     return {
       skills: toOptions(srcFor('skills')),
       classes: toOptions(srcFor('classes')),
@@ -458,15 +520,18 @@ export default function GmEditorPage() {
 
   const saveFeature = async (next) => {
     const { subId, index } = featureModal
-    const body = featurePayload(next)
     try {
       if (subId != null) {
-        if (index == null) await api.classes.subclasses.features.add(editing.id, subId, body)
-        else await api.classes.subclasses.features.update(editing.id, subId, next.id, body)
+        // Подкласс: источник = SUBCLASS + subclass_id.
+        const source = { type: 'SUBCLASS', fk: 'subclass_id', sourceId: subId }
+        await upsertFeature(next, index, source)
         await reloadSubDetail(subId)
       } else {
-        if (index == null) await cfg.featuresOps.add(editing.id, body)
-        else await cfg.featuresOps.update(editing.id, next.id, body)
+        // Класс/раса/предыстория/прочее: источник из конфига.
+        const source = cfg.featuresSource
+          ? { type: cfg.featuresSource.type, fk: cfg.featuresSource.fk, sourceId: editing.id }
+          : null
+        await upsertFeature(next, index, source)
         await reloadFeatures()
       }
       setFeatureModal(null)
@@ -475,9 +540,25 @@ export default function GmEditorPage() {
     }
   }
 
+  // Общие операции централизованы на /api/features (+ /api/features/ability-increases).
+  const upsertFeature = async (next, index, source) => {
+    if (index == null) {
+      const created = await api.features.create(featurePayload(next, source))
+      await saveFeatureIncreases(created.id, next.ability_increases)
+    } else {
+      await api.features.update(next.id, featurePayload(next))
+      await saveFeatureIncreases(next.id, next.ability_increases)
+    }
+  }
+
+  const saveFeatureIncreases = async (featureId, increases = []) => {
+    const list = Array.isArray(increases) ? increases : []
+    await api.features.abilityIncreases.set(featureId, { ability_increases: list })
+  }
+
   const removeFeature = async (f) => {
     try {
-      await cfg.featuresOps.remove(editing.id, f.id)
+      await api.features.remove(f.id)
       await reloadFeatures()
     } catch (e) {
       setFeaturesError(e)
@@ -572,17 +653,7 @@ export default function GmEditorPage() {
       <PageHeader
         title="Редактор справочников"
         subtitle="Создание, изменение и удаление записей всех справочников"
-        actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск: имя, описание..."
-              className="w-full rounded border border-stone-700 bg-stone-800/70 px-4 py-2.5 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember sm:w-64"
-            />
-            <Button onClick={openCreate}>+ Новая запись</Button>
-          </div>
-        }
+        actions={<Button onClick={openCreate}>+ Новая запись</Button>}
       />
 
       <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
@@ -606,28 +677,60 @@ export default function GmEditorPage() {
         })}
       </div>
 
-      {(recordsQ.error || error) && <ErrorBox error={recordsQ.error ?? error} onRetry={load} />}
+      {(findQ.error || error) && <ErrorBox error={findQ.error ?? error} onRetry={load} />}
       {!error && !records && <Spinner />}
-      {!error && records && records.length > 0 && filtered.length === 0 && !showForm && (
-        <EmptyState text="Ничего не найдено по запросу" />
-      )}
 
       {!error && records && (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-          <aside className="flex max-h-[calc(100vh-280px)] flex-col gap-2 overflow-y-auto pr-1 lg:sticky lg:top-24">
-            {filtered.length === 0 ? (
-              <p className="text-sm text-stone-500">Нет записей — создайте первую</p>
-            ) : (
-            filtered.map((it) => (
-              <RecordListItem
-                key={it.id}
-                item={it}
-                selectedId={selectedId}
-                badges={cfg.listBadges(it)}
-                onEdit={openEdit}
+          <aside className="flex max-h-[calc(100vh-280px)] min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
+            <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 pr-1">
+              <input
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+                placeholder="Поиск: имя, описание..."
+                className="input-search w-full"
               />
-            ))
-            )}
+              <button
+                type="button"
+                onClick={applySearch}
+                title="Искать на сервере"
+                className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
+              >
+                ⌕
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFilters(true)}
+                className={`shrink-0 rounded border px-3 py-2.5 text-sm font-medium transition ${
+                  hasActiveFilters
+                    ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
+                    : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
+                }`}
+              >
+                Фильтр
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+              {records.length === 0 ? (
+                <p className="text-sm text-stone-500">
+                  {hasQuery ? 'Ничего не найдено по запросу' : 'Нет записей — создайте первую'}
+                </p>
+              ) : (
+                records.map((it) => (
+                  <RecordListItem
+                    key={it.id}
+                    item={it}
+                    selectedId={selectedId}
+                    badges={cfg.listBadges(it)}
+                    onEdit={openEdit}
+                  />
+                ))
+              )}
+            </div>
+            <div className="shrink-0">
+              <Pagination page={page} total={total} size={PAGE_SIZE} onPage={setPage} />
+            </div>
           </aside>
 
           <section className="min-w-0">
@@ -983,7 +1086,7 @@ export default function GmEditorPage() {
                     )
                   })}
 
-                  <div className="flex flex-wrap items-center gap-2 border-t border-stone-700/70 pt-4">
+                  <div className="flex flex-wrap items-center gap-2 pt-4">
                     <Button type="submit" disabled={fieldSaving}>
                       {fieldSaving
                         ? 'Сохраняем...'
@@ -1021,11 +1124,15 @@ export default function GmEditorPage() {
                     error={startingItemsError}
                     onAdd={() => setItemsModalOpen(true)}
                     onRetry={reloadItems}
+                    choiceGroups={cfg.choiceGroupsOps ? choiceGroups : null}
+                    choiceGroupsLoading={choiceGroupsLoading}
+                    choiceGroupsError={choiceGroupsError}
+                    onChoiceGroupsRetry={reloadChoiceGroups}
                   />
                 )}
 
                 {editing && cfg.hasSubclasses && (
-                  <div className="mt-6 border-t border-stone-700/70 pt-4">
+                  <div className="mt-6">
                     <div className="mb-3 flex items-center justify-between">
                       <SectionTitle>Подклассы (архетипы)</SectionTitle>
                       <button
@@ -1125,7 +1232,7 @@ export default function GmEditorPage() {
                 )}
 
                 {editing && cfg.hasSubraces && (
-                  <div className="mt-6 border-t border-stone-700/70 pt-4">
+                  <div className="mt-6">
                     <div className="mb-3 flex items-center justify-between">
                       <SectionTitle>Подрасы</SectionTitle>
                       <button
@@ -1248,6 +1355,15 @@ export default function GmEditorPage() {
         </div>
       )}
 
+      {showFilters && (
+        <FilterModal
+          filters={cfg.filters ?? []}
+          value={filters}
+          onChange={applyFilters}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
+
       {featureModal && featureModal.subId == null && form && (() => {
         const row = featureModal.index == null ? null : features[featureModal.index]
         return (
@@ -1273,6 +1389,7 @@ export default function GmEditorPage() {
           title={`Стартовое снаряжение${editing.name ? ` — ${editing.name}` : ''}`}
           items={pills.items ?? []}
           value={startingItems}
+          choiceGroups={cfg.choiceGroupsOps ? choiceGroups : null}
           onSave={saveItems}
           onClose={() => setItemsModalOpen(false)}
         />

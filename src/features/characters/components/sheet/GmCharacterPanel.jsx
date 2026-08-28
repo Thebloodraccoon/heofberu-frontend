@@ -10,7 +10,7 @@ import {
   useCharacterMaxLevel,
 } from '@/features/characters/queries.js'
 import { useFeats, useItems, useRaceDetail, useSkills, useSubraceDetail, useCatalogPage } from '@/features/catalog/queries.js'
-import { ITEM_FILTERS } from '@/features/catalog/components/editor/ItemPickerModal.jsx'
+import { ITEM_FILTERS } from '@/features/catalog/components/editor/itemFilters.js'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
@@ -99,7 +99,7 @@ function HpSection({ character, onError, reload }) {
         Положительное число — лечение, отрицательное — урон.
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-stone-700/70 pt-4">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <button type="button" className="sheet-btn" disabled={busy} onClick={() => doRest('short')}>
           Короткий отдых
         </button>
@@ -108,7 +108,7 @@ function HpSection({ character, onError, reload }) {
         </button>
       </div>
 
-      <div className="mt-4 space-y-3 border-t border-stone-700/70 pt-4">
+      <div className="mt-4 space-y-3">
         <div>
           <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Временные ХП</p>
           <div className="flex gap-2">
