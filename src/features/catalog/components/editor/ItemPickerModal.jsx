@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, ErrorBox, Input, Modal, Spinner } from '@/components/ui'
+import { Button, ErrorBox, Input, Modal, Skeleton } from '@/components/ui'
 import { label } from '@/lib/i18n/index.js'
 import { useCatalogPage } from '@/features/catalog/queries.js'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -242,7 +242,16 @@ export default function ItemPickerModal({
           </div>
 
           {(listQ.error) && <ErrorBox error={listQ.error} onRetry={() => listQ.refetch()} />}
-          {!listQ.data && !listQ.error && <Spinner />}
+          {!listQ.data && !listQ.error && (
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1" aria-busy="true">
+              {Array.from({ length: 8 }, (_, i) => (
+                <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3.5 w-1/2" />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div id="item-picker-list" className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
             {available.length === 0 ? (

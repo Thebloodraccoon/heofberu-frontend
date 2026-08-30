@@ -13,23 +13,21 @@ export default function ConditionsPanel({ character, onError }) {
   const [formOpen, setFormOpen] = useState(false)
   const [condition, setCondition] = useState('')
   const [source, setSource] = useState('')
-  const [level, setLevel] = useState('1')
   const conditions = character.conditions ?? []
+  const availableConditions = CONDITIONS.filter((c) => !conditions.some((a) => a.condition === c))
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
 
   const add = async () => {
-    if (!condition) return
+    if (!condition || conditions.some((c) => c.condition === condition)) return
     try {
       await api.conditions.add(character.id, {
         condition,
         source: source || undefined,
-        exhaustion_level: condition === 'EXHAUSTION' ? Number(level) || 1 : undefined,
       })
       setCondition('')
       setSource('')
-      setLevel('1')
       setFormOpen(false)
       await refresh()
     } catch (e) {
@@ -49,7 +47,7 @@ export default function ConditionsPanel({ character, onError }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="sheet-section-label m-0 !mt-0 self-center leading-none">Активные состояния</p>
+        <p className="sheet-section-label sheet-section-label--flush self-center leading-none">Активные состояния</p>
         <button
           type="button"
           className="sheet-btn sheet-btn_primary"
@@ -97,20 +95,11 @@ export default function ConditionsPanel({ character, onError }) {
             <Field label="Состояние">
               <Select value={condition} onChange={(e) => setCondition(e.target.value)}>
                 <option value="">Выберите...</option>
-                {CONDITIONS.map((c) => (
+                {availableConditions.map((c) => (
                   <option key={c} value={c}>{conditionLabels[c] ?? label(c)}</option>
                 ))}
               </Select>
             </Field>
-            {condition === 'EXHAUSTION' && (
-              <Field label="Уровень истощения">
-                <Select value={level} onChange={(e) => setLevel(e.target.value)}>
-                  {[1, 2, 3, 4, 5, 6].map((lv) => (
-                    <option key={lv} value={lv}>{lv}</option>
-                  ))}
-                </Select>
-              </Field>
-            )}
             <Field label="Источник (необязательно)">
               <Input
                 value={source}
@@ -120,7 +109,12 @@ export default function ConditionsPanel({ character, onError }) {
               />
             </Field>
             <div className="flex items-end gap-2 sm:col-span-2">
-              <Button onClick={add} disabled={!condition}>Добавить</Button>
+              <Button
+                onClick={add}
+                disabled={!condition || !availableConditions.includes(condition)}
+              >
+                Добавить
+              </Button>
               <Button variant="ghost" onClick={() => setFormOpen(false)}>Отмена</Button>
             </div>
           </div>

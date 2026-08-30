@@ -9,7 +9,13 @@ function SkillRow({ labelText, bonus, onRoll, dot }) {
         {dot != null && <CheckDot checked={dot.checked} expertise={dot.expertise} />}
         <span>{labelText}</span>
       </span>
-      <RollButton bonus={bonus} onClick={onRoll} compact title={`Бросок: ${labelText}`} />
+      <RollButton
+        bonus={bonus}
+        onClick={onRoll}
+        compact
+        className="!min-w-10"
+        title={`Бросок: ${labelText}`}
+      />
     </div>
   )
 }

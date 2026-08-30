@@ -85,7 +85,7 @@ function Toast({ toast, onDismiss }) {
                 {r}
               </span>
             ))}
-            <span className="rounded bg-ember px-1.5 py-0.5 font-mono text-xs font-bold text-white">
+            <span className="w-[8ch] rounded bg-ember px-1.5 py-0.5 text-center font-mono text-xs font-bold text-white">
               = {toast.total}
             </span>
           </>
@@ -103,7 +103,7 @@ function Toast({ toast, onDismiss }) {
               {toast.d20}
             </span>
             {toast.bonus ? <span className="text-xs text-stone-500">+{toast.bonus}</span> : null}
-            <span className="rounded bg-ember px-1.5 py-0.5 font-mono text-xs font-bold text-white">
+            <span className="w-[8ch] rounded bg-ember px-1.5 py-0.5 text-center font-mono text-xs font-bold text-white">
               = {toast.total}
             </span>
             {isNat20 && <span className="text-xs text-emerald-300">крит!</span>}

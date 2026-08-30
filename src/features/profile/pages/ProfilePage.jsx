@@ -9,7 +9,9 @@ import {
   Field,
   Input,
   PageHeader,
-  Spinner,
+  Skeleton,
+  SkeletonCard,
+  SkeletonCircle,
   TextArea,
 } from '@/components/ui'
 import { useCharacterCount } from '@/features/characters/queries.js'
@@ -24,7 +26,46 @@ export default function ProfilePage() {
     loadUser()
   }, [loadUser])
 
-  if (!user) return <Spinner />
+  if (!user) {
+    return (
+      <div className="max-w-4xl space-y-6" aria-busy="true">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <div className="fantasy-panel space-y-3 rounded-lg p-6">
+          <div className="flex flex-wrap items-center gap-5">
+            <SkeletonCircle size="size-16" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          </div>
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+        <div className="fantasy-panel space-y-3 rounded-lg p-6">
+          <Skeleton className="h-5 w-40" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="space-y-1.5">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ))}
+          </div>
+          <Skeleton className="h-3.5 w-24" />
+          <Skeleton className="h-24 w-full" />
+          <div className="flex justify-end">
+            <Skeleton className="h-9 w-28" />
+          </div>
+        </div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      </div>
+    )
+  }
 
   const initials = (user.username || 'U').slice(0, 2).toUpperCase()
   const roleLabel = isFounder ? 'Основатель' : isGM ? 'Гейм-мастер' : 'Игрок'

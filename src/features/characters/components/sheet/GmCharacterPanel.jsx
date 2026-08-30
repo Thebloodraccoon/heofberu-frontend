@@ -9,14 +9,14 @@ import {
   useCharacterItems,
   useCharacterMaxLevel,
 } from '@/features/characters/queries.js'
-import { useFeats, useItems, useRaceDetail, useSkills, useSubraceDetail, useCatalogPage } from '@/features/catalog/queries.js'
+import { useFeats, useRaceDetail, useSkills, useSubraceDetail, useCatalogPage } from '@/features/catalog/queries.js'
 import { ITEM_FILTERS } from '@/features/catalog/components/editor/itemFilters.js'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { ABILITY_CAP, ASI_LEVELS, STATS, abilityByCode, bonusMap } from '@/lib/utils/ability.js'
-import { Button, Badge, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Spinner, TextArea } from '@/components/ui'
+import { Button, Badge, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Skeleton, TextArea } from '@/components/ui'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
 import { label, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 
@@ -368,7 +368,19 @@ function StatsSection({ character, onError, reload }) {
 
   return (
     <Section title="Характеристики">
-      {!stats && <p className="text-sm text-stone-500">Загрузка...</p>}
+      {!stats && (
+        <div className="space-y-2" aria-busy="true">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between gap-3 rounded border border-stone-800 bg-stone-900/70 px-3 py-2"
+            >
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-10" />
+            </div>
+          ))}
+        </div>
+      )}
       {stats && (
         <div className="grid gap-5 lg:grid-cols-2">
           {/* Левый столбик: база → итог */}
@@ -780,7 +792,6 @@ const PICKER_PAGE_SIZE = 50
 function ItemsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: items = [] } = useCharacterItems(character.id)
-  const { data: catalog = [] } = useItems({ size: 100 })
   const [confirmTarget, setConfirmTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [infoItemId, setInfoItemId] = useState(null)
@@ -807,8 +818,6 @@ function ItemsSection({ character, onError, reload }) {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.items(Number(character.id)) })
 
-  const itemById = useMemo(() => new Map(catalog.map((it) => [Number(it.id), it])), [catalog])
-
   const applySearch = () => {
     setAppliedSearch(queryInput)
     setPage(1)
@@ -823,11 +832,11 @@ function ItemsSection({ character, onError, reload }) {
     try {
       const existing = items.find((ci) => Number(ci.item_id) === Number(catalogItem.id))
       if (existing) {
-        await charactersApi.gmPanel.items.update(character.id, existing.id, {
+        await charactersApi.items.update(character.id, existing.id, {
           quantity: (existing.quantity ?? 0) + qty,
         })
       } else {
-        await charactersApi.gmPanel.items.add(character.id, { item_id: Number(catalogItem.id), quantity: qty })
+        await charactersApi.items.add(character.id, { item_id: Number(catalogItem.id), quantity: qty })
       }
       await invalidate()
       await reload()
@@ -839,7 +848,7 @@ function ItemsSection({ character, onError, reload }) {
   const saveEdit = async (ci, form) => {
     setEditTarget(null)
     try {
-      await charactersApi.gmPanel.items.update(character.id, ci.id, {
+      await charactersApi.items.update(character.id, ci.id, {
         quantity: form.quantity,
         is_equipped: form.is_equipped,
         is_attuned: form.is_attuned,
@@ -854,7 +863,7 @@ function ItemsSection({ character, onError, reload }) {
 
   const removeItem = async (charItemId) => {
     try {
-      await charactersApi.gmPanel.items.remove(character.id, charItemId)
+      await charactersApi.items.remove(character.id, charItemId)
       await invalidate()
       await reload()
     } catch (e) {
@@ -897,7 +906,16 @@ function ItemsSection({ character, onError, reload }) {
           </div>
 
           {listQ.error && <ErrorBox error={listQ.error} onRetry={() => listQ.refetch()} />}
-          {!listQ.data && !listQ.error && <Spinner />}
+          {!listQ.data && !listQ.error && (
+            <div className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1" aria-busy="true">
+              {Array.from({ length: 8 }, (_, i) => (
+                <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3.5 w-1/2" />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div id="gm-item-picker-list" className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
             {pageItems.length === 0 ? (
@@ -945,7 +963,6 @@ function ItemsSection({ character, onError, reload }) {
           ) : (
             <ul className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
               {items.map((ci) => {
-                const catalogItem = itemById.get(Number(ci.item_id))
                 return (
                   <li key={ci.id} className="flex items-center gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
                     <button
@@ -954,7 +971,7 @@ function ItemsSection({ character, onError, reload }) {
                       className="link-ember min-w-0 flex-1 truncate text-left font-display text-sm font-bold"
                       title="Показать предмет"
                     >
-                      {catalogItem?.name ?? `Предмет #${ci.item_id}`}
+                      {ci.item?.name ?? `Предмет #${ci.item_id}`}
                       <span className="ml-2 font-sans text-xs font-normal tabular-nums text-stone-400">× {ci.quantity}</span>
                     </button>
                     {(ci.is_equipped || ci.is_attuned) && (
@@ -990,9 +1007,9 @@ function ItemsSection({ character, onError, reload }) {
 
       {editTarget && (
         <ItemEditModal
-          title={`Изменить: ${itemById.get(Number(editTarget.item_id))?.name ?? `Предмет #${editTarget.item_id}`}`}
+          title={`Изменить: ${editTarget.item?.name ?? `Предмет #${editTarget.item_id}`}`}
           value={editTarget}
-          catalogItem={itemById.get(Number(editTarget.item_id))}
+          catalogItem={editTarget.item}
           onSave={(form) => saveEdit(editTarget, form)}
           onClose={() => setEditTarget(null)}
         />
@@ -1009,7 +1026,7 @@ function ItemsSection({ character, onError, reload }) {
             <>
               Вы точно хотите убрать{' '}
               <span className="font-semibold text-stone-100">
-                «{itemById.get(Number(confirmTarget.item_id))?.name ?? `Предмет #${confirmTarget.item_id}`}»
+                «{confirmTarget.item?.name ?? `Предмет #${confirmTarget.item_id}`}»
               </span>{' '}
               у персонажа? Это действие необратимо.
             </>

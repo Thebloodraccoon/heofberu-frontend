@@ -4,7 +4,7 @@ import { AuthProvider } from '@/features/auth/AuthProvider.jsx'
 import { useAuth } from '@/features/auth/useAuth.js'
 import ProtectedRoute, { GMRoute } from '@/features/auth/ProtectedRoute.jsx'
 import Layout from '@/components/layout/Layout.jsx'
-import { Spinner } from '@/components/ui'
+import { Skeleton, SkeletonCard } from '@/components/ui'
 
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage.jsx'))
 const RegisterPage = lazy(() => import('@/features/auth/pages/RegisterPage.jsx'))
@@ -25,7 +25,19 @@ function RootRedirect() {
 }
 
 function PageFallback() {
-  return <Spinner label="Загружаем страницу..." />
+  return (
+    <div className="mx-auto max-w-6xl space-y-6" aria-busy="true">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-80" />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <SkeletonCard className="lg:col-span-2" />
+        <SkeletonCard />
+      </div>
+      <SkeletonCard />
+    </div>
+  )
 }
 
 function App() {

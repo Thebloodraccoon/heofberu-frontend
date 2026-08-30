@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { fmtBonus } from '@/lib/utils/sheet.js'
 
 export function RollButton({ bonus, onClick, disabled, compact = false, className = '', title, label }) {
@@ -99,7 +99,7 @@ export function EditableBlock({ title, value = '', onSave, rows = 4 }) {
   return (
     <div className="sheet-text-block">
       <div className="sheet-text-block__head">
-        <span className="sheet-section-label !mt-0">{title}</span>
+        <span className="sheet-section-label sheet-section-label--flush">{title}</span>
         {!edit && (
           <button type="button" className="sheet-edit-note text-stone-300 hover:text-ember" title="Изменить" onClick={startEdit}>
             <PencilIcon />
@@ -250,14 +250,31 @@ export function PassiveSenses({ items = [] }) {
 }
 
 export function SheetTabs({ tabs, active, onSelect }) {
+  const listRef = useRef(null)
+
+  const centerTab = (btn) => {
+    const list = listRef.current
+    if (!list || !btn) return
+    if (list.scrollWidth <= list.clientWidth) return
+    if (typeof list.scrollTo !== 'function') return
+    const btnLeft = btn.offsetLeft
+    const btnWidth = btn.offsetWidth
+    const listWidth = list.clientWidth
+    const target = btnLeft - (listWidth - btnWidth) / 2
+    list.scrollTo({ left: Math.max(0, target), behavior: 'smooth' })
+  }
+
   return (
-    <div className="sheet-tabs flex-wrap">
-      {tabs.map(([key, labelText]) => (
+    <div ref={listRef} className="sheet-tabs flex-wrap">
+      {tabs.map(([key, labelText, btnClassName = '']) => (
         <button
           key={key}
           type="button"
-          className={`sheet-tabs__btn ${active === key ? 'sheet-tabs__btn_active' : ''}`}
-          onClick={() => onSelect(key)}
+          className={`sheet-tabs__btn ${active === key ? 'sheet-tabs__btn_active' : ''} ${btnClassName}`}
+          onClick={(e) => {
+            centerTab(e.currentTarget)
+            onSelect(key)
+          }}
         >
           {labelText}
         </button>

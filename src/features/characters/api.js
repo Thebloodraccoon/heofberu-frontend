@@ -64,21 +64,6 @@ export const charactersApi = {
           params: { feature_id: charFeatureId },
         }),
     },
-    items: {
-      list: (id) => request(`/api/characters/${id}/gm-panel/items`),
-      add: (id, body) => request(`/api/characters/${id}/gm-panel/items`, { method: 'POST', body }),
-      update: (id, charItemId, body) =>
-        request(`/api/characters/${id}/gm-panel/items`, {
-          method: 'PATCH',
-          body,
-          params: { item_id: charItemId },
-        }),
-      remove: (id, charItemId) =>
-        request(`/api/characters/${id}/gm-panel/items`, {
-          method: 'DELETE',
-          params: { item_id: charItemId },
-        }),
-    },
   },
   spells: {
     list: (id) => request(`/api/characters/${id}/spells`),
@@ -102,6 +87,21 @@ export const charactersApi = {
   },
   features: {
     list: (id) => request(`/api/characters/${id}/features`),
+  },
+  items: {
+    list: (id) => request(`/api/characters/${id}/items`),
+    add: (id, body) => request(`/api/characters/${id}/items`, { method: 'POST', body }),
+    update: (id, charItemId, body) =>
+      request(`/api/characters/${id}/items`, {
+        method: 'PATCH',
+        body,
+        params: { item_id: charItemId },
+      }),
+    remove: (id, charItemId) =>
+      request(`/api/characters/${id}/items`, {
+        method: 'DELETE',
+        params: { item_id: charItemId },
+      }),
   },
   conditions: {
     list: (id) => request(`/api/characters/${id}/conditions`),

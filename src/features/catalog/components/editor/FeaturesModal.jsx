@@ -63,6 +63,9 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
   const removeIncrease = (i) =>
     setEdit((d) => ({ ...d, ability_increases: d.ability_increases.filter((_, j) => j !== i) }))
 
+  const usedAbilities = new Set(edit.ability_increases.map((r) => r.ability))
+  const abilitiesUsedUp = Object.keys(abilityLabels).every((k) => usedAbilities.has(k))
+
   const save = () => {
     if (showLevel && levelRequired && edit.level == null) {
       setLevelError(true)
@@ -126,7 +129,8 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
           <button
             type="button"
             onClick={addIncrease}
-            className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+            disabled={abilitiesUsedUp}
+            className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
           >
             + Добавить
           </button>
@@ -134,51 +138,69 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
         {edit.ability_increases.length === 0 ? (
           <p className="text-sm text-stone-500">Увеличений нет</p>
         ) : (
-          <div className="space-y-2">
-            {edit.ability_increases.map((row, i) => (
-              <div key={i} className="flex flex-wrap items-center gap-2">
-                <Select value={row.ability} onChange={(e) => setIncrease(i, 'ability', e.target.value)} className="min-w-[190px]">
-                  {Object.entries(abilityLabels).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v}
-                    </option>
-                  ))}
-                </Select>
-                <Input
-                  type="number"
-                  min={-5}
-                  max={5}
-                  className="!w-20"
-                  value={row.amount}
-                  onChange={(e) => setIncrease(i, 'amount', Number(e.target.value) || 0)}
-                  title="Величина"
-                />
-                <Input
-                  type="number"
-                  min={20}
-                  max={30}
-                  className="!w-20"
-                  value={row.new_cap ?? ''}
-                  onChange={(e) =>
-                    setIncrease(
-                      i,
-                      'new_cap',
-                      e.target.value === '' ? null : Math.min(30, Math.max(20, Number(e.target.value)))
-                    )
-                  }
-                  placeholder="макс"
-                  title="Новый предел характеристики (от 20 до 30)"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeIncrease(i)}
-                  className="my-[5px] rounded border border-red-800 px-2 py-1 text-xs text-red-300 transition hover:bg-red-950/50"
+          <>
+            {abilitiesUsedUp && (
+              <p className="mb-2 text-xs text-stone-500">
+                Все доступные варианты использованы — каждый вариант не может повторяться.
+              </p>
+            )}
+            <div className="grid grid-cols-[minmax(0,1fr)_5rem_7rem_4.5rem] items-center gap-2">
+              <span className="whitespace-nowrap text-label-sm">Характеристика</span>
+              <span className="whitespace-nowrap text-label-sm">Бонус</span>
+              <span className="whitespace-nowrap text-label-sm">Новый максимум</span>
+              <span className="whitespace-nowrap text-center text-label-sm">Удалить</span>
+            </div>
+            <div className="mt-1.5 space-y-2">
+              {edit.ability_increases.map((row, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[minmax(0,1fr)_5rem_7rem_4.5rem] items-center gap-2"
                 >
-                  Удалить
-                </button>
-              </div>
-            ))}
-          </div>
+                  <Select
+                    value={row.ability}
+                    onChange={(e) => setIncrease(i, 'ability', e.target.value)}
+                    className="min-w-[190px]"
+                  >
+                    {Object.entries(abilityLabels).map(([k, v]) => (
+                      <option key={k} value={k} disabled={usedAbilities.has(k) && k !== row.ability}>
+                        {v}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input
+                    type="number"
+                    min={-5}
+                    max={5}
+                    value={row.amount}
+                    onChange={(e) => setIncrease(i, 'amount', Number(e.target.value) || 0)}
+                    title="Величина"
+                  />
+                  <Input
+                    type="number"
+                    min={20}
+                    max={30}
+                    value={row.new_cap ?? ''}
+                    onChange={(e) =>
+                      setIncrease(
+                        i,
+                        'new_cap',
+                        e.target.value === '' ? null : Math.min(30, Math.max(20, Number(e.target.value)))
+                      )
+                    }
+                    placeholder="макс"
+                    title="Новый предел характеристики (от 20 до 30)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeIncrease(i)}
+                    className="w-full rounded border border-red-800 px-2 py-1 text-xs text-red-300 transition hover:bg-red-950/50"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </Modal>

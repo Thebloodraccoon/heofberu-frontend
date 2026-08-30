@@ -269,6 +269,10 @@ main > * {
   main > * {
     animation: none;
   }
+  .skeleton::after {
+    animation: none;
+    display: none;
+  }
 }
 
 /* ===== Минимальный шрифт 14 px на десктопе + адаптивное масштабирование ===== */

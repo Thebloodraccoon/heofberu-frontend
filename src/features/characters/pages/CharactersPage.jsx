@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, PageHeader, Spinner } from '@/components/ui'
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, PageHeader, Skeleton } from '@/components/ui'
 import { useBackgrounds, useClasses, useRaces } from '@/features/catalog/queries.js'
 import { useDeleteCharacter, useMyCharacters } from '@/features/characters/queries.js'
 
@@ -34,7 +34,20 @@ export default function CharactersPage() {
       />
 
       {error && <ErrorBox error={error} onRetry={refetch} />}
-      {!error && isLoading && <Spinner />}
+      {!error && isLoading && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="catalog-tile p-4">
+              <div className="flex items-center justify-between gap-2">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-5 w-16" />
+              </div>
+              <Skeleton className="mt-2 h-4 w-1/2" />
+              <Skeleton className="mt-4 h-4 w-24" />
+            </div>
+          ))}
+        </div>
+      )}
       {!error && !isLoading && characters?.length === 0 && (
         <EmptyState text="Персонажей пока нет — создайте первого" />
       )}

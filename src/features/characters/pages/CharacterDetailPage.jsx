@@ -14,7 +14,7 @@ import {
 } from '@/features/catalog/queries.js'
 import { sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { STATS, mod } from '@/lib/utils/ability.js'
-import { ErrorBox, Spinner } from '@/components/ui'
+import { ErrorBox, Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui'
 import {
   PassiveSenses,
   ProficiencyList,
@@ -239,7 +239,63 @@ export default function CharacterDetailPage() {
   }, [classDetail])
 
   if (error || mutationError) return <ErrorBox error={error ?? mutationError} onRetry={load} />
-  if (!character) return <Spinner />
+  if (!character) {
+    return (
+      <div className="flex flex-col gap-4" aria-busy="true">
+        <div className="fantasy-panel rounded-lg p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-56" />
+              <Skeleton className="h-4 w-72" />
+              <Skeleton className="h-3.5 w-48" />
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <Skeleton className="h-3.5 w-12" />
+                  <Skeleton className="h-5 w-14" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="sheet-body">
+          <div className="sheet-col-left">
+            <aside className="sheet-left fantasy-panel rounded-lg p-4">
+              <div className="grid grid-cols-2 gap-4">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <div key={i} className="space-y-2 rounded border border-stone-700/60 bg-stone-900/60 p-3">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="mx-auto h-8 w-12" />
+                    <Skeleton className="h-3.5 w-full" />
+                    <Skeleton className="h-3.5 w-4/5" />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 space-y-2">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <SkeletonCircle size="size-7" />
+                    <Skeleton className="h-4 flex-1" />
+                  </div>
+                ))}
+              </div>
+            </aside>
+          </div>
+          <section className="sheet-right fantasy-panel rounded-lg p-4">
+            <div className="flex flex-wrap gap-2">
+              {Array.from({ length: 8 }, (_, i) => (
+                <Skeleton key={i} className="h-8 w-24" />
+              ))}
+            </div>
+            <div className="pt-4">
+              <SkeletonCard />
+            </div>
+          </section>
+        </div>
+      </div>
+    )
+  }
 
   const identityFields = [
     { label: 'Имя', value: character.name || 'Безымянный персонаж' },
@@ -287,6 +343,7 @@ export default function CharacterDetailPage() {
     try {
       await api.hp(id, { delta })
       await load()
+      setHpModal(false)
     } catch (e) {
       setMutationError(e)
     }
@@ -296,6 +353,7 @@ export default function CharacterDetailPage() {
     try {
       await api.hp(id, { temp_hp })
       await load()
+      setHpModal(false)
     } catch (e) {
       setMutationError(e)
     }
@@ -305,6 +363,7 @@ export default function CharacterDetailPage() {
     try {
       await api.rest(id, { type })
       await load()
+      setHpModal(false)
     } catch (e) {
       setMutationError(e)
     }
@@ -321,6 +380,7 @@ export default function CharacterDetailPage() {
   }
 
   const tabs = [
+    ['abilities', 'Характеристики', 'lg:hidden'],
     ['attacks', 'Атаки'],
     ['features', 'Способности'],
     ['equipment', 'Снаряжение'],
@@ -330,6 +390,58 @@ export default function CharacterDetailPage() {
     ['notes', 'Заметки'],
     ['spells', 'Заклинания'],
   ]
+
+  const renderAbilities = () => {
+    const makeProps = (s) => ({
+      stat: s,
+      total: totals[s.code],
+      saveBonus: saveBonus(s.code),
+      saveProf: saveSet.has(s.code),
+      skills: skillsByAbility[s.code],
+      skillMap,
+      skillBonus,
+      skillChecked: (sk) => profSet.has(Number(sk.id)),
+      skillExpertise: (sk) => expertiseSet.has(Number(sk.id)),
+      onRoll: rollDice,
+    })
+    const paired = []
+    const [str, dex, con, int, wis, cha] = STATS
+    paired.push(
+      <div key="str-con" className="sheet-ability-pair">
+        <AbilityBlock key={str.code} {...makeProps(str)} />
+        <AbilityBlock key={con.code} {...makeProps(con)} />
+      </div>,
+    )
+    paired.push(<AbilityBlock key={wis.code} {...makeProps(wis)} />)
+    paired.push(<AbilityBlock key={int.code} {...makeProps(int)} />)
+    paired.push(<AbilityBlock key={cha.code} {...makeProps(cha)} />)
+    paired.push(<AbilityBlock key={dex.code} {...makeProps(dex)} />)
+    if (passiveSenses.length > 0) {
+      paired.push(
+        <div key="passive-senses" className="py-1">
+          <SheetSectionLabel className="!mt-0">Пассивные чувства</SheetSectionLabel>
+          <PassiveSenses items={passiveSenses} />
+        </div>,
+      )
+    }
+    paired.push(
+      <div key="armor-profs" style={{ gridColumn: '1 / -1' }}>
+        <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
+        <ProficiencyList items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
+      </div>,
+    )
+    paired.push(
+      <div key="weapon-profs" style={{ gridColumn: '1 / -1' }}>
+        <SheetSectionLabel>Владение оружием</SheetSectionLabel>
+        <ProficiencyList
+          items={weaponProfs}
+          options={Object.entries(weaponProficiencyLabels).map(([value, label]) => ({ value, label }))}
+          empty="Не задано классом"
+        />
+      </div>,
+    )
+    return paired
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -358,58 +470,7 @@ export default function CharacterDetailPage() {
       <div className="sheet-body">
         <div className="sheet-col-left">
           <aside className="sheet-left fantasy-panel rounded-lg p-4">
-          {(() => {
-            const makeProps = (s) => ({
-              key: s.code,
-              stat: s,
-              total: totals[s.code],
-              saveBonus: saveBonus(s.code),
-              saveProf: saveSet.has(s.code),
-              skills: skillsByAbility[s.code],
-              skillMap,
-              skillBonus,
-              skillChecked: (sk) => profSet.has(Number(sk.id)),
-              skillExpertise: (sk) => expertiseSet.has(Number(sk.id)),
-              onRoll: rollDice,
-            })
-            const paired = []
-            const [str, dex, con, int, wis, cha] = STATS
-            paired.push(
-              <div key="str-con" className="sheet-ability-pair">
-                <AbilityBlock {...makeProps(str)} />
-                <AbilityBlock {...makeProps(con)} />
-              </div>,
-            )
-            paired.push(<AbilityBlock {...makeProps(wis)} />)
-            paired.push(<AbilityBlock {...makeProps(int)} />)
-            paired.push(<AbilityBlock {...makeProps(cha)} />)
-            paired.push(<AbilityBlock {...makeProps(dex)} />)
-            if (passiveSenses.length > 0) {
-              paired.push(
-                <div key="passive-senses" className="py-1">
-                  <SheetSectionLabel className="!mt-0">Пассивные чувства</SheetSectionLabel>
-                  <PassiveSenses items={passiveSenses} />
-                </div>
-              )
-            }
-            paired.push(
-              <div key="armor-profs" style={{ gridColumn: '1 / -1' }}>
-                <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
-                <ProficiencyList items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
-              </div>,
-            )
-            paired.push(
-              <div key="weapon-profs" style={{ gridColumn: '1 / -1' }}>
-                <SheetSectionLabel>Владение оружием</SheetSectionLabel>
-                <ProficiencyList
-                  items={weaponProfs}
-                  options={Object.entries(weaponProficiencyLabels).map(([value, label]) => ({ value, label }))}
-                  empty="Не задано классом"
-                />
-              </div>,
-            )
-            return paired
-          })()}
+            {renderAbilities()}
           </aside>
         </div>
 
@@ -417,6 +478,11 @@ export default function CharacterDetailPage() {
           <SheetTabs tabs={tabs} active={tab} onSelect={setTab} />
 
           <div className="pt-4">
+            {tab === 'abilities' && (
+              <div className="sheet-left sheet-abilities-tab">
+                {renderAbilities()}
+              </div>
+            )}
             {tab === 'attacks' && (
               <AttacksPanel
                 characterId={character.id}

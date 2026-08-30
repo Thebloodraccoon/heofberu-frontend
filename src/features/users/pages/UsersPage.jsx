@@ -9,7 +9,7 @@ import {
   Input,
   PageHeader,
   Select,
-  Spinner,
+  Skeleton,
 } from '@/components/ui'
 import { useCreateUser, useDeleteUser, useUsers } from '@/features/users/queries.js'
 
@@ -72,7 +72,26 @@ export default function UsersPage() {
       )}
 
       {error && <ErrorBox error={error} onRetry={refetch} />}
-      {!error && isLoading && <Spinner />}
+      {!error && isLoading && (
+        <Card>
+          <div aria-busy="true">
+            <div className="flex items-center gap-4 border-b border-stone-700/70 px-4 py-3">
+              {['Имя', 'Email', 'Роль', 'Создан', ''].map((h) => (
+                <Skeleton key={h} className="h-4 flex-1" />
+              ))}
+            </div>
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="flex items-center gap-4 border-b border-stone-800/60 px-4 py-3 last:border-0">
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
       {!error && !isLoading && users?.length === 0 && <EmptyState text="Пользователей пока нет" />}
       {users?.length > 0 && (
         <Card>

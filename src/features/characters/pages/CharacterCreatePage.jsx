@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { POINT_BUY_BUDGET, POINT_BUY_MIN, STATS, bonusMap, effectiveTotals, pointCost } from '@/lib/utils/ability.js'
 import { STEPS, DEFAULT_FORM } from '@/lib/utils/characterCreate.js'
-import { Button, Card, ErrorBox, PageHeader, Spinner } from '@/components/ui'
+import { Button, Card, ErrorBox, PageHeader, Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui'
 import StepAbilities from '@/features/characters/components/wizard/StepAbilities.jsx'
 import StepBackground from '@/features/characters/components/wizard/StepBackground.jsx'
 import StepClass from '@/features/characters/components/wizard/StepClass.jsx'
@@ -222,7 +222,32 @@ export default function CharacterCreatePage() {
     }
   }
 
-  if (loading) return <Spinner label="Загружаем справочники…" />
+  if (loading) {
+    return (
+      <div aria-busy="true">
+        <div className="mb-4">
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="mt-6 grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
+          <aside className="space-y-2">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <SkeletonCircle size="size-8" />
+                <Skeleton className="h-4 flex-1" />
+              </div>
+            ))}
+          </aside>
+          <div className="min-w-0">
+            <SkeletonCard className="min-h-[24rem]" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>

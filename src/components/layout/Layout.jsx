@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth.js'
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher.jsx'
@@ -88,9 +88,37 @@ export default function Layout() {
   const { authenticated, user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
+  const [narrowMenu, setNarrowMenu] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1799px)').matches,
+  )
   const navigate = useNavigate()
+  const sidebarRef = useRef(null)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1799px)')
+    const onChange = (e) => setNarrowMenu(e.matches)
+    onChange(mq)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  useEffect(() => {
+    if (!narrowMenu) return undefined
+    const onDocClick = (e) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
+        setCollapsed(true)
+      }
+    }
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [narrowMenu])
 
   const close = () => setSidebarOpen(false)
+
+  const onMenuClick = () => {
+    close()
+    if (narrowMenu) setCollapsed(true)
+  }
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
@@ -147,10 +175,13 @@ export default function Layout() {
       </header>
 
       {collapsed ? (
-        <aside className="hidden shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-2 lg:fixed lg:left-0 lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)]">
+        <aside ref={sidebarRef} className="hidden shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-2 lg:fixed lg:left-0 lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)]">
           <button
             type="button"
-            onClick={toggleCollapsed}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleCollapsed()
+            }}
             className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2.5 py-1.5 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
             aria-label="Развернуть меню"
             title="Развернуть меню"
@@ -159,7 +190,7 @@ export default function Layout() {
           </button>
         </aside>
       ) : (
-        <aside className="hidden w-[16.75rem] shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-3 lg:fixed lg:left-0 lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)] lg:overflow-y-auto">
+        <aside ref={sidebarRef} className="hidden w-[16.75rem] shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-3 lg:fixed lg:left-0 lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)] lg:overflow-y-auto">
           <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2 pl-1">
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
               Меню
@@ -174,7 +205,7 @@ export default function Layout() {
               « Свернуть
             </button>
           </div>
-          <SidebarContent onClick={close} />
+          <SidebarContent onClick={onMenuClick} />
         </aside>
       )}
 

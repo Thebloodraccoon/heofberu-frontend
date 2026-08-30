@@ -9,6 +9,11 @@ import {
   Modal,
   PillToggle,
   Select,
+  Skeleton,
+  SkeletonCard,
+  SkeletonCircle,
+  SkeletonRows,
+  SkeletonText,
   StatTable,
   humanize,
 } from '@/components/ui/index.js'
@@ -254,5 +259,43 @@ describe('StatTable', () => {
   it('renders nothing for empty rows', () => {
     const { container } = render(<StatTable rows={[]} />)
     expect(container.firstChild).toBeNull()
+  })
+})
+
+describe('Skeleton primitives', () => {
+  it('renders a base skeleton block with the skeleton class', () => {
+    const { container } = render(<Skeleton className="h-10 w-24" />)
+    const block = container.firstChild
+    expect(block).toHaveClass('skeleton')
+    expect(block).toHaveClass('h-10')
+    expect(block).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('SkeletonText applies a custom width', () => {
+    render(<SkeletonText w="40%" />)
+    const line = document.querySelector('.skeleton')
+    expect(line).toHaveStyle({ width: '40%' })
+  })
+
+  it('SkeletonCircle renders a round avatar placeholder', () => {
+    const { container } = render(<SkeletonCircle size="size-16" />)
+    expect(container.firstChild).toHaveClass('rounded-full')
+    expect(container.firstChild).toHaveClass('size-16')
+  })
+
+  it('SkeletonRows renders the requested count of lines', () => {
+    const { container } = render(<SkeletonRows count={4} />)
+    expect(container.querySelectorAll('.skeleton')).toHaveLength(4)
+  })
+
+  it('SkeletonCard renders default lines when no children given', () => {
+    const { container } = render(<SkeletonCard />)
+    expect(container.firstChild).toHaveClass('fantasy-panel')
+    expect(container.querySelectorAll('.skeleton').length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('SkeletonCard renders provided children', () => {
+    const { container } = render(<SkeletonCard><Skeleton className="h-20" /></SkeletonCard>)
+    expect(container.querySelectorAll('.skeleton')).toHaveLength(1)
   })
 })

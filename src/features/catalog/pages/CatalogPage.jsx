@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { catalog, PAGE_SIZE } from '../catalog.js'
 import { useCatalogPage } from '@/features/catalog/queries.js'
-import { Badge, Card, EmptyState, ErrorBox, PageHeader, Spinner } from '@/components/ui'
+import { Badge, Card, EmptyState, ErrorBox, PageHeader, Skeleton, SkeletonCard } from '@/components/ui'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import TileCard from '@/features/catalog/components/browse/TileCard.jsx'
@@ -167,7 +167,33 @@ export function CatalogListPage() {
           }}
         />
       )}
-      {items === null && !listQ.error && <Spinner />}
+      {items === null && !listQ.error && (
+        selectedId ? (
+          <div className="catalog-layout" aria-busy="true">
+            <aside className="space-y-2">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="fantasy-panel card-hover space-y-2 rounded-lg p-3">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3.5 w-4/5" />
+                </div>
+              ))}
+            </aside>
+            <section className="min-w-0">
+              <SkeletonCard className="min-h-[24rem]" />
+            </section>
+          </div>
+        ) : (
+          <div className="catalog-grid" aria-busy="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="catalog-tile p-4">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="mt-2 h-4 w-full" />
+                <Skeleton className="mt-2 h-4 w-2/3" />
+              </div>
+            ))}
+          </div>
+        )
+      )}
       {items !== null && items.length === 0 && (
         <EmptyState
           text={
@@ -289,8 +315,24 @@ export function CatalogListPage() {
                   selectedSubId={selectedSubId}
                 />
               ) : (
-                <Card className="p-10 text-center">
-                  <Spinner />
+                <Card className="p-8" aria-busy="true">
+                  <div className="space-y-2">
+                    <Skeleton className="h-7 w-1/2" />
+                    <div className="mt-3 flex gap-2">
+                      <Skeleton className="h-5 w-20" />
+                      <Skeleton className="h-5 w-28" />
+                    </div>
+                  </div>
+                  <div className="mt-6 space-y-2.5">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <Skeleton key={i} className="h-4 w-full" />
+                    ))}
+                  </div>
+                  <div className="mt-6 space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
                 </Card>
               )}
             </section>

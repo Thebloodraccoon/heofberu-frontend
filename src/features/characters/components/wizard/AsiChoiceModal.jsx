@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ABILITY_CAP, STATS, abilityName } from '@/lib/utils/ability.js'
-import { Button, Input } from '@/components/ui'
+import { Button, Input, Skeleton } from '@/components/ui'
 import { useAllFeats, useFeatDetail } from '@/features/catalog/queries.js'
 import { Tag } from './StepShell.jsx'
 
@@ -145,7 +145,14 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                 />
               </div>
               {featsQ.isFetching && feats.length === 0 && (
-                <p className="py-6 text-center text-sm text-stone-400">Загружаем черты…</p>
+                <div className="space-y-2 py-2" aria-busy="true">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3.5 w-1/2" />
+                    </div>
+                  ))}
+                </div>
               )}
               {!featsQ.isFetching && feats.length === 0 && (
                 <p className="py-6 text-center text-sm text-stone-400">
@@ -197,7 +204,10 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                       {expanded && (
                         <div className="mt-2 border-t border-stone-700/50 pt-2">
                           {detailQ.isFetching && !rowDetail ? (
-                            <p className="text-xs text-stone-500">Загружаем описание…</p>
+                            <div className="space-y-1.5 py-1" aria-busy="true">
+                              <Skeleton className="h-3.5 w-full" />
+                              <Skeleton className="h-3.5 w-2/3" />
+                            </div>
                           ) : (
                             <>
                               {(rowDetail?.ability_score_increases ?? []).length > 0 && (

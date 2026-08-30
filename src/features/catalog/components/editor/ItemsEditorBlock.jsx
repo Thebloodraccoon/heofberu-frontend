@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { label } from '@/lib/i18n/index.js'
-import { Badge, ErrorBox } from '@/components/ui'
+import { Badge, ErrorBox, Skeleton } from '@/components/ui'
 import { SectionTitle } from './editorShared.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 
@@ -32,7 +32,14 @@ export default function ItemsEditorBlock({
         </div>
         {error && <ErrorBox error={error} onRetry={onRetry} />}
         {loading ? (
-          <p className="text-sm text-stone-500">Загружаем снаряжение...</p>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="card-item space-y-2">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-3.5 w-24" />
+              </div>
+            ))}
+          </div>
         ) : items.length === 0 ? (
           <p className="text-sm text-stone-500">{block.empty}</p>
         ) : (

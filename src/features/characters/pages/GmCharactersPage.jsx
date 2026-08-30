@@ -6,7 +6,9 @@ import {
   ErrorBox,
   Input,
   PageHeader,
-  Spinner,
+  Skeleton,
+  SkeletonCard,
+  SkeletonCircle,
 } from '@/components/ui'
 import GmCharacterPanel from '@/features/characters/components/sheet/GmCharacterPanel.jsx'
 import { useAllCharacters } from '@/features/characters/queries.js'
@@ -109,7 +111,31 @@ export default function GmCharactersPage() {
   const selectedCharacter = characters.find((c) => c.id === selectedId) ?? null
 
   if (error && characters.length === 0) return <ErrorBox error={error} onRetry={refetch} />
-  if (isLoading && characters.length === 0) return <Spinner label="Загружаем персонажей..." />
+  if (isLoading && characters.length === 0) {
+    return (
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]" aria-busy="true">
+        <aside className="space-y-2">
+          <Skeleton className="h-10 w-full" />
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="fantasy-panel card-hover space-y-2 rounded-lg p-3">
+              <div className="flex items-center gap-3">
+                <SkeletonCircle size="size-10" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3.5 w-1/3" />
+                </div>
+              </div>
+              <Skeleton className="h-1.5 w-full" />
+              <Skeleton className="h-3.5 w-16" />
+            </div>
+          ))}
+        </aside>
+        <section className="min-w-0">
+          <SkeletonCard className="min-h-[26rem]" />
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div>

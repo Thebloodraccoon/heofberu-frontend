@@ -66,7 +66,8 @@ export const useCharacterSpellSlots = (id) =>
 export const useCharacterAttacks = subResource(queryKeys.characters.attacks, charactersApi.attacks.list)
 export const useCharacterFeats = subResource(queryKeys.characters.feats, charactersApi.feats.list)
 export const useCharacterFeatures = subResource(queryKeys.characters.features, charactersApi.features.list)
-export const useCharacterItems = subResource(queryKeys.characters.items, charactersApi.gmPanel.items.list)
+export const useCharacterItems = subResource(queryKeys.characters.items, charactersApi.items.list)
+
 export const useCharacterConditions = subResource(queryKeys.characters.conditions, charactersApi.conditions.list)
 
 export const useCharacterGmStats = (id) =>

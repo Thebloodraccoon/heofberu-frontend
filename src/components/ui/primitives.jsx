@@ -11,6 +11,43 @@ export function Spinner({ label = 'Загрузка...' }) {
   )
 }
 
+export function Skeleton({ className = '', style }) {
+  return <div aria-hidden="true" style={style} className={`skeleton ${className}`} />
+}
+
+export function SkeletonText({ className = '', w = '100%' }) {
+  return <Skeleton className={`h-3.5 ${className}`} style={{ width: w }} />
+}
+
+export function SkeletonCircle({ size = 'size-10' }) {
+  return <Skeleton className={`rounded-full ${size}`} />
+}
+
+export function SkeletonRows({ count = 3, className = '' }) {
+  return (
+    <div className={`flex flex-col gap-2 ${className}`} aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <Skeleton key={i} className="h-3.5" />
+      ))}
+    </div>
+  )
+}
+
+export function SkeletonCard({ className = '', children }) {
+  return (
+    <div className={`fantasy-panel flex flex-col gap-3 ${className}`} aria-hidden="true">
+      {children ??
+        (
+          <>
+            <SkeletonText />
+            <SkeletonText w="55%" />
+            <SkeletonText w="80%" />
+          </>
+        )}
+    </div>
+  )
+}
+
 export function ErrorBox({ error, onRetry, className = '' }) {
   return (
     <div className={`rounded-lg border border-red-800/60 bg-red-950/40 p-4 text-sm text-red-300 ${className}`}>

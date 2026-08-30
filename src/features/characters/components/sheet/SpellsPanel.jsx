@@ -73,7 +73,7 @@ export default function SpellsPanel({ character, onError }) {
 
       <div>
         <div className="flex items-center justify-between">
-          <p className="sheet-section-label">Заклинания</p>
+          <p className="sheet-section-label sheet-section-label--flush self-center leading-none">Заклинания</p>
           <button type="button" className="sheet-btn sheet-btn_primary" onClick={() => setPickerOpen(true)}>
             + Добавить заклинание
           </button>

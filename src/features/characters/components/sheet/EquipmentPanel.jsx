@@ -1,33 +1,32 @@
 import { useCharacterItems } from '@/features/characters/queries.js'
-import { useItemDetail, useItems } from '@/features/catalog/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
 import { diceTypeLabels, label } from '@/lib/i18n/index.js'
 import { EmptyState } from '@/components/ui'
 
-function ItemFacts({ detail }) {
+function ItemFacts({ item }) {
   const damage =
-    detail.damage_dice_count && detail.damage_dice_type
-      ? `${detail.damage_dice_count}${diceTypeLabels[detail.damage_dice_type] ?? detail.damage_dice_type}${
-          detail.damage_type ? ` ${label(detail.damage_type).toLowerCase()}` : ''
+    item.damage_dice_count && item.damage_dice_type
+      ? `${item.damage_dice_count}${diceTypeLabels[item.damage_dice_type] ?? item.damage_dice_type}${
+          item.damage_type ? ` ${label(item.damage_type).toLowerCase()}` : ''
         }`
       : null
   const ac =
-    detail.armor_class_base != null && detail.armor_class_base !== ''
-      ? `${detail.armor_class_base}${detail.armor_class_dex_bonus ? ' + Ловкость' : ''}${
-          detail.armor_class_max_dex_bonus ? ` (макс. ${detail.armor_class_max_dex_bonus})` : ''
+    item.armor_class_base != null && item.armor_class_base !== ''
+      ? `${item.armor_class_base}${item.armor_class_dex_bonus ? ' + Ловкость' : ''}${
+          item.armor_class_max_dex_bonus ? ` (макс. ${item.armor_class_max_dex_bonus})` : ''
         }`
       : null
-  const properties = (detail.weapon_properties ?? '')
+  const properties = (item.weapon_properties ?? '')
     .split(',')
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => label(p))
     .join(', ')
   const rows = [
-    detail.rarity && detail.rarity !== 'NONE' ? ['Редкость', label(detail.rarity)] : null,
-    detail.requires_attunement != null ? ['Настройка', detail.requires_attunement ? 'Требуется' : 'Не требуется'] : null,
-    detail.weight != null && detail.weight !== '' ? ['Вес', `${detail.weight} фнт.`] : null,
-    detail.cost_gold != null && detail.cost_gold !== '' ? ['Цена', `${detail.cost_gold} зм.`] : null,
+    item.rarity && item.rarity !== 'NONE' ? ['Редкость', label(item.rarity)] : null,
+    item.requires_attunement != null ? ['Настройка', item.requires_attunement ? 'Требуется' : 'Не требуется'] : null,
+    item.weight != null && item.weight !== '' ? ['Вес', `${item.weight} фнт.`] : null,
+    item.cost_gold != null && item.cost_gold !== '' ? ['Цена', `${item.cost_gold} зм.`] : null,
     damage ? ['Урон', damage] : null,
     ac ? ['Класс доспеха', ac] : null,
     properties ? ['Свойства оружия', properties] : null,
@@ -46,9 +45,9 @@ function ItemFacts({ detail }) {
   )
 }
 
-function ItemRow({ ci, catalogName, open, onToggle }) {
-  const { data: detail } = useItemDetail(open ? ci.item_id : undefined)
-  const description = detail?.description?.trim()
+function ItemRow({ ci, open, onToggle }) {
+  const item = ci.item || {}
+  const description = item.description?.trim()
 
   return (
     <li className="rounded-lg border border-stone-700/60 bg-stone-900/60">
@@ -59,7 +58,7 @@ function ItemRow({ ci, catalogName, open, onToggle }) {
       >
         <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
-          {catalogName || `Предмет #${ci.item_id}`}
+          {item.name || `Предмет #${ci.item_id}`}
           {ci.quantity > 1 && <span className="ml-2 text-xs font-normal text-stone-400">×{ci.quantity}</span>}
         </span>
         {ci.is_equipped && (
@@ -71,13 +70,13 @@ function ItemRow({ ci, catalogName, open, onToggle }) {
       </button>
       {open && (
         <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">
-          {detail && <ItemFacts detail={detail} />}
+          {item && <ItemFacts item={item} />}
           {description ? (
             <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-3 leading-relaxed text-stone-200">
               {description}
             </p>
           ) : (
-            !detail && <p className="text-stone-500">Загрузка...</p>
+            <span className="text-stone-500">Описание отсутствует</span>
           )}
           {ci.notes && <p className="mt-1.5 text-stone-500">Заметка: {ci.notes}</p>}
         </div>
@@ -88,9 +87,7 @@ function ItemRow({ ci, catalogName, open, onToggle }) {
 
 export default function EquipmentPanel({ character }) {
   const { data: items = [] } = useCharacterItems(character.id)
-  const { data: catalog = [] } = useItems({ size: 100 })
   const [openIds, toggleId] = useUiSet(`equipment:${character.id}`)
-  const nameOf = (idv) => catalog.find((x) => Number(x.id) === Number(idv))?.name
 
   return (
     <div className="space-y-4">
@@ -102,7 +99,6 @@ export default function EquipmentPanel({ character }) {
             <ItemRow
               key={ci.id}
               ci={ci}
-              catalogName={nameOf(ci.item_id)}
               open={openIds.includes(String(ci.id))}
               onToggle={() => toggleId(String(ci.id))}
             />

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
 import { BoxedValue, RollButton } from '@/components/sheet/primitives.jsx'
 import { Select } from '@/components/ui'
 import RollHistory from '@/components/sheet/RollHistory.jsx'
@@ -106,34 +105,30 @@ export default function SheetHeader({
   onRollFree,
 }) {
   const { user } = useAuth()
-  // ГМ пришёл из панели персонажей — возвращаем его туда, игрок — к списку.
-  const location = useLocation()
-  const backTo = location.state?.from === 'gm' ? '/gm/characters' : '/characters'
   const allFields = user?.username ? [...fields, { label: 'Игрок', value: user.username }] : fields
+  const pick = (label) => allFields.find((f) => f.label === label)?.value
+  const combine = (...labels) => labels.map(pick).filter(Boolean).join(' · ')
   return (
     <div className="sheet-header">
       <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
-        <Link
-          to={backTo}
-          className="grid size-10 shrink-0 place-items-center rounded-full border border-stone-700 bg-stone-800/70 text-lg text-stone-300 transition hover:border-ember hover:text-ember"
-          title="Назад"
-        >
-          ←
-        </Link>
-        <span className="sheet-avatar" title="Портрет персонажа">
+        <span className="order-1 sheet-avatar" title="Портрет персонажа">
           {(character.name || '?').slice(0, 1).toUpperCase()}
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap gap-x-5 gap-y-2 sm:gap-x-8">
-            {allFields.map((f) => (
-              <div key={f.label} className="sheet-field">
-                <span className="sheet-field__label">{f.label}</span>
-                <span className="sheet-field__value">{f.value || '—'}</span>
-              </div>
-            ))}
+        <div className="order-2 flex flex-1 items-center justify-end gap-2 sm:order-3 sm:ml-auto sm:w-auto sm:flex-none">
+          <RollHistory />
+          <DicePicker onRoll={onRollFree} />
+        </div>
+        <div className="order-3 w-full min-w-0 sm:order-2 sm:w-auto sm:flex-1">
+          <span className="sheet-name">{pick('Имя') || character.name || 'Безымянный персонаж'}</span>
+          <div className="sheet-chips">
+            <span className="sheet-chip sheet-chip--lvl">Ур. {pick('Уровень') ?? '—'}</span>
+            {combine('Класс', 'Подкласс') && <span className="sheet-chip">{combine('Класс', 'Подкласс')}</span>}
+            {combine('Раса', 'Подраса') && <span className="sheet-chip">{combine('Раса', 'Подраса')}</span>}
+            {pick('Предыстория') && <span className="sheet-chip">{pick('Предыстория')}</span>}
+            {pick('Игрок') && <span className="sheet-chip sheet-chip--dim">Игрок: {pick('Игрок')}</span>}
           </div>
         </div>
-        <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+        <div className="order-4 flex w-full items-center justify-end gap-2 sm:order-3 sm:w-auto">
           {levelUpInfo?.can_level_up && (
             <button
               type="button"
@@ -144,63 +139,71 @@ export default function SheetHeader({
               ↑ Уровень {(Number(levelUpInfo.current_level) || 1) + 1}
             </button>
           )}
-          <RollHistory />
-          <DicePicker onRoll={onRollFree} />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-stone-800 px-3 py-2.5 sm:gap-x-5 sm:px-4">
-        <div className="sheet-hp">
-          <button type="button" className="sheet-hp__value" onClick={onOpenHp} title="Хиты и отдых">
-            <span className="sheet-hp__heart">♥</span>
-            {character.current_hp ?? 0}/{character.max_hp ?? 0}
-          </button>
-          {(character.temp_hp > 0 || character.shield > 0) && (
-            <span className="flex items-center gap-1">
-              {character.shield > 0 && (
-                <span className="sheet-hp__temp" title="Щит">🛡 {character.shield}</span>
-              )}
-              {character.temp_hp > 0 && (
-                <span className="sheet-hp__temp" title="Временные хиты">🛡 {character.temp_hp}</span>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 border-t border-stone-800 px-3 py-2.5 sm:justify-start sm:gap-x-5 sm:px-4">
+        <BoxedValue label="Хиты" boxClassName="p-0">
+          <button
+            type="button"
+            className="h-full w-full rounded-[inherit] px-2 text-inherit"
+            onClick={onOpenHp}
+            title="Хиты и отдых"
+          >
+            <span className="flex flex-col items-center gap-0.5 leading-none">
+              <span className="flex items-center gap-1">
+                <span className="sheet-hp__heart">♥</span>
+                {character.current_hp ?? 0}/{character.max_hp ?? 0}
+              </span>
+              {Number(character.temp_hp) > 0 && (
+                <span className="whitespace-nowrap text-[10px] font-normal text-emerald-300">
+                  ♥ {character.temp_hp}
+                </span>
               )}
             </span>
-          )}
-        </div>
+          </button>
+        </BoxedValue>
         <BoxedValue label="КД" boxClassName="p-0">
           <button
             type="button"
             className="h-full w-full rounded-[inherit] px-2 text-inherit"
             onClick={onOpenAc}
-            title="Класс доспеха и щит"
+            title="Класс доспеха и щит — нажмите, чтобы изменить"
           >
-            {(character.armor_class ?? 0) + (character.shield ?? 0)}
+            <span className="flex flex-col items-center gap-0.5 leading-none">
+              <span>{(character.armor_class ?? 0) + (character.shield ?? 0)}</span>
+              {(character.shield ?? 0) > 0 && (
+                <span className="whitespace-nowrap text-[10px] font-normal text-gold">🛡 +{character.shield}</span>
+              )}
+            </span>
           </button>
         </BoxedValue>
-        <BoxedValue label="Скорость">{character.speed ?? '—'}</BoxedValue>
-        <BoxedValue label="Владение">+{pb}</BoxedValue>
-        <BoxedValue label="Деньги" boxClassName="p-0">
-          <button
-            type="button"
-            className="h-full w-full rounded-[inherit] px-2 py-1 text-left text-xs text-stone-200"
-            onClick={onOpenMoney}
-            title="Изменить деньги"
-          >
-            <span className="text-yellow-300">⛁</span> {character.money_gold ?? 0}{' '}
-            <span className="text-stone-300">⛀</span> {character.money_silver ?? 0}{' '}
-            <span className="text-amber-700">⛁</span> {character.money_copper ?? 0}
-          </button>
+        <BoxedValue label="Скорость">
+          <span>{character.speed ?? '—'}</span>
+        </BoxedValue>
+        <BoxedValue label="Владение">
+          <span>+{pb}</span>
+        </BoxedValue>
+        <BoxedValue label="Инициатива" boxClassName="min-w-14">
+          <RollButton
+            bonus={initiativeBonus}
+            label={initiativeLast != null ? String(initiativeLast) : undefined}
+            onClick={onRollInitiative}
+            className="!text-sm !min-w-10 !h-9"
+            title={initiativeLast != null ? `Последний бросок инициативы: ${initiativeLast}` : 'Инициатива'}
+          />
         </BoxedValue>
         <BoxedValue label="Вдохновение" boxClassName="p-0">
           <input
             type="checkbox"
             checked={inspiration}
             onChange={onInspiration}
-            className="size-4 accent-ember"
+            className="sheet-insp"
             title="Вдохновение"
           />
         </BoxedValue>
         <BoxedValue label="Состояния">
-          <button type="button" className="text-sm text-ember hover:underline" onClick={onOpenConditions}>
+          <button type="button" className="text-ember hover:underline" onClick={onOpenConditions}>
             {conditionCount > 0 ? conditionCount : '—'}
           </button>
         </BoxedValue>
@@ -216,13 +219,17 @@ export default function SheetHeader({
             ))}
           </Select>
         </BoxedValue>
-        <BoxedValue label="Инициатива">
-          <RollButton
-            bonus={initiativeBonus}
-            label={initiativeLast != null ? String(initiativeLast) : undefined}
-            onClick={onRollInitiative}
-            title={initiativeLast != null ? `Последний бросок инициативы: ${initiativeLast}` : 'Инициатива'}
-          />
+        <BoxedValue label="Деньги" boxClassName="p-0 min-w-28">
+          <button
+            type="button"
+            className="h-full w-full rounded-[inherit] px-2 py-1 text-left text-stone-200"
+            onClick={onOpenMoney}
+            title="Изменить деньги"
+          >
+            <span className="text-yellow-300">⛁</span> {character.money_gold ?? 0}{' '}
+            <span className="text-stone-300">⛀</span> {character.money_silver ?? 0}{' '}
+            <span className="text-amber-700">⛁</span> {character.money_copper ?? 0}
+          </button>
         </BoxedValue>
       </div>
     </div>

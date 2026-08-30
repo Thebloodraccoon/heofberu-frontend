@@ -9,7 +9,7 @@ import EditorFieldControl, { SectionTitle } from '@/features/catalog/components/
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
-import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, Select, Spinner, TextArea } from '@/components/ui'
+import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, Select, Skeleton, SkeletonCard, TextArea } from '@/components/ui'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
@@ -678,7 +678,22 @@ export default function GmEditorPage() {
       </div>
 
       {(findQ.error || error) && <ErrorBox error={findQ.error ?? error} onRetry={load} />}
-      {!error && !records && <Spinner />}
+      {!error && !records && (
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]" aria-busy="true">
+          <aside className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="fantasy-panel space-y-2 rounded-lg p-3">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3.5 w-4/5" />
+              </div>
+            ))}
+          </aside>
+          <div className="min-w-0">
+            <SkeletonCard className="min-h-[26rem]" />
+          </div>
+        </div>
+      )}
 
       {!error && records && (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
@@ -1206,7 +1221,11 @@ export default function GmEditorPage() {
                               {open && (
                                 <div className="border-t border-stone-700/60 p-4">
                                   {!info.detail && info.loading ? (
-                                    <p className="text-sm text-stone-500">Загружаем подкласс...</p>
+                                    <div className="space-y-2" aria-busy="true">
+                                      <Skeleton className="h-4 w-1/2" />
+                                      <Skeleton className="h-4 w-2/3" />
+                                      <Skeleton className="h-4 w-1/3" />
+                                    </div>
                                   ) : !info.detail && info.error ? (
                                     <ErrorBox
                                       error={info.error}
@@ -1312,7 +1331,11 @@ export default function GmEditorPage() {
                               {open && (
                                 <div className="border-t border-stone-700/60 p-4">
                                   {!info.detail && info.loading ? (
-                                    <p className="text-sm text-stone-500">Загружаем подрасу...</p>
+                                    <div className="space-y-2" aria-busy="true">
+                                      <Skeleton className="h-4 w-1/2" />
+                                      <Skeleton className="h-4 w-2/3" />
+                                      <Skeleton className="h-4 w-1/3" />
+                                    </div>
                                   ) : !info.detail && info.error ? (
                                     <ErrorBox
                                       error={info.error}
@@ -1338,8 +1361,25 @@ export default function GmEditorPage() {
                 )}
               </Card>
             ) : showForm && editLoading ? (
-              <Card className="flex items-center justify-center p-10">
-                <Spinner label="Загружаем запись..." />
+              <Card className="p-10" aria-busy="true">
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-56" />
+                  <Skeleton className="h-4 w-72" />
+                </div>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <Skeleton className="h-3.5 w-28" />
+                      <Skeleton className="h-9 w-full" />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 space-y-3">
+                  <Skeleton className="h-5 w-40" />
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
               </Card>
             ) : (
               <Card className="p-10 text-center">
