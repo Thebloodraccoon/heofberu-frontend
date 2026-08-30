@@ -1,23 +1,31 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import {
-  useCanLevelUp,
   useCharacterAsiAdjustments,
   useCharacterFeats,
+  useCharacterFeatures,
   useCharacterGmStats,
   useCharacterItems,
   useCharacterMaxLevel,
 } from '@/features/characters/queries.js'
-import { useFeats, useRaceDetail, useSkills, useSubraceDetail, useCatalogPage } from '@/features/catalog/queries.js'
+import {
+  useAllFeats,
+  useFeatDetail,
+  useFeats,
+  useFeatures,
+  useRaceDetail,
+  useSkills,
+  useSubraceDetail,
+  useCatalogPage,
+} from '@/features/catalog/queries.js'
 import { ITEM_FILTERS } from '@/features/catalog/components/editor/itemFilters.js'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { ABILITY_CAP, ASI_LEVELS, STATS, abilityByCode, bonusMap } from '@/lib/utils/ability.js'
-import { Button, Badge, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Skeleton, TextArea } from '@/components/ui'
-import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
+import { ASI_LEVELS, STATS, abilityByCode, abilityName, bonusMap } from '@/lib/utils/ability.js'
+import { Button, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Skeleton, TextArea } from '@/components/ui'
 import { label, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 
 function Section({ title, children }) {
@@ -30,6 +38,9 @@ function Section({ title, children }) {
 }
 
 const ABILITY_CODE_BY_KEY = Object.fromEntries(STATS.map((s) => [s.key, s.code]))
+
+// ГМ может поднимать характеристики выше обычного потолка игрока (до 30).
+const GM_ABILITY_CAP = 30
 
 function HpSection({ character, onError, reload }) {
   const [delta, setDelta] = useState('')
@@ -95,10 +106,6 @@ function HpSection({ character, onError, reload }) {
           Применить
         </button>
       </div>
-      <p className="mt-1.5 text-center text-[11px] text-stone-500">
-        Положительное число — лечение, отрицательное — урон.
-      </p>
-
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button type="button" className="sheet-btn" disabled={busy} onClick={() => doRest('short')}>
           Короткий отдых
@@ -158,39 +165,9 @@ function HpSection({ character, onError, reload }) {
 
 function LevelSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
-  const { data: canLevelUp } = useCanLevelUp(character.id)
   const { data: maxLevelData } = useCharacterMaxLevel(character.id)
-  // В списке персонажей ability_scores нет (лёгкие строки) — берём свежие итоги из GM-статистики.
-  const { data: gmStats } = useCharacterGmStats(character.id)
-  const [asiPromptLevel, setAsiPromptLevel] = useState(null)
   const [newCeiling, setNewCeiling] = useState('')
   const [ceilingBusy, setCeilingBusy] = useState(false)
-
-  const abilityTotals = useMemo(
-    () => Object.fromEntries(STATS.map((s) => [s.code, gmStats?.[s.key]?.total ?? 10])),
-    [gmStats],
-  )
-
-  const levelUp = async (choice) => {
-    setAsiPromptLevel(null)
-    try {
-      await charactersApi.progression.levelUp(character.id, choice ? { choice } : {})
-      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
-      await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'progression', 'can-level-up'] })
-      await reload()
-    } catch (e) {
-      onError(e)
-    }
-  }
-
-  const onLevelUpClick = async () => {
-    const nextLevel = (Number(character.level) || 1) + 1
-    if (ASI_LEVELS.includes(nextLevel)) {
-      setAsiPromptLevel(nextLevel)
-    } else {
-      levelUp(null)
-    }
-  }
 
   const raiseCeiling = async () => {
     const next = Number(newCeiling)
@@ -200,7 +177,6 @@ function LevelSection({ character, onError, reload }) {
       await charactersApi.gmPanel.maxLevel.set(character.id, { max_level: next })
       setNewCeiling('')
       await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'gm-panel', 'max-level'] })
-      await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id), 'progression', 'can-level-up'] })
       await reload()
     } catch (e) {
       onError(e)
@@ -219,11 +195,6 @@ function LevelSection({ character, onError, reload }) {
           <span>
             Потолок <b>{maxLevelData?.max_level ?? '—'}</b>
           </span>
-          {canLevelUp?.can_level_up && (
-            <Button size="sm" onClick={onLevelUpClick}>
-              ↑ До ур. {(Number(character.level) || 1) + 1}
-            </Button>
-          )}
         </div>
         <div className="flex items-center justify-center gap-2 text-xs text-stone-400">
           <span className="whitespace-nowrap">Новый потолок:</span>
@@ -241,15 +212,6 @@ function LevelSection({ character, onError, reload }) {
           </Button>
         </div>
       </div>
-
-      {asiPromptLevel && (
-        <AsiChoiceModal
-          level={asiPromptLevel}
-          abilityTotals={abilityTotals}
-          onCancel={() => setAsiPromptLevel(null)}
-          onConfirm={levelUp}
-        />
-      )}
     </Section>
   )
 }
@@ -303,9 +265,33 @@ function StatsSection({ character, onError, reload }) {
     return result
   }, [charFeats])
 
+  // Какую долю дают выборы игрока на уровнях, а какую — правки ГМа.
+  const asiByCode = useMemo(() => {
+    const result = Object.fromEntries(STATS.map((s) => [s.code, 0]))
+    for (const c of asiChoices) {
+      if (c.choice_type !== 'ASI') continue
+      for (const inc of c.increases ?? []) {
+        const code = String(inc.ability).toUpperCase()
+        if (code in result) result[code] += Number(inc.amount) || 0
+      }
+    }
+    return result
+  }, [asiChoices])
+
+  const adjByCode = useMemo(() => {
+    const result = Object.fromEntries(STATS.map((s) => [s.code, 0]))
+    for (const adj of adjustments) {
+      for (const inc of adj.increases ?? []) {
+        const code = String(inc.ability).toUpperCase()
+        if (code in result) result[code] += Number(inc.amount) || 0
+      }
+    }
+    return result
+  }, [adjustments])
+
   const currentTotal = stats?.[abilityByCode[newAbility]?.key]?.total ?? 10
   const adjustMin = 1 - currentTotal
-  const adjustMax = ABILITY_CAP - currentTotal
+  const adjustMax = GM_ABILITY_CAP - currentTotal
 
   const handleAmountChange = (e) => {
     const raw = e.target.value
@@ -322,7 +308,7 @@ function StatsSection({ character, onError, reload }) {
     if (!newAbility || !amountValid) return
     const liveTotal = stats?.[abilityByCode[newAbility]?.key]?.total ?? 10
     const liveMin = 1 - liveTotal
-    const liveMax = ABILITY_CAP - liveTotal
+    const liveMax = GM_ABILITY_CAP - liveTotal
     const clamped = Math.min(liveMax, Math.max(liveMin, parsedAmount))
     setBusy(true)
     try {
@@ -357,9 +343,11 @@ function StatsSection({ character, onError, reload }) {
           ? 'bg-emerald-900/50 text-emerald-200'
           : tone === 'feat'
             ? 'bg-amber-900/50 text-amber-200'
-            : tone === 'bad'
-              ? 'bg-red-900/40 text-red-200'
-              : 'bg-stone-800 text-stone-400'
+            : tone === 'accent'
+              ? 'bg-ember/15 text-orange-200'
+              : tone === 'bad'
+                ? 'bg-red-900/40 text-red-200'
+                : 'bg-stone-800 text-stone-400'
       }`}
     >
       {text}
@@ -395,7 +383,11 @@ function StatsSection({ character, onError, reload }) {
               const known = view.base + (raceBonus[s.code] ?? 0) + (subraceBonus[s.code] ?? 0)
               const fb = featBonusByCode[s.code] ?? 0
               if (fb !== 0) parts.push(chip(`Черты ${fb > 0 ? `+${fb}` : fb}`, 'feat'))
-              const other = view.total - known - fb
+              const asi = asiByCode[s.code] ?? 0
+              const adj = adjByCode[s.code] ?? 0
+              if (asi !== 0) parts.push(chip(`Выборы игрока ${asi > 0 ? `+${asi}` : asi}`, 'accent'))
+              if (adj !== 0) parts.push(chip(`Правки ГМ ${adj > 0 ? `+${adj}` : adj}`, 'bad'))
+              const other = view.total - known - fb - asi - adj
               if (other !== 0) parts.push(chip(`Прочее ${other > 0 ? `+${other}` : other}`))
               return (
                 <li key={s.key} className="rounded border border-stone-800 bg-stone-900/70 px-3 py-2">
@@ -544,14 +536,20 @@ function ExpertiseSection({ character, onError, reload }) {
     }
   }
 
-  if (proficiencies.length === 0) return <p className="text-sm text-stone-500">У персонажа нет владений навыками.</p>
+  if (proficiencies.length === 0) {
+    return (
+      <Section title="Навыки и экспертиза">
+        <p className="text-sm text-stone-500">У персонажа нет владений навыками.</p>
+      </Section>
+    )
+  }
 
   return (
     <Section title="Навыки и экспертиза">
       <p className="-mt-1 mb-2 text-xs text-stone-500">
         Нажмите на навык с ★, чтобы снять экспертизу; обычный навык — чтобы дать её. Бонус мастерства удваивается.
       </p>
-      <ul className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="space-y-1.5">
         {[...proficiencies]
           .sort((a, b) => skillName(skillById.get(Number(a.skill_id))).localeCompare(skillName(skillById.get(Number(b.skill_id))), 'ru'))
           .map((p) => {
@@ -590,16 +588,114 @@ function ExpertiseSection({ character, onError, reload }) {
   )
 }
 
-function FeatPickerModal({ feats, onPick, onClose }) {
+function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }) {
   const [query, setQuery] = useState('')
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return feats
-    return feats.filter((f) => String(f.name ?? '').toLowerCase().includes(q))
-  }, [feats, query])
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [featId, setFeatId] = useState(null)
+  const [increaseId, setIncreaseId] = useState(null)
+  const [expandedId, setExpandedId] = useState(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const featsQ = useAllFeats(debouncedQuery)
+  const feats = featsQ.data ?? []
+
+  const detailId = featId ?? expandedId
+  const detailQ = useFeatDetail(detailId)
+  const detail = detailId ? detailQ.data : null
+
+  // Те же правила доступа, что у игрока при выборе черты.
+  const featPrereqOk = (f) => {
+    if (!f.prerequisite_ability || f.prerequisite_minimum_score == null) return true
+    return (abilityTotals[f.prerequisite_ability] || 0) >= f.prerequisite_minimum_score
+  }
+  const featLevelOk = (f) => f.min_level == null || Number(f.min_level) <= Number(level)
+
+  // Черты, уже выданные персонажу, на повторную выдачу недоступны.
+  const available = feats.filter((f) => !grantedIds.has(Number(f.id)))
+  const selectedFeat = feats.find((f) => String(f.id) === String(featId))
+  // Текущая черта — выбранная или та, что просто открыта на «Посмотреть».
+  const viewedFeat = feats.find((f) => String(f.id) === String(expandedId))
+  const currentFeat = selectedFeat ?? viewedFeat
+
+  // Варианты увеличения характеристик берём из деталей черты (список может их содержать).
+  const increaseOptions = useMemo(() => {
+    if (!currentFeat) return []
+    const src = detailQ.data ?? currentFeat
+    return Array.isArray(src?.ability_score_increases) ? src.ability_score_increases : []
+  }, [currentFeat, detailQ.data])
+
+  const needsIncrease = increaseOptions.length > 0
+
+  // Если черта даёт ровно один вариант — используем его автоматически, но id всё равно передаём явно.
+  const confirmReady =
+    !!currentFeat && (!needsIncrease || increaseId != null || increaseOptions.length === 1)
+
+  const confirm = () => {
+    if (!currentFeat || (needsIncrease && increaseId == null && increaseOptions.length !== 1)) return
+    const resolvedIncrease = needsIncrease
+      ? increaseId ?? (increaseOptions.length === 1 ? increaseOptions[0].id : null)
+      : null
+    onPick(currentFeat, resolvedIncrease != null ? Number(resolvedIncrease) : null)
+  }
 
   return (
-    <Modal title="Выдать черту" subtitle="Поиск по справочнику черт" onClose={onClose} size="md" scroll>
+    <Modal
+      title="Выдать черту"
+      subtitle="Как при выборе игрока: посмотрите черту и подтвердите выбор"
+      onClose={onClose}
+      size="lg"
+      scroll
+      footer={
+        <div className="w-full space-y-3">
+          {currentFeat && needsIncrease && (
+            <div className="rounded-lg border border-stone-700/60 bg-stone-800/40 p-3">
+              <p className="mb-2 text-sm font-medium text-stone-200">
+                Черта даёт увеличение характеристик. Выберите вариант:
+              </p>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {increaseOptions.map((ai) => {
+                  const checked = String(ai.id) === String(increaseId)
+                  return (
+                    <label
+                      key={ai.id}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                        checked
+                          ? 'border-ember/60 bg-ember/10 text-stone-100'
+                          : 'border-stone-700/60 bg-stone-900/60 text-stone-300 hover:border-ember/40'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="gm-feat-asi"
+                        checked={checked}
+                        onChange={() => {
+                          setIncreaseId(ai.id)
+                          setFeatId(currentFeat.id)
+                        }}
+                        className="checkbox-base"
+                      />
+                      <span>+{ai.amount} к {abilityName(ai.ability)}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Отмена
+            </Button>
+            <Button type="button" disabled={!confirmReady} onClick={confirm}>
+              Выдать черту
+            </Button>
+          </div>
+        </div>
+      }
+    >
       <Input
         type="search"
         placeholder="Поиск черты..."
@@ -607,8 +703,137 @@ function FeatPickerModal({ feats, onPick, onClose }) {
         onChange={(e) => setQuery(e.target.value)}
         autoFocus
       />
+      {featsQ.isFetching && feats.length === 0 && (
+        <div className="space-y-2" aria-busy="true">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3.5 w-1/2" />
+            </div>
+          ))}
+        </div>
+      )}
+      {!featsQ.isFetching && available.length === 0 && (
+        <p className="py-4 text-center text-sm text-stone-400">
+          {debouncedQuery ? 'Ничего не найдено по запросу.' : 'Доступных черт нет.'}
+        </p>
+      )}
+      <div className="space-y-2">
+        {available.map((f) => {
+          const ok = featPrereqOk(f) && featLevelOk(f)
+          const selected = String(f.id) === String(featId)
+          const expanded = String(expandedId) === String(f.id)
+          const rowDetail = expanded ? detail : null
+          return (
+            <div
+              key={f.id}
+              className={`rounded-lg border p-3 transition ${
+                selected
+                  ? 'border-ember/80 bg-ember/10'
+                  : ok
+                    ? 'border-stone-700/50 bg-stone-800/40'
+                    : 'border-stone-800 bg-stone-900/40 opacity-60'
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                <button
+                  type="button"
+                  disabled={!ok}
+                  onClick={() => {
+                    setFeatId(f.id)
+                    setIncreaseId(null)
+                    setExpandedId(null)
+                  }}
+                  className={`min-w-0 flex-1 rounded text-left font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                >
+                  {f.name}
+                </button>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {(f.ability_score_increases ?? []).length > 0 && (
+                    <span className="rounded bg-emerald-900/50 px-1.5 py-0.5 text-[10px] text-emerald-200">
+                      улучшение характеристики
+                    </span>
+                  )}
+                  {!featLevelOk(f) && (
+                    <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-[10px] text-red-200">
+                      С уровня {f.min_level}
+                    </span>
+                  )}
+                  {!featPrereqOk(f) && (
+                    <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-[10px] text-red-200">
+                      Нужно: {abilityName(f.prerequisite_ability)} ≥ {f.prerequisite_minimum_score}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`Посмотреть: ${f.name}`}
+                    onClick={() => setExpandedId(expanded ? null : f.id)}
+                    className="rounded border border-stone-700 px-2 py-1 text-[11px] text-stone-300 transition hover:border-ember/50 hover:bg-stone-800"
+                  >
+                    Посмотреть
+                  </button>
+                </span>
+              </div>
+              {expanded && (
+                <div className="mt-2 border-t border-stone-700/50 pt-2">
+                  {detailQ.isFetching && !rowDetail ? (
+                    <div className="space-y-1.5 py-1" aria-busy="true">
+                      <Skeleton className="h-3.5 w-full" />
+                      <Skeleton className="h-3.5 w-2/3" />
+                    </div>
+                  ) : (
+                    <>
+                      {(rowDetail?.ability_score_increases ?? []).length > 0 && (
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          {rowDetail.ability_score_increases.map((ai) => (
+                            <span
+                              key={ai.id}
+                              className="rounded border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-200"
+                            >
+                              +{ai.amount} {abilityName(ai.ability)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {rowDetail?.description ? (
+                        <p className="whitespace-pre-line text-xs text-stone-300">{rowDetail.description}</p>
+                      ) : (
+                        <p className="text-xs italic text-stone-500">Описание отсутствует.</p>
+                      )}
+                      {rowDetail?.prerequisite_description && (
+                        <p className="mt-1 text-xs text-stone-400">{rowDetail.prerequisite_description}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </Modal>
+  )
+}
+
+function FeaturePickerModal({ features, onPick, onClose }) {
+  const [query, setQuery] = useState('')
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return features
+    return features.filter((f) => String(f.name ?? '').toLowerCase().includes(q))
+  }, [features, query])
+
+  return (
+    <Modal title="Выдать особенность" subtitle="Особые свойства из справочника" onClose={onClose} size="md" scroll>
+      <Input
+        type="search"
+        placeholder="Поиск особенности..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        autoFocus
+      />
       <div className="mt-3 max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
-        {filtered.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено.</p>}
+        {filtered.length === 0 && <p className="text-sm text-stone-500">Особенностей не найдено.</p>}
         {filtered.map((f) => (
           <button
             key={f.id}
@@ -617,9 +842,10 @@ function FeatPickerModal({ feats, onPick, onClose }) {
             className="w-full rounded-lg border border-stone-700/60 bg-stone-900/60 p-3 text-left transition hover:border-ember/50"
           >
             <p className="text-sm font-medium text-stone-100">{f.name}</p>
-            {f.description && (
-              <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{f.description}</p>
+            {f.level != null && (
+              <span className="mr-2 rounded bg-stone-800 px-1.5 py-0.5 text-[10px] text-stone-400">ур. {f.level}</span>
             )}
+            {f.description && <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{f.description}</p>}
           </button>
         ))}
       </div>
@@ -627,16 +853,62 @@ function FeatPickerModal({ feats, onPick, onClose }) {
   )
 }
 
-function FeatsFeaturesSection({ character, onError, reload }) {
+function FeatureNotesModal({ name, notes, onSave, onClose }) {
+  const [value, setValue] = useState(notes ?? '')
+
+  return (
+    <Modal
+      title="Заметка по особенности"
+      subtitle={name}
+      onClose={onClose}
+      size="sm"
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button type="button" onClick={() => onSave(value)}>
+            Сохранить
+          </Button>
+        </>
+      }
+    >
+      <Field label="Заметка для игрока">
+        <TextArea
+          rows={4}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Что это и зачем дана..."
+          autoFocus
+        />
+      </Field>
+    </Modal>
+  )
+}
+
+function FeatsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: charFeats = [] } = useCharacterFeats(character.id)
-  const { data: catalogFeats = [] } = useFeats({ size: 100 })
-  const [pickerOpen, setPickerOpen] = useState(false)
+  const { data: gmStats } = useCharacterGmStats(character.id)
+  const [featPickerOpen, setFeatPickerOpen] = useState(false)
 
-  const grantFeat = async (feat) => {
-    setPickerOpen(false)
+  // Итоги характеристик персонажа — чтобы проверять требования черт как у игрока.
+  const abilityTotals = useMemo(
+    () => Object.fromEntries(STATS.map((s) => [s.code, gmStats?.[s.key]?.total ?? 10])),
+    [gmStats],
+  )
+  const grantedIds = useMemo(
+    () => new Set(charFeats.map((cf) => Number(cf.feat_id) || Number(cf.feat?.id)).filter(Boolean)),
+    [charFeats],
+  )
+
+  const grantFeat = async (feat, increaseId) => {
+    setFeatPickerOpen(false)
     try {
-      await charactersApi.gmPanel.feats.add(character.id, { feat_id: Number(feat.id) })
+      await charactersApi.gmPanel.feats.add(character.id, {
+        feat_id: Number(feat.id),
+        ability_score_increase_id: increaseId ? Number(increaseId) : null,
+      })
       await queryClient.invalidateQueries({ queryKey: queryKeys.characters.feats(Number(character.id)) })
       await reload()
     } catch (e) {
@@ -655,12 +927,12 @@ function FeatsFeaturesSection({ character, onError, reload }) {
   }
 
   return (
-    <Section title="Черты персонажа">
+    <Section title="Черты">
       <div className="-mt-1 mb-3 flex items-center justify-between">
         <p className="text-sm text-stone-400">Черт: {charFeats.length}</p>
         <button
           type="button"
-          onClick={() => setPickerOpen(true)}
+          onClick={() => setFeatPickerOpen(true)}
           className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
         >
           Добавить...
@@ -687,8 +959,140 @@ function FeatsFeaturesSection({ character, onError, reload }) {
         </ul>
       )}
 
-      {pickerOpen && (
-        <FeatPickerModal feats={catalogFeats} onPick={grantFeat} onClose={() => setPickerOpen(false)} />
+      {featPickerOpen && (
+        <GmFeatPickerModal
+          grantedIds={grantedIds}
+          level={character.level}
+          abilityTotals={abilityTotals}
+          onPick={grantFeat}
+          onClose={() => setFeatPickerOpen(false)}
+        />
+      )}
+    </Section>
+  )
+}
+
+function FeaturesSection({ character, onError, reload }) {
+  const queryClient = useQueryClient()
+  const { data: charFeatures = [] } = useCharacterFeatures(character.id)
+  const { data: catalogFeatures = [] } = useFeatures({ size: 100, source_type: 'OTHER' })
+  const [featurePickerOpen, setFeaturePickerOpen] = useState(false)
+  const [notesTarget, setNotesTarget] = useState(null)
+  const [removeTarget, setRemoveTarget] = useState(null)
+
+  // Показываем только выданные особенности типа OTHER: классовые/расовые и т.п.
+  // приходят автоматически, ГМ их вручную не редактирует.
+  const otherFeatures = useMemo(
+    () => charFeatures.filter((cf) => (cf.feature?.source_type ?? 'OTHER') === 'OTHER'),
+    [charFeatures],
+  )
+
+  const invalidateFeatures = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.characters.features(Number(character.id)) })
+    await reload()
+  }
+
+  const grantFeature = async (feature) => {
+    setFeaturePickerOpen(false)
+    try {
+      await charactersApi.gmPanel.features.add(character.id, { feature_id: Number(feature.id) })
+      await invalidateFeatures()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const saveFeatureNotes = async (notes) => {
+    const target = notesTarget
+    setNotesTarget(null)
+    try {
+      await charactersApi.gmPanel.features.update(character.id, target.id, { notes })
+      await invalidateFeatures()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const removeFeature = async (charFeatureId) => {
+    setRemoveTarget(null)
+    try {
+      await charactersApi.gmPanel.features.remove(character.id, charFeatureId)
+      await invalidateFeatures()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const featureName = (cf) => cf.feature?.name || `Особенность #${cf.feature_id}`
+
+  return (
+    <Section title="Особенности">
+      <div className="-mt-1 mb-3 flex items-center justify-between">
+        <p className="text-sm text-stone-400">Особенностей: {otherFeatures.length}</p>
+        <button
+          type="button"
+          onClick={() => setFeaturePickerOpen(true)}
+          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+        >
+          Добавить...
+        </button>
+      </div>
+
+      {otherFeatures.length === 0 ? (
+        <p className="text-sm text-stone-500">Особенностей нет.</p>
+      ) : (
+        <ul className="space-y-2">
+          {otherFeatures.map((cf) => (
+            <li key={cf.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-4">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-sm font-medium text-stone-100">
+                  <span className="truncate">{featureName(cf)}</span>
+                  <span className="shrink-0 rounded border border-gold/40 px-1.5 py-0.5 text-[10px] text-gold-light">
+                    Особая
+                  </span>
+                </p>
+                {cf.feature?.description && (
+                  <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{cf.feature.description}</p>
+                )}
+                {cf.notes && <p className="mt-1 text-xs text-stone-400">Заметка: {cf.notes}</p>}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button type="button" size="xs" onClick={() => setNotesTarget(cf)}>
+                  Заметка
+                </Button>
+                <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cf)}>
+                  Убрать
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {featurePickerOpen && (
+        <FeaturePickerModal features={catalogFeatures} onPick={grantFeature} onClose={() => setFeaturePickerOpen(false)} />
+      )}
+      {notesTarget && (
+        <FeatureNotesModal
+          name={featureName(notesTarget)}
+          notes={notesTarget.notes}
+          onSave={saveFeatureNotes}
+          onClose={() => setNotesTarget(null)}
+        />
+      )}
+      {removeTarget && (
+        <ConfirmDialog
+          title="Убрать особенность?"
+          message={
+            <>
+              Вы точно хотите убрать{' '}
+              <span className="font-semibold text-stone-100">{featureName(removeTarget)}</span> у персонажа? Это
+              действие необратимо.
+            </>
+          }
+          onCancel={() => setRemoveTarget(null)}
+          onConfirm={() => removeFeature(removeTarget.id)}
+        />
       )}
     </Section>
   )
@@ -828,16 +1232,13 @@ function ItemsSection({ character, onError, reload }) {
     setPage(1)
   }
 
+  // Каждый POST создаёт новый стек — даже если такой предмет уже есть у персонажа.
   const addItem = async (catalogItem, qty) => {
     try {
-      const existing = items.find((ci) => Number(ci.item_id) === Number(catalogItem.id))
-      if (existing) {
-        await charactersApi.items.update(character.id, existing.id, {
-          quantity: (existing.quantity ?? 0) + qty,
-        })
-      } else {
-        await charactersApi.items.add(character.id, { item_id: Number(catalogItem.id), quantity: qty })
-      }
+      await charactersApi.gmPanel.items.add(character.id, {
+        item_id: Number(catalogItem.id),
+        quantity: qty,
+      })
       await invalidate()
       await reload()
     } catch (e) {
@@ -848,7 +1249,7 @@ function ItemsSection({ character, onError, reload }) {
   const saveEdit = async (ci, form) => {
     setEditTarget(null)
     try {
-      await charactersApi.items.update(character.id, ci.id, {
+      await charactersApi.gmPanel.items.update(character.id, ci.id, {
         quantity: form.quantity,
         is_equipped: form.is_equipped,
         is_attuned: form.is_attuned,
@@ -863,7 +1264,7 @@ function ItemsSection({ character, onError, reload }) {
 
   const removeItem = async (charItemId) => {
     try {
-      await charactersApi.items.remove(character.id, charItemId)
+      await charactersApi.gmPanel.items.remove(character.id, charItemId)
       await invalidate()
       await reload()
     } catch (e) {
@@ -1054,59 +1455,28 @@ function ItemsSection({ character, onError, reload }) {
   )
 }
 
-const SECTIONS = [
-  { id: 'level', label: 'Уровень', icon: '↑', hint: 'Повышение уровня и потолок' },
-  { id: 'hp', label: 'Хиты', icon: '♥', hint: 'Хиты, временные хиты и отдых' },
-  { id: 'stats', label: 'Характеристики', icon: '✦', hint: 'Базовые значения и ASI-коррекции' },
-  { id: 'skills', label: 'Навыки', icon: '✔', hint: 'Экспертизы навыков' },
-  { id: 'feats', label: 'Черты', icon: '★', hint: 'Выданные черты и умения' },
-  { id: 'items', label: 'Снаряжение', icon: '⛁', hint: 'Инвентарь, экипировка и деньги' },
-]
-
-export default function GmCharacterPanel({ character, onError, reload, section, onSectionChange }) {
-  const [internalSection, setInternalSection] = useState('level')
-  const active = section ?? internalSection
-  const setActive = onSectionChange ?? setInternalSection
-
-  const renderSection = () => {
-    switch (active) {
-      case 'level':
-        return <LevelSection character={character} onError={onError} reload={reload} />
-      case 'hp':
-        return <div className="mx-auto max-w-[400px]"><HpSection character={character} onError={onError} reload={reload} /></div>
-      case 'stats':
-        return <StatsSection character={character} onError={onError} reload={reload} />
-      case 'skills':
-        return <ExpertiseSection character={character} onError={onError} reload={reload} />
-      case 'feats':
-        return <FeatsFeaturesSection character={character} onError={onError} reload={reload} />
-      case 'items':
-        return <ItemsSection character={character} onError={onError} reload={reload} />
-      default:
-        return null
-    }
-  }
-
-  const activeMeta = SECTIONS.find((s) => s.id === active)
-
+export default function GmCharacterPanel({ character, onError, reload }) {
   return (
-    <div className="space-y-4">
-      <div className="sheet-tabs" role="tablist" aria-label="Что редактируем">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            aria-selected={active === s.id}
-            onClick={() => setActive(s.id)}
-            className={`sheet-tabs__btn ${active === s.id ? 'sheet-tabs__btn_active' : ''}`}
-          >
-            <span aria-hidden className="mr-1.5">{s.icon}</span>
-            {s.label}
-          </button>
-        ))}
+    <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="min-w-0 space-y-4">
+        <LevelSection character={character} onError={onError} reload={reload} />
+        <HpSection character={character} onError={onError} reload={reload} />
       </div>
-      {renderSection()}
+      <div className="min-w-0">
+        <ExpertiseSection character={character} onError={onError} reload={reload} />
+      </div>
+      <div className="lg:col-span-2">
+        <FeatsSection character={character} onError={onError} reload={reload} />
+      </div>
+      <div className="lg:col-span-2">
+        <FeaturesSection character={character} onError={onError} reload={reload} />
+      </div>
+      <div className="lg:col-span-2">
+        <StatsSection character={character} onError={onError} reload={reload} />
+      </div>
+      <div className="lg:col-span-2">
+        <ItemsSection character={character} onError={onError} reload={reload} />
+      </div>
     </div>
   )
 }

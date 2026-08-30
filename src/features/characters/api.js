@@ -8,6 +8,10 @@ export const charactersApi = {
   get: (id) => request(`/api/characters/${id}`),
   update: (id, body) => request(`/api/characters/${id}`, { method: 'PATCH', body }),
   remove: (id) => request(`/api/characters/${id}`, { method: 'DELETE' }),
+  backstory: {
+    get: (id) => request(`/api/characters/${id}/backstory`),
+    set: (id, body) => request(`/api/characters/${id}/backstory`, { method: 'PUT', body }),
+  },
   hp: (id, body) => request(`/api/characters/${id}/hp`, { method: 'PATCH', body }),
   rest: (id, body) => request(`/api/characters/${id}/rest`, { method: 'POST', body }),
   gmPanel: {
@@ -62,6 +66,20 @@ export const charactersApi = {
         request(`/api/characters/${id}/gm-panel/features`, {
           method: 'DELETE',
           params: { feature_id: charFeatureId },
+        }),
+    },
+    items: {
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/items`, { method: 'POST', body }),
+      update: (id, charItemId, body) =>
+        request(`/api/characters/${id}/gm-panel/items`, {
+          method: 'PATCH',
+          body,
+          params: { item_id: charItemId },
+        }),
+      remove: (id, charItemId) =>
+        request(`/api/characters/${id}/gm-panel/items`, {
+          method: 'DELETE',
+          params: { item_id: charItemId },
         }),
     },
   },

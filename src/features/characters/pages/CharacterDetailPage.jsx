@@ -21,7 +21,6 @@ import {
   SheetSectionLabel,
   SheetTabs,
 } from '@/components/sheet/primitives.jsx'
-import { EditableBlock } from '@/components/sheet/primitives.jsx'
 import SheetRollToasts from '@/components/sheet/SheetRollToasts.jsx'
 import SheetHeader from '@/features/characters/components/sheet/SheetHeader.jsx'
 import AbilityBlock from '@/features/characters/components/sheet/AbilityBlock.jsx'
@@ -81,7 +80,6 @@ export default function CharacterDetailPage() {
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { data: canLevelUpData } = useCanLevelUp(id)
   const [moneyModal, setMoneyModal] = useState(false)
-  const [inspiration, setInspiration] = useState(false)
 
   const load = useCallback(async () => {
     const res = await refetch()
@@ -161,6 +159,15 @@ export default function CharacterDetailPage() {
     },
     [id, load, exhaustionCondition]
   )
+
+  const toggleInspiration = useCallback(async () => {
+    try {
+      await api.update(id, { inspiration: !character?.inspiration })
+      await load()
+    } catch (e) {
+      setMutationError(e)
+    }
+  }, [id, load, character])
 
   const level = Number(character?.level) || 1
   const pb = 2 + Math.floor((level - 1) / 4)
@@ -450,10 +457,10 @@ export default function CharacterDetailPage() {
         fields={identityFields}
         level={level}
         pb={pb}
-        inspiration={inspiration}
+        inspiration={Boolean(character?.inspiration)}
         exhaustion={exhaustion}
         conditionCount={(character.conditions ?? []).length}
-        onInspiration={() => setInspiration(!inspiration)}
+        onInspiration={toggleInspiration}
         onExhaustion={changeExhaustion}
         onOpenHp={() => setHpModal(true)}
         onOpenAc={() => setArmorModal(true)}
@@ -504,7 +511,7 @@ export default function CharacterDetailPage() {
               <PersonalityPanel character={character} onSave={saveField} />
             )}
             {tab === 'backstory' && (
-              <BackstoryPanel character={character} onSave={saveField} />
+              <BackstoryPanel characterId={id} onError={setMutationError} />
             )}
             {tab === 'notes' && (
               <NotesPanel character={character} onSave={saveField} />

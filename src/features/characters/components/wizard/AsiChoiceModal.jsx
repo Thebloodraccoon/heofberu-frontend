@@ -38,6 +38,8 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
   const detail = detailId ? detailQ.data : null
 
   const selectedFeat = feats.find((f) => String(f.id) === String(featId))
+  const viewedFeat = feats.find((f) => String(f.id) === String(expandedId))
+  const currentFeat = selectedFeat ?? viewedFeat
   const featPrereqOk = (f) => {
     if (!f.prerequisite_ability || f.prerequisite_minimum_score == null) return true
     return (abilityTotals[f.prerequisite_ability] || 0) >= f.prerequisite_minimum_score
@@ -51,7 +53,7 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
         .map(([code, v]) => ({ ability: code, amount: v }))
       onConfirm({ type: 'ASI', increases: increasesList })
     } else {
-      const feat = selectedFeat
+      const feat = selectedFeat ?? viewedFeat
       if (!feat) return
       onConfirm({
         type: 'FEAT',
@@ -61,7 +63,7 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
     }
   }
 
-  const canConfirm = mode === 'asi' ? budget >= 1 && budget <= 2 : Boolean(selectedFeat)
+  const canConfirm = mode === 'asi' ? budget >= 1 && budget <= 2 : Boolean(currentFeat)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
@@ -185,6 +187,9 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                           {f.name}
                         </button>
                         <span className="flex shrink-0 items-center gap-1.5">
+                          {(f.ability_score_increases ?? []).length > 0 && (
+                            <Tag tone="good">улучшение характеристики</Tag>
+                          )}
                           {!featLevelOk(f) && <Tag tone="bad">С уровня {f.min_level}</Tag>}
                           {!featPrereqOk(f) && (
                             <Tag tone="bad">
@@ -238,11 +243,11 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                   )
                 })}
               </div>
-              {selectedFeat && ((detail?.ability_score_increases ?? selectedFeat.ability_score_increases) ?? []).length > 0 && (
+              {currentFeat && ((detail?.ability_score_increases ?? currentFeat.ability_score_increases) ?? []).length > 0 && (
                 <div className="mt-3 rounded border border-stone-700/50 bg-stone-800/40 p-3">
                   <p className="mb-2 text-sm text-stone-300">Черта даёт увеличение характеристик. Выберите вариант:</p>
                   <div className="grid gap-1.5 sm:grid-cols-2">
-                    {(detail?.ability_score_increases ?? selectedFeat.ability_score_increases ?? []).map((ai) => {
+                    {(detail?.ability_score_increases ?? currentFeat.ability_score_increases ?? []).map((ai) => {
                       const checked = String(ai.id) === String(increaseId)
                       return (
                         <label
@@ -257,7 +262,10 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                             type="radio"
                             name="feat-asi"
                             checked={checked}
-                            onChange={() => setIncreaseId(ai.id)}
+                            onChange={() => {
+                              setIncreaseId(ai.id)
+                              setFeatId(currentFeat.id)
+                            }}
                             className="accent-ember"
                           />
                           +{ai.amount} к {abilityName(ai.ability)}

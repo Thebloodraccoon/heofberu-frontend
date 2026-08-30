@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useCharacterFeatures, useCharacterFeats } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
+import { abilityName } from '@/lib/utils/ability.js'
 
 const SOURCE_LABELS = {
   CLASS: 'Класс',
@@ -11,7 +12,7 @@ const SOURCE_LABELS = {
   OTHER: 'Особая',
 }
 
-function AccordionItem({ name, badge, level, open, onToggle, children }) {
+function AccordionItem({ name, badge, extra, level, open, onToggle, children }) {
   return (
     <div className="rounded-lg border border-stone-700/60 bg-stone-900/60">
       <button
@@ -25,6 +26,11 @@ function AccordionItem({ name, badge, level, open, onToggle, children }) {
           <span className="rounded bg-stone-800 px-1.5 py-0.5 text-xs text-stone-400">ур. {level}</span>
         )}
         {badge && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]">{badge}</span>}
+        {extra && (
+          <span className="shrink-0 rounded border border-emerald-700/60 bg-emerald-900/30 px-1.5 py-0.5 text-[11px] text-emerald-200">
+            {extra}
+          </span>
+        )}
       </button>
       {open && (
         <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">{children}</div>
@@ -33,7 +39,16 @@ function AccordionItem({ name, badge, level, open, onToggle, children }) {
   )
 }
 
-const SOURCE_RANK = { FEAT: 0, RACE: 1, SUBRACE: 2, BACKGROUND: 3, CLASS: 4, SUBCLASS: 4 }
+const SOURCE_RANK = { FEAT: 0, OTHER: 1, RACE: 2, SUBRACE: 3, BACKGROUND: 4, CLASS: 5, SUBCLASS: 5 }
+
+const grantedIncrease = (cf) => {
+  const explicit = cf.ability_score_increase
+  if (explicit?.ability != null) return explicit
+  const options = cf.feat?.ability_score_increases ?? []
+  const id = cf.ability_score_increase_id
+  if (id != null) return options.find((a) => String(a.id) === String(id)) ?? null
+  return options.length === 1 ? options[0] : null
+}
 
 export default function FeaturesPanel({ character }) {
   const characterId = character.id
@@ -43,15 +58,20 @@ export default function FeaturesPanel({ character }) {
 
   const items = useMemo(() => {
     const featNames = new Set(feats.map((cf) => (cf.feat?.name ?? '').toLowerCase()).filter(Boolean))
-    const featItems = feats.map((cf) => ({
-      key: `feat-${cf.id}`,
-      name: cf.feat?.name || `Черта #${cf.feat_id}`,
-      description: cf.feat?.description,
-      notes: null,
-      level: null,
-      rank: 0,
-      badge: 'Черта',
-    }))
+    const featItems = feats.map((cf) => {
+      const inc = grantedIncrease(cf)
+      return {
+        key: `feat-${cf.id}`,
+        name: cf.feat?.name || `Черта #${cf.feat_id}`,
+        description: cf.feat?.description,
+        notes: null,
+        level: null,
+        sub: 0,
+        rank: 0,
+        badge: 'Черта',
+        extra: inc ? `+${inc.amount} к ${abilityName(inc.ability)}` : null,
+      }
+    })
     const featureItems = features
       .map((cf) => {
         const st = cf.feature?.source_type ?? 'OTHER'
@@ -62,12 +82,17 @@ export default function FeaturesPanel({ character }) {
           notes: cf.notes,
           level: st === 'CLASS' || st === 'SUBCLASS' ? cf.feature?.level ?? null : null,
           rank: SOURCE_RANK[st] ?? 5,
+          sub: st === 'SUBCLASS' ? 1 : 0,
           badge: st === 'FEAT' ? 'Черта' : SOURCE_LABELS[st] ?? 'Особая',
         }
       })
       .filter((it) => !(it.badge === 'Черта' && featNames.has(it.name.toLowerCase())))
     return [...featItems, ...featureItems].sort(
-      (a, b) => a.rank - b.rank || (a.level ?? 99) - (b.level ?? 99) || a.name.localeCompare(b.name),
+      (a, b) =>
+        a.rank - b.rank ||
+        (a.level ?? 99) - (b.level ?? 99) ||
+        a.sub - b.sub ||
+        a.name.localeCompare(b.name),
     )
   }, [feats, features])
 
@@ -81,6 +106,7 @@ export default function FeaturesPanel({ character }) {
             <AccordionItem
               name={it.name}
               badge={it.badge}
+              extra={it.extra}
               level={it.level}
               open={openKeys.includes(it.key)}
               onToggle={() => toggleKey(it.key)}

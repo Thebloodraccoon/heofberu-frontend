@@ -114,6 +114,18 @@ export default function SheetHeader({
         <span className="order-1 sheet-avatar" title="Портрет персонажа">
           {(character.name || '?').slice(0, 1).toUpperCase()}
         </span>
+        <div className="order-4 flex w-full items-center justify-end gap-2 sm:order-3 sm:w-auto">
+          {levelUpInfo?.can_level_up && (
+            <button
+              type="button"
+              className="sheet-levelup-btn"
+              onClick={onOpenLevelUp}
+              title={`Доступен потолок ${levelUpInfo.max_level} — повышаемся с уровня ${levelUpInfo.current_level}`}
+            >
+              ↑ Уровень {(Number(levelUpInfo.current_level) || 1) + 1}
+            </button>
+          )}
+        </div>
         <div className="order-2 flex flex-1 items-center justify-end gap-2 sm:order-3 sm:ml-auto sm:w-auto sm:flex-none">
           <RollHistory />
           <DicePicker onRoll={onRollFree} />
@@ -127,18 +139,6 @@ export default function SheetHeader({
             {pick('Предыстория') && <span className="sheet-chip">{pick('Предыстория')}</span>}
             {pick('Игрок') && <span className="sheet-chip sheet-chip--dim">Игрок: {pick('Игрок')}</span>}
           </div>
-        </div>
-        <div className="order-4 flex w-full items-center justify-end gap-2 sm:order-3 sm:w-auto">
-          {levelUpInfo?.can_level_up && (
-            <button
-              type="button"
-              className="sheet-levelup-btn"
-              onClick={onOpenLevelUp}
-              title={`Доступен потолок ${levelUpInfo.max_level} — повышаемся с уровня ${levelUpInfo.current_level}`}
-            >
-              ↑ Уровень {(Number(levelUpInfo.current_level) || 1) + 1}
-            </button>
-          )}
         </div>
       </div>
 

@@ -75,8 +75,8 @@ function SidebarContent({ onClick }) {
       {authenticated && isGM && (
         <>
           <SectionTitle>ГМ</SectionTitle>
-          <SidebarLink to="/gm/characters" label="Персонажи игроков" onClick={onClick} />
           <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={onClick} />
+          <SidebarLink to="/gm/characters" label="Персонажи игроков" onClick={onClick} />
           <SidebarLink to="/users" label="Пользователи" onClick={onClick} />
         </>
       )}

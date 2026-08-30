@@ -77,7 +77,7 @@ const PencilIcon = () => (
   </svg>
 )
 
-export function EditableBlock({ title, value = '', onSave, rows = 4 }) {
+export function EditableBlock({ title, value = '', onSave, rows = 4, maxLength }) {
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(value)
 
@@ -112,6 +112,7 @@ export function EditableBlock({ title, value = '', onSave, rows = 4 }) {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={rows}
+            maxLength={maxLength}
             className="w-full resize-y rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember"
           />
           <div className="mt-2 flex items-center gap-2">

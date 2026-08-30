@@ -17,7 +17,6 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
   const [phase, setPhase] = useState('hp')
   const [hpMode, setHpMode] = useState(null)
   const [rolled, setRolled] = useState(null)
-  const [pendingChoice, setPendingChoice] = useState(null)
   const [busy, setBusy] = useState(false)
 
   const dieSides = classDetail?.hit_dice ? Number(String(classDetail.hit_dice).replace(/\D/g, '')) : 8
@@ -63,7 +62,6 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
         hit_points_gained: hpGain() ?? undefined,
         ...(choice ? { choice } : {}),
       })
-      setPendingChoice(null)
       setPhase('hp')
       setHpMode(null)
       setRolled(null)
@@ -105,9 +103,6 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
             <div className="text-center">
               <p className="font-display text-xl font-bold text-stone-100">
                 Уровень {currentLevel} → {targetLevel}
-              </p>
-              <p className="mt-1 text-xs text-stone-500">
-                Доступный потолок повышается ГМом — левелапаемся к нему по одному уровню.
               </p>
             </div>
 
@@ -163,12 +158,12 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
         <AsiChoiceModal
           level={targetLevel}
           abilityTotals={{
-            strength: character?.ability_scores?.strength_total ?? 10,
-            dexterity: character?.ability_scores?.dexterity_total ?? 10,
-            constitution: character?.ability_scores?.constitution_total ?? 10,
-            intelligence: character?.ability_scores?.intelligence_total ?? 10,
-            wisdom: character?.ability_scores?.wisdom_total ?? 10,
-            charisma: character?.ability_scores?.charisma_total ?? 10,
+            STR: character?.ability_scores?.strength_total ?? 10,
+            DEX: character?.ability_scores?.dexterity_total ?? 10,
+            CON: character?.ability_scores?.constitution_total ?? 10,
+            INT: character?.ability_scores?.intelligence_total ?? 10,
+            WIS: character?.ability_scores?.wisdom_total ?? 10,
+            CHA: character?.ability_scores?.charisma_total ?? 10,
           }}
           onCancel={() => setPhase('hp')}
           onConfirm={(choice) => submit(choice)}

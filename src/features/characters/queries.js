@@ -70,6 +70,16 @@ export const useCharacterItems = subResource(queryKeys.characters.items, charact
 
 export const useCharacterConditions = subResource(queryKeys.characters.conditions, charactersApi.conditions.list)
 
+export const useBackstory = (id) =>
+  useQuery({
+    queryKey: ['characters', Number(id), 'backstory'],
+    queryFn: () => charactersApi.backstory.get(Number(id)),
+    enabled: !!id,
+    select: (d) => d?.content ?? '',
+    staleTime: 0,
+    gcTime: 0,
+  })
+
 export const useCharacterGmStats = (id) =>
   useQuery({
     queryKey: ['characters', Number(id), 'gm-panel', 'stats'],
