@@ -656,6 +656,35 @@ export default function GmEditorPage() {
         actions={<Button onClick={openCreate}>+ Новая запись</Button>}
       />
 
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <input
+          value={queryInput}
+          onChange={(e) => setQueryInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+          placeholder="Поиск: имя, описание..."
+          className="input-search w-full sm:w-80"
+        />
+        <button
+          type="button"
+          onClick={applySearch}
+          title="Искать на сервере"
+          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
+        >
+          ⌕
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowFilters(true)}
+          className={`shrink-0 rounded border px-3 py-2.5 text-sm font-medium transition ${
+            hasActiveFilters
+              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
+              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
+          }`}
+        >
+          Фильтр
+        </button>
+      </div>
+
       <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
         {Object.entries(editorConfig).map(([key, c]) => {
           const active = key === resource
@@ -670,7 +699,6 @@ export default function GmEditorPage() {
                   : 'border border-stone-700 text-stone-300 hover:bg-stone-800'
               }`}
             >
-              <span className="font-display text-xs opacity-80">{c.icon}</span>
               {c.label}
             </button>
           )
@@ -698,34 +726,6 @@ export default function GmEditorPage() {
       {!error && records && (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
           <aside className="flex max-h-[calc(100vh-280px)] min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
-            <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 pr-1">
-              <input
-                value={queryInput}
-                onChange={(e) => setQueryInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-                placeholder="Поиск: имя, описание..."
-                className="input-search w-full"
-              />
-              <button
-                type="button"
-                onClick={applySearch}
-                title="Искать на сервере"
-                className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
-              >
-                ⌕
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowFilters(true)}
-                className={`shrink-0 rounded border px-3 py-2.5 text-sm font-medium transition ${
-                  hasActiveFilters
-                    ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
-                    : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
-                }`}
-              >
-                Фильтр
-              </button>
-            </div>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {records.length === 0 ? (
                 <p className="text-sm text-stone-500">
