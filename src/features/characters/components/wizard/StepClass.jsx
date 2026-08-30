@@ -16,14 +16,14 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
   const subDescription = subclassDetail?.description ?? selectedSub?.description ?? ''
   const subFeatures = subclassDetail?.features ?? selectedSub?.features ?? []
 
-  const spellcasting = classDetail.spellcasting_ability ? abilityName(classDetail.spellcasting_ability) : '—'
-  const saves = (classDetail.saving_throws ?? [])
+  const spellcasting = classDetail?.spellcasting_ability ? abilityName(classDetail.spellcasting_ability) : '—'
+  const saves = (classDetail?.saving_throws ?? [])
     .map((s) => abilityName(s.ability))
     .filter(Boolean)
-  const armor = (classDetail.armor_proficiencies ?? [])
+  const armor = (classDetail?.armor_proficiencies ?? [])
     .map((a) => armorProficiencyLabels[a.armor_type] ?? a.armor_type)
     .filter(Boolean)
-  const weapons = (classDetail.weapon_proficiencies ?? [])
+  const weapons = (classDetail?.weapon_proficiencies ?? [])
     .map((w) => weaponProficiencyLabels[w.weapon_category] ?? w.weapon_category)
     .filter(Boolean)
 
