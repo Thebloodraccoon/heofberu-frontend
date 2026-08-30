@@ -79,13 +79,8 @@ export function Field({ label, children, className = '' }) {
   )
 }
 
-export function Input(props) {
-  return (
-    <input
-      {...props}
-      className="input-base"
-    />
-  )
+export function Input({ className = '', ...props }) {
+  return <input {...props} className={`input-base ${className}`} />
 }
 
 export function TextArea({ value, onChange, rows, ...props }) {
@@ -214,7 +209,7 @@ export function Select({ value, onChange, children, className = '', disabled, pl
         {...rest}
         className="flex w-full items-center justify-between gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none transition hover:border-stone-600 focus:border-ember disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className={`truncate pr-1 ${selected ? 'text-stone-100' : 'text-stone-500'}`}>
+        <span className={`truncate pr-2 ${selected ? 'text-stone-100' : 'text-stone-500'}`}>
           {selected ? selected.label : placeholder ?? 'Выберите...'}
         </span>
         <svg
@@ -388,7 +383,7 @@ export function Modal({
   tone = 'default',
   className = '',
 }) {
-  const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', '2xl': 'max-w-2xl', '4xl': 'max-w-4xl' }
+  const sizes = { xs: 'max-w-xs', sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', '2xl': 'max-w-2xl', '4xl': 'max-w-4xl' }
   const maxW = sizes[size] ?? sizes.md
   const overlay =
     align === 'top'

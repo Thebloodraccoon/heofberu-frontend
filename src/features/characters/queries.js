@@ -80,11 +80,21 @@ export const useBackstory = (id) =>
     gcTime: 0,
   })
 
-export const useCharacterGmStats = (id) =>
+export const useCharacterStats = (id, options = {}) =>
   useQuery({
-    queryKey: ['characters', Number(id), 'gm-panel', 'stats'],
-    queryFn: () => charactersApi.gmPanel.stats(Number(id)),
-    enabled: !!id,
+    queryKey: queryKeys.characters.stats(Number(id)),
+    queryFn: () => charactersApi.stats.get(Number(id)),
+    enabled: options.enabled !== false && !!id,
+    staleTime: 0,
+    gcTime: 0,
+  })
+
+export const useCharacterAsiChoices = (id, options = {}) =>
+  useQuery({
+    queryKey: queryKeys.characters.asiChoices(Number(id)),
+    queryFn: () => charactersApi.progression.asiChoices(Number(id)),
+    enabled: options.enabled !== false && !!id,
+    select: (d) => (Array.isArray(d) ? d : []),
   })
 
 export const useCharacterMaxLevel = (id) =>

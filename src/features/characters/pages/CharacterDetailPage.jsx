@@ -32,6 +32,8 @@ import PersonalityPanel from '@/features/characters/components/sheet/Personality
 import BackstoryPanel from '@/features/characters/components/sheet/BackstoryPanel.jsx'
 import NotesPanel from '@/features/characters/components/sheet/NotesPanel.jsx'
 import SpellsPanel from '@/features/characters/components/sheet/SpellsPanel.jsx'
+import StatsCalculator from '@/features/characters/components/sheet/StatsCalculator.jsx'
+import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
 import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
 import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
 import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
@@ -396,6 +398,7 @@ export default function CharacterDetailPage() {
     ['backstory', 'Предыстория'],
     ['notes', 'Заметки'],
     ['spells', 'Заклинания'],
+    ['calculator', 'Развитие персонажа'],
   ]
 
   const renderAbilities = () => {
@@ -488,6 +491,12 @@ export default function CharacterDetailPage() {
             {tab === 'abilities' && (
               <div className="sheet-left sheet-abilities-tab">
                 {renderAbilities()}
+              </div>
+            )}
+            {tab === 'calculator' && (
+              <div className="grid gap-5 lg:grid-cols-2">
+                <StatsCalculator characterId={character.id} />
+                <PlayerChoices characterId={character.id} />
               </div>
             )}
             {tab === 'attacks' && (

@@ -15,6 +15,7 @@ vi.mock('@/features/characters/api.js', () => ({
   charactersApi: {
     hp: vi.fn(),
     rest: vi.fn(),
+    stats: { get: vi.fn() },
     gmPanel: {
       maxHp: vi.fn(),
       maxLevel: { get: vi.fn(), set: vi.fn() },
@@ -32,9 +33,10 @@ vi.mock('@/features/characters/api.js', () => ({
 vi.mock('@/features/characters/queries.js', () => ({
   useCanLevelUp: vi.fn(() => ({ data: { can_level_up: false } })),
   useCharacterAsiAdjustments: vi.fn(() => ({ data: [] })),
+  useCharacterAsiChoices: vi.fn(() => ({ data: [], isLoading: false })),
   useCharacterFeats: vi.fn(() => ({ data: [] })),
   useCharacterFeatures: vi.fn(() => ({ data: [] })),
-  useCharacterGmStats: vi.fn(() => ({ data: null })),
+  useCharacterStats: vi.fn(() => ({ data: null })),
   useCharacterItems: vi.fn(() => ({ data: [] })),
   useCharacterMaxLevel: vi.fn(() => ({ data: {} })),
 }))
@@ -44,8 +46,6 @@ vi.mock('@/features/catalog/queries.js', () => ({
   useFeatures: vi.fn(() => ({ data: [] })),
   useAllFeats: vi.fn(() => ({ data: [], isFetching: false })),
   useFeatDetail: vi.fn(() => ({ data: null, isFetching: false })),
-  useRaceDetail: vi.fn(() => ({ data: null })),
-  useSubraceDetail: vi.fn(() => ({ data: null })),
   useSkills: vi.fn(() => ({ data: [] })),
   useCatalogPage: vi.fn(() => ({ data: { items: [], total: 0 }, error: null, refetch: vi.fn() })),
 }))
@@ -119,16 +119,19 @@ describe('GmCharacterPanel unified grid', () => {
 })
 
 describe('GmCharacterPanel feature management', () => {
-  it('lists only OTHER features and hides class/race granted ones', () => {
+  it('lists only OTHER features and hides class/race granted ones', async () => {
     useCharacterFeatures.mockReturnValue({
       data: [
         GRANTED_FEATURE,
         { id: 11, feature_id: 9, notes: null, feature: { id: 9, name: 'Файт-стиль', source_type: 'CLASS' } },
       ],
     })
+    const user = userEvent.setup()
     renderPanel()
     expect(screen.getByText('Печать древней клятвы')).toBeInTheDocument()
     expect(screen.getByText('Особая')).toBeInTheDocument()
+    expect(screen.queryByText('Заметка: Старая заметка')).not.toBeInTheDocument()
+    await user.click(screen.getByText('Печать древней клятвы'))
     expect(screen.getByText('Заметка: Старая заметка')).toBeInTheDocument()
     expect(screen.queryByText('Файт-стиль')).not.toBeInTheDocument()
   })

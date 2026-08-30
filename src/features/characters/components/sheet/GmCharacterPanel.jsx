@@ -1,22 +1,19 @@
 import { useMemo, useState, useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import {
   useCharacterAsiAdjustments,
   useCharacterFeats,
   useCharacterFeatures,
-  useCharacterGmStats,
   useCharacterItems,
   useCharacterMaxLevel,
+  useCharacterStats,
 } from '@/features/characters/queries.js'
 import {
   useAllFeats,
   useFeatDetail,
-  useFeats,
   useFeatures,
-  useRaceDetail,
   useSkills,
-  useSubraceDetail,
   useCatalogPage,
 } from '@/features/catalog/queries.js'
 import { ITEM_FILTERS } from '@/features/catalog/components/editor/itemFilters.js'
@@ -24,9 +21,11 @@ import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { ASI_LEVELS, STATS, abilityByCode, abilityName, bonusMap } from '@/lib/utils/ability.js'
+import { STATS, abilityByCode, abilityName } from '@/lib/utils/ability.js'
 import { Button, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Skeleton, TextArea } from '@/components/ui'
 import { label, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
+import StatsCalculator from '@/features/characters/components/sheet/StatsCalculator.jsx'
+import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
 
 function Section({ title, children }) {
   return (
@@ -219,20 +218,8 @@ function LevelSection({ character, onError, reload }) {
 function StatsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const characterId = character.id
-  const { data: stats } = useCharacterGmStats(characterId)
+  const { data: stats } = useCharacterStats(characterId)
   const { data: adjustments = [] } = useCharacterAsiAdjustments(characterId)
-  // Выборы улучшений на уровнях (ASI) — аудит с бэкенда.
-  const { data: asiChoicesAll = [] } = useQuery({
-    queryKey: queryKeys.characters.asiChoices(Number(characterId)),
-    queryFn: () => charactersApi.progression.asiChoices(Number(characterId)),
-    enabled: !!characterId,
-  })
-  const asiChoices = useMemo(() => asiChoicesAll.filter((c) => ASI_LEVELS.includes(c.class_level)), [asiChoicesAll])
-  // Расовые/подрасовые бонусы — чтобы показать, откуда что взялось.
-  const { data: raceDetail } = useRaceDetail(character.race_id)
-  const { data: subraceDetail } = useSubraceDetail(character.race_id, character.subrace_id)
-  const { data: featsCatalog = [] } = useFeats({ size: 100 })
-  const { data: charFeats = [] } = useCharacterFeats(characterId)
   const [newAbility, setNewAbility] = useState('STR')
   const [newAmount, setNewAmount] = useState('')
   const [busy, setBusy] = useState(false)
@@ -242,53 +229,8 @@ function StatsSection({ character, onError, reload }) {
     setNewAmount('')
   }
 
-  // Итог = база (уже включает выборы уровней и правки ГМа) + раса + подраса
-  // (+ бонусы черт — остаются в остатке).
-  const bonusByCode = useMemo(() => {
-    const raceBonus = bonusMap(raceDetail?.ability_bonuses)
-    const subraceBonus = bonusMap(subraceDetail?.ability_bonuses)
-    return { raceBonus, subraceBonus }
-  }, [raceDetail, subraceDetail])
-
-  const featNameById = useMemo(() => new Map(featsCatalog.map((f) => [Number(f.id), f.name])), [featsCatalog])
-
-  // Бонусы черт к характеристикам: суммируем ability_score_increases всех черт персонажа.
-  const featBonusByCode = useMemo(() => {
-    const result = Object.fromEntries(STATS.map((s) => [s.code, 0]))
-    for (const cf of charFeats) {
-      const increases = cf.feat?.ability_score_increases ?? []
-      for (const inc of increases) {
-        const code = String(inc.ability).toUpperCase()
-        if (code in result) result[code] += inc.amount
-      }
-    }
-    return result
-  }, [charFeats])
-
-  // Какую долю дают выборы игрока на уровнях, а какую — правки ГМа.
-  const asiByCode = useMemo(() => {
-    const result = Object.fromEntries(STATS.map((s) => [s.code, 0]))
-    for (const c of asiChoices) {
-      if (c.choice_type !== 'ASI') continue
-      for (const inc of c.increases ?? []) {
-        const code = String(inc.ability).toUpperCase()
-        if (code in result) result[code] += Number(inc.amount) || 0
-      }
-    }
-    return result
-  }, [asiChoices])
-
-  const adjByCode = useMemo(() => {
-    const result = Object.fromEntries(STATS.map((s) => [s.code, 0]))
-    for (const adj of adjustments) {
-      for (const inc of adj.increases ?? []) {
-        const code = String(inc.ability).toUpperCase()
-        if (code in result) result[code] += Number(inc.amount) || 0
-      }
-    }
-    return result
-  }, [adjustments])
-
+  // Общий эндпоинт /stats сам считает базу, итог и вклад каждого источника —
+  // никакой ручной пересборки на клиенте.
   const currentTotal = stats?.[abilityByCode[newAbility]?.key]?.total ?? 10
   const adjustMin = 1 - currentTotal
   const adjustMax = GM_ABILITY_CAP - currentTotal
@@ -304,6 +246,11 @@ function StatsSection({ character, onError, reload }) {
   const parsedAmount = Number(newAmount)
   const amountValid = newAmount !== '' && Number.isFinite(parsedAmount) && parsedAmount >= adjustMin && parsedAmount <= adjustMax
 
+  const invalidateStats = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.characters.stats(Number(characterId)) })
+    await queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'gm-panel', 'asi'] })
+  }
+
   const addAdjustment = async () => {
     if (!newAbility || !amountValid) return
     const liveTotal = stats?.[abilityByCode[newAbility]?.key]?.total ?? 10
@@ -316,7 +263,7 @@ function StatsSection({ character, onError, reload }) {
         increases: [{ ability: newAbility, amount: clamped }],
       })
       setNewAmount('')
-      await queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'gm-panel'] })
+      await invalidateStats()
       await reload()
     } catch (e) {
       onError(e)
@@ -328,180 +275,84 @@ function StatsSection({ character, onError, reload }) {
   const removeAdjustment = async (id) => {
     try {
       await charactersApi.gmPanel.asi.remove(characterId, id)
-      await queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'gm-panel'] })
+      await invalidateStats()
       await reload()
     } catch (e) {
       onError(e)
     }
   }
 
-  const chip = (text, tone = 'dim') => (
-    <span
-      key={text}
-      className={`rounded px-1.5 py-0.5 text-[10px] ${
-        tone === 'good'
-          ? 'bg-emerald-900/50 text-emerald-200'
-          : tone === 'feat'
-            ? 'bg-amber-900/50 text-amber-200'
-            : tone === 'accent'
-              ? 'bg-ember/15 text-orange-200'
-              : tone === 'bad'
-                ? 'bg-red-900/40 text-red-200'
-                : 'bg-stone-800 text-stone-400'
-      }`}
-    >
-      {text}
-    </span>
-  )
-
   return (
     <Section title="Характеристики">
-      {!stats && (
-        <div className="space-y-2" aria-busy="true">
-          {Array.from({ length: 6 }, (_, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between gap-3 rounded border border-stone-800 bg-stone-900/70 px-3 py-2"
-            >
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-4 w-10" />
-            </div>
-          ))}
-        </div>
-      )}
-      {stats && (
-        <div className="grid gap-5 lg:grid-cols-2">
-          {/* Левый столбик: база → итог */}
-          <ul className="space-y-2">
-            {STATS.map((s) => {
-              const view = stats[s.key]
-              if (!view) return null
-              const { raceBonus, subraceBonus } = bonusByCode
-              const parts = []
-              if (raceBonus[s.code]) parts.push(chip(`Раса +${raceBonus[s.code]}`, 'good'))
-              if (subraceBonus[s.code]) parts.push(chip(`Подраса +${subraceBonus[s.code]}`, 'good'))
-              const known = view.base + (raceBonus[s.code] ?? 0) + (subraceBonus[s.code] ?? 0)
-              const fb = featBonusByCode[s.code] ?? 0
-              if (fb !== 0) parts.push(chip(`Черты ${fb > 0 ? `+${fb}` : fb}`, 'feat'))
-              const asi = asiByCode[s.code] ?? 0
-              const adj = adjByCode[s.code] ?? 0
-              if (asi !== 0) parts.push(chip(`Выборы игрока ${asi > 0 ? `+${asi}` : asi}`, 'accent'))
-              if (adj !== 0) parts.push(chip(`Правки ГМ ${adj > 0 ? `+${adj}` : adj}`, 'bad'))
-              const other = view.total - known - fb - asi - adj
-              if (other !== 0) parts.push(chip(`Прочее ${other > 0 ? `+${other}` : other}`))
-              return (
-                <li key={s.key} className="rounded border border-stone-800 bg-stone-900/70 px-3 py-2">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm text-stone-300">{s.label}</span>
-                    <span className="font-mono text-sm text-stone-100">
-                      {view.base} → <b className="text-ember">{view.total}</b>
-                    </span>
-                  </div>
-                  {parts.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{parts}</div>}
-                  {parts.length === 0 && <p className="mt-1 text-[11px] text-stone-600">Без бонусов</p>}
-                </li>
-              )
-            })}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <StatsCalculator characterId={characterId} />
+
+        <div className="space-y-5">
+          <PlayerChoices characterId={characterId} />
+
+          <div className="border-t border-stone-800 pt-4">
+            <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Правки ГМа</p>
+        {adjustments.length === 0 ? (
+          <p className="text-xs text-stone-600">Правок ГМа нет.</p>
+        ) : (
+          <ul className="space-y-1">
+            {adjustments.map((adj) => (
+              <li key={adj.id} className="flex items-center justify-between rounded border border-red-900/40 bg-red-950/20 px-2.5 py-1.5 text-xs text-stone-300">
+                <span>
+                  {(adj.increases ?? [])
+                    .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
+                    .join(', ') || 'без изменений'}
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-red-300 transition hover:text-red-200"
+                  onClick={() => removeAdjustment(adj.id)}
+                  title="Откатить правку"
+                >
+                  ✕ Откатить
+                </button>
+              </li>
+            ))}
           </ul>
+        )}
 
-          {/* Правый столбик: выборы игрока + правки ГМа */}
-          <div>
-            <p className="mb-1.5 text-xs uppercase tracking-wide text-stone-500">Выборы игрока на уровнях</p>
-            {asiChoices.length === 0 ? (
-              <p className="text-xs text-stone-600">Улучшений характеристик пока не было.</p>
-            ) : (
-              <ul className="space-y-1">
-                {asiChoices.map((choice) => (
-                  <li key={choice.id} className="flex items-center justify-between gap-2 rounded border border-stone-800 px-2.5 py-1.5 text-xs">
-                    <span className="shrink-0 font-medium text-stone-200">Уровень {choice.class_level}</span>
-                    <span className="min-w-0 flex-1 truncate text-right text-stone-400">
-                      {choice.choice_type === 'ASI'
-                        ? (choice.increases ?? [])
-                            .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
-                            .join(', ') || 'улучшение характеристик'
-                        : `Черта: ${featNameById.get(Number(choice.feat_id)) ?? `#${choice.feat_id}`}`}
-                    </span>
-                  </li>
+        {/* Добавление одной правки за раз */}
+        <div className="mt-4 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-1.5 text-xs text-stone-400">
+              <span className="whitespace-nowrap">Характеристика</span>
+              <Select
+                value={newAbility}
+                onChange={handleAbilityChange}
+                className="!w-[150px] !min-w-[150px] !max-w-[150px]"
+              >
+                {STATS.map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.label}
+                  </option>
                 ))}
-              </ul>
-            )}
-
-            {Object.values(featBonusByCode).some((v) => v !== 0) && (
-              <>
-                <p className="mb-1.5 mt-4 text-xs uppercase tracking-wide text-stone-500">Бонусы черт</p>
-                <ul className="space-y-1">
-                  {STATS.filter((s) => featBonusByCode[s.code] !== 0).map((s) => (
-                    <li key={s.code} className="flex items-center justify-between rounded border border-amber-900/40 bg-amber-950/20 px-2.5 py-1.5 text-xs">
-                      <span className="font-medium text-stone-200">{s.label}</span>
-                      <span className="text-amber-300">{featBonusByCode[s.code] > 0 ? `+${featBonusByCode[s.code]}` : featBonusByCode[s.code]}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-
-            <p className="mb-1.5 mt-4 text-xs uppercase tracking-wide text-stone-500">Правки ГМа</p>
-            {adjustments.length === 0 ? (
-              <p className="text-xs text-stone-600">Правок ГМа нет.</p>
-            ) : (
-              <ul className="space-y-1">
-                {adjustments.map((adj) => (
-                  <li key={adj.id} className="flex items-center justify-between rounded border border-red-900/40 bg-red-950/20 px-2.5 py-1.5 text-xs text-stone-300">
-                    <span>
-                      {(adj.increases ?? [])
-                        .map((inc) => `${abilityLabel(inc.ability)} ${inc.amount > 0 ? `+${inc.amount}` : inc.amount}`)
-                        .join(', ') || 'без изменений'}
-                    </span>
-                    <button
-                      type="button"
-                      className="shrink-0 text-red-300 transition hover:text-red-200"
-                      onClick={() => removeAdjustment(adj.id)}
-                      title="Откатить правку"
-                    >
-                      ✕ Откатить
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/* Добавление одной правки за раз */}
-            <div className="mt-4 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-1.5 text-xs text-stone-400">
-                  <span className="whitespace-nowrap">Характеристика</span>
-                  <Select
-                    value={newAbility}
-                    onChange={handleAbilityChange}
-                    className="!w-[150px] !min-w-[150px] !max-w-[150px]"
-                  >
-                    {STATS.map((s) => (
-                      <option key={s.code} value={s.code}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-                <label className="flex items-center gap-1.5 text-xs text-stone-400">
-                  <span className="whitespace-nowrap">Изменение ±</span>
-                  <Input
-                    type="number"
-                    className="!w-10"
-                    value={newAmount}
-                    placeholder={`${adjustMin}…${adjustMax}`}
-                    min={adjustMin}
-                    max={adjustMax}
-                    onChange={handleAmountChange}
-                  />
-                </label>
-                <Button size="sm" disabled={busy || !newAbility || !amountValid} onClick={addAdjustment}>
-                  Добавить изменение
-                </Button>
-              </div>
-            </div>
+              </Select>
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-stone-400">
+              <span className="whitespace-nowrap">Изменение ±</span>
+              <Input
+                type="number"
+                className="!w-10"
+                value={newAmount}
+                placeholder={`${adjustMin}…${adjustMax}`}
+                min={adjustMin}
+                max={adjustMax}
+                onChange={handleAmountChange}
+              />
+            </label>
+            <Button size="sm" disabled={busy || !newAbility || !amountValid} onClick={addAdjustment}>
+              Добавить изменение
+            </Button>
+          </div>
           </div>
         </div>
-      )}
+        </div>
+      </div>
     </Section>
   )
 }
@@ -889,13 +740,23 @@ function FeatureNotesModal({ name, notes, onSave, onClose }) {
 function FeatsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: charFeats = [] } = useCharacterFeats(character.id)
-  const { data: gmStats } = useCharacterGmStats(character.id)
+  const { data: stats } = useCharacterStats(character.id)
   const [featPickerOpen, setFeatPickerOpen] = useState(false)
+  const [openFeatId, setOpenFeatId] = useState(null)
+
+  const grantedIncreaseOf = (cf) => {
+    const explicit = cf.ability_score_increase
+    if (explicit?.ability != null) return explicit
+    const options = cf.feat?.ability_score_increases ?? []
+    const id = cf.ability_score_increase_id
+    if (id != null) return options.find((a) => String(a.id) === String(id)) ?? null
+    return options.length === 1 ? options[0] : null
+  }
 
   // Итоги характеристик персонажа — чтобы проверять требования черт как у игрока.
   const abilityTotals = useMemo(
-    () => Object.fromEntries(STATS.map((s) => [s.code, gmStats?.[s.key]?.total ?? 10])),
-    [gmStats],
+    () => Object.fromEntries(STATS.map((s) => [s.code, stats?.[s.key]?.total ?? 10])),
+    [stats],
   )
   const grantedIds = useMemo(
     () => new Set(charFeats.map((cf) => Number(cf.feat_id) || Number(cf.feat?.id)).filter(Boolean)),
@@ -943,19 +804,45 @@ function FeatsSection({ character, onError, reload }) {
         <p className="text-sm text-stone-500">Черт нет.</p>
       ) : (
         <ul className="space-y-2">
-          {charFeats.map((cf) => (
-            <li key={cf.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-stone-100">{cf.feat?.name || `Черта #${cf.feat_id}`}</p>
-                {cf.feat?.description && (
-                  <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{cf.feat.description}</p>
+          {charFeats.map((cf) => {
+            const open = openFeatId === cf.id
+            const inc = grantedIncreaseOf(cf)
+            return (
+              <li key={cf.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60">
+                <div className="flex items-center justify-between gap-2 p-4">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFeatId(open ? null : cf.id)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+                    <span className="truncate text-sm font-medium text-stone-100">
+                      {cf.feat?.name || `Черта #${cf.feat_id}`}
+                    </span>
+                    {inc && (
+                      <span className="shrink-0 rounded border border-emerald-700/60 bg-emerald-900/30 px-1.5 py-0.5 text-[11px] text-emerald-200">
+                        +{inc.amount} к {abilityName(inc.ability)}
+                      </span>
+                    )}
+                  </button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="xs"
+                    className="shrink-0"
+                    onClick={() => removeFeat(cf.id)}
+                  >
+                    Убрать
+                  </Button>
+                </div>
+                {open && cf.feat?.description && (
+                  <div className="whitespace-pre-wrap border-t border-stone-800 px-4 py-3 text-xs text-stone-400">
+                    {cf.feat.description}
+                  </div>
                 )}
-              </div>
-              <Button type="button" variant="danger" size="xs" className="shrink-0" onClick={() => removeFeat(cf.id)}>
-                Убрать
-              </Button>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       )}
 
@@ -979,6 +866,7 @@ function FeaturesSection({ character, onError, reload }) {
   const [featurePickerOpen, setFeaturePickerOpen] = useState(false)
   const [notesTarget, setNotesTarget] = useState(null)
   const [removeTarget, setRemoveTarget] = useState(null)
+  const [openFeatureId, setOpenFeatureId] = useState(null)
 
   // Показываем только выданные особенности типа OTHER: классовые/расовые и т.п.
   // приходят автоматически, ГМ их вручную не редактирует.
@@ -1042,30 +930,42 @@ function FeaturesSection({ character, onError, reload }) {
         <p className="text-sm text-stone-500">Особенностей нет.</p>
       ) : (
         <ul className="space-y-2">
-          {otherFeatures.map((cf) => (
-            <li key={cf.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-4">
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 text-sm font-medium text-stone-100">
-                  <span className="truncate">{featureName(cf)}</span>
-                  <span className="shrink-0 rounded border border-gold/40 px-1.5 py-0.5 text-[10px] text-gold-light">
-                    Особая
-                  </span>
-                </p>
-                {cf.feature?.description && (
-                  <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{cf.feature.description}</p>
+          {otherFeatures.map((cf) => {
+            const open = openFeatureId === cf.id
+            return (
+              <li key={cf.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60">
+                <div className="flex items-center justify-between gap-2 p-4">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFeatureId(open ? null : cf.id)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+                    <span className="truncate text-sm font-medium text-stone-100">{featureName(cf)}</span>
+                    <span className="shrink-0 rounded border border-gold/40 px-1.5 py-0.5 text-[10px] text-gold-light">
+                      Особая
+                    </span>
+                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button type="button" size="xs" onClick={() => setNotesTarget(cf)}>
+                      Заметка
+                    </Button>
+                    <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cf)}>
+                      Убрать
+                    </Button>
+                  </div>
+                </div>
+                {open && (cf.feature?.description || cf.notes) && (
+                  <div className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400">
+                    {cf.feature?.description ? (
+                      <p className="whitespace-pre-wrap">{cf.feature.description}</p>
+                    ) : null}
+                    {cf.notes && <p className="mt-1.5 text-stone-500">Заметка: {cf.notes}</p>}
+                  </div>
                 )}
-                {cf.notes && <p className="mt-1 text-xs text-stone-400">Заметка: {cf.notes}</p>}
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Button type="button" size="xs" onClick={() => setNotesTarget(cf)}>
-                  Заметка
-                </Button>
-                <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cf)}>
-                  Убрать
-                </Button>
-              </div>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       )}
 

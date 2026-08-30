@@ -18,6 +18,7 @@ export const queryKeys = {
     items: (id) => ['characters', id, 'items'],
     conditions: (id) => ['characters', id, 'conditions'],
     asiChoices: (id) => ['characters', id, 'asi-choices'],
+    stats: (id) => ['characters', id, 'stats'],
   },
   catalog: {
     classes: (params) => ['catalog', 'classes', params ?? {}],

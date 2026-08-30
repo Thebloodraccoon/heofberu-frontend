@@ -14,8 +14,11 @@ export const charactersApi = {
   },
   hp: (id, body) => request(`/api/characters/${id}/hp`, { method: 'PATCH', body }),
   rest: (id, body) => request(`/api/characters/${id}/rest`, { method: 'POST', body }),
+  stats: {
+    // Общий калькулятор характеристик: база, итог и вклад каждого источника.
+    get: (id) => request(`/api/characters/${id}/stats`),
+  },
   gmPanel: {
-    stats: (id) => request(`/api/characters/${id}/gm-panel/stats`),
     maxHp: (id, body) => request(`/api/characters/${id}/gm-panel/max-hp`, { method: 'PATCH', body }),
     maxLevel: {
       get: (id) => request(`/api/characters/${id}/gm-panel/max-level`),

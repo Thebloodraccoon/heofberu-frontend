@@ -226,9 +226,20 @@ export default function SheetHeader({
             onClick={onOpenMoney}
             title="Изменить деньги"
           >
-            <span className="text-yellow-300">⛁</span> {character.money_gold ?? 0}{' '}
-            <span className="text-stone-300">⛀</span> {character.money_silver ?? 0}{' '}
-            <span className="text-amber-700">⛁</span> {character.money_copper ?? 0}
+            <span className="flex items-center gap-2">
+              <span className="flex items-center gap-1">
+                <span className="text-yellow-300">⛁</span>
+                <span>{character.money_gold ?? 0}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-stone-300">⛀</span>
+                <span>{character.money_silver ?? 0}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-amber-700">⛁</span>
+                <span>{character.money_copper ?? 0}</span>
+              </span>
+            </span>
           </button>
         </BoxedValue>
       </div>
