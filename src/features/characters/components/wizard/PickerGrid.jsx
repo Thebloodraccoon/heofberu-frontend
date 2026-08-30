@@ -4,7 +4,7 @@ import Highlight from './Highlight.jsx'
 
 export default function PickerGrid({
   items,
-  query,
+  query = '',
   onQueryChange,
   searchPlaceholder = 'Поиск…',
   selectedId,
@@ -14,16 +14,19 @@ export default function PickerGrid({
   descriptionOf,
   emptyText = 'Ничего не найдено.',
   isDisabled,
+  noSearch = false,
   children,
 }) {
   return (
     <div>
-      <Search
-        className="mb-3 max-w-sm"
-        placeholder={searchPlaceholder}
-        value={query}
-        onChange={onQueryChange}
-      />
+      {!noSearch && (
+        <Search
+          className="mb-3 max-w-sm"
+          placeholder={searchPlaceholder}
+          value={query}
+          onChange={onQueryChange}
+        />
+      )}
       <div className={`grid gap-2.5 ${columns}`}>
         {items.map((it) => {
           const selected = String(it.id) === String(selectedId)

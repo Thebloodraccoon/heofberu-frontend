@@ -46,7 +46,8 @@ describe('StepBackground', () => {
   it('shows granted skills, starting items and features', () => {
     renderStep({})
     expect(screen.getByText('Обман')).toBeInTheDocument()
-    expect(screen.getByText('Кинжал ×2')).toBeInTheDocument()
+    expect(screen.getByText('Кинжал')).toBeInTheDocument()
+    expect(screen.getByText('×2')).toBeInTheDocument()
     expect(screen.getByText('Положение')).toBeInTheDocument()
     expect(screen.getByText('Доступ к высшему свету')).toBeInTheDocument()
   })

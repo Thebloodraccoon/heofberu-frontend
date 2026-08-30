@@ -6,9 +6,10 @@ import { Button, Card, ErrorBox, PageHeader, Skeleton, SkeletonCard, SkeletonCir
 import StepAbilities from '@/features/characters/components/wizard/StepAbilities.jsx'
 import StepBackground from '@/features/characters/components/wizard/StepBackground.jsx'
 import StepClass from '@/features/characters/components/wizard/StepClass.jsx'
-import StepFeat from '@/features/characters/components/wizard/StepFeat.jsx'
 import StepName from '@/features/characters/components/wizard/StepName.jsx'
 import StepRace from '@/features/characters/components/wizard/StepRace.jsx'
+import StepSkills from '@/features/characters/components/wizard/StepSkills.jsx'
+import StepSummary from '@/features/characters/components/wizard/StepSummary.jsx'
 import RollToasts from '@/features/characters/components/wizard/RollToasts.jsx'
 import { charactersApi } from '@/features/characters/api.js'
 import { useAuth } from '@/features/auth/useAuth.js'
@@ -17,7 +18,6 @@ import {
   useBackgrounds,
   useClasses,
   useClassDetail,
-  useFeatsFull,
   useRaceDetail,
   useRaceFeatures,
   useRaces,
@@ -49,9 +49,6 @@ export default function CharacterCreatePage() {
   const { data: classDetail } = useClassDetail(form.class_id)
   const { data: subclassDetail } = useSubclassDetail(form.class_id, form.subclass_id)
   const { data: backgroundDetail } = useBackgroundDetail(form.background_id)
-
-  const featsQ = useFeatsFull()
-  const feats = featsQ.data ?? []
 
   const [creating, setCreating] = useState(false)
   const [rolls, setRolls] = useState([])
@@ -102,7 +99,6 @@ export default function CharacterCreatePage() {
     classDetail,
     subclassDetail,
     backgroundDetail,
-    feats,
   }
 
   const dieSides = classDetail?.hit_dice ? Number(String(classDetail.hit_dice).replace('D', '')) : 8
@@ -134,6 +130,9 @@ export default function CharacterCreatePage() {
       case 'background':
         return true
       case 'class': {
+        return Boolean(form.class_id)
+      }
+      case 'skills': {
         if (!form.class_id) return false
         const count = classDetail?.skill_choice_count ?? 0
         return (form.class_skill_ids ?? []).length >= count
@@ -149,14 +148,8 @@ export default function CharacterCreatePage() {
         }
         return allAssigned
       }
-      case 'feat': {
-        // Черта происхождения теперь необязательна: бэкенд не принимает
-        // feat_id при создании персонажа и сам не выдаёт исходную черту.
-        if (!form.feat_id) return true
-        const chosen = (lookups.feats ?? []).find((f) => String(f.id) === String(form.feat_id))
-        const needsAsiOption = (chosen?.ability_score_increases ?? []).length > 0
-        return !needsAsiOption || Boolean(form.feat_asi_id)
-      }
+      case 'summary':
+        return Boolean(form.name.trim())
       default:
         return true
     }
@@ -179,10 +172,19 @@ export default function CharacterCreatePage() {
       // Только выбранные навыки класса: гранты расы и предыстории бэкенд
       // добавляет сам, а лишние/неизвестные поля отклоняются с 422.
       body.skill_ids = (form.class_skill_ids ?? []).map(Number)
-      if (form.backstory?.trim()) body.backstory = form.backstory.trim()
-      // Бэкенд (POST /api/characters, additionalProperties=false) не принимает
-      // feat_id / ability_score_increase_id — черта происхождения выдаётся
-      // отдельно через GM-панель, поэтому не отправляем их при создании.
+      // Из групп «выбери себе снаряжение» класса передаём только то, что
+      // игрок отметил сам; базовый комплект (starting_items расы/класса)
+      // выдаётся сервером автоматически.
+      const groups = classDetail?.starting_choice_groups ?? classDetail?.choice_groups ?? []
+      const floor = []
+      for (let gi = 0; gi < groups.length; gi += 1) {
+        for (const opt of groups[gi]?.options ?? []) {
+          if ((form.starting_choices?.[String(gi)] ?? []).includes(Number(opt.item_id))) {
+            floor.push({ item_id: Number(opt.item_id), quantity: Number(opt.quantity) || 1 })
+          }
+        }
+      }
+      if (floor.length > 0) body.starting_equipment = floor
 
       const created = await charactersApi.create(body)
 
@@ -213,10 +215,12 @@ export default function CharacterCreatePage() {
         return <StepBackground {...props} />
       case 'class':
         return <StepClass {...props} />
+      case 'skills':
+        return <StepSkills {...props} />
       case 'abilities':
         return <StepAbilities {...props} onRoll={pushRolls} />
-      case 'feat':
-        return <StepFeat {...props} />
+      case 'summary':
+        return <StepSummary {...props} />
       default:
         return null
     }

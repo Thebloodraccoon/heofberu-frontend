@@ -54,6 +54,7 @@ const goToAbilities = async () => {
   await userEvent.click(screen.getByRole('button', { name: /далее/i }))
   await userEvent.click(screen.getByRole('button', { name: /воин/i }))
   await userEvent.click(screen.getByRole('button', { name: /далее/i }))
+  await userEvent.click(screen.getByRole('button', { name: /далее/i }))
 }
 
 describe('CharacterCreatePage random crash repro', () => {

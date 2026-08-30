@@ -28,7 +28,7 @@ const renderStep = (form, update = vi.fn(), onRoll = undefined) =>
 
 const statRow = (label) => {
   const el = screen.getByText(label)
-  return el.closest('.grid')
+  return el.closest('tr')
 }
 
 const valueCell = (label) => within(statRow(label)).getByRole('button')
@@ -201,6 +201,24 @@ describe('StepAbilities', () => {
       expect(screen.getByRole('button', { name: 'Перебросить кости' })).toBeInTheDocument()
       expect(poolChip('12')).not.toHaveTextContent('6')
       expect(screen.queryByText(/Результаты бросков появятся/i)).not.toBeInTheDocument()
+    })
+
+    it('assigns equal rolled values to separate stats without losing one', async () => {
+      const rolls = Object.fromEntries(
+        ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'].map((k) => [
+          k,
+          { rolls: [6, 6, 6, 6], value: 18 },
+        ]),
+      )
+      render(<Harness initial={{ ability_method: 'dice4', ability_rolls: rolls }} />)
+      const chips = screen.getAllByRole('button', { name: '18' })
+      await userEvent.click(chips[0])
+      await userEvent.click(valueCell('Сила'))
+      await userEvent.click(chips[1])
+      await userEvent.click(valueCell('Ловкость'))
+      expect(valueCell('Сила')).toHaveTextContent('18')
+      expect(valueCell('Ловкость')).toHaveTextContent('18')
+      expect(chips[2]).toBeEnabled()
     })
   })
 })

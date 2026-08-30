@@ -3,8 +3,9 @@ export const STEPS = [
   { id: 'race', title: 'Раса' },
   { id: 'background', title: 'Предыстория' },
   { id: 'class', title: 'Класс' },
+  { id: 'skills', title: 'Навыки' },
   { id: 'abilities', title: 'Характеристики' },
-  { id: 'feat', title: 'Черта' },
+  { id: 'summary', title: 'Сводка' },
 ]
 
 export const statsToTotals = (stats) => ({
@@ -25,9 +26,8 @@ export const DEFAULT_FORM = {
   ability_method: 'array',
   ability_base: {},
   ability_rolls: {},
+  ability_sources: {},
   class_skill_ids: [],
+  starting_choices: {},
   name: '',
-  feat_id: '',
-  feat_asi_id: '',
-  backstory: '',
 }

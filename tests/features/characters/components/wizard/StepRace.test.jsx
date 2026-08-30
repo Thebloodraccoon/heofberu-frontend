@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import StepRace from '@/features/characters/components/wizard/StepRace.jsx'
 
 const races = [
-  { id: 1, name: 'Эльф' },
+  { id: 1, name: 'Эльф', speed: 30, size: 'MEDIUM', ability_bonuses: [{ ability: 'DEX', bonus: 2 }] },
   { id: 2, name: 'Дварф' },
 ]
 
@@ -15,7 +15,7 @@ const raceDetail = {
   size: 'MEDIUM',
   description: 'Изящный народ',
   ability_bonuses: [{ ability: 'DEX', bonus: 2 }],
-  subraces: [{ id: 5, name: 'Тёмный эльф' }],
+  subraces: [{ id: 5, name: 'Тёмный эльф', ability_bonuses: [{ ability: 'CHA', bonus: 1 }] }],
 }
 const subraceDetail = {
   id: 5,
@@ -44,7 +44,7 @@ const renderStep = (form, update = vi.fn(), lookupsOverride = {}) =>
 describe('StepRace', () => {
   it('lists races', () => {
     renderStep({})
-    expect(screen.getByRole('button', { name: /^эльф$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^эльф/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^дварф$/i })).toBeInTheDocument()
   })
 
