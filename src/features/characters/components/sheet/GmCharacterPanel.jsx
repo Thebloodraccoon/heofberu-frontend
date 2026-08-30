@@ -121,7 +121,6 @@ function HpSection({ character, onError, reload }) {
             <Input
               type="number"
               min="0"
-              className="!w-28"
               value={tempHp ?? ''}
               placeholder="кол-во"
               onChange={(e) => setTempHp(e.target.value)}
@@ -142,7 +141,6 @@ function HpSection({ character, onError, reload }) {
             <Input
               type="number"
               min="0"
-              className="!w-28"
               value={maxHp ?? ''}
               placeholder="новое"
               onChange={(e) => setMaxHp(e.target.value)}
@@ -201,7 +199,6 @@ function LevelSection({ character, onError, reload }) {
             type="number"
             min={Math.max(Number(character.level) || 1, Number(maxLevelData?.max_level) || 1)}
             max="20"
-            className="!w-10"
             value={newCeiling}
             onChange={(e) => setNewCeiling(e.target.value)}
             placeholder={`≥ ${maxLevelData?.max_level ?? character.level}`}
@@ -337,7 +334,6 @@ function StatsSection({ character, onError, reload }) {
               <span className="whitespace-nowrap">Изменение ±</span>
               <Input
                 type="number"
-                className="!w-10"
                 value={newAmount}
                 placeholder={`${adjustMin}…${adjustMax}`}
                 min={adjustMin}

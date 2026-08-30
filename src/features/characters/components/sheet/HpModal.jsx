@@ -47,7 +47,7 @@ export default function HpModal({ character, onClose, onDelta, onTempHp, onRest 
           Временные хиты
         </p>
         <div className="flex items-center gap-2">
-          <Input type="number" min="0" className="!w-20" value={temp} onChange={(e) => setTemp(e.target.value)} />
+          <Input type="number" min="0" value={temp} onChange={(e) => setTemp(e.target.value)} />
           <button type="button" className="sheet-btn !py-1.5 text-xs whitespace-nowrap" onClick={applyTemp}>
             Задать
           </button>

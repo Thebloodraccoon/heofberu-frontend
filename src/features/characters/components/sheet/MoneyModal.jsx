@@ -38,15 +38,15 @@ export default function MoneyModal({ character, onClose, onError }) {
       <div className="flex items-end gap-3">
         <label className="flex flex-col gap-2.5 text-xs text-stone-500">
           Золото
-          <Input type="text" inputMode="numeric" min="0" className="!w-20" value={money.gold} onChange={(e) => setMoney({ ...money, gold: sanitizeMoney(e.target.value) })} />
+          <Input type="text" inputMode="numeric" min="0" value={money.gold} onChange={(e) => setMoney({ ...money, gold: sanitizeMoney(e.target.value) })} />
         </label>
         <label className="flex flex-col gap-2.5 text-xs text-stone-500">
           Серебро
-          <Input type="text" inputMode="numeric" min="0" className="!w-20" value={money.silver} onChange={(e) => setMoney({ ...money, silver: sanitizeMoney(e.target.value) })} />
+          <Input type="text" inputMode="numeric" min="0" value={money.silver} onChange={(e) => setMoney({ ...money, silver: sanitizeMoney(e.target.value) })} />
         </label>
         <label className="flex flex-col gap-2.5 text-xs text-stone-500">
           Медь
-          <Input type="text" inputMode="numeric" min="0" className="!w-20" value={money.copper} onChange={(e) => setMoney({ ...money, copper: sanitizeMoney(e.target.value) })} />
+          <Input type="text" inputMode="numeric" min="0" value={money.copper} onChange={(e) => setMoney({ ...money, copper: sanitizeMoney(e.target.value) })} />
         </label>
       </div>
       <div className="mt-4 flex justify-end gap-2">
