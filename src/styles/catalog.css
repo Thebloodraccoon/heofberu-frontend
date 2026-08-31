@@ -5,7 +5,7 @@
 /* --- Карточка каталога (плитка) --- */
 
 .catalog-tile {
-  @apply rounded-lg p-4 transition;
+  @apply flex flex-col justify-center rounded-lg p-4 transition;
   @apply hover:border-ember/70;
   position: relative;
   border: 1px solid rgba(168, 133, 61, 0.26);

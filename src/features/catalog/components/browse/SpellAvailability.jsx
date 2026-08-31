@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui'
+import { Section } from './detail/detailHelpers.jsx'
 
 export default function SpellAvailability({ spell }) {
   const groups = [
@@ -11,13 +12,14 @@ export default function SpellAvailability({ spell }) {
   if (groups.length === 0) return null
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      <span className="text-[11px] uppercase tracking-wide text-stone-500">Доступно:</span>
-      {groups.map(([name, list]) => (
-        <Badge key={name} tone="dim" className="my-[3px]">
-          {name}: {list.map((x) => x.name).join(', ')}
-        </Badge>
-      ))}
-    </div>
+    <Section title="Доступно">
+      <div className="flex flex-wrap gap-1.5">
+        {groups.map(([name, list]) => (
+          <Badge key={name} tone="default" className="my-[5px]">
+            {name}: {list.map((x) => x.name).join(', ')}
+          </Badge>
+        ))}
+      </div>
+    </Section>
   )
 }

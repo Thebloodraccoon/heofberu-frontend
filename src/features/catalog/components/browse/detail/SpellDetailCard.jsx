@@ -80,13 +80,13 @@ export default function SpellDetailCard({ spell }) {
         </p>
       )}
 
-      <SpellAvailability spell={spell} />
-
       {spell.higher_levels && (
         <Section title="На более высоких уровнях">
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{spell.higher_levels}</p>
         </Section>
       )}
+
+      <SpellAvailability spell={spell} />
     </Card>
   )
 }

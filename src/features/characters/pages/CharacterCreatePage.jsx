@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { POINT_BUY_BUDGET, POINT_BUY_MIN, STATS, bonusMap, effectiveTotals, pointCost } from '@/lib/utils/ability.js'
-import { STEPS, DEFAULT_FORM } from '@/lib/utils/characterCreate.js'
+import { STEPS, DEFAULT_FORM, buildItemChoiceIds, choiceGroupsComplete } from '@/lib/utils/characterCreate.js'
 import { Button, Card, ErrorBox, PageHeader, Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui'
 import StepAbilities from '@/features/characters/components/wizard/StepAbilities.jsx'
 import StepBackground from '@/features/characters/components/wizard/StepBackground.jsx'
@@ -148,8 +148,12 @@ export default function CharacterCreatePage() {
         }
         return allAssigned
       }
-      case 'summary':
-        return Boolean(form.name.trim())
+      case 'summary': {
+        // Снаряжение «выбери-себе-из-N» должно быть полностью заполнено:
+        // бэкенд вернёт 400, если по группе выбрано не ровно pick_count опций.
+        const complete = choiceGroupsComplete(classDetail, backgroundDetail, form.starting_choices)
+        return Boolean(form.name.trim()) && complete
+      }
       default:
         return true
     }
@@ -172,19 +176,11 @@ export default function CharacterCreatePage() {
       // Только выбранные навыки класса: гранты расы и предыстории бэкенд
       // добавляет сам, а лишние/неизвестные поля отклоняются с 422.
       body.skill_ids = (form.class_skill_ids ?? []).map(Number)
-      // Из групп «выбери себе снаряжение» класса передаём только то, что
-      // игрок отметил сам; базовый комплект (starting_items расы/класса)
-      // выдаётся сервером автоматически.
-      const groups = classDetail?.starting_choice_groups ?? classDetail?.choice_groups ?? []
-      const floor = []
-      for (let gi = 0; gi < groups.length; gi += 1) {
-        for (const opt of groups[gi]?.options ?? []) {
-          if ((form.starting_choices?.[String(gi)] ?? []).includes(Number(opt.item_id))) {
-            floor.push({ item_id: Number(opt.item_id), quantity: Number(opt.quantity) || 1 })
-          }
-        }
-      }
-      if (floor.length > 0) body.starting_equipment = floor
+      // Группы «выбери себе снаряжение» класса и предыстории. Передаём flat-список
+      // id выбранных ОПЦИЙ (options.id — SourceItemChoiceOption.id), как того ждёт
+      // бэкенд в item_choice_ids. Базовый комплект (starting_items расы/класса/
+      // предыстории) выдаётся сервером автоматически.
+      body.item_choice_ids = buildItemChoiceIds(classDetail, backgroundDetail, form.starting_choices)
 
       const created = await charactersApi.create(body)
 

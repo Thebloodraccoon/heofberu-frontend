@@ -65,12 +65,10 @@ export default function LoginPage() {
             Зарегистрироваться
           </Link>
         </p>
-        <p className="mt-2 text-center text-muted">
-          Или{' '}
-          <Link to="/catalog/races" className="link-ember">
-            посмотрите справочники
-          </Link>{' '}
-          без входа
+        <p className="mt-2 text-center text-hint">
+          <Link to="/forgot-password" className="link-ember">
+            Забыли пароль?
+          </Link>
         </p>
       </Card>
     </div>

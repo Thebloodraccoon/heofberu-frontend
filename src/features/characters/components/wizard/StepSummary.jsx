@@ -29,17 +29,32 @@ export default function StepSummary({ stepNo, total, form, update, lookups, deri
 
   const classItems = classDetail?.starting_items ?? []
   const bgItems = backgroundDetail?.starting_items ?? []
-  const groups = classDetail?.starting_choice_groups ?? classDetail?.choice_groups ?? []
   const choices = form.starting_choices ?? {}
 
-  const toggle = (gi, itemId, pickCount) => {
-    const key = String(gi)
+  // Группы «выбери-себе-из-N» отдельно для класса и предыстории. Храним
+  // выбранными id самих опций (opt.id — SourceItemChoiceOption.id): именно их
+  // ожидает бэкенд в item_choice_ids при создании персонажа.
+  const groups = [
+    ...(classDetail?.starting_choice_groups ?? classDetail?.choice_groups ?? []).map((g) => ({
+      ...g,
+      source: 'class',
+      sourceLabel: 'класс',
+    })),
+    ...(backgroundDetail?.starting_choice_groups ?? backgroundDetail?.choice_groups ?? []).map((g) => ({
+      ...g,
+      source: 'background',
+      sourceLabel: 'предыстория',
+    })),
+  ]
+
+  const toggle = (source, gi, optId, pickCount) => {
+    const key = `${source}:${gi}`
     const cur = choices[key] ?? []
-    const has = cur.includes(itemId)
+    const has = cur.includes(optId)
     let next
-    if (has) next = cur.filter((x) => x !== itemId)
+    if (has) next = cur.filter((x) => x !== optId)
     else if (cur.length >= pickCount) return
-    else next = [...cur, itemId]
+    else next = [...cur, optId]
     update({ starting_choices: { ...choices, [key]: next } })
   }
 
@@ -93,12 +108,13 @@ export default function StepSummary({ stepNo, total, form, update, lookups, deri
                 {groups.map((g, gi) => {
                   const opts = g.options ?? []
                   const pick = Number(g.pick_count) || 1
-                  const chosen = choices[String(gi)] ?? []
+                  const key = `${g.source}:${gi}`
+                  const chosen = choices[key] ?? []
                   return (
-                    <div key={gi} className="rounded-lg border border-stone-700/60 bg-stone-900/50 p-3">
+                    <div key={key} className="rounded-lg border border-stone-700/60 bg-stone-900/50 p-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <p className="text-xs font-semibold uppercase tracking-widest text-gold-light">
-                          Выберите снаряжение
+                          Выберите снаряжение <span className="normal-case text-stone-500">({g.sourceLabel})</span>
                         </p>
                         <Tag tone={chosen.length >= pick ? 'good' : 'default'}>
                           {chosen.length}/{pick}
@@ -106,14 +122,14 @@ export default function StepSummary({ stepNo, total, form, update, lookups, deri
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {opts.map((opt) => {
-                          const id = Number(opt.item_id)
-                          const on = chosen.includes(id)
+                          const optId = Number(opt.id ?? opt.item_id)
+                          const on = chosen.includes(optId)
                           return (
                             <button
-                              key={id}
+                              key={optId}
                               type="button"
                               disabled={!on && chosen.length >= pick}
-                              onClick={() => toggle(gi, id, pick)}
+                              onClick={() => toggle(g.source, gi, optId, pick)}
                               className={`flex items-center gap-2 rounded border px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-45 ${
                                 on
                                   ? 'border-ember/70 bg-ember/10'
