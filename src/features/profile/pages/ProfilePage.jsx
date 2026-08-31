@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth.js'
 import {
   Badge,
@@ -12,11 +11,10 @@ import {
   SkeletonCard,
   TextArea,
 } from '@/components/ui'
-import { useUpdateMe, useUserCount } from '@/features/users/queries.js'
+import { useUpdateMe } from '@/features/users/queries.js'
 
 export default function ProfilePage() {
   const { user, isGM, isFounder, loadUser } = useAuth()
-  const { data: userCount, error: countError } = useUserCount(isGM)
 
   useEffect(() => {
     loadUser()
@@ -31,7 +29,6 @@ export default function ProfilePage() {
         </div>
         <SkeletonCard className="min-h-[16rem]" />
         <SkeletonCard className="min-h-[12rem]" />
-        {isGM && <SkeletonCard className="min-h-[8rem]" />}
       </div>
     )
   }
@@ -43,15 +40,7 @@ export default function ProfilePage() {
     <div className="max-w-4xl">
       <PageHeader title="Профиль" subtitle="Учётная запись и личный кабинет" />
 
-      {countError && <div className="mb-5"><ErrorBox error={countError} /></div>}
-
       <ProfileCard user={user} roleLabel={roleLabel} roleTone={roleTone} onSaved={loadUser} />
-
-      {isGM && (
-        <div className="mt-6">
-          <GmPanel userCount={userCount} />
-        </div>
-      )}
     </div>
   )
 }
@@ -223,29 +212,4 @@ function fromUser(user) {
     discord: user.discord || '',
     telegram: user.telegram || '',
   }
-}
-
-function GmPanel({ userCount }) {
-  return (
-    <Card className="p-5">
-      <h3 className="heading-sub">Панель гейм-мастера</h3>
-      <p className="subtitle">
-        Вам доступно управление пользователями и наполнение справочников кампании.
-      </p>
-      <ul className="mt-4 space-y-2 text-body">
-        <li>
-          <Link to="/users" className="link-ember">
-            Управление пользователями
-          </Link>
-          {userCount != null && <span className="ml-2 text-muted">({userCount})</span>}
-        </li>
-        <li>
-          <Link to="/characters" className="link-ember">
-            Персонажи
-          </Link>{' '}
-          — ведение героев кампании
-        </li>
-      </ul>
-    </Card>
-  )
 }

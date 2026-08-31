@@ -42,11 +42,6 @@ vi.mock('@/features/users/queries.js', () => ({
     isPending: false,
     isSuccess: false,
   }),
-  useUserCount: () => ({ data: null, error: null }),
-}))
-
-vi.mock('@/features/characters/queries.js', () => ({
-  useCharacterCount: () => ({ data: 3 }),
 }))
 
 beforeEach(() => {
@@ -120,18 +115,5 @@ describe('ProfilePage', () => {
     expect(screen.getByPlaceholderText('@username')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /сохранить/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /отмена/i })).toBeInTheDocument()
-  })
-
-  it('renders the GM panel for a GM user', () => {
-    mocks.setUseAuthResult({
-      user: { ...mocks.useAuth().user, role: 'gm' },
-      isGM: true,
-      isFounder: false,
-      loadUser: mocks.loadUser,
-    })
-
-    renderWithProviders(<ProfilePage />)
-
-    expect(screen.getByText('Панель гейм-мастера')).toBeInTheDocument()
   })
 })
