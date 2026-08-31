@@ -1,4 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   abilityLabels,
   classSlugLabels,
@@ -8,7 +10,8 @@ import {
   raceSizeLabels,
   ruLevel,
 } from '@/lib/i18n/index.js'
-import { Badge, Chip } from '@/components/ui'
+import { AccordionItem, Badge, Chip } from '@/components/ui'
+import { abilityName } from '@/lib/utils/ability.js'
 
 export const formatBonus = (n) => (n == null ? '' : n >= 0 ? `+${n}` : `${n}`)
 
@@ -16,14 +19,29 @@ export function SkillChips({ names = [] }) {
   if (names.length === 0) return null
   return (
     <span className="badge-row align-middle">
-      {names.map((n, i) => (
-        <span
-          key={i}
-          className="rounded bg-stone-800/80 px-1.5 py-0.5 text-sm font-semibold text-stone-100"
-        >
-          {n}
-        </span>
-      ))}
+      {names.map((n, i) => {
+        const id = typeof n === 'object' && n != null ? n.id ?? n.item_id : null
+        const text = typeof n === 'object' && n != null ? n.__name ?? n.name ?? n : n
+        const chip = (
+          <span
+            key={i}
+            className="inline-block rounded bg-stone-800/80 px-1.5 py-0.5 text-sm font-semibold text-stone-100 transition hover:bg-ember/20 hover:text-ember"
+          >
+            {text}
+          </span>
+        )
+        return id == null ? (
+          chip
+        ) : (
+          <Link
+            key={i}
+            to={`/catalog/skills/${id}`}
+            className="inline-block"
+          >
+            {chip}
+          </Link>
+        )
+      })}
     </span>
   )
 }
@@ -194,20 +212,72 @@ export function Section({ title, children }) {
 }
 
 export function FeatureCards({ features }) {
+  const [collapsedIds, setCollapsedIds] = useState(() => new Set())
   if (!features || features.length === 0) {
     return <p className="text-muted">Особенностей не указано</p>
   }
+  const toggle = (id) => {
+    const key = String(id)
+    setCollapsedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+  const isSub = (f) => !!f.fromSubclass || !!f.fromSubrace
+  const groupName = (f) => f.subclassName ?? f.subraceName
+  const isExpanded = (id) => !collapsedIds.has(String(id))
   return (
-    <ul className="space-y-3">
-      {features.map((f) => (
-        <li key={f.id} className="card-item my-[5px]">
-          <div className="chip-row">
-            <p className="detail-field-label">{f.name}</p>
-            {f.level != null && <Badge tone="accent" className="my-[5px]">{ruLevel(f.level)}</Badge>}
-          </div>
-          {f.description && <p className="detail-text mt-1">{f.description}</p>}
-        </li>
-      ))}
+    <ul className="flex flex-col gap-[5px]">
+      {features.map((f) => {
+        const expanded = isExpanded(f.id)
+        return (
+          <li
+            key={f.id}
+            className={`scroll-mt-20 rounded-lg border py-3 pl-[10px] pr-[10px] transition-colors ${
+              isSub(f) ? 'border-ember/60 bg-ember/5' : 'border-stone-700/60 bg-stone-900/60'
+            }`}
+          >
+            <AccordionItem
+              open={expanded}
+              onToggle={() => toggle(f.id)}
+              bodyClassName="mt-1 px-[15px]"
+              header={
+                <>
+                  <p className={`font-semibold ${isSub(f) ? 'text-ember' : 'text-stone-100'}`}>
+                    {f.name}
+                  </p>
+                  {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
+                  {(f.ability_increases ?? []).length > 0 && (
+                    <Badge tone="good">Изменения характеристик</Badge>
+                  )}
+                  {isSub(f) && groupName(f) && (
+                    <Badge tone="accent">{f.subclassName ? 'Подкласс' : 'Подраса'}: {groupName(f)}</Badge>
+                  )}
+                </>
+              }
+            >
+              {f.description && (
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
+                  {f.description}
+                </p>
+              )}
+              {(f.ability_increases ?? []).length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {(f.ability_increases ?? []).map((inc, i) => (
+                    <Badge key={i} tone="good">
+                      {abilityName(inc.ability)}
+                      {inc.amount > 0 ? ` +${inc.amount}` : ` ${inc.amount}`}
+                      {inc.new_cap != null && ` (макс. ${inc.new_cap})`}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </AccordionItem>
+          </li>
+        )
+      })}
     </ul>
   )
 }

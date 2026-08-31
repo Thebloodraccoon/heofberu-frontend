@@ -39,7 +39,7 @@ const damageLabel = (a) => {
   return bonus ? `${dice} ${fmtPlus(bonus)}` : dice
 }
 
-export default function AttacksPanel({ characterId, attackBonus, onRoll, onError }) {
+export default function AttacksPanel({ characterId, attackBonus, onRoll, onError, classSpellcastingAbility }) {
   const queryClient = useQueryClient()
   const { data: attacks = [] } = useCharacterAttacks(characterId)
   const [modal, setModal] = useState(null) // null | 'new' | attack object
@@ -125,7 +125,7 @@ export default function AttacksPanel({ characterId, attackBonus, onRoll, onError
                           </button>
                           <button
                             type="button"
-                            className="rounded p-1.5 text-stone-400 transition hover:bg-stone-800 hover:text-ember"
+                            className="inline-flex h-[40px] w-[40px] items-center justify-center rounded text-stone-400 transition hover:bg-stone-800 hover:text-ember"
                             title="Изменить"
                             onClick={() => setModal(a)}
                           >
@@ -133,7 +133,7 @@ export default function AttacksPanel({ characterId, attackBonus, onRoll, onError
                           </button>
                           <button
                             type="button"
-                            className="rounded p-1.5 text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
+                            className="inline-flex h-[40px] w-[40px] items-center justify-center rounded text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
                             title="Удалить"
                             onClick={() => remove(a.id)}
                           >
@@ -171,6 +171,7 @@ export default function AttacksPanel({ characterId, attackBonus, onRoll, onError
           onClose={() => setModal(null)}
           onSaved={invalidate}
           onError={onError}
+          classSpellcastingAbility={classSpellcastingAbility}
         />
       )}
     </div>

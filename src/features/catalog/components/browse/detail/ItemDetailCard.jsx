@@ -73,7 +73,7 @@ export default function ItemDetailCard({ item }) {
       )}
 
       {item.description && (
-        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
           {item.description}
         </p>
       )}

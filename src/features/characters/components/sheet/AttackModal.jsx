@@ -76,7 +76,7 @@ function SpellAttackOption({ cs, onPick }) {
  * Pass ``attack`` to edit an existing row, omit it to create a new one.
  * Fields can be prefilled from an inventory weapon or a known spell.
  */
-export default function AttackModal({ characterId, attack = null, onClose, onSaved, onError }) {
+export default function AttackModal({ characterId, attack = null, onClose, onSaved, onError, classSpellcastingAbility }) {
   const editing = !!attack
   const [form, setForm] = useState(
     editing
@@ -120,6 +120,7 @@ export default function AttackModal({ characterId, attack = null, onClose, onSav
     applyPick({
       name: sp.name || 'Заклинание',
       attack_type: sp.attack_type || 'RANGED_ATTACK',
+      ability: classSpellcastingAbility || form.ability || 'STR',
       damage_dice_count: num(sp.damage_dice_count),
       damage_dice_type: sp.damage_dice_type || null,
       damage_type: sp.damage_type || null,

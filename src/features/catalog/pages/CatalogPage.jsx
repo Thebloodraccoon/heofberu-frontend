@@ -245,7 +245,7 @@ export function CatalogListPage() {
                         className="w-full text-left"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className={`font-display text-sm font-bold ${isActive ? 'text-ember' : 'text-stone-100'}`}>
+                          <p className={`font-display text-base font-bold ${isActive ? 'text-ember' : 'text-stone-100'}`}>
                             {it.name}
                           </p>
                         </div>

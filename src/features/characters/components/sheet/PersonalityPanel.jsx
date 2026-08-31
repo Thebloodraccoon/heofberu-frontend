@@ -36,7 +36,7 @@ function Field({ title, value, onSave }) {
         {!edit && (
           <button
             type="button"
-            className="rounded p-1 text-stone-400 transition hover:text-ember"
+            className="inline-flex h-[40px] w-[40px] items-center justify-center rounded text-stone-400 transition hover:text-ember"
             title="Изменить"
             onClick={startEdit}
           >

@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export function Spinner({ label = 'Загрузка...' }) {
   return (
@@ -110,16 +111,19 @@ export function TextArea({ value, onChange, rows, ...props }) {
         resize()
         onChange?.(e)
       }}
-      className="input-base"
+      className="input-base leading-7"
       {...props}
     />
   )
 }
 
-export function Select({ value, onChange, children, className = '', disabled, placeholder, ...rest }) {
+export function Select({ value, onChange, children, className = '', disabled, placeholder, dropdownClassName = '', ...rest }) {
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
+  const [pos, setPos] = useState(null)
   const rootRef = useRef(null)
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
 
   const options = useMemo(() => {
     const out = []
@@ -138,18 +142,54 @@ export function Select({ value, onChange, children, className = '', disabled, pl
   const selectedIndex = options.findIndex((o) => String(o.value) === String(value))
   const selected = options[selectedIndex]
 
+  const updatePos = () => {
+    const el = btnRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - r.bottom - 8
+    // Open upward if there's not enough room below
+    const dropH = Math.min(288, options.length * 34 + 16)
+    const up = spaceBelow < dropH && r.top > dropH
+    setPos({
+      top: up ? r.top - dropH : r.bottom + 4,
+      left: r.left,
+      width: Math.max(r.width, 200),
+      up,
+    })
+  }
+
+  const toggle = () => {
+    if (disabled) return
+    setOpen((o) => {
+      if (!o) updatePos()
+      return !o
+    })
+  }
+
   useEffect(() => {
     if (!open) return
-    const onDown = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
+    const onScroll = () => {
+      updatePos()
     }
+    const onDown = (e) => {
+      const inRoot = rootRef.current && rootRef.current.contains(e.target)
+      const inMenu = menuRef.current && menuRef.current.contains(e.target)
+      if (!inRoot && !inMenu) setOpen(false)
+    }
+    const onResize = () => updatePos()
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onResize)
     document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
+    return () => {
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onResize)
+      document.removeEventListener('mousedown', onDown)
+    }
   }, [open])
 
   useEffect(() => {
     if (!open) return
-    rootRef.current?.querySelector(`[data-idx="${hi}"]`)?.scrollIntoView({ block: 'nearest' })
+    btnRef.current?.querySelector(`[data-idx="${hi}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [hi, open])
 
   const choose = (o) => {
@@ -160,6 +200,7 @@ export function Select({ value, onChange, children, className = '', disabled, pl
   const step = (dir) => {
     if (!open) {
       setOpen(true)
+      updatePos()
       setHi(selectedIndex >= 0 ? selectedIndex : 0)
       return
     }
@@ -192,6 +233,7 @@ export function Select({ value, onChange, children, className = '', disabled, pl
       if (open && options[hi] && !options[hi].disabled) choose(options[hi])
       else if (!open) {
         setOpen(true)
+        updatePos()
         setHi(selectedIndex >= 0 ? selectedIndex : 0)
       }
     }
@@ -200,9 +242,10 @@ export function Select({ value, onChange, children, className = '', disabled, pl
   return (
     <div ref={rootRef} className={`relative ${className}`}>
       <button
+        ref={btnRef}
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         onKeyDown={handleKey}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -223,37 +266,45 @@ export function Select({ value, onChange, children, className = '', disabled, pl
           <path strokeLinecap="round" strokeLinejoin="round" d="M5.5 7.5l4.5 4.5 4.5-4.5" />
         </svg>
       </button>
-      {open && (
-        <div
-          role="listbox"
-          className="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-stone-700 bg-stone-900 p-1 shadow-2xl"
-        >
-          {options.length === 0 && <p className="px-2.5 py-1.5 text-sm text-stone-500">Нет вариантов</p>}
-          {options.map((o, i) => {
-            const isSel = String(o.value) === String(value)
-            return (
-              <button
-                key={String(o.value)}
-                type="button"
-                role="option"
-                aria-selected={isSel}
-                data-idx={i}
-                disabled={o.disabled}
-                onClick={() => choose(o)}
-                onMouseEnter={() => setHi(i)}
-                className={`flex w-full items-center justify-between gap-2 rounded px-2.5 py-1.5 text-left text-sm transition ${
-                  i === hi || isSel
-                    ? 'bg-stone-800 text-ember'
-                    : 'text-stone-200 hover:bg-stone-800/60 hover:text-stone-100'
-                } disabled:cursor-not-allowed disabled:opacity-40`}
-              >
-                <span className="truncate">{o.label}</span>
-                {isSel && <span className="shrink-0 text-ember">✓</span>}
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            data-select-dropdown
+            className={`fixed z-[60] max-h-64 overflow-y-auto rounded-lg border border-stone-700 bg-stone-900 p-1 shadow-2xl ${
+              pos.up ? 'origin-bottom' : 'origin-top'
+            } ${dropdownClassName}`}
+            style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: '16rem' }}
+          >
+            {options.length === 0 && <p className="px-2.5 py-1.5 text-sm text-stone-500">Нет вариантов</p>}
+            {options.map((o, i) => {
+              const isSel = String(o.value) === String(value)
+              return (
+                <button
+                  key={String(o.value)}
+                  type="button"
+                  role="option"
+                  aria-selected={isSel}
+                  data-idx={i}
+                  disabled={o.disabled}
+                  onClick={() => choose(o)}
+                  onMouseEnter={() => setHi(i)}
+                  className={`flex w-full items-center justify-between gap-2 rounded px-2.5 py-1.5 text-left text-sm transition ${
+                    i === hi || isSel
+                      ? 'bg-stone-800 text-ember'
+                      : 'text-stone-200 hover:bg-stone-800/60 hover:text-stone-100'
+                  } disabled:cursor-not-allowed disabled:opacity-40`}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {isSel && <span className="shrink-0 text-ember">✓</span>}
+                </button>
+              )
+            })}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

@@ -3,8 +3,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterSpellSlots, useCharacterSpells } from '@/features/characters/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { label } from '@/lib/i18n/index.js'
+import { abilityName } from '@/lib/utils/ability.js'
+import { diceTypeLabels, label } from '@/lib/i18n/index.js'
 import { EmptyState } from '@/components/ui'
+import { useUiSet } from '@/lib/uiState.js'
 import { SPELL_LEVEL_ORDER } from './constants.js'
 import SpellPickerModal from './SpellPickerModal.jsx'
 
@@ -14,20 +16,117 @@ const TrashIcon = () => (
   </svg>
 )
 
-export default function SpellsPanel({ character, onError }) {
+const COMPONENT_FULL = { VERBAL: 'Вербальный', SOMATIC: 'Соматический', MATERIAL: 'Материальный' }
+
+function SpellFacts({ sp }) {
+  const components = (sp.components ?? [])
+    .map((c) => COMPONENT_FULL[c] ?? label(c))
+    .join(', ')
+  const rangeText =
+    sp.range_value != null && sp.range_value !== ''
+      ? `${sp.range_value} футов`
+      : sp.range_type
+        ? label(sp.range_type)
+        : null
+  const durationText = sp.duration
+    ? sp.is_concentration
+      ? `Концентрация, вплоть до ${label(sp.duration)}`
+      : label(sp.duration)
+    : null
+  const componentsText =
+    sp.components && sp.components.length > 0
+      ? sp.components.includes('MATERIAL') && sp.material
+        ? `${components} (${sp.material})`
+        : components
+      : null
+  const damageText =
+    sp.damage_dice_count && sp.damage_dice_type
+      ? `${sp.damage_dice_count}${diceTypeLabels[sp.damage_dice_type] ?? sp.damage_dice_type}${
+          sp.damage_type ? ` ${label(sp.damage_type)}` : ''
+        }`.trim()
+      : null
+  const healingText =
+    sp.healing_dice_count && sp.healing_dice_type
+      ? `${sp.healing_dice_count}${diceTypeLabels[sp.healing_dice_type] ?? sp.healing_dice_type}${
+          sp.healing_target ? ` ${label(sp.healing_target)}` : ''
+        }`.trim()
+      : null
+  const rows = [
+    sp.school ? { label: 'Школа', value: label(sp.school) } : null,
+    sp.cast_time ? { label: 'Время накладывания', value: label(sp.cast_time) } : null,
+    rangeText ? { label: 'Дистанция', value: rangeText } : null,
+    durationText ? { label: 'Длительность', value: durationText } : null,
+    componentsText ? { label: 'Компоненты', value: componentsText } : null,
+    damageText ? { label: 'Урон', value: damageText } : null,
+    healingText ? { label: 'Лечение', value: healingText } : null,
+  ].filter(Boolean)
+
+  return (
+    <dl className="mb-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+      {rows.map(({ label, value }) => (
+        <div key={label} className="col-span-2 flex gap-2">
+          <dt className="shrink-0 text-stone-500">{label}:</dt>
+          <dd className="text-stone-300">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function SpellRow({ cs, open, onExpand, onRemove }) {
+  const sp = cs.spell || {}
+  const description = sp.description?.trim()
+  return (
+    <li className="rounded-lg border border-stone-700/60 bg-stone-900/60">
+      <div className="flex w-full items-center gap-2">
+        <button
+          type="button"
+          onClick={onExpand}
+          className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left"
+        >
+          <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
+            {sp.name || `Заклинание #${cs.spell_id}`}
+          </span>
+          {sp.school && <span className="shrink-0 text-xs text-stone-500">{label(sp.school)}</span>}
+        </button>
+        <button
+          type="button"
+          className="mr-2 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
+          title="Забыть заклинание"
+          onClick={onRemove}
+        >
+          <TrashIcon />
+        </button>
+      </div>
+      {open && (
+        <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">
+          <SpellFacts sp={sp} />
+          {description ? (
+            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-3 leading-relaxed text-stone-200">
+              {description}
+            </p>
+          ) : (
+            <span className="text-stone-500">Описание отсутствует</span>
+          )}
+        </div>
+      )}
+    </li>
+  )
+}
+
+export default function SpellsPanel({ character, classSpellcastingAbility, onError }) {
   const queryClient = useQueryClient()
   const { data: spells = [] } = useCharacterSpells(character.id)
   const { data: slots = [] } = useCharacterSpellSlots(character.id)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [openIds, toggleId] = useUiSet(`spells:${character.id}`)
 
-  const knownByLevel = useMemo(() => {
-    const counts = {}
-    for (const cs of spells) {
-      const lv = cs.spell?.level ?? 'OTHER'
-      counts[lv] = (counts[lv] ?? 0) + 1
-    }
-    return counts
-  }, [spells])
+  const hasSpellcasting = !!classSpellcastingAbility
+
+  const totalFilled = spells.length
+  const totalSlots = slots.reduce((s, x) => s + (x.total ?? 0), 0)
+  const slotsFull = totalSlots > 0 && totalFilled >= totalSlots
 
   const removeSpell = async (spellId) => {
     try {
@@ -47,76 +146,65 @@ export default function SpellsPanel({ character, onError }) {
     return groups
   }, [spells])
 
+  const cantripsCount = (byLevel.CANTRIP ?? []).length
+  const cantripTotal = slots.find((s) => s.spell_level === 'CANTRIP')?.total ?? 0
+  const cantripsFull = cantripTotal === 0 || cantripsCount >= cantripTotal
+
   return (
     <div className="space-y-5">
-      {slots.length > 0 && (
-        <div>
-          <p className="sheet-section-label">Слоты заклинаний</p>
-          <div className="flex flex-wrap gap-2">
-            {slots.map((slot) => {
-              const known = knownByLevel[slot.spell_level] ?? 0
-              const full = known >= slot.total
-              return (
-                <div key={slot.spell_level} className="sheet-boxed">
-                  <div className="sheet-boxed__box min-w-0 flex-col !gap-0.5 !px-3">
-                    <span className={`text-sm ${full ? 'text-stone-500' : 'text-stone-100'}`}>
-                      {known} / {slot.total}
-                    </span>
-                  </div>
-                  <span className="sheet-boxed__label">{label(slot.spell_level)}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       <div>
         <div className="flex items-center justify-between">
-          <p className="sheet-section-label sheet-section-label--flush self-center leading-none">Заклинания</p>
-          <button type="button" className="sheet-btn sheet-btn_primary" onClick={() => setPickerOpen(true)}>
+          <p className="sheet-section-label sheet-section-label--flush self-center leading-none">
+            Заклинания
+            {hasSpellcasting && totalSlots > 0 && (
+              <span className={`ml-2 rounded px-1.5 py-0.5 text-xs font-semibold ${
+                slotsFull ? 'bg-stone-800 text-stone-500' : 'bg-ember/15 text-ember'
+              }`}>
+                {totalFilled} / {totalSlots}
+              </span>
+            )}
+          </p>
+          <button
+            type="button"
+            className={`sheet-btn sheet-btn_primary ${!slotsFull && hasSpellcasting ? 'sheet-btn_warn-pulse' : ''}`}
+            onClick={() => setPickerOpen(true)}
+            disabled={!hasSpellcasting}
+            title={classSpellcastingAbility ? `Характеристика заклинаний: ${abilityName(classSpellcastingAbility)}` : undefined}
+          >
             + Добавить заклинание
           </button>
         </div>
 
-        {spells.length === 0 && <EmptyState text="Заклинаний пока нет" />}
+        {!hasSpellcasting && (
+          <p className="mt-2 rounded-md border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-xs text-stone-400">
+            У вашего класса нет возможности использовать заклинания.
+          </p>
+        )}
+
+        {hasSpellcasting && spells.length === 0 && <EmptyState text="Заклинаний пока нет" />}
         <div className="space-y-4">
           {SPELL_LEVEL_ORDER.filter((lv) => byLevel[lv]).map((lv) => (
             <div key={lv}>
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-500">
+              <p className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
                 {lv === 'CANTRIP' ? 'Заговоры' : label(lv)}
+                {lv === 'CANTRIP' && cantripTotal > 0 && (
+                  <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                    cantripsFull ? 'bg-stone-800 text-stone-500' : 'bg-ember/15 text-ember'
+                  }`}>
+                    {cantripsCount} / {cantripTotal}
+                  </span>
+                )}
               </p>
               <ul className="space-y-2">
-                {byLevel[lv].map((cs) => {
-                  const sp = cs.spell || {}
-                  return (
-                    <li key={cs.spell_id} className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-stone-100">{sp.name || `Заклинание #${cs.spell_id}`}</p>
-                          <p className="mt-0.5 text-xs text-stone-400">
-                            {[sp.school && label(sp.school), sp.cast_time && label(sp.cast_time)].filter(Boolean).join(' · ')}
-                          </p>
-                          {sp.range_type && (
-                            <p className="mt-0.5 text-xs text-stone-400">
-                              Дистанция: {label(sp.range_type)}{sp.range_value ? ` (${sp.range_value})` : ''}
-                              {sp.duration ? ` · ${label(sp.duration)}` : ''}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="shrink-0 rounded p-1.5 text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
-                          title="Забыть заклинание"
-                          onClick={() => removeSpell(cs.spell_id)}
-                        >
-                          <TrashIcon />
-                        </button>
-                      </div>
-                      {sp.description && <p className="mt-2 text-sm text-stone-400">{sp.description}</p>}
-                    </li>
-                  )
-                })}
+                {byLevel[lv].map((cs) => (
+                  <SpellRow
+                    key={cs.spell_id}
+                    cs={cs}
+                    open={openIds.includes(String(cs.spell_id))}
+                    onExpand={() => toggleId(String(cs.spell_id))}
+                    onRemove={() => removeSpell(cs.spell_id)}
+                  />
+                ))}
               </ul>
             </div>
           ))}

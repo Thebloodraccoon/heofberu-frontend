@@ -1,11 +1,10 @@
 export const THEMES = [
-  { id: 'parchment', name: 'Пергамент', accent: '#d4552a', bg: '#241709', text: '#f3e7c6' },
-  { id: 'arcana', name: 'Тёмная тема', accent: '#6d9db8', bg: '#1b2029', text: '#e0e7f0' },
   { id: 'light', name: 'Светлая', accent: '#d4552a', bg: '#3a2915', text: '#f9f0da' },
+  { id: 'parchment', name: 'Тёмная тема', accent: '#d4552a', bg: '#241709', text: '#f3e7c6' },
 ]
 
 const STORAGE_KEY = 'heofberu-theme'
-const DEFAULT_THEME = 'parchment'
+const DEFAULT_THEME = 'light'
 
 export function getTheme() {
   try {
@@ -13,6 +12,10 @@ export function getTheme() {
   } catch {
     return DEFAULT_THEME
   }
+}
+
+export function isDarkTheme(id) {
+  return id === 'parchment'
 }
 
 export function applyTheme(id) {

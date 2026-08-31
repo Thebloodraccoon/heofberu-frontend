@@ -134,26 +134,6 @@ h4 {
 /* Каждая тема переопределяет палитру Tailwind (stone/ember/gold) на <html data-theme="...">,
    поэтому все существующие утилиты text-stone-*, bg-stone-*, border-ember и т.д. перекрашиваются автоматически. */
 
-[data-theme="arcana"] {
-  --color-stone-50: #edf1f7;
-  --color-stone-100: #e0e7f0;
-  --color-stone-200: #c6d2e3;
-  --color-stone-300: #a3b3cc;
-  --color-stone-400: #7f90ab;
-  --color-stone-500: #62718a;
-  --color-stone-600: #4d5a70;
-  --color-stone-700: #3b4556;
-  --color-stone-800: #29303d;
-  --color-stone-900: #1b2029;
-  --color-stone-950: #12151b;
-  --color-parchment: #e0e7f0;
-  --color-ink: #12151b;
-  --color-ember: #6d9db8;
-  --color-ember-dark: #4a7890;
-  --color-gold: #93a3bc;
-  --color-gold-light: #c0cce0;
-}
-
 /* Светлая тема — тот же пергамент, но заметно светлее (не белая бумага):
    вся тёплая палитра поднята на пару тонов вверх */
 [data-theme="light"] {
@@ -174,14 +154,6 @@ h4 {
   --color-ember-dark: #9a3a16;
   --color-gold: #b9954c;
   --color-gold-light: #ddc08a;
-}
-
-[data-theme="arcana"] body {
-  background-color: #0e1218;
-  background-image:
-    radial-gradient(1100px 520px at 50% -5%, #1c2533 0%, rgba(28, 37, 51, 0) 60%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(46, 66, 90, 0.28) 0%, rgba(46, 66, 90, 0) 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(40, 55, 75, 0.24) 0%, rgba(40, 55, 75, 0) 55%);
 }
 
 [data-theme="light"] body {

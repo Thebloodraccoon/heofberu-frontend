@@ -13,14 +13,14 @@ export const classesCfg = {
   },
   featuresBlock: {
     label: 'Умения класса',
-    addLabel: '+ Добавить умение',
+    addLabel: '+ Добавить',
     empty: 'Умений нет',
     noun: 'умение',
   },
   itemsOps: api.classes.items,
   itemsBlock: {
     label: 'Стартовое снаряжение',
-    addLabel: 'Изменить',
+    addLabel: '+ Добавить',
     empty: 'Снаряжения нет',
     noun: 'предмет',
   },

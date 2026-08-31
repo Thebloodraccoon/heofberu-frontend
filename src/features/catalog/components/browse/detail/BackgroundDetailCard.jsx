@@ -1,6 +1,21 @@
+import { Link } from 'react-router-dom'
 import { fieldLabel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Card, StatTable } from '@/components/ui'
 import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue, SkillChips } from './detailHelpers.jsx'
+
+function ItemLink({ item }) {
+  const id = item?.item_id ?? item?.id
+  const name = item?.item?.name ?? item?.name ?? itemName(id)
+  if (id == null) return <span>{name}</span>
+  return (
+    <Link
+      to={`/catalog/items/${id}`}
+      className="font-medium text-ember/90 no-underline transition hover:text-ember"
+    >
+      {name}
+    </Link>
+  )
+}
 
 export default function BackgroundDetailCard({ bg }) {
   const skills = bg.granted_skills ?? []
@@ -36,7 +51,7 @@ export default function BackgroundDetailCard({ bg }) {
       </div>
 
       {bg.description && (
-        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
           {bg.description}
         </p>
       )}
@@ -46,8 +61,11 @@ export default function BackgroundDetailCard({ bg }) {
           <span className="font-semibold text-stone-100">Владение навыками: </span>
           <SkillChips
             names={skills
-              .map(skillText)
-              .sort((a, b) => a.localeCompare(b, 'ru'))}
+              .map((s) => ({
+                id: s.id ?? s.item_id,
+                __name: skillText(s),
+              }))
+              .sort((a, b) => a.__name.localeCompare(b.__name, 'ru'))}
           />
         </p>
       )}
@@ -58,7 +76,7 @@ export default function BackgroundDetailCard({ bg }) {
             <StatTable
               rows={suggestionRows.map(([lbl, v]) => [
                 lbl,
-                <span key={lbl} className="whitespace-pre-wrap">{v}</span>,
+                <span key={lbl} className="whitespace-pre-wrap leading-relaxed">{v}</span>,
               ])}
             />
           </div>
@@ -76,11 +94,11 @@ export default function BackgroundDetailCard({ bg }) {
           <p className="mb-3 text-sm leading-relaxed text-stone-300">
             Из прошлого, что осталось за спиной, вы взяли лишь немногое — но оно всегда при вас:
           </p>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-stone-300">
+          <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-stone-300">
             {bg.starting_items.map((entry, i) => (
               <li key={i}>
                 {entry.quantity > 1 && <span className="font-medium text-ember">{entry.quantity}× </span>}
-                {entry.item?.name ?? entry.item_id}
+                <ItemLink item={entry} />
               </li>
             ))}
           </ul>

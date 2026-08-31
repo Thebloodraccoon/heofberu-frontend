@@ -5,7 +5,7 @@ import { editorConfig, featurePayload, featuresFromRecord, sortedByLevel, subcla
 import FeatureModal from '@/features/catalog/components/editor/FeaturesModal.jsx'
 import SubclassEditor from '@/features/catalog/components/editor/SubclassEditor.jsx'
 import SubraceEditor from '@/features/catalog/components/editor/SubraceEditor.jsx'
-import EditorFieldControl, { SectionTitle } from '@/features/catalog/components/editor/editorShared.jsx'
+import EditorFieldControl, { SectionTitle, TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
@@ -194,7 +194,19 @@ export default function GmEditorPage() {
     setFeaturesLoading(true)
     setFeaturesError(null)
     try {
-      setFeatures(featuresFromRecord(await cfg.featuresOps.list(id ?? editing.id)))
+      const base = featuresFromRecord(await cfg.featuresOps.list(id ?? editing.id))
+      const withIncreases = await Promise.all(
+        base.map(async (f) => {
+          if (!f.id) return f
+          try {
+            const res = await api.features.abilityIncreases.get(f.id)
+            return { ...f, ability_increases: res?.ability_increases ?? [] }
+          } catch {
+            return { ...f, ability_increases: [] }
+          }
+        })
+      )
+      setFeatures(withIncreases)
     } catch (e) {
       setFeaturesError(e)
     } finally {
@@ -764,6 +776,7 @@ export default function GmEditorPage() {
                         className="my-[5px]"
                         onClick={() => setDeleteTarget(editing)}
                       >
+                        <TrashIcon className="mr-1.5 inline h-3.5 w-3.5" />
                         Удалить...
                       </Button>
                     )}
@@ -838,19 +851,22 @@ export default function GmEditorPage() {
                         .sort((a, b) => a - b)
                       return (
                         <div key={section.key}>
-                          <div className="mb-2 flex items-center justify-between">
-                            <SectionTitle>{section.label}</SectionTitle>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="my-[5px]"
-                              onClick={() => addSpellSlotLevel(section.key)}
-                              disabled={slotLevels.length >= 20}
-                            >
-                              + Добавить уровень
-                            </Button>
-                          </div>
+                          <SectionTitle
+                            button={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="my-[5px]"
+                                onClick={() => addSpellSlotLevel(section.key)}
+                                disabled={slotLevels.length >= 20}
+                              >
+                                + Добавить уровень
+                              </Button>
+                            }
+                          >
+                            {section.label}
+                          </SectionTitle>
                           {slotLevels.length === 0 && (
                             <p className="text-sm text-stone-500">
                               {section.empty} — нажмите «Добавить уровень», чтобы задать ячейки заклинаний.
@@ -933,9 +949,7 @@ export default function GmEditorPage() {
                       const ability = form[section.key] ?? ''
                       return (
                         <div key={section.key}>
-                          <div className="mb-2">
-                            <SectionTitle>{section.label}</SectionTitle>
-                          </div>
+                          <SectionTitle>{section.label}</SectionTitle>
                           <Select
                             value={ability}
                             onChange={(e) => {
@@ -971,17 +985,20 @@ export default function GmEditorPage() {
                         : false
                       return (
                         <div key={section.key}>
-                          <div className="mb-2 flex items-center justify-between">
-                            <SectionTitle>{section.label}</SectionTitle>
-                            <button
-                              type="button"
-                              onClick={() => addRow(section)}
-                              disabled={allUsed}
-                              className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
-                            >
-                              {section.addLabel}
-                            </button>
-                          </div>
+                          <SectionTitle
+                            button={
+                              <button
+                                type="button"
+                                onClick={() => addRow(section)}
+                                disabled={allUsed}
+                                className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
+                              >
+                                {section.addLabel}
+                              </button>
+                            }
+                          >
+                            {section.label}
+                          </SectionTitle>
                           {form[section.key].length === 0 && (
                             <p className="text-sm text-stone-500">{section.empty}</p>
                           )}
@@ -1060,20 +1077,20 @@ export default function GmEditorPage() {
                                   <button
                                     type="button"
                                     onClick={() => setConfirmRow({ key: section.key, index: i })}
-                                    className="my-[5px] rounded border border-red-800 px-2 py-1.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
+                                    className="my-[5px] inline-flex h-[40px] w-[40px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                    title="Удалить"
                                   >
-                                    Удалить
+                                    <TrashIcon />
                                   </button>
                                 ) : (
-                                  <Button
+                                  <button
                                     type="button"
-                                    variant="danger"
-                                    size="sm"
-                                    className="my-[5px]"
                                     onClick={() => setConfirmRow({ key: section.key, index: i })}
+                                    className="my-[5px] inline-flex h-[40px] w-[40px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                    title="Убрать"
                                   >
-                                    Убрать
-                                  </Button>
+                                    <TrashIcon />
+                                  </button>
                                 )}
                               </div>
                             ))}
@@ -1085,9 +1102,7 @@ export default function GmEditorPage() {
                       section.type === 'pills' ? section.options : listOptions[section.listKey]
                     return (
                       <div key={section.key}>
-                        <div className="mb-2">
-                          <SectionTitle>{section.label}</SectionTitle>
-                        </div>
+                        <SectionTitle>{section.label}</SectionTitle>
                         {options.length === 0 ? (
                           <p className="text-sm text-stone-500">{section.empty}</p>
                         ) : (
@@ -1148,16 +1163,19 @@ export default function GmEditorPage() {
 
                 {editing && cfg.hasSubclasses && (
                   <div className="mt-6">
-                    <div className="mb-3 flex items-center justify-between">
-                      <SectionTitle>Подклассы (архетипы)</SectionTitle>
-                      <button
-                        type="button"
-                        onClick={openNewSub}
-                        className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-                      >
-                        + Добавить подкласс
-                      </button>
-                    </div>
+                    <SectionTitle
+                      button={
+                        <button
+                          type="button"
+                          onClick={openNewSub}
+                          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                        >
+                          + Добавить подкласс
+                        </button>
+                      }
+                    >
+                      Подклассы (архетипы)
+                    </SectionTitle>
                     {subError && <ErrorBox error={subError} onRetry={() => reloadSubclasses(editing.id)} />}
 
                     {newSub && (
@@ -1206,16 +1224,17 @@ export default function GmEditorPage() {
                                   >
                                     ▸
                                   </span>
-                                  <span className="truncate text-sm font-medium text-stone-100">
+                                  <span className="truncate text-base font-medium text-stone-100">
                                     {info.detail?.name ?? sub.name}
                                   </span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setConfirmSub(sub)}
-                                  className="shrink-0 my-[5px] rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
+                                  className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                  title="Удалить"
                                 >
-                                  Удалить
+                                  <TrashIcon />
                                 </button>
                               </div>
                               {open && (
@@ -1252,16 +1271,19 @@ export default function GmEditorPage() {
 
                 {editing && cfg.hasSubraces && (
                   <div className="mt-6">
-                    <div className="mb-3 flex items-center justify-between">
-                      <SectionTitle>Подрасы</SectionTitle>
-                      <button
-                        type="button"
-                        onClick={openNewSubrace}
-                        className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-                      >
-                        + Добавить подрасу
-                      </button>
-                    </div>
+                    <SectionTitle
+                      button={
+                        <button
+                          type="button"
+                          onClick={openNewSubrace}
+                          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                        >
+                          + Добавить
+                        </button>
+                      }
+                    >
+                      Подрасы
+                    </SectionTitle>
                     {subraceError && <ErrorBox error={subraceError} onRetry={() => reloadSubraces(editing.id)} />}
 
                     {newSubrace && (
@@ -1316,16 +1338,17 @@ export default function GmEditorPage() {
                                   >
                                     ▸
                                   </span>
-                                  <span className="truncate text-sm font-medium text-stone-100">
+                                  <span className="truncate text-base font-medium text-stone-100">
                                     {info.detail?.name ?? sub.name}
                                   </span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setConfirmSubrace(sub)}
-                                  className="shrink-0 my-[5px] rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
+                                  className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                  title="Удалить"
                                 >
-                                  Удалить
+                                  <TrashIcon />
                                 </button>
                               </div>
                               {open && (

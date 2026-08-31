@@ -7,14 +7,14 @@ export const backgroundsCfg = {
   featuresModal: { showLevel: false, levelHint: '' },
   featuresBlock: {
     label: 'Умения предыстории',
-    addLabel: '+ Добавить умение',
+    addLabel: '+ Добавить',
     empty: 'Умений предыстории нет',
     noun: 'умение',
   },
   itemsOps: api.backgrounds.items,
   itemsBlock: {
     label: 'Стартовое снаряжение',
-    addLabel: 'Изменить',
+    addLabel: '+ Добавить',
     empty: 'Снаряжения нет',
     noun: 'предмет',
   },

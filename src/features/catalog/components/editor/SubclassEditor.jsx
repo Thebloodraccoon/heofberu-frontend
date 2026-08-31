@@ -100,7 +100,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
             <FeaturesEditorBlock
               block={{
                 label: 'Умения подкласса',
-                addLabel: '+ Добавить умение',
+                addLabel: '+ Добавить',
                 empty: 'Умений нет',
                 noun: 'умение',
               }}

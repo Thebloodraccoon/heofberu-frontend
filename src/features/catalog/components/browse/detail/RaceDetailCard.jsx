@@ -1,6 +1,6 @@
-import { abilityLabels, raceSizeLabels, ruLevel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
+import { abilityLabels, raceSizeLabels, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Badge, Card } from '@/components/ui'
-import { Section, SkillChips, formatBonus, itemName } from './detailHelpers.jsx'
+import { Section, FeatureCards, SkillChips, formatBonus, itemName } from './detailHelpers.jsx'
 
 export default function RaceDetailCard({ race, selectedSub }) {
   const raceFeatures = (race.features ?? []).map((f) => ({ ...f, fromSubrace: false }))
@@ -12,6 +12,11 @@ export default function RaceDetailCard({ race, selectedSub }) {
       }))
     : []
   const features = [...raceFeatures, ...subFeatures]
+
+  const fmtBonuses = (list) =>
+    (list ?? [])
+      .map((b) => `${abilityLabels[b.ability] ?? b.ability} ${formatBonus(b.bonus)}`)
+      .join(' ')
 
   return (
     <Card className="my-[3px] detail-padded">
@@ -31,23 +36,29 @@ export default function RaceDetailCard({ race, selectedSub }) {
 
       {selectedSub
         ? selectedSub.description && (
-            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
               {selectedSub.description}
             </p>
           )
         : race.description && (
-            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
               {race.description}
             </p>
           )}
 
-      {((selectedSub ? selectedSub.ability_bonuses : race.ability_bonuses) ?? []).length > 0 && (
+      {(race.ability_bonuses ?? []).length > 0 && (
         <p className="mt-3 text-sm leading-relaxed">
           <span className="font-semibold text-stone-100">Бонусы характеристик: </span>
           <span className="font-semibold text-stone-100">
-            {(selectedSub ? selectedSub.ability_bonuses : race.ability_bonuses)
-              .map((b) => `${abilityLabels[b.ability] ?? b.ability} ${formatBonus(b.bonus)}`)
-              .join(' ')}
+            {fmtBonuses(race.ability_bonuses)}
+          </span>
+        </p>
+      )}
+      {selectedSub && (selectedSub.ability_bonuses ?? []).length > 0 && (
+        <p className="mt-1 text-sm leading-relaxed">
+          <span className="font-semibold text-stone-100">Бонусы характеристик подрасы: </span>
+          <span className="font-semibold text-stone-100">
+            {fmtBonuses(selectedSub.ability_bonuses)}
           </span>
         </p>
       )}
@@ -59,45 +70,15 @@ export default function RaceDetailCard({ race, selectedSub }) {
             names={race.granted_skills
               .map((s) => {
                 const n = itemName(s)
-                return skillLabels[n] ?? sentenceCase(n)
+                return { id: s.id ?? s.item_id, __name: skillLabels[n] ?? sentenceCase(n) }
               })
-              .sort((a, b) => a.localeCompare(b, 'ru'))}
+              .sort((a, b) => a.__name.localeCompare(b.__name, 'ru'))}
           />
         </p>
       )}
 
       <Section title="Особенности и умения">
-        {features.length === 0 ? (
-          <p className="text-sm text-stone-500">Особенностей не указано</p>
-        ) : (
-          <ul className="space-y-2">
-            {features.map((feature) => (
-              <li
-                key={feature.id}
-                className={`my-[3px] rounded-lg border p-2.5 ${
-                  feature.fromSubrace
-                    ? 'border-ember/60 bg-ember/5'
-                    : 'border-stone-700/60 bg-stone-900/60'
-                }`}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className={`font-semibold ${feature.fromSubrace ? 'text-ember' : 'text-stone-100'}`}>
-                    {feature.name}
-                  </p>
-                  {feature.level != null && <Badge tone="accent" className="my-[5px]">{ruLevel(feature.level)}</Badge>}
-                  {feature.fromSubrace && feature.subraceName && (
-                    <Badge tone="accent" className="my-[5px]">Подраса: {feature.subraceName}</Badge>
-                  )}
-                </div>
-                {feature.description && (
-                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
-                    {feature.description}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <FeatureCards features={features} />
       </Section>
     </Card>
   )

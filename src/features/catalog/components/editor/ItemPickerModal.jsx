@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, ErrorBox, Input, Modal, Skeleton } from '@/components/ui'
+import { Button, ErrorBox, Input, Modal, Select, Skeleton } from '@/components/ui'
 import { label } from '@/lib/i18n/index.js'
 import { useCatalogPage } from '@/features/catalog/queries.js'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import { ITEM_FILTERS } from './itemFilters.js'
+import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
 const PAGE_SIZE = 50
 
@@ -198,7 +199,7 @@ export default function ItemPickerModal({
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Левая колонка: поиск и доступные предметы */}
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Доступные предметы</p>
+          <SectionTitle>Доступные предметы</SectionTitle>
           {doingChoice && pickerTarget != null && activeGroup && (
             <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-ember/60 bg-ember/10 p-2">
               <span className="min-w-0 flex-1 truncate text-xs text-ember">
@@ -293,18 +294,19 @@ export default function ItemPickerModal({
         <section>
           {doingChoice && (
             <div className="mb-4">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">
-                  Выбираемое снаряжение
-                </p>
-                <button
-                  type="button"
-                  onClick={addGroup}
-                  className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-                >
-                  + Добавить группу
-                </button>
-              </div>
+              <SectionTitle
+                button={
+                  <button
+                    type="button"
+                    onClick={addGroup}
+                    className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                  >
+                    + Добавить
+                  </button>
+                }
+              >
+                Выбираемое снаряжение
+              </SectionTitle>
               {groups.length === 0 ? (
                 <p className="text-sm text-stone-500">Групп нет</p>
               ) : (
@@ -319,17 +321,18 @@ export default function ItemPickerModal({
                       <div className="flex flex-wrap items-center gap-2">
                         <label className="flex items-center gap-1.5 text-xs text-stone-400">
                           <span className="whitespace-nowrap">Выбрать:</span>
-                          <select
+                          <Select
                             value={String(g.pick_count ?? 1)}
                             onChange={(e) => setGroupField(gi, 'pick_count', Number(e.target.value))}
-                            className="min-w-[70px] rounded border border-stone-700 bg-stone-800/70 px-1.5 py-1 text-xs text-stone-100 outline-none focus:border-ember"
+                            className="w-[70px]"
+                            dropdownClassName="w-[70px] min-w-0"
                           >
                             {[1, 2, 3].map((n) => (
                               <option key={n} value={n}>
                                 {n}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </label>
                         <button
                           type="button"
@@ -341,9 +344,10 @@ export default function ItemPickerModal({
                         <button
                           type="button"
                           onClick={() => removeGroup(gi)}
-                          className="my-[5px] ml-auto rounded border border-red-800 px-2 py-1 text-xs text-red-300 transition hover:bg-red-950/50"
+                          className="my-[5px] ml-auto inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                          title="Удалить группу"
                         >
-                          Удалить группу
+                          <TrashIcon />
                         </button>
                       </div>
                       {(g.options ?? []).length === 0 ? (
@@ -390,7 +394,7 @@ export default function ItemPickerModal({
             </div>
           )}
 
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Выбранное снаряжение</p>
+          <SectionTitle>Обязательное снаряжение</SectionTitle>
           {selectedList.length === 0 ? (
             <p className="text-sm text-stone-500">Ничего не выбрано</p>
           ) : (

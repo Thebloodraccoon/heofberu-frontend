@@ -26,6 +26,16 @@ export default function SpellPickerModal({ character, onClose, onError }) {
   const [saving, setSaving] = useState(false)
 
   const knownIds = useMemo(() => new Set(known.map((cs) => cs.spell_id)), [known])
+
+  const knownCountByLevel = useMemo(() => {
+    const counts = {}
+    for (const cs of known) {
+      const lv = cs.spell?.level ?? cs.level
+      counts[lv] = (counts[lv] ?? 0) + 1
+    }
+    return counts
+  }, [known])
+
   const capacityByLevel = useMemo(() => {
     const knownCount = {}
     for (const cs of known) knownCount[cs.spell?.level ?? cs.level] = (knownCount[cs.spell?.level ?? cs.level] ?? 0) + 1
@@ -92,6 +102,28 @@ export default function SpellPickerModal({ character, onClose, onError }) {
       <p className="-mt-1 text-xs text-stone-500">
         Доступны заклинания вашего класса, подкласса, расы и подрасы; количество ограничено ячейками по уровню.
       </p>
+      {slots.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {slots.map((slot) => {
+            const known = knownCountByLevel[slot.spell_level] ?? 0
+            const full = known >= slot.total
+            return (
+              <div key={slot.spell_level} className="flex flex-col items-center gap-0.5">
+                <span
+                  className={`flex min-w-[2.75rem] items-center justify-center rounded-md border px-1.5 py-1 text-sm font-bold ${
+                    full
+                      ? 'border-stone-700 bg-stone-800 text-stone-500'
+                      : 'border-ember/60 bg-stone-800 text-stone-100'
+                  }`}
+                >
+                  {known} / {slot.total}
+                </span>
+                <span className="text-[10px] text-stone-500">{label(slot.spell_level)}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
       <div className="mt-3 max-h-[55vh] space-y-4 overflow-y-auto pr-1">
         {levels.length === 0 && <p className="text-sm text-stone-500">Нет доступных заклинаний.</p>}
         {levels.map((lv) => {

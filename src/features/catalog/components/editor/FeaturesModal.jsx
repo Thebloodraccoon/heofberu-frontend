@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { abilityLabels } from '@/lib/i18n/index.js'
 import { Button, Field, Input, Modal, Select, TextArea } from '@/components/ui'
+import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
 function blankFeature() {
   return { name: '', description: '', level: null, ability_increases: [] }
 }
 
-function blankIncrease() {
-  return { ability: 'STR', amount: 1, new_cap: null }
+function blankIncrease(ability = 'STR') {
+  return { ability, amount: 1, new_cap: null }
 }
 
 export default function FeatureModal({ title, subtitle, value = null, showLevel = false, levelRequired = false, levelHint, onSave, onClose }) {
@@ -58,7 +59,11 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
     }))
 
   const addIncrease = () =>
-    setEdit((d) => ({ ...d, ability_increases: [...d.ability_increases, blankIncrease()] }))
+    setEdit((d) => {
+      const used = new Set(d.ability_increases.map((r) => r.ability))
+      const free = Object.keys(abilityLabels).find((k) => !used.has(k)) ?? 'STR'
+      return { ...d, ability_increases: [...d.ability_increases, blankIncrease(free)] }
+    })
 
   const removeIncrease = (i) =>
     setEdit((d) => ({ ...d, ability_increases: d.ability_increases.filter((_, j) => j !== i) }))
@@ -122,19 +127,20 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
       </Field>
 
       <div className="pt-3">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">
-            Изменение характеристик
-          </p>
-          <button
-            type="button"
-            onClick={addIncrease}
-            disabled={abilitiesUsedUp}
-            className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
-          >
-            + Добавить
-          </button>
-        </div>
+        <SectionTitle
+          button={
+            <button
+              type="button"
+              onClick={addIncrease}
+              disabled={abilitiesUsedUp}
+              className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
+            >
+              + Добавить
+            </button>
+          }
+        >
+          Изменение характеристик
+        </SectionTitle>
         {edit.ability_increases.length === 0 ? (
           <p className="text-sm text-stone-500">Увеличений нет</p>
         ) : (
@@ -148,7 +154,7 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
               <span className="whitespace-nowrap text-label-sm">Характеристика</span>
               <span className="whitespace-nowrap text-label-sm">Бонус</span>
               <span className="whitespace-nowrap text-label-sm">Новый максимум</span>
-              <span className="whitespace-nowrap text-center text-label-sm">Удалить</span>
+              <span className="whitespace-nowrap text-center text-label-sm text-transparent">—</span>
             </div>
             <div className="mt-1.5 space-y-2">
               {edit.ability_increases.map((row, i) => (
@@ -193,9 +199,10 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
                   <button
                     type="button"
                     onClick={() => removeIncrease(i)}
-                    className="w-full rounded border border-red-800 px-2 py-1 text-xs text-red-300 transition hover:bg-red-950/50"
+                    className="inline-flex h-[40px] w-full items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                    title="Удалить"
                   >
-                    Удалить
+                    <TrashIcon />
                   </button>
                 </div>
               ))}

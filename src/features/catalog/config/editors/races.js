@@ -9,14 +9,14 @@ export const racesCfg = {
   featuresModal: { showLevel: false, levelHint: '' },
   featuresBlock: {
     label: 'Особенности и умения расы',
-    addLabel: '+ Добавить особенность',
+    addLabel: '+ Добавить',
     empty: 'Особенностей и умений нет',
     noun: 'особенность',
   },
   hasSubraces: true,
   subracesBlock: {
     label: 'Подрасы',
-    addLabel: '+ Добавить подрасу',
+    addLabel: '+ Добавить',
     empty: 'Подрас нет',
     noun: 'подрасу',
   },

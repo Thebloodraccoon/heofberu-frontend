@@ -5,6 +5,7 @@ import { abilityLabels } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import { Button, ErrorBox, Field, Input, Select, TextArea } from '@/components/ui'
+import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
 function blankSubrace() {
   return {
@@ -103,16 +104,19 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
           </Field>
 
           <div>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Бонусы характеристик</p>
-              <button
-                type="button"
-                onClick={addBonus}
-                className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-              >
-                + Добавить
-              </button>
-            </div>
+            <SectionTitle
+              button={
+                <button
+                  type="button"
+                  onClick={addBonus}
+                  className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                >
+                  + Добавить
+                </button>
+              }
+            >
+              Бонусы характеристик
+            </SectionTitle>
             {draft.ability_bonuses.length === 0 ? (
               <p className="text-sm text-stone-500">Бонусов нет</p>
             ) : (
@@ -147,9 +151,10 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
                     <button
                       type="button"
                       onClick={() => removeBonus(i)}
-                      className="my-[5px] rounded border border-red-800 px-2 py-1.5 text-[11px] text-red-300 transition hover:bg-red-950/50"
+                      className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                      title="Удалить"
                     >
-                      Удалить
+                      <TrashIcon />
                     </button>
                   </div>
                 ))}
@@ -168,7 +173,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
             <FeaturesEditorBlock
               block={{
                 label: 'Особенности подрасы',
-                addLabel: '+ Добавить особенность',
+                addLabel: '+ Добавить',
                 empty: 'Особенностей нет',
                 noun: 'особенность',
               }}

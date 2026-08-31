@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { ruLevel } from '@/lib/i18n/index.js'
-import { Badge, Button, ConfirmDialog, ErrorBox, Skeleton } from '@/components/ui'
-import { SectionTitle } from './editorShared.jsx'
+import { abilityName } from '@/lib/utils/ability.js'
+import { Badge, ConfirmDialog, ErrorBox, Skeleton } from '@/components/ui'
+import { SectionTitle, PencilIcon, TrashIcon } from './editorShared.jsx'
 
 function Chevron({ open }) {
   return (
@@ -45,16 +46,19 @@ export default function FeaturesEditorBlock({
 
   return (
     <div className="space-y-4 pt-4">
-      <div className="flex items-center justify-between">
-        <SectionTitle>{block.label}</SectionTitle>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-        >
-          {block.addLabel}
-        </button>
-      </div>
+      <SectionTitle
+        button={
+          <button
+            type="button"
+            onClick={onAdd}
+            className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+          >
+            {block.addLabel}
+          </button>
+        }
+      >
+        {block.label}
+      </SectionTitle>
       {error && <ErrorBox error={error} onRetry={onRetry} />}
       {loading ? (
         <ul className="space-y-2" aria-busy="true">
@@ -94,34 +98,48 @@ export default function FeaturesEditorBlock({
                     aria-expanded={open}
                   >
                     <Chevron open={open} />
-                    <span className="min-w-0 break-words text-sm font-semibold text-stone-100">
+                    <span className="min-w-0 break-words text-base font-semibold text-stone-100">
                       {f.name || 'Без названия'}
                     </span>
                     {showLevel && f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
+                    {(f.ability_increases ?? []).length > 0 && (
+                      <Badge tone="good">Изменения характеристик</Badge>
+                    )}
                   </button>
                   <div className="flex shrink-0 gap-1">
                     <button
                       type="button"
                       onClick={() => onEdit(i)}
-                      className="my-[5px] rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
+                      className="my-[5px] inline-flex h-[40px] w-[40px] items-center justify-center rounded border border-stone-700 text-stone-300 transition hover:bg-stone-800"
+                      title="Изменить"
                     >
-                      Изменить
+                      <PencilIcon />
                     </button>
-                    <Button
+                    <button
                       type="button"
-                      variant="danger"
-                      size="xs"
-                      className="my-[5px]"
                       onClick={() => setConfirmTarget(f)}
+                      className="my-[5px] inline-flex h-[40px] w-[40px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                      title="Удалить"
                     >
-                      Удалить
-                    </Button>
+                      <TrashIcon />
+                    </button>
                   </div>
                 </div>
                 {open && f.description && (
-                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-stone-300">
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-loose text-stone-300">
                     {f.description}
                   </p>
+                )}
+                {open && (f.ability_increases ?? []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(f.ability_increases ?? []).map((inc, i) => (
+                      <Badge key={i} tone="good">
+                        {abilityName(inc.ability)}
+                        {inc.amount > 0 ? ` +${inc.amount}` : ` ${inc.amount}`}
+                        {inc.new_cap != null && ` (макс. ${inc.new_cap})`}
+                      </Badge>
+                    ))}
+                  </div>
                 )}
               </li>
             )

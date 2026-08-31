@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
+import { abilityName } from '@/lib/utils/ability.js'
 import { Badge, Card, AccordionItem } from '@/components/ui'
-import { SkillChips, itemName } from './detailHelpers.jsx'
+import { itemName } from './detailHelpers.jsx'
 
 const SPELL_LEVELS = [
   'LEVEL_1',
@@ -16,6 +18,36 @@ const SPELL_LEVELS = [
 ]
 
 const DICE_MAX = { D4: 4, D6: 6, D8: 8, D10: 10, D12: 12, D20: 20, D100: 100 }
+
+// Русская форма существительного «предмет» для числа n.
+function itemCountPlural(n) {
+  const n10 = n % 10
+  const n100 = n % 100
+  if (n10 === 1 && n100 !== 11) return 'предмет'
+  if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return 'предмета'
+  return 'предметов'
+}
+
+// Буквенные обозначения вариантов: а), б), в), г)... для «выбери-себе-из-N».
+const LETTERS = 'абвгдежзиклмнопрстуфхцчшщыэюя'
+
+function letterOf(i) {
+  return LETTERS[i] ?? String(i + 1)
+}
+
+function ItemLink({ item }) {
+  const id = item?.item_id ?? item?.id
+  const name = item?.item?.name ?? item?.name ?? itemName(id)
+  if (id == null) return <span>{name}</span>
+  return (
+    <Link
+      to={`/catalog/items/${id}`}
+      className="font-medium text-ember/90 no-underline transition hover:text-ember"
+    >
+      {name}
+    </Link>
+  )
+}
 
 // Статичное умение PHB: показывается в таблице у всех классов, но нигде не хранится.
 export const ASI_LEVELS = [4, 8, 12, 16, 19]
@@ -154,20 +186,20 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
 
       {selectedSub ? (
         selectedSub.description && (
-          <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+          <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
             {selectedSub.description}
           </p>
         )
       ) : (
         cls.description && (
-          <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200">
+          <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
             {cls.description}
           </p>
         )
       )}
 
       <Section title="Хиты">
-        <ul className="space-y-1 text-sm text-stone-300">
+        <ul className="space-y-1 text-sm leading-relaxed text-stone-300">
           <li>
             <span className="font-medium text-stone-200">Кость Хитов: </span>
             {`1${diceRu} за каждый уровень`}
@@ -273,7 +305,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
       </Section>
 
       <Section title="Владение">
-        <dl className="space-y-1 text-sm text-stone-300">
+        <dl className="space-y-1 text-sm leading-relaxed text-stone-300">
           <div>
             <dt className="inline font-medium text-stone-200">Спасброски: </dt>
             <dd className="inline">
@@ -290,20 +322,6 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                     .join(', ')}
             </dd>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <dt className="inline font-medium text-stone-200">Навыки </dt>
-            {cls.skill_choice_count > 0 && (
-              <dd className="inline text-stone-300">{`выберите ${cls.skill_choice_count}:`}</dd>
-            )}
-            <SkillChips
-              names={(cls.available_skills ?? [])
-                .map((s) => {
-                  const n = itemName(s)
-                  return skillLabels[n] ?? sentenceCase(n)
-                })
-                .sort((a, b) => a.localeCompare(b, 'ru'))}
-            />
-          </div>
           <div>
             <dt className="inline font-medium text-stone-200">Владение доспехами: </dt>
             <dd className="inline">
@@ -314,6 +332,28 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                     .join(', ')}
             </dd>
           </div>
+          <div className="pt-1">
+            <p className="inline font-medium text-stone-200">
+              Навыки{' '}
+              {cls.skill_choice_count > 0 && (
+                <span className="font-normal text-stone-300">{`(выберите ${cls.skill_choice_count})`}</span>
+              )}
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {(cls.available_skills ?? [])
+                .map((s) => ({ ...s, __name: skillLabels[itemName(s)] ?? sentenceCase(itemName(s)) }))
+                .sort((a, b) => a.__name.localeCompare(b.__name, 'ru'))
+                .map((s, i) => (
+                  <Link
+                    key={s.id ?? i}
+                    to={`/catalog/skills/${s.id}`}
+                    className="rounded bg-stone-800/80 px-1.5 py-0.5 text-sm font-semibold text-stone-100 transition hover:bg-ember/20 hover:text-ember"
+                  >
+                    {s.__name}
+                  </Link>
+                ))}
+            </div>
+          </div>
         </dl>
       </Section>
 
@@ -322,22 +362,40 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
           Вы начинаете со следующим снаряжением в дополнение к снаряжению, полученному за вашу
           предысторию:
         </p>
-        {(cls.starting_items ?? []).length > 0 ? (
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-stone-300">
-            {cls.starting_items.map((entry, i) => (
-              <li key={i}>
-                {entry.quantity > 1 && <span className="font-medium text-ember">{entry.quantity}× </span>}
-                {entry.item?.name ?? entry.item_id}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-3 text-sm text-stone-500">—</p>
-        )}
-        <p className="mt-3 text-sm leading-relaxed text-stone-300">
-          В качестве альтернативы базовому снаряжению класса и предыстории, вы можете получить 5к4
-          × 10 зм. монет и приобрести себе снаряжение самостоятельно.
-        </p>
+
+        <ul className="mt-3 space-y-1 pl-5 text-sm leading-relaxed text-stone-300" style={{ listStyleType: 'disc' }}>
+          {/* Сначала — группы выбора «выбери-себе-из-N» */}
+          {(cls.starting_choice_groups ?? cls.choice_groups ?? []).map((group, gi) => (
+            <li key={gi}>
+              {(group.options ?? []).map((opt, oi) => (
+                <span key={opt.id ?? opt.item_id}>
+                  {oi > 0 && <span> или </span>}
+                  {letterOf(oi)}){' '}
+                  {opt.quantity > 1 && <span className="font-medium text-ember">{opt.quantity}× </span>}
+                  <ItemLink item={opt} />
+                </span>
+              ))}
+              {(group.pick_count ?? 1) > 1 && (
+                <span className="text-stone-500">
+                  {' '}
+                  — выберите {group.pick_count} {itemCountPlural(group.pick_count)}
+                </span>
+              )}
+            </li>
+          ))}
+
+          {/* Затем — обязательное снаряжение */}
+          {(cls.starting_items ?? []).map((entry, i) => (
+            <li key={`m-${i}`}>
+              {entry.quantity > 1 && <span className="font-medium text-ember">{entry.quantity}× </span>}
+              <ItemLink item={entry} />
+            </li>
+          ))}
+        </ul>
+        {(cls.starting_items ?? []).length === 0 &&
+          (cls.starting_choice_groups ?? cls.choice_groups ?? []).length === 0 && (
+            <p className="mt-3 text-sm text-stone-500">—</p>
+          )}
       </Section>
 
       <Section title="Особенности и умения">
@@ -369,6 +427,9 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                         {feature.level != null && (
                           <Badge tone="accent">{ruLevel(feature.level)}</Badge>
                         )}
+                        {(feature.ability_increases ?? []).length > 0 && (
+                          <Badge tone="good">Изменения характеристик</Badge>
+                        )}
                         {feature.fromSubclass && feature.subclassName && (
                           <Badge tone="accent">Подкласс: {feature.subclassName}</Badge>
                         )}
@@ -379,6 +440,17 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                       <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
                         {feature.description}
                       </p>
+                    )}
+                    {(feature.ability_increases ?? []).length > 0 && (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {(feature.ability_increases ?? []).map((inc, i) => (
+                          <Badge key={i} tone="good">
+                            {abilityName(inc.ability)}
+                            {inc.amount > 0 ? ` +${inc.amount}` : ` ${inc.amount}`}
+                            {inc.new_cap != null && ` (макс. ${inc.new_cap})`}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </AccordionItem>
                 </li>

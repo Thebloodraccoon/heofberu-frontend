@@ -505,6 +505,7 @@ export default function CharacterDetailPage() {
                 attackBonus={attackBonus}
                 onRoll={rollDice}
                 onError={setMutationError}
+                classSpellcastingAbility={classDetail?.spellcasting_ability}
               />
             )}
             {tab === 'features' && (
@@ -528,6 +529,7 @@ export default function CharacterDetailPage() {
             {tab === 'spells' && (
               <SpellsPanel
                 character={character}
+                classSpellcastingAbility={classDetail?.spellcasting_ability}
                 onError={setMutationError}
               />
             )}
