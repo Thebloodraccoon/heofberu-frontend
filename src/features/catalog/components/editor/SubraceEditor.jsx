@@ -4,6 +4,7 @@ import { featurePayload, subracePayload } from '@/features/catalog/config/editor
 import { abilityLabels } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
+import ImageUploadBlock from './ImageUploadBlock.jsx'
 import { Button, ErrorBox, Field, Input, Select, TextArea } from '@/components/ui'
 import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
@@ -17,6 +18,9 @@ function blankSubrace() {
 
 export default function SubraceEditor({ raceId, detail, features, busy = false, error = null, onRefresh }) {
   const [draft, setDraft] = useState(() => ({ ...blankSubrace(), ...(detail ?? {}) }))
+  const [imageUrl, setImageUrl] = useState(detail?.image_url ?? null)
+  const [imageBusy, setImageBusy] = useState(false)
+  const [imageError, setImageError] = useState(null)
   const [featureModal, setFeatureModal] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -86,6 +90,35 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
     }
   }
 
+  const uploadImage = async (file) => {
+    setImageBusy(true)
+    setImageError(null)
+    try {
+      const res = await api.races.subraces.image.upload(raceId, detail.id, file)
+      setImageUrl(res?.image_url ?? null)
+      await onRefresh()
+    } catch (err) {
+      setImageError(err)
+      throw err
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
+  const removeImage = async () => {
+    setImageBusy(true)
+    setImageError(null)
+    try {
+      await api.races.subraces.image.remove(raceId, detail.id)
+      setImageUrl(null)
+      await onRefresh()
+    } catch (err) {
+      setImageError(err)
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
   return (
     <div>
       {busy ? (
@@ -94,6 +127,14 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
         <div className="space-y-3">
           {saveError && <ErrorBox error={saveError} onRetry={() => {}} />}
           {error && <ErrorBox error={error} onRetry={() => {}} />}
+
+          <ImageUploadBlock
+            imageUrl={imageUrl}
+            onUpload={uploadImage}
+            onRemove={removeImage}
+            busy={imageBusy}
+            error={imageError}
+          />
 
           <Field label="Название подрасы">
             <Input value={draft.name} onChange={setField('name')} placeholder="Например, Высший эльф" />

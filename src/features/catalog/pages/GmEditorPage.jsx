@@ -11,6 +11,7 @@ import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBl
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
 import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, Select, Skeleton, SkeletonCard, TextArea } from '@/components/ui'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
+import ImageUploadBlock from '@/features/catalog/components/editor/ImageUploadBlock.jsx'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import { useCatalogPage } from '@/features/catalog/queries.js'
@@ -49,6 +50,10 @@ export default function GmEditorPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(null)
   const [editLoading, setEditLoading] = useState(false)
+
+  const [imageUrl, setImageUrl] = useState(null)
+  const [imageBusy, setImageBusy] = useState(false)
+  const [imageError, setImageError] = useState(null)
 
   const [fieldSaving, setFieldSaving] = useState(false)
   const [fieldError, setFieldError] = useState(null)
@@ -374,6 +379,7 @@ export default function GmEditorPage() {
       const full = await cfg.api.get(rec.id)
       const enriched = cfg.enrich ? await cfg.enrich(full) : full
       setEditing(enriched)
+      setImageUrl(enriched?.image_url ?? full?.image_url ?? null)
       setForm(cfg.fromRecord(enriched))
       await loadNested(full.id)
     } catch (e) {
@@ -390,6 +396,9 @@ export default function GmEditorPage() {
     setForm(null)
     setFeatureModal(null)
     setEditLoading(false)
+    setImageUrl(null)
+    setImageBusy(false)
+    setImageError(null)
     setFieldError(null)
     setFieldSaved(false)
     setFeatures([])
@@ -496,6 +505,7 @@ export default function GmEditorPage() {
       const full = await cfg.api.get(editing.id)
       const enriched = cfg.enrich ? await cfg.enrich(full) : full
       setEditing(enriched)
+      setImageUrl(enriched?.image_url ?? full?.image_url ?? null)
       setForm(cfg.fromRecord(enriched))
       await loadNested(full.id)
       setFieldSaved(true)
@@ -514,6 +524,7 @@ export default function GmEditorPage() {
       const created = await cfg.submitFields(form, null)
       if (cfg.featuresOps || cfg.hasSubclasses) {
         setEditing(created)
+        setImageUrl(created?.image_url ?? null)
         setForm(cfg.fromRecord(created))
         await loadNested(created.id)
         load()
@@ -660,6 +671,37 @@ export default function GmEditorPage() {
     }
   }
 
+  const uploadImage = async (file) => {
+    setImageBusy(true)
+    setImageError(null)
+    try {
+      if (!cfg.imageOps) return
+      const res = await cfg.imageOps.upload(editing.id, file)
+      setImageUrl(res?.image_url ?? null)
+      load()
+    } catch (err) {
+      setImageError(err)
+      throw err
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
+  const removeImage = async () => {
+    if (!cfg.imageOps || !editing) return
+    setImageBusy(true)
+    setImageError(null)
+    try {
+      await cfg.imageOps.remove(editing.id)
+      setImageUrl(null)
+      load()
+    } catch (err) {
+      setImageError(err)
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -784,6 +826,15 @@ export default function GmEditorPage() {
                 </div>
 
                 <form onSubmit={editing ? saveFields : createSubmit} className="flex flex-col gap-5">
+                  {editing && cfg.imageOps && (
+                    <ImageUploadBlock
+                      imageUrl={imageUrl}
+                      onUpload={uploadImage}
+                      onRemove={removeImage}
+                      busy={imageBusy}
+                      error={imageError}
+                    />
+                  )}
                   <div className="grid gap-4 sm:grid-cols-2">
                     {(() => {
                       const visibleFields = cfg.fields.filter(

@@ -4,6 +4,7 @@ import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel, sentenc
 import { abilityName } from '@/lib/utils/ability.js'
 import { Badge, Card, AccordionItem } from '@/components/ui'
 import { itemName } from './detailHelpers.jsx'
+import CatalogImage from '../CatalogImage.jsx'
 
 const SPELL_LEVELS = [
   'LEVEL_1',
@@ -174,46 +175,62 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
 
   return (
     <Card className="my-[3px] detail-padded">
-      <div className="mb-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-2xl font-bold text-stone-100">{cls.name}</h1>
-          <Badge className="my-[5px]">{`Кость хитов ${diceRu}`}</Badge>
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="order-2 min-w-0 flex-1 sm:order-1">
+          <div className="mb-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-display text-2xl font-bold text-stone-100">{cls.name}</h1>
+              <Badge className="my-[5px]">{`Кость хитов ${diceRu}`}</Badge>
+            </div>
+            {selectedSub && (
+              <p className="mt-1 font-display text-lg font-semibold text-ember">{selectedSub.name}</p>
+            )}
+          </div>
+
+          {selectedSub ? (
+            selectedSub.description && (
+              <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
+                {selectedSub.description}
+              </p>
+            )
+          ) : (
+            cls.description && (
+              <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
+                {cls.description}
+              </p>
+            )
+          )}
+
+          <div className="mt-4">
+            <div className="mb-3 flex items-center gap-3">
+              <h2 className="text-xs font-medium uppercase tracking-wide text-stone-500">Хиты</h2>
+              <span className="h-px flex-1 bg-stone-700/70" aria-hidden="true" />
+            </div>
+            <ul className="space-y-1 text-sm leading-relaxed text-stone-300">
+              <li>
+                <span className="font-medium text-stone-200">Кость Хитов: </span>
+                {`1${diceRu} за каждый уровень`}
+              </li>
+              <li>
+                <span className="font-medium text-stone-200">Хиты на 1 уровне: </span>
+                {`${die} + модификатор Телосложения`}
+              </li>
+              <li>
+                <span className="font-medium text-stone-200">Хиты на следующих уровнях: </span>
+                {`1${diceRu} (или ${average}) + модификатор Телосложения за каждый уровень этого класса, после первого (минимум 1)`}
+              </li>
+            </ul>
+          </div>
         </div>
-        {selectedSub && (
-          <p className="mt-1 font-display text-lg font-semibold text-ember">{selectedSub.name}</p>
-        )}
+
+        <div className="order-1 w-full shrink-0 sm:order-2 sm:w-[35%]">
+          <CatalogImage
+            imageUrl={selectedSub?.image_url ?? cls.image_url}
+            alt={selectedSub ? selectedSub.name : cls.name}
+            title={selectedSub ? selectedSub.name : cls.name}
+          />
+        </div>
       </div>
-
-      {selectedSub ? (
-        selectedSub.description && (
-          <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-            {selectedSub.description}
-          </p>
-        )
-      ) : (
-        cls.description && (
-          <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-            {cls.description}
-          </p>
-        )
-      )}
-
-      <Section title="Хиты">
-        <ul className="space-y-1 text-sm leading-relaxed text-stone-300">
-          <li>
-            <span className="font-medium text-stone-200">Кость Хитов: </span>
-            {`1${diceRu} за каждый уровень`}
-          </li>
-          <li>
-            <span className="font-medium text-stone-200">Хиты на 1 уровне: </span>
-            {`${die} + модификатор Телосложения`}
-          </li>
-          <li>
-            <span className="font-medium text-stone-200">Хиты на следующих уровнях: </span>
-            {`1${diceRu} (или ${average}) + модификатор Телосложения за каждый уровень этого класса, после первого (минимум 1)`}
-          </li>
-        </ul>
-      </Section>
 
       <Section title="Развитие по уровням">
         <div className="overflow-x-auto rounded-lg border-x border-stone-500/60 bg-stone-900/40">

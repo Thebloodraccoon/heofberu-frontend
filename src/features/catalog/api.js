@@ -10,6 +10,14 @@ export const catalogApi = {
     abilityBonuses: (id, body) =>
       request(`/api/races/${id}/ability-bonuses`, { method: 'PUT', body }),
     skills: (id, body) => request(`/api/races/${id}/skills`, { method: 'PUT', body }),
+    image: {
+      upload: (id, file) => {
+        const form = new FormData()
+        form.append('image', file)
+        return request(`/api/races/${id}/image`, { method: 'PUT', body: form })
+      },
+      remove: (id) => request(`/api/races/${id}/image`, { method: 'DELETE' }),
+    },
     features: {
       // Фичи централизованы: только список по источнику (GET-only на бэкенде).
       // Создание/изменение/удаление идут через /api/features.
@@ -29,6 +37,15 @@ export const catalogApi = {
         // Фичи централизованы: только список по источнику (GET-only).
         list: (_raceId, subraceId) => request(`/api/subraces/${subraceId}/features`),
       },
+      image: {
+        upload: (_raceId, subraceId, file) => {
+          const form = new FormData()
+          form.append('image', file)
+          return request(`/api/subraces/${subraceId}/image`, { method: 'PUT', body: form })
+        },
+        remove: (_raceId, subraceId) =>
+          request(`/api/subraces/${subraceId}/image`, { method: 'DELETE' }),
+      },
     },
   },
 
@@ -46,6 +63,14 @@ export const catalogApi = {
       request(`/api/classes/${id}/armor-proficiencies`, { method: 'PUT', body }),
     weaponProficiencies: (id, body) =>
       request(`/api/classes/${id}/weapon-proficiencies`, { method: 'PUT', body }),
+    image: {
+      upload: (id, file) => {
+        const form = new FormData()
+        form.append('image', file)
+        return request(`/api/classes/${id}/image`, { method: 'PUT', body: form })
+      },
+      remove: (id) => request(`/api/classes/${id}/image`, { method: 'DELETE' }),
+    },
     items: {
       list: (id) => request(`/api/classes/${id}/items`),
       set: (id, body) => request(`/api/classes/${id}/items`, { method: 'PUT', body }),
@@ -76,6 +101,15 @@ export const catalogApi = {
       features: {
         // Фичи централизованы: только список по источнику (GET-only).
         list: (_classId, subclassId) => request(`/api/subclasses/${subclassId}/features`),
+      },
+      image: {
+        upload: (_classId, subclassId, file) => {
+          const form = new FormData()
+          form.append('image', file)
+          return request(`/api/subclasses/${subclassId}/image`, { method: 'PUT', body: form })
+        },
+        remove: (_classId, subclassId) =>
+          request(`/api/subclasses/${subclassId}/image`, { method: 'DELETE' }),
       },
     },
   },

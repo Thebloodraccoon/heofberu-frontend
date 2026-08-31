@@ -56,14 +56,20 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
   }
 
   const headers = { Accept: 'application/json' }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
+  if (body !== undefined && !isFormData) headers['Content-Type'] = 'application/json'
   const token = getToken()
   if (auth && token) headers.Authorization = `Bearer ${token}`
 
   const res = await fetch(url, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body:
+      body === undefined
+        ? undefined
+        : isFormData
+          ? body
+          : JSON.stringify(body),
     credentials: 'omit',
   })
 

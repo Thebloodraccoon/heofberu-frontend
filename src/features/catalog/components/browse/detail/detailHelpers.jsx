@@ -53,7 +53,7 @@ export const skipFields = new Set([
   'is_homebrew',
   'created_by_id',
   'updated_at',
-  'image_path',
+  'image_url',
   'description',
   'higher_levels',
   'features',

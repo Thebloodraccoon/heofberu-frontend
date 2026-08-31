@@ -14,12 +14,8 @@ const catalogLinks = [
   { to: '/catalog/features', label: 'Особенности' },
 ]
 
-function Crest({ size = 'size-9', text = 'text-base' }) {
-  return (
-    <span className={`avatar ${size} ${text}`}>
-      H
-    </span>
-  )
+function Crest({ size = 'size-9' }) {
+  return <img src="/logo.svg" alt="Heofberu" className={`${size} h-auto object-contain`} draggable="false" />
 }
 
 function SidebarLink({ to, end, label, onClick, className = '' }) {
@@ -133,7 +129,7 @@ export default function Layout() {
       <header className="sticky top-0 z-40 border-b border-stone-800 bg-stone-950/85 backdrop-blur">
         <nav className="mx-auto flex h-16 max-w-[80rem] items-center gap-3 px-6 sm:px-8">
           <Link to="/" className="flex items-center gap-2 text-sm font-medium text-stone-300 transition hover:text-stone-100">
-            <Crest size="size-8 text-sm" />
+            <Crest size="size-8" />
             <span className="hidden text-base font-bold tracking-wide text-stone-100 sm:block">Heofberu</span>
           </Link>
 
@@ -148,8 +144,22 @@ export default function Layout() {
                     logout()
                     navigate('/')
                   }}
-                  className="hidden rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-block"
+                  className="hidden items-center gap-1.5 rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
                 >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4"
+                    aria-hidden="true"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <path d="M16 17l5-5-5-5" />
+                    <path d="M21 12H9" />
+                  </svg>
                   Выйти
                 </button>
               </>

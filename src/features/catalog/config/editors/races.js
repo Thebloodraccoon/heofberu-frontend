@@ -14,6 +14,7 @@ export const racesCfg = {
     noun: 'особенность',
   },
   hasSubraces: true,
+  imageOps: api.races.image,
   subracesBlock: {
     label: 'Подрасы',
     addLabel: '+ Добавить',

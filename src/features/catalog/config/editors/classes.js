@@ -26,6 +26,7 @@ export const classesCfg = {
   },
   choiceGroupsOps: api.classes.choiceGroups,
   hasSubclasses: true,
+  imageOps: api.classes.image,
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Волшебник' },
     { key: 'hit_dice', label: 'Кость хитов', type: 'select', options: opt(diceTypeLabels) },
