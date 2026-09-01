@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { editorConfig, featurePayload, featuresFromRecord, sortedByLevel, subclassPayload, subracePayload, SPELL_LEVEL_KEYS } from '@/features/catalog/config/editors/index.js'
@@ -58,6 +58,12 @@ export default function GmEditorPage() {
   const [fieldSaving, setFieldSaving] = useState(false)
   const [fieldError, setFieldError] = useState(null)
   const [fieldSaved, setFieldSaved] = useState(false)
+
+  useEffect(() => {
+    if (!fieldSaved) return
+    const id = setTimeout(() => setFieldSaved(false), 10000)
+    return () => clearTimeout(id)
+  }, [fieldSaved])
 
   const [features, setFeatures] = useState([])
   const [featuresLoading, setFeaturesLoading] = useState(false)
@@ -372,6 +378,7 @@ export default function GmEditorPage() {
   const openEdit = async (rec) => {
     setError(null)
     setFeatureModal(null)
+    setFieldSaved(false)
     setEditLoading(true)
     setShowForm(true)
     setSelectedId(rec.id)
