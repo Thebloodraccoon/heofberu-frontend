@@ -176,5 +176,11 @@
 /* --- Паддинг карточки детейл / редактора --- */
 
 .fantasy-panel.detail-padded {
-  padding: 30px 40px;
+  padding: 30px 15px;
+}
+
+@media (min-width: 640px) {
+  .fantasy-panel.detail-padded {
+    padding: 30px 40px;
+  }
 }
