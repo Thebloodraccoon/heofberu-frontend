@@ -23,14 +23,14 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
   const savingThrows = (classDetail?.saving_throws ?? []).map((s) => abilityName(s.ability))
 
   const itemName = (opt) =>
-    opt?.item?.name ??
-    opt?.name ??
-    catalogItems.find((i) => Number(i.id) === Number(opt?.item_id))?.name ??
+    opt?.item?.name ||
+    (opt?.name ? opt.name : undefined) ||
+    catalogItems.find((i) => Number(i.id) === Number(opt?.item_id))?.name ||
     (opt?.item_id != null ? `Предмет #${opt.item_id}` : '—')
 
   const fixedItems = [
-    ...(classDetail?.starting_items ?? []).map((it) => ({ ...it, source: 'класс' })),
-    ...(backgroundDetail?.starting_items ?? []).map((it) => ({ ...it, source: 'предыстория' })),
+    ...(classDetail?.starting_items ?? []).map((it) => ({ ...it, name: itemName(it), source: 'класс' })),
+    ...(backgroundDetail?.starting_items ?? []).map((it) => ({ ...it, name: itemName(it), source: 'предыстория' })),
   ]
 
   const groups = [
@@ -51,7 +51,7 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
     const key = `${g.source}:${gi}`
     ;(g.options ?? []).forEach((opt) => {
       if ((choices[key] ?? []).includes(Number(opt.id ?? opt.item_id))) {
-        chosenItems.push({ name: itemName(opt), quantity: opt.quantity, source: g.sourceLabel })
+        chosenItems.push({ name: itemName(opt), quantity: opt.quantity, source: g.sourceLabel, chosen: true })
       }
     })
   })
@@ -114,6 +114,11 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
                   {it.name}
                 </span>
                 {it.quantity > 1 && <span className="shrink-0 font-medium text-ember">×{it.quantity}</span>}
+                {it.chosen && (
+                  <span className="shrink-0 rounded bg-ember/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-orange-200">
+                    выбор
+                  </span>
+                )}
                 <span className="shrink-0 text-[10px] uppercase tracking-wider text-stone-600">{it.source}</span>
               </li>
             ))}

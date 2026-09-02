@@ -10,7 +10,7 @@ import {
   roll4d6DropLowest,
 } from '@/lib/utils/ability.js'
 import { OptionCard } from './OptionCard.jsx'
-import { Hint, StepShell, Tag } from './StepShell.jsx'
+import { StepShell, Tag } from './StepShell.jsx'
 import { useState } from 'react'
 
 const METHODS = [
@@ -67,7 +67,6 @@ export default function StepAbilities({ stepNo, total, form, update, derived, on
     for (const s of STATS) newRolls[s.key] = method === 'dice4' ? roll4d6DropLowest() : roll3d6()
     update({ ability_rolls: newRolls, ability_base: {}, ability_sources: {} })
     setActive(null)
-    notifyRolls(onRoll, newRolls)
   }
 
   const valueOf = (activeKey) =>
@@ -127,7 +126,7 @@ export default function StepAbilities({ stepNo, total, form, update, derived, on
       type="button"
       disabled={item.used}
       onClick={() => setActive((a) => (a === item.key ? null : item.key))}
-      className={`flex min-w-16 flex-col items-center rounded-lg border px-3 py-2 transition ${
+      className={`flex min-w-16 flex-col items-center justify-center rounded-lg border px-3 py-2 transition ${
         active === item.key
           ? 'border-ember bg-ember/15 shadow-[0_0_0_1px_rgba(212,85,42,0.4)]'
           : 'border-stone-700/60 bg-stone-800/40'
@@ -157,19 +156,19 @@ export default function StepAbilities({ stepNo, total, form, update, derived, on
 
       {pool.length > 0 && (
         <div className="rounded-lg border border-stone-700/50 bg-stone-900/30 p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-end gap-3">
+          <div data-testid="ability-pool" className="space-y-2">
             {isDice && (
               <button
                 type="button"
                 onClick={rerollDice}
-                className="rounded border border-stone-600 px-3 py-1.5 text-sm text-stone-200 hover:bg-stone-800"
+                className="flex min-w-16 items-center justify-center rounded-lg border border-dashed border-stone-600 px-3 py-2 text-sm text-stone-400 transition hover:border-ember/50 hover:bg-stone-800 hover:text-stone-100 sm:inline-flex"
               >
                 Перебросить кости
               </button>
             )}
-          </div>
-          <div data-testid="ability-pool" className="flex flex-wrap gap-2">
-            {pool.map(renderPoolChip)}
+            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+              {pool.map(renderPoolChip)}
+            </div>
           </div>
         </div>
       )}
@@ -180,15 +179,15 @@ export default function StepAbilities({ stepNo, total, form, update, derived, on
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-stone-700/60">
+      <div className="rounded-lg border border-stone-700/60">
         <table className="w-full bg-stone-900/40">
-          <thead>
+          <thead className="hidden sm:table-header-group">
             <tr className="bg-stone-800/70 text-xs font-medium uppercase tracking-wide text-stone-400">
-              <th scope="col" className="px-4 py-2 text-left font-medium">Характеристика</th>
-              <th scope="col" className="px-2 py-2 text-left font-medium">Значение</th>
-              <th scope="col" className="px-2 py-2 text-left font-medium">Бонус</th>
-              <th scope="col" className="px-2 py-2 text-right font-medium">Итог</th>
-              <th scope="col" className="w-16 px-3 py-2 text-right font-medium">Модиф.</th>
+              <th scope="col" className="px-3 py-2 text-left font-medium">Характеристика</th>
+              <th scope="col" className="px-2 py-2 text-center font-medium">Бонус</th>
+              <th scope="col" className="px-2 py-2 text-center font-medium">Значение</th>
+              <th scope="col" className="px-3 py-2 text-center font-medium">Модиф.</th>
+              <th scope="col" className="px-2 py-2 text-center font-medium">Итог</th>
             </tr>
           </thead>
           <tbody>
@@ -196,10 +195,17 @@ export default function StepAbilities({ stepNo, total, form, update, derived, on
               const bonus = bonusByCode[s.code] || 0
               const total = totals[s.code]
               const value = form.ability_base?.[s.key]
+              const modval = mod(total)
               return (
                 <tr key={s.key} className="border-t border-stone-700/40">
-                  <td className="px-4 py-2.5 text-[15px] font-medium text-stone-100">{s.label}</td>
-                  <td className="px-2 py-2.5">
+                  <td className="px-3 py-2 text-[15px] font-medium text-stone-100 uppercase tracking-wide sm:normal-case sm:tracking-normal">
+                    <span className="sm:hidden">{s.short}</span>
+                    <span className="hidden sm:inline">{s.label}</span>
+                  </td>
+                  <td className="px-2 py-2 text-center text-sm text-emerald-300">
+                    {bonus > 0 ? `+${bonus}` : '—'}
+                  </td>
+                  <td className="px-2 py-2 text-center">
                     {method === 'pointbuy' ? (
                       <Stepper
                         value={num(value) || POINT_BUY_MIN}
@@ -223,11 +229,12 @@ export default function StepAbilities({ stepNo, total, form, update, derived, on
                       </button>
                     )}
                   </td>
-                  <td className="w-14 px-2 py-2.5 text-sm text-emerald-300">{bonus > 0 ? `+${bonus}` : '—'}</td>
-                  <td className="w-14 px-2 py-2.5 text-right text-lg font-bold text-stone-100">{total}</td>
-                  <td className="w-16 px-3 py-2.5 text-right text-sm text-stone-300">
-                    {mod(total) > 0 ? '+' : ''}
-                    {mod(total)}
+                  <td className="px-3 py-2 text-center text-sm text-stone-300">
+                    {modval > 0 ? '+' : ''}
+                    {modval}
+                  </td>
+                  <td className="px-2 py-2 text-center font-bold text-stone-100">
+                    {total}
                   </td>
                 </tr>
               )
@@ -244,23 +251,23 @@ function Stepper({ value, remaining, label, onStep }) {
   const canStepUp = value < POINT_BUY_MAX && stepUpCost <= remaining
   const canStepDown = value > POINT_BUY_MIN
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center justify-center gap-1">
       <button
         type="button"
         aria-label={`Уменьшить ${label}`}
         disabled={!canStepDown}
         onClick={() => onStep(-1)}
-        className="flex size-8 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-base font-bold text-stone-200 transition hover:border-ember/60 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35"
+        className="flex size-7 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-sm font-bold text-stone-200 transition hover:border-ember/60 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35 sm:size-8 sm:text-base"
       >
         −
       </button>
-      <span className="min-w-10 text-center text-base font-semibold text-stone-100">{value}</span>
+      <span className="min-w-8 text-center text-sm font-semibold text-stone-100 sm:min-w-10 sm:text-base">{value}</span>
       <button
         type="button"
         aria-label={`Увеличить ${label}`}
         disabled={!canStepUp}
         onClick={() => onStep(1)}
-        className="flex size-8 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-base font-bold text-stone-200 transition hover:border-ember/60 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35"
+        className="flex size-7 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-sm font-bold text-stone-200 transition hover:border-ember/60 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35 sm:size-8 sm:text-base"
       >
         +
       </button>

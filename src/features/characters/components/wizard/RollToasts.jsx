@@ -32,18 +32,14 @@ function Toast({ toast, onDismiss }) {
   useEffect(() => {
     if (paused) return undefined
     const id = setInterval(() => {
-      setRemaining((r) => {
-        const next = r - TICK
-        if (next <= 0) {
-          clearInterval(id)
-          onDismissRef.current(toast.id)
-          return 0
-        }
-        return next
-      })
+      setRemaining((r) => r - TICK)
     }, TICK)
     return () => clearInterval(id)
   }, [paused, toast.id])
+
+  useEffect(() => {
+    if (remaining <= 0) onDismissRef.current(toast.id)
+  }, [remaining, toast.id])
 
   const dice = toast.dice ?? []
   const dropIndex = dice.length === 4 ? dice.indexOf(Math.min(...dice)) : -1
