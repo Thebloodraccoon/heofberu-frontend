@@ -17,9 +17,9 @@ export default function TileCard({ item, resource }) {
       {item.description && (
         <p className="item-desc-preview mt-1">{item.description}</p>
       )}
-      {summaryBadges(item).length > 0 && (
+      {summaryBadges(item, resource).length > 0 && (
         <div className="badge-row mt-1.5">
-          {summaryBadges(item).map((b, i) => (
+          {summaryBadges(item, resource).map((b, i) => (
             <Badge key={i} tone={b.tone} className="my-[5px]">{b.text}</Badge>
           ))}
         </div>

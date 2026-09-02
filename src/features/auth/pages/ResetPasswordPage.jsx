@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { authApi } from '../api.js'
 import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
-import ThemeSwitcher from '@/components/ui/ThemeSwitcher.jsx'
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
@@ -36,10 +35,7 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4 py-10">
-        <div className="fixed right-4 top-4 z-50">
-          <ThemeSwitcher />
-        </div>
+      <div className="flex min-h-screen items-center justify-center px-4 pt-2 pb-10">
         <Card className="w-full max-w-sm p-6 text-center">
           <h1 className="heading-section">Ссылка недействительна</h1>
           <p className="subtitle mt-2">
@@ -55,10 +51,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="fixed right-4 top-4 z-50">
-        <ThemeSwitcher />
-      </div>
+    <div className="flex min-h-screen items-center justify-center px-4 pt-2 pb-10">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 text-center">
           <span className="avatar-md mx-auto mb-3">H</span>

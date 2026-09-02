@@ -128,3 +128,10 @@ export const useFeatDetail = (id) =>
     queryFn: () => catalogApi.feats.get(Number(id)),
     enabled: !!id,
   })
+
+export const useSpellDetail = (id) =>
+  useQuery({
+    queryKey: ['catalog', 'spells', Number(id)],
+    queryFn: () => catalogApi.spells.get(Number(id)),
+    enabled: !!id,
+  })

@@ -353,7 +353,7 @@ export function PageHeader({ title, subtitle, actions, centered = false }) {
         <h1 className="heading-page">{title}</h1>
         {subtitle && <p className="subtitle">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+      {actions && <div className="flex w-full shrink-0 gap-2 sm:w-auto">{actions}</div>}
     </div>
   )
 }

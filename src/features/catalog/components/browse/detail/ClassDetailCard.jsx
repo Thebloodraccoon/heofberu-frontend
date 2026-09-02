@@ -223,7 +223,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
           </div>
         </div>
 
-        <div className="order-1 w-full shrink-0 sm:order-2 sm:w-[35%]">
+        <div className="order-1 w-full shrink-0 sm:order-2 sm:w-auto flex justify-center items-start">
           <CatalogImage
             imageUrl={selectedSub?.image_url ?? cls.image_url}
             alt={selectedSub ? selectedSub.name : cls.name}
@@ -356,7 +356,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                 <span className="font-normal text-stone-300">{`(выберите ${cls.skill_choice_count})`}</span>
               )}
             </p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <div className="inline-flex flex-wrap gap-1.5 ml-2">
               {(cls.available_skills ?? [])
                 .map((s) => ({ ...s, __name: skillLabels[itemName(s)] ?? sentenceCase(itemName(s)) }))
                 .sort((a, b) => a.__name.localeCompare(b.__name, 'ru'))
@@ -435,7 +435,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                   <AccordionItem
                     open={expanded}
                     onToggle={() => toggleFeature(feature.id)}
-                    bodyClassName="mt-1 px-[15px]"
+                    bodyClassName="mt-1 px-[5px] lg:px-[15px]"
                     header={
                       <>
                         <p className={`font-semibold ${feature.fromSubclass ? 'text-ember' : 'text-stone-100'}`}>

@@ -1,7 +1,7 @@
 export function StepShell({ stepNo, total, title, subtitle, children }) {
   return (
-    <div>
-      <div className="mb-5 flex items-baseline gap-3">
+    <div className="sm:px-5 sm:py-5">
+      <div className="mb-[10px] flex items-baseline gap-3">
         <span className="font-display text-sm font-semibold uppercase tracking-widest text-ember">
           Шаг {stepNo} из {total}
         </span>

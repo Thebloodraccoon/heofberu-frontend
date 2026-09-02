@@ -177,7 +177,6 @@ export default function StepAbilities({ stepNo, total, form, update, derived, on
       {method === 'pointbuy' && (
         <div className="flex flex-wrap items-center gap-3">
           <Tag tone={remaining >= 0 ? 'accent' : 'bad'}>Осталось очков: {remaining}</Tag>
-          <Hint className="m-0">Цена: 8→0, 9→1, 10→2, 11→3, 12→4, 13→5, 14→7, 15→9.</Hint>
         </div>
       )}
 

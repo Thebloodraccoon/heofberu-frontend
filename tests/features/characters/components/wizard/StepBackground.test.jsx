@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import StepBackground from '@/features/characters/components/wizard/StepBackground.jsx'
+import { renderWithProviders } from '@tests/helpers/render.jsx'
 
 const backgrounds = [{ id: 1, name: 'Благородный' }]
 
@@ -15,7 +16,7 @@ const backgroundDetail = {
 }
 
 const renderStep = (form, update = vi.fn(), lookupsOverride = {}) =>
-  render(
+  renderWithProviders(
     <StepBackground
       stepNo={2}
       total={7}
@@ -31,6 +32,13 @@ describe('StepBackground', () => {
     expect(screen.getByRole('button', { name: /^благородный$/i })).toBeInTheDocument()
   })
 
+  it('shows a "no background" tile that resets the selection', async () => {
+    const update = vi.fn()
+    renderStep({ background_id: '1' }, update)
+    await userEvent.click(screen.getByRole('button', { name: /без предыстории/i }))
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ background_id: '', class_skill_ids: [] }))
+  })
+
   it('selecting a background updates background_id', async () => {
     const update = vi.fn()
     renderStep({ background_id: '' }, update)
@@ -43,12 +51,13 @@ describe('StepBackground', () => {
     expect(screen.getByText('Предыстории не загружены')).toBeInTheDocument()
   })
 
-  it('shows granted skills, starting items and features', () => {
+  it('shows granted skills, starting items and features', async () => {
     renderStep({})
     expect(screen.getByText('Обман')).toBeInTheDocument()
     expect(screen.getByText('Кинжал')).toBeInTheDocument()
-    expect(screen.getByText('×2')).toBeInTheDocument()
+    expect(screen.getByText('2×')).toBeInTheDocument()
     expect(screen.getByText('Положение')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /положение/i }))
     expect(screen.getByText('Доступ к высшему свету')).toBeInTheDocument()
   })
 })

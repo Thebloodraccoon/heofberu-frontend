@@ -23,7 +23,6 @@ export default function StepName({ stepNo, total, form, update }) {
           />
         </Field>
       </div>
-      <Hint className="mt-3">Остальное — история, заметки, деньги — можно заполнить позже на листе персонажа.</Hint>
     </StepShell>
   )
 }

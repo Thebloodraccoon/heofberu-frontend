@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -15,6 +15,14 @@ async function fetchDetail(resource, selectedId) {
   const cfg = catalog[resource]
   const data = await cfg.api.get(selectedId)
   let withFeatures = data
+  if (resource === 'features') {
+    try {
+      const res = await api.features.abilityIncreases.get(selectedId).catch(() => null)
+      withFeatures = { ...withFeatures, ability_increases: res?.ability_increases ?? [] }
+    } catch {
+      withFeatures = { ...withFeatures, ability_increases: [] }
+    }
+  }
   if (resource === 'classes') {
     try {
       const subs = withFeatures.subclasses ?? []
@@ -76,6 +84,28 @@ export function CatalogListPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource])
+
+  const sectionRef = useRef(null)
+
+  useEffect(() => {
+    if (selectedId && window.innerWidth < 1024 && sectionRef.current) {
+      const y = sectionRef.current.getBoundingClientRect().top + window.scrollY - 200
+      const start = window.scrollY
+      const dist = y - start
+      const duration = 600
+      let raf
+      function step(t) {
+        if (!t) t = performance.now()
+        const p = Math.min((t - startTime) / duration, 1)
+        const ease = 1 - Math.pow(1 - p, 3)
+        window.scrollTo(0, start + dist * ease)
+        if (p < 1) raf = requestAnimationFrame(step)
+      }
+      const startTime = performance.now()
+      raf = requestAnimationFrame(step)
+      return () => cancelAnimationFrame(raf)
+    }
+  }, [selectedId, selectedSubId])
 
   const listParams = useMemo(() => {
     const params = { page: pageParam, size: PAGE_SIZE, ...(cfg.listParams ?? {}) }
@@ -208,7 +238,7 @@ export function CatalogListPage() {
         items.length > 0 &&
         (selectedId ? (
           <div className="catalog-layout">
-            <aside className="flex max-h-[calc(100vh-220px)] min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
+            <aside className="flex min-h-0 flex-col overflow-hidden lg:sticky lg:top-24 lg:max-h-[calc(100vh-220px)]">
               <Link
                 to={pageParam > 1 ? `/catalog/${resource}?page=${pageParam}` : `/catalog/${resource}`}
                 className="mb-2 my-[5px] block shrink-0 link-back"
@@ -231,8 +261,8 @@ export function CatalogListPage() {
                       className={`card-hover my-[3px] w-full fantasy-panel rounded-lg p-3 transition ${
                         isActive
                           ? 'border-ember/80 bg-stone-900'
-                          : 'hover:border-ember/50'
-                      }`}
+                          : 'h-full hover:border-ember/50'
+                      } ${!isActive ? 'hidden lg:block' : ''}`}
                     >
                       <button
                         type="button"
@@ -252,9 +282,9 @@ export function CatalogListPage() {
                         {it.description && (
                           <p className="mt-1.5 line-clamp-2 break-words whitespace-pre-wrap text-xs text-stone-400">{it.description}</p>
                         )}
-                        {summaryBadges(it).length > 0 && (
+                        {summaryBadges(it, resource).length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
-                            {summaryBadges(it).map((b, i) => (
+                            {summaryBadges(it, resource).map((b, i) => (
                               <Badge key={i} tone={b.tone} className="my-[5px]">{b.text}</Badge>
                             ))}
                           </div>
@@ -273,7 +303,7 @@ export function CatalogListPage() {
                               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
                                 {resource === 'races' ? 'Подрасы' : 'Подклассы'}
                               </p>
-                              <div className="flex flex-col gap-1">
+              <div className="grid auto-rows-fr gap-1">
                                 {activeSubs.map((sub) => {
                                   const isSubActive = String(selectedSubId) === String(sub.id)
                                   return (
@@ -306,7 +336,8 @@ export function CatalogListPage() {
               </div>
             </aside>
 
-            <section className="min-w-0">
+            <section ref={sectionRef} className="min-w-0">
+
               {detailQ.data ? (
                 <DetailPanel
                   key={`${resource}-${selectedId}`}

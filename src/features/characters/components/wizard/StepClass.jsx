@@ -1,20 +1,47 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AccordionItem } from '@/components/ui'
 import { abilityName } from '@/lib/utils/ability.js'
 import { armorProficiencyLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
+import { smoothScrollTo } from './scroll.js'
 
 export default function StepClass({ stepNo, total, form, update, lookups }) {
-  const [openFeature, setOpenFeature] = useState(null)
+  const [openFeatures, setOpenFeatures] = useState(() => new Set())
   const classDetail = lookups.classDetail
   const subclassDetail = lookups.subclassDetail
   const selectedClass = (lookups.classes ?? []).find((c) => String(c.id) === String(form.class_id))
   const subclasses = classDetail?.subclasses ?? []
   const selectedSub = subclasses.find((s) => String(s.id) === String(form.subclass_id))
 
-  const subDescription = subclassDetail?.description ?? selectedSub?.description ?? ''
   const subFeatures = subclassDetail?.features ?? selectedSub?.features ?? []
+
+  const classDetailRef = useRef(null)
+  const subDetailRef = useRef(null)
+  const classSelected = useRef(false)
+  const subSelected = useRef(false)
+
+  const toggleOpen = (id) =>
+    setOpenFeatures((prev) => {
+      const next = new Set(prev)
+      if (next.has(String(id))) next.delete(String(id))
+      else next.add(String(id))
+      return next
+    })
+
+  useEffect(() => {
+    if (classDetail && classSelected.current) {
+      classSelected.current = false
+      requestAnimationFrame(() => smoothScrollTo(classDetailRef.current))
+    }
+  }, [classDetail])
+
+  useEffect(() => {
+    if (subclassDetail && subSelected.current) {
+      subSelected.current = false
+      requestAnimationFrame(() => smoothScrollTo(subDetailRef.current))
+    }
+  }, [subclassDetail])
 
   const spellcasting = classDetail?.spellcasting_ability ? abilityName(classDetail.spellcasting_ability) : '—'
   const saves = (classDetail?.saving_throws ?? [])
@@ -42,36 +69,21 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
           noSearch
           columns="sm:grid-cols-2 xl:grid-cols-3"
           selectedId={form.class_id}
-          onSelect={(c) =>
+          onSelect={(c) => {
+            classSelected.current = true
             update({ class_id: String(c.id), subclass_id: '', class_skill_ids: [], starting_choices: {} })
-          }
+          }}
           subtitleOf={(c) => (c.hit_dice ? `к${c.hit_dice.replace('D', '')}` : undefined)}
         />
         {selectedClass && !classDetail && <Hint className="mt-3">Загружаем класс…</Hint>}
         {classDetail && (
-          <div className="mt-4 space-y-3">
+          <div ref={classDetailRef} className="mt-4 space-y-3 scroll-mt-24">
             <div className="space-y-1.5 rounded-lg border border-stone-800 bg-stone-900/50 p-4">
               {row('Характеристика заклинаний', [spellcasting])}
               {row('Спасброски', saves)}
               {row('Владения доспехами', armor)}
               {row('Владения оружием', weapons)}
             </div>
-            {(classDetail.starting_items ?? []).length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-widest text-stone-400">Стартовое снаряжение</p>
-                {(classDetail.starting_items ?? []).map((it) => (
-                  <p
-                    key={it.item_id}
-                    className="flex items-center gap-2 rounded-lg border border-stone-800 bg-stone-900/50 px-3 py-2 text-sm text-emerald-300"
-                  >
-                    <span className="min-w-0 flex-1 truncate" title={it.item?.name ?? `Предмет #${it.item_id}`}>
-                      {it.item?.name ?? `Предмет #${it.item_id}`}
-                    </span>
-                    {it.quantity > 1 && <span className="shrink-0 font-medium text-ember">×{it.quantity}</span>}
-                  </p>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </Section>
@@ -83,30 +95,30 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
             noSearch
             columns="sm:grid-cols-2 xl:grid-cols-3"
             selectedId={form.subclass_id}
-            onSelect={(s) => update({ subclass_id: String(s.id) })}
+            onSelect={(s) => {
+              if (s.id) subSelected.current = true
+              update({ subclass_id: String(s.id) })
+            }}
           />
           {form.subclass_id && (
-            <div className="mt-4 space-y-3">
+            <div ref={subDetailRef} className="mt-4 space-y-3 scroll-mt-24">
               {!subclassDetail && !selectedSub?.description && subFeatures.length === 0 && (
                 <Hint>Загружаем подкласс…</Hint>
-              )}
-              {subDescription && (
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{subDescription}</p>
               )}
               {subFeatures.length > 0 && (
                 <ul className="flex flex-col gap-[5px]">
                   {subFeatures.map((f) => {
-                    const expanded = openFeature === f.id
+                    const expanded = openFeatures.has(String(f.id))
                     return (
                       <li
                         key={f.id}
-                        className="rounded-lg border border-ember/60 bg-ember/5 py-3 pl-[10px] pr-[10px] transition-colors"
+                        className="rounded-lg border border-stone-700/60 bg-stone-900/60 py-3 pl-[10px] pr-[10px] transition-colors"
                       >
                         <AccordionItem
                           open={expanded}
-                          onToggle={() => setOpenFeature(expanded ? null : f.id)}
-                          bodyClassName="mt-1 px-[15px]"
-                          header={<p className="font-semibold text-ember">{f.name}</p>}
+                          onToggle={() => toggleOpen(f.id)}
+                          bodyClassName="mt-1 px-[5px] lg:px-[15px]"
+                          header={<p className="font-semibold text-sm text-stone-100 sm:text-base">{f.name}</p>}
                         >
                           {f.description && (
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { POINT_BUY_BUDGET, POINT_BUY_MIN, STATS, bonusMap, effectiveTotals, pointCost } from '@/lib/utils/ability.js'
 import { STEPS, DEFAULT_FORM, buildItemChoiceIds, choiceGroupsComplete } from '@/lib/utils/characterCreate.js'
@@ -6,11 +6,13 @@ import { Button, Card, ErrorBox, PageHeader, Skeleton, SkeletonCard, SkeletonCir
 import StepAbilities from '@/features/characters/components/wizard/StepAbilities.jsx'
 import StepBackground from '@/features/characters/components/wizard/StepBackground.jsx'
 import StepClass from '@/features/characters/components/wizard/StepClass.jsx'
+import StepEquipment from '@/features/characters/components/wizard/StepEquipment.jsx'
 import StepName from '@/features/characters/components/wizard/StepName.jsx'
 import StepRace from '@/features/characters/components/wizard/StepRace.jsx'
 import StepSkills from '@/features/characters/components/wizard/StepSkills.jsx'
 import StepSummary from '@/features/characters/components/wizard/StepSummary.jsx'
 import RollToasts from '@/features/characters/components/wizard/RollToasts.jsx'
+import { smoothScrollTo } from '@/features/characters/components/wizard/scroll.js'
 import { charactersApi } from '@/features/characters/api.js'
 import { useAuth } from '@/features/auth/useAuth.js'
 import {
@@ -53,6 +55,16 @@ export default function CharacterCreatePage() {
   const [creating, setCreating] = useState(false)
   const [rolls, setRolls] = useState([])
   const rollSeq = useRef(0)
+  const contentRef = useRef(null)
+  const didMount = useRef(false)
+
+  useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true
+      return
+    }
+    if (contentRef.current) smoothScrollTo(contentRef.current, { offset: 0 })
+  }, [step])
 
   const pushRolls = (items) => {
     if (!items) return
@@ -148,11 +160,14 @@ export default function CharacterCreatePage() {
         }
         return allAssigned
       }
-      case 'summary': {
+      case 'equipment': {
         // Снаряжение «выбери-себе-из-N» должно быть полностью заполнено:
         // бэкенд вернёт 400, если по группе выбрано не ровно pick_count опций.
         const complete = choiceGroupsComplete(classDetail, backgroundDetail, form.starting_choices)
-        return Boolean(form.name.trim()) && complete
+        return complete
+      }
+      case 'summary': {
+        return Boolean(form.name.trim())
       }
       default:
         return true
@@ -215,6 +230,8 @@ export default function CharacterCreatePage() {
         return <StepSkills {...props} />
       case 'abilities':
         return <StepAbilities {...props} onRoll={pushRolls} />
+      case 'equipment':
+        return <StepEquipment {...props} />
       case 'summary':
         return <StepSummary {...props} />
       default:
@@ -257,12 +274,12 @@ export default function CharacterCreatePage() {
         </Link>
       </div>
 
-      <PageHeader title="Новый персонаж" subtitle="Пошаговое создание героя 1 уровня в стиле классического D&D" />
+      <PageHeader title="Новый персонаж" />
 
       {error && <div className="mb-6"><ErrorBox error={error} /></div>}
 
       <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+        <aside className="hidden lg:block lg:sticky lg:top-6 lg:self-start">
           <ol className="space-y-1">
             {STEPS.map((s, i) => {
               const done = i < step
@@ -300,9 +317,11 @@ export default function CharacterCreatePage() {
         </aside>
 
         <div className="min-w-0">
-          <Card className="p-5 sm:p-6">
-            {renderStep()}
-            <div className="mt-6 flex items-center justify-between gap-3 border-t border-stone-700/40 pt-4">
+          <Card className="overflow-hidden !p-0">
+            <div ref={contentRef} className="px-5 py-5 sm:px-5 sm:py-5">
+              {renderStep()}
+            </div>
+            <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-stone-700/40 px-[10px] py-4 backdrop-blur sm:px-10 sm:py-5">
               <Button variant="ghost" disabled={step === 0 || creating} onClick={() => setStep((s) => Math.max(s - 1, 0))}>
                 ← Назад
               </Button>

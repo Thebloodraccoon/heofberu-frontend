@@ -62,7 +62,7 @@ export default function AttacksPanel({ characterId, attackBonus, onRoll, onError
       <div className="flex items-center justify-between">
         <p className="sheet-section-label sheet-section-label--flush self-center leading-none">Атаки персонажа</p>
         <button type="button" className="sheet-btn sheet-btn_primary" onClick={() => setModal('new')}>
-          + Добавить атаку
+          + Добавить
         </button>
       </div>
 

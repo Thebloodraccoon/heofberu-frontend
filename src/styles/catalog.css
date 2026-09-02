@@ -5,7 +5,7 @@
 /* --- Карточка каталога (плитка) --- */
 
 .catalog-tile {
-  @apply flex flex-col justify-center rounded-lg p-4 transition;
+  @apply flex h-full flex-col justify-center rounded-lg p-4 transition;
   @apply hover:border-ember/70;
   position: relative;
   border: 1px solid rgba(168, 133, 61, 0.26);
@@ -57,6 +57,8 @@
   position: relative;
   display: inline-block;
   line-height: 0;
+  width: 300px;
+  height: 500px;
 }
 .catalog-image-frame::before,
 .catalog-image-frame::after {
@@ -82,9 +84,9 @@
 .catalog-image-frame img {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 600px;
+  height: 100%;
   object-fit: cover;
+  object-position: top;
   border: 1px solid rgba(168, 133, 61, 0.26);
   border-radius: 0 10px 0 10px;
   background:
@@ -157,7 +159,7 @@
 /* --- Сетка каталога --- */
 
 .catalog-grid {
-  @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-4;
+  @apply grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4;
 }
 
 /* --- Двухколоночный макет каталога --- */
@@ -200,8 +202,8 @@
 
 .hero-emblem {
   margin-inline: auto;
-  width: 30rem;
-  height: 30rem;
+  width: min(30rem, 82vw);
+  aspect-ratio: 1 / 1;
   position: relative;
 }
 

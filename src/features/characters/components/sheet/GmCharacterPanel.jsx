@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
+import { catalogApi } from '@/features/catalog/api.js'
 import {
   useCharacterAsiAdjustments,
   useCharacterFeats,
@@ -598,7 +599,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                 <span className="flex shrink-0 items-center gap-1.5">
                   {(f.ability_score_increases ?? []).length > 0 && (
                     <span className="rounded bg-emerald-900/50 px-1.5 py-0.5 text-[10px] text-emerald-200">
-                      улучшение характеристики
+                      Улучшение характеристики
                     </span>
                   )}
                   {!featLevelOk(f) && (
@@ -617,7 +618,16 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                     onClick={() => setExpandedId(expanded ? null : f.id)}
                     className="rounded border border-stone-700 px-2 py-1 text-[11px] text-stone-300 transition hover:border-ember/50 hover:bg-stone-800"
                   >
-                    Посмотреть
+                    <svg
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className={`size-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                          aria-hidden="true"
+                        >
+                          <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </button>
                 </span>
               </div>
@@ -662,13 +672,30 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
   )
 }
 
-function FeaturePickerModal({ features, onPick, onClose }) {
+function FeaturePickerModal({ features, grantedIds, onPick, onClose }) {
   const [query, setQuery] = useState('')
+  const [expandedId, setExpandedId] = useState(null)
+
+  const detailQ = useQuery({
+    queryKey: ['catalog', 'features', 'detail', expandedId],
+    queryFn: async () => {
+      const [base, inc] = await Promise.all([
+        catalogApi.features.get(expandedId),
+        catalogApi.features.abilityIncreases.get(expandedId).catch(() => null),
+      ])
+      return { ...base, ability_increases: inc?.ability_increases ?? [] }
+    },
+    enabled: expandedId != null,
+  })
+  const detail = expandedId != null && detailQ.data ? detailQ.data : null
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return features
     return features.filter((f) => String(f.name ?? '').toLowerCase().includes(q))
   }, [features, query])
+
+  const available = useMemo(() => filtered.filter((f) => !grantedIds.has(Number(f.id))), [filtered, grantedIds])
 
   return (
     <Modal title="Выдать особенность" subtitle="Особые свойства из справочника" onClose={onClose} size="md" scroll>
@@ -680,21 +707,83 @@ function FeaturePickerModal({ features, onPick, onClose }) {
         autoFocus
       />
       <div className="mt-3 max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
-        {filtered.length === 0 && <p className="text-sm text-stone-500">Особенностей не найдено.</p>}
-        {filtered.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => onPick(f)}
-            className="w-full rounded-lg border border-stone-700/60 bg-stone-900/60 p-3 text-left transition hover:border-ember/50"
-          >
-            <p className="text-sm font-medium text-stone-100">{f.name}</p>
-            {f.level != null && (
-              <span className="mr-2 rounded bg-stone-800 px-1.5 py-0.5 text-[10px] text-stone-400">ур. {f.level}</span>
-            )}
-            {f.description && <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{f.description}</p>}
-          </button>
-        ))}
+        {available.length === 0 && <p className="text-sm text-stone-500">Особенностей не найдено.</p>}
+        {available.map((f) => {
+          const expanded = String(expandedId) === String(f.id)
+          const rowDetail = expanded ? detail : null
+          return (
+            <div
+              key={f.id}
+              className={`rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${expanded ? 'bg-stone-900' : ''}`}
+            >
+              <div className="flex items-start gap-2 p-3">
+                <button
+                  type="button"
+                  onClick={() => onPick(f)}
+                  className="min-w-0 flex-1 rounded text-left font-medium text-stone-100 hover:text-ember"
+                >
+                  {f.name}
+                </button>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {(f.ability_increases ?? []).length > 0 && (
+                    <span className="rounded bg-emerald-900/50 px-1.5 py-0.5 text-[10px] text-emerald-200">
+                      Улучшение характеристики
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`Посмотреть: ${f.name}`}
+                    onClick={() => setExpandedId(expanded ? null : f.id)}
+                    title={expanded ? 'Свернуть' : 'Подробнее'}
+                    aria-expanded={expanded}
+                    className="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 transition hover:text-stone-100"
+                  >
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className={`size-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                      aria-hidden="true"
+                    >
+                      <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              {expanded && (
+                <div className="border-t border-stone-700/50 px-3 py-2.5">
+                  {detailQ.isFetching || !rowDetail ? (
+                    <div className="space-y-1.5 py-1" aria-busy="true">
+                      <Skeleton className="h-3.5 w-full" />
+                      <Skeleton className="h-3.5 w-2/3" />
+                    </div>
+                  ) : (
+                    <>
+                      {(rowDetail.ability_increases ?? []).length > 0 && (
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          {rowDetail.ability_increases.map((ai, i) => (
+                            <span
+                              key={i}
+                              className="rounded border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-200"
+                            >
+                              +{ai.amount} {abilityName(ai.ability)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {rowDetail.description ? (
+                        <p className="whitespace-pre-line text-xs text-stone-300">{rowDetail.description}</p>
+                      ) : (
+                        <p className="text-xs italic text-stone-500">Описание отсутствует.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </Modal>
   )
@@ -938,9 +1027,22 @@ function FeaturesSection({ character, onError, reload }) {
                   >
                     <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
                     <span className="truncate text-sm font-medium text-stone-100">{featureName(cf)}</span>
-                    <span className="shrink-0 rounded border border-gold/40 px-1.5 py-0.5 text-[10px] text-gold-light">
-                      Особая
-                    </span>
+                    {(cf.feature?.ability_increases ?? []).length > 0 ? (
+                      <span className="flex shrink-0 flex-wrap items-center gap-1">
+                        {(cf.feature?.ability_increases ?? []).map((ai, i) => (
+                          <span
+                            key={i}
+                            className="rounded border border-emerald-700/60 bg-emerald-900/30 px-1.5 py-0.5 text-[10px] text-emerald-200"
+                          >
+                            +{ai.amount} {abilityName(ai.ability)}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded border border-gold/40 px-1.5 py-0.5 text-[10px] text-gold-light">
+                        Особая
+                      </span>
+                    )}
                   </button>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button type="button" size="xs" onClick={() => setNotesTarget(cf)}>
@@ -966,7 +1068,12 @@ function FeaturesSection({ character, onError, reload }) {
       )}
 
       {featurePickerOpen && (
-        <FeaturePickerModal features={catalogFeatures} onPick={grantFeature} onClose={() => setFeaturePickerOpen(false)} />
+        <FeaturePickerModal
+          features={catalogFeatures}
+          grantedIds={new Set(charFeatures.map((cf) => Number(cf.feature_id)))}
+          onPick={grantFeature}
+          onClose={() => setFeaturePickerOpen(false)}
+        />
       )}
       {notesTarget && (
         <FeatureNotesModal

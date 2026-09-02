@@ -98,13 +98,21 @@ export function renderValue(value) {
   return label(value)
 }
 
-export function summaryBadges(item) {
+export function summaryBadges(item, resource) {
   const badges = []
   if (item.level != null && item.level !== '') {
     badges.push({
       text: typeof item.level === 'number' ? ruLevel(item.level) : spellLevel(item.level),
       tone: 'accent',
     })
+  }
+  if (resource === 'features') {
+    if ((item.ability_increases ?? []).length > 0) {
+      badges.push({ text: 'Улучшение характеристики', tone: 'good' })
+    }
+  }
+  if (resource === 'feats' && (item.ability_score_increases ?? []).length > 0) {
+    badges.push({ text: 'Улучшение характеристики', tone: 'good' })
   }
   if (item.school) badges.push({ text: label(item.school), tone: 'default' })
   if (item.rarity && item.rarity !== 'NONE') {
@@ -118,7 +126,7 @@ export function summaryBadges(item) {
   if (item.item_type) badges.push({ text: label(item.item_type), tone: 'default' })
   if (item.size) badges.push({ text: raceSizeLabels[item.size] ?? label(item.size), tone: 'default' })
   if (item.hit_dice) badges.push({ text: `Кость хитов ${diceTypeLabels[item.hit_dice] ?? item.hit_dice}`, tone: 'default' })
-  if (item.source_type) badges.push({ text: label(item.source_type), tone: 'default' })
+  if (resource !== 'features' && item.source_type) badges.push({ text: label(item.source_type), tone: 'default' })
   if (item.ability) badges.push({ text: label(item.ability), tone: 'default' })
   if (item.armor_class) badges.push({ text: `КД ${item.armor_class}`, tone: 'default' })
   if (item.attack_type) badges.push({ text: label(item.attack_type), tone: 'default' })
@@ -242,7 +250,7 @@ export function FeatureCards({ features }) {
             <AccordionItem
               open={expanded}
               onToggle={() => toggle(f.id)}
-              bodyClassName="mt-1 px-[15px]"
+              bodyClassName="mt-1 px-[5px] lg:px-[15px]"
               header={
                 <>
                   <p className={`font-semibold ${isSub(f) ? 'text-ember' : 'text-stone-100'}`}>

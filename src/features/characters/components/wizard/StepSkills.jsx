@@ -87,15 +87,10 @@ export default function StepSkills({ stepNo, total, form, update, lookups }) {
         {classDetail && (
           <>
             {allGranted.length > 0 && (
-              <div className="mb-4 flex flex-wrap gap-1.5">
-                {allGranted
-                  .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
-                  .map((g) => (
-                    <Tag key={g.name} tone="good">
-                      {g.name} · {[...g.sources].sort().join(', ')}
-                    </Tag>
-                  ))}
-              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Навыки уже получены на предыдущих этапах:
+                <span className="text-stone-200"> {allGranted.sort((a, b) => a.name.localeCompare(b.name, 'ru')).map((g) => g.name).join(', ')}</span>
+              </p>
             )}
             {choiceCount === 0 ? (
               <Hint>У этого класса нет навыков на выбор.</Hint>

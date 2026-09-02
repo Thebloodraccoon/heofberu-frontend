@@ -53,7 +53,7 @@ export default function ConditionsPanel({ character, onError }) {
           className="sheet-btn sheet-btn_primary"
           onClick={() => setFormOpen((o) => !o)}
         >
-          + Добавить состояние
+          + Добавить
         </button>
       </div>
 

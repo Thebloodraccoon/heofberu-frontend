@@ -66,9 +66,10 @@ describe('StepRace', () => {
     expect(screen.getAllByText('Харизма +1').length).toBeGreaterThan(0)
   })
 
-  it('shows race features', () => {
+  it('shows race features as collapsible accordions', async () => {
     renderStep({})
     expect(screen.getByText('Тёмное зрение')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /тёмное зрение/i }))
     expect(screen.getByText('Видите в темноте')).toBeInTheDocument()
   })
 

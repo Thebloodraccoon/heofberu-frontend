@@ -153,8 +153,8 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
   return (
     <div className="space-y-5">
       <div>
-        <div className="flex items-center justify-between">
-          <p className="sheet-section-label sheet-section-label--flush self-center leading-none">
+        <div className="flex items-center justify-between pb-2">
+          <p className="sheet-section-label sheet-section-label--flush self-center leading-none mb-2">
             Заклинания
             {hasSpellcasting && totalSlots > 0 && (
               <span className={`ml-2 rounded px-1.5 py-0.5 text-xs font-semibold ${
@@ -171,7 +171,7 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
             disabled={!hasSpellcasting}
             title={classSpellcastingAbility ? `Характеристика заклинаний: ${abilityName(classSpellcastingAbility)}` : undefined}
           >
-            + Добавить заклинание
+            + Добавить
           </button>
         </div>
 

@@ -95,7 +95,7 @@ describe('StepClass', () => {
     expect(update).toHaveBeenCalledWith({ subclass_id: '' })
   })
 
-  it('shows the subclass description and expands its features', async () => {
+  it('does not show the subclass description but expands its features', async () => {
     renderStep({ subclass_id: '11' }, {
       classDetail: {
         ...classDetail,
@@ -109,7 +109,7 @@ describe('StepClass', () => {
         ],
       },
     })
-    expect(screen.getByText('Мастер горного боя')).toBeInTheDocument()
+    expect(screen.queryByText('Мастер горного боя')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /камнелом/i }))
     expect(screen.getByText('Разбивает камень')).toBeInTheDocument()
   })

@@ -81,7 +81,7 @@ export default function RaceDetailCard({ race, selectedSub }) {
           )}
         </div>
 
-        <div className="order-1 w-full shrink-0 sm:order-2 sm:w-[35%]">
+        <div className="order-1 w-full shrink-0 sm:order-2 sm:w-auto flex justify-center items-start">
           <CatalogImage
             imageUrl={selectedSub?.image_url ?? race.image_url}
             alt={selectedSub ? selectedSub.name : race.name}

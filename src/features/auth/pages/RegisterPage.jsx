@@ -25,7 +25,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center px-4 pt-2 pb-10">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 text-center">
           <span className="avatar-md mx-auto mb-3">H</span>

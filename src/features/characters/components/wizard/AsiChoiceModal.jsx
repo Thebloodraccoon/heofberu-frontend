@@ -188,7 +188,7 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                         </button>
                         <span className="flex shrink-0 items-center gap-1.5">
                           {(f.ability_score_increases ?? []).length > 0 && (
-                            <Tag tone="good">улучшение характеристики</Tag>
+                            <Tag tone="good">Улучшение характеристики</Tag>
                           )}
                           {!featLevelOk(f) && <Tag tone="bad">С уровня {f.min_level}</Tag>}
                           {!featPrereqOk(f) && (
@@ -200,9 +200,20 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                             type="button"
                             aria-label={`Посмотреть: ${f.name}`}
                             onClick={() => setExpandedId(expanded ? null : f.id)}
-                            className="rounded border border-stone-700 px-2 py-1 text-[11px] text-stone-300 transition hover:border-ember/50 hover:bg-stone-800"
+                            title={expanded ? 'Свернуть' : 'Подробнее'}
+                            aria-expanded={expanded}
+                            className="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 transition hover:text-stone-100"
                           >
-                            Посмотреть
+                            <svg
+                              viewBox="0 0 20 20"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              className={`size-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                              aria-hidden="true"
+                            >
+                              <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
                           </button>
                         </span>
                       </div>

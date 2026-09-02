@@ -63,8 +63,9 @@ describe('StepSkills', () => {
   it('shows the choice counter and grants from race and background', () => {
     renderStep({})
     expect(screen.getByText('Выбрано: 0 из 2')).toBeInTheDocument()
-    expect(screen.getByText('Скрытность · раса')).toBeInTheDocument()
-    expect(screen.getByText('Обман · предыстория')).toBeInTheDocument()
+    expect(screen.getByText('Навыки уже получены на предыдущих этапах:')).toBeInTheDocument()
+    expect(screen.getByText(/Скрытность/)).toBeInTheDocument()
+    expect(screen.getByText(/Обман/)).toBeInTheDocument()
   })
 
   it('excludes skills already granted by race or background from the choice pool', () => {

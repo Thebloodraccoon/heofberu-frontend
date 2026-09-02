@@ -1442,7 +1442,7 @@ export default function GmEditorPage() {
                 )}
               </Card>
             ) : showForm && editLoading ? (
-              <Card className="p-10" aria-busy="true">
+              <Card className="p-6" aria-busy="true">
                 <div className="space-y-2">
                   <Skeleton className="h-6 w-56" />
                   <Skeleton className="h-4 w-72" />
@@ -1463,7 +1463,7 @@ export default function GmEditorPage() {
                 </div>
               </Card>
             ) : (
-              <Card className="p-10 text-center">
+              <Card className="p-6 text-center">
                 <p className="font-display text-lg font-bold text-stone-300">
                   Редактор {cfg.label.toLowerCase()}
                 </p>

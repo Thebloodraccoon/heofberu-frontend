@@ -127,24 +127,25 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-stone-950">
       <header className="sticky top-0 z-40 border-b border-stone-800 bg-stone-950/85 backdrop-blur">
-        <nav className="mx-auto flex h-16 max-w-[80rem] items-center gap-3 px-6 sm:px-8">
+        <nav className="mx-auto flex h-16 max-w-[80rem] items-center gap-3 px-5 sm:px-8">
           <Link to="/" className="flex items-center gap-2 text-sm font-medium text-stone-300 transition hover:text-stone-100">
             <Crest size="size-8" />
-            <span className="hidden text-base font-bold tracking-wide text-stone-100 sm:block">Heofberu</span>
+            <span className="text-base font-bold tracking-wide text-stone-100">Heofberu</span>
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
-            <ThemeSwitcher />
+            <span className="hidden md:inline-flex">
+              <ThemeSwitcher />
+            </span>
             {authenticated ? (
               <>
-                <span className="hidden text-sm text-stone-300 md:block">{user?.username}</span>
                 <button
                   type="button"
                   onClick={() => {
                     logout()
                     navigate('/')
                   }}
-                  className="hidden items-center gap-1.5 rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
+                  className="hidden h-[30px] items-center gap-1.5 rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -166,7 +167,7 @@ export default function Layout() {
             ) : (
               <Link
                 to="/login"
-                className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                className="hidden h-[30px] items-center rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
               >
                 Войти
               </Link>
@@ -176,7 +177,7 @@ export default function Layout() {
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="rounded border border-stone-700 px-2 py-1 text-sm text-stone-300 transition hover:bg-stone-800 lg:hidden"
+            className="flex h-[30px] items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800 lg:hidden"
             aria-label="Открыть меню"
           >
             ☰
@@ -220,7 +221,7 @@ export default function Layout() {
       )}
 
       <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col border-x border-stone-800/80 bg-stone-950/90 shadow-[0_0_70px_rgba(0,0,0,0.75)]">
-        <main className="flex-1 px-6 py-10 sm:px-8">
+        <main className="flex-1 px-5 py-5 sm:px-8 sm:py-8">
           <Outlet />
         </main>
 
@@ -230,20 +231,71 @@ export default function Layout() {
       </div>
 
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 lg:hidden" onClick={close}>
-          <aside className="flex h-full w-[16.75rem] flex-col border-r border-stone-800 bg-stone-950 p-3" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2">
-              <span className="text-sm font-semibold text-stone-100">Меню</span>
-              <button
-                type="button"
-                onClick={close}
-                className="rounded px-2 text-sm text-stone-400 hover:text-stone-100"
-              >
-                ✕
-              </button>
+        <div className="fixed inset-0 z-50 flex flex-col bg-stone-950 lg:hidden">
+          <header className="flex h-16 shrink-0 items-center gap-3 border-b border-stone-800 px-5">
+            <Link
+              to="/"
+              onClick={close}
+              className="flex items-center gap-2 text-sm font-medium text-stone-300 transition hover:text-stone-100"
+            >
+              <Crest size="size-8" />
+              <span className="text-base font-bold tracking-wide text-stone-100">Heofberu</span>
+            </Link>
+
+            <div className="ml-auto flex items-center gap-2">
+              <ThemeSwitcher />
+              {authenticated ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout()
+                      navigate('/')
+                      close()
+                    }}
+                    className="flex h-[30px] items-center gap-1.5 rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-4"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <path d="M16 17l5-5-5-5" />
+                      <path d="M21 12H9" />
+                    </svg>
+                    Выйти
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={close}
+                  className="flex h-[30px] items-center rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800"
+                >
+                  Войти
+                </Link>
+              )}
             </div>
+
+            <button
+              type="button"
+              onClick={close}
+              className="flex h-[30px] items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800"
+              aria-label="Закрыть меню"
+            >
+              ✕
+            </button>
+          </header>
+
+          <nav className="flex-1 overflow-y-auto p-4">
             <SidebarContent onClick={close} />
-          </aside>
+          </nav>
         </div>
       )}
     </div>

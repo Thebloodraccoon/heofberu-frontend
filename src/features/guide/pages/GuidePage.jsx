@@ -470,20 +470,34 @@ export default function GuidePage() {
       <section className="guide-section border-t-4 border-t-[#a8853d]">
         <h2 className="guide-heading">Три принципа</h2>
 
-        <ol className="guide-ordered list-decimal pl-5 mt-4 space-y-5">
-          <li>
-            <strong className="guide-strong text-stone-100">Хорошими бывают поступки, а не фракции.</strong>
-            <br/><span className="text-stone-300">Организация может создавать более справедливые законы, защищать слабых или останавливать войну, но это не делает её носителем вечного добра.</span>
-          </li>
-          <li>
-            <strong className="guide-strong text-stone-100">Исторический масштаб объясняет, личный масштаб судит.</strong>
-            <br/><span className="text-stone-300">История объясняет, почему империя совершила преступление. Персонажи и читатель всё равно имеют право назвать его преступлением. Объяснение не является оправданием.</span>
-          </li>
-          <li>
-            <strong className="guide-strong text-stone-100">Выбор должен менять будущее, но не отменять историю.</strong>
-            <br/><span className="text-stone-300">Решение героя важно, если после него мир действительно становится другим, но оно не должно магически разрешать все накопившиеся противоречия.</span>
-          </li>
-        </ol>
+        <div className="mt-4 space-y-6">
+          <div>
+            <h3 className="guide-subtitle font-bold text-stone-100 mb-2">
+              Хорошими бывают поступки, а не фракции.
+            </h3>
+            <p className="guide-text text-stone-300">
+              Организация может создавать более справедливые законы, защищать слабых или останавливать войну, но это не делает её носителем вечного добра.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="guide-subtitle font-bold text-stone-100 mb-2">
+              Исторический масштаб объясняет, личный масштаб судит.
+            </h3>
+            <p className="guide-text text-stone-300">
+              История объясняет, почему империя совершила преступление. Персонажи и читатель всё равно имеют право назвать его преступлением. Объяснение не является оправданием.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="guide-subtitle font-bold text-stone-100 mb-2">
+              Выбор должен менять будущее, но не отменять историю.
+            </h3>
+            <p className="guide-text text-stone-300">
+              Решение героя важно, если после него мир действительно становится другим, но оно не должно магически разрешать все накопившиеся противоречия.
+            </p>
+          </div>
+        </div>
       </section>
     </div>
   )

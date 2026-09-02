@@ -16,7 +16,7 @@ export default function ThemeSwitcher() {
       onClick={toggle}
       aria-label={dark ? 'Включить светлую тему' : 'Включить тёмную тему'}
       title={dark ? 'Светлая тема' : 'Тёмная тема'}
-      className="flex items-center gap-1.5 rounded border border-stone-700 px-2 py-1 text-stone-300 transition hover:bg-stone-800"
+      className="flex h-[30px] items-center justify-center rounded border border-stone-700 px-2 text-stone-300 transition hover:bg-stone-800"
     >
       {dark ? (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden="true">

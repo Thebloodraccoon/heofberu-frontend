@@ -5,6 +5,7 @@ export const STEPS = [
   { id: 'class', title: 'Класс' },
   { id: 'skills', title: 'Навыки' },
   { id: 'abilities', title: 'Характеристики' },
+  { id: 'equipment', title: 'Снаряжение' },
   { id: 'summary', title: 'Сводка' },
 ]
 
