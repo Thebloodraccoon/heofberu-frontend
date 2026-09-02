@@ -34,7 +34,6 @@ export default function ForgotPasswordPage() {
         <div className="mb-6 text-center">
           <span className="avatar-md mx-auto mb-3">H</span>
           <h1 className="heading-section">Восстановление пароля</h1>
-          <p className="subtitle">Введите email для получения ссылки</p>
         </div>
         {error && (
           <div className="mb-4">

@@ -33,7 +33,7 @@
 }
 
 .guide-list {
-  @apply space-y-3 text-base leading-relaxed text-stone-200;
+  @apply list-disc pl-5 space-y-3 text-base leading-relaxed text-stone-200;
 }
 
 .guide-list-disc {
@@ -54,4 +54,14 @@
 
 .guide-strong {
   @apply text-stone-100;
+}
+
+.guide-quote {
+  @apply border-l-4 border-gold/40 pl-4 py-2 italic text-stone-300;
+  background: rgba(168, 133, 61, 0.06);
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.guide-list-item {
+  @apply text-base leading-relaxed text-stone-200;
 }

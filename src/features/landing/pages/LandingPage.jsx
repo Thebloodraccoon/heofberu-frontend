@@ -7,52 +7,41 @@ export default function LandingPage() {
 
   return (
     <div>
-      <section className="py-6 text-center sm:py-10">
-        <span className="avatar-hero">H</span>
-        <h1 className="mt-6 heading-hero">
-          Heofberu
-        </h1>
-        <div className="ornate-rule mx-auto mt-4 max-w-md">
+      {/* HERO */}
+      <section className="hero">
+        <div className="hero-emblem">
+          <img src="/logo-intro.png" alt="Эмблема Heofberu" />
+        </div>
+
+        <h1 className="heading-hero">Heofberu</h1>
+        <p className="hero-eyebrow">Mater Caeli · Uterus Mundi</p>
+
+        <div className="ornate-rule mx-auto mt-6 max-w-[22rem]">
           <span aria-hidden className="text-sm">✦</span>
         </div>
-        <p className="mx-auto mt-4 max-w-2xl text-body">
-          Летопись миров D&D: персонажи, расы, классы, заклинания и артефакты — всё в одном месте.
-          Справочники открыты каждому путнику, а летописи персонажей — только их владельцам.
+
+        <p className="text-body mx-auto mt-5 max-w-xl">
+          Хеофберу — мир, порождённый собственной историей: расы, классы, заклинания и артефакты,
+          рождённые из космогонии, катастроф и памяти минувших эпох. Своды знаний открыты каждому
+          путнику, а летописи персонажей — только их владельцам.
         </p>
-        <div className="mt-7 flex flex-wrap justify-center gap-3">
-          <Link
-            to="/guide"
-            className="rounded border border-gold/40 px-5 py-2.5 text-sm font-medium text-gold-light transition hover:bg-stone-800"
-          >
-            Руководство по миру
-          </Link>
+
+        <div className="hero-actions">
           {authenticated ? (
             <>
-              <Link
-                to="/characters"
-                className="rounded bg-ember px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ember-dark"
-              >
+              <Link to="/characters" className="btn btn-primary">
                 Мои персонажи
               </Link>
-              <Link
-                to="/profile"
-                className="rounded border border-stone-700 px-5 py-2.5 text-sm text-stone-300 transition hover:bg-stone-800"
-              >
+              <Link to="/profile" className="btn btn-outline">
                 Мой профиль
               </Link>
             </>
           ) : (
             <>
-              <Link
-                to="/register"
-                className="rounded bg-ember px-5 py-2.5 text-sm font-medium text-white transition hover:bg-ember-dark"
-              >
+              <Link to="/register" className="btn btn-primary">
                 Начать путешествие
               </Link>
-              <Link
-                to="/login"
-                className="rounded border border-stone-700 px-5 py-2.5 text-sm text-stone-300 transition hover:bg-stone-800"
-              >
+              <Link to="/login" className="btn btn-outline">
                 Войти
               </Link>
             </>
@@ -60,11 +49,41 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="mt-10 sm:mt-14">
-        <h2 className="text-center heading-section">Справочники</h2>
-        <div className="ornate-rule mx-auto mt-3 max-w-md">
-          <span aria-hidden className="text-sm">✦</span>
+      {/* WORLD TEASER */}
+      <section className="world-panel mt-12 sm:mt-14">
+        <div>
+          <p className="kicker">Историогенетическое фэнтези</p>
+          <h3>Мир, порождённый собственной историей</h3>
+          <p>
+            Космология, магия, разумные виды, языки, религии, хозяйство и политические институты
+            Хеофберу не заданы в готовом виде — они возникают, изменяются и исчезают под воздействием
+            внутренних причин на протяжении многих эпох. Прошлое здесь не фон, а активная сила,
+            определяющая устройство настоящего.
+          </p>
+          <div className="cta">
+            <Link to="/guide" className="btn btn-outline-gold">
+              Читать руководство →
+            </Link>
+          </div>
         </div>
+        <div>
+          <p className="quote">
+            «Чем древнее традиция, тем менее она должна быть цельной и однозначной.»
+            <small>Из руководства по миру</small>
+          </p>
+        </div>
+      </section>
+
+      {/* CATALOG */}
+      <section className="mt-12 sm:mt-14">
+        <div className="text-center">
+          <h2 className="heading-section">Справочники</h2>
+          <p className="subtitle mt-1">Своды знаний о мире Хеофберу — открыты каждому путнику</p>
+          <div className="ornate-rule mx-auto mt-3 max-w-[22rem]">
+            <span aria-hidden className="text-sm">✦</span>
+          </div>
+        </div>
+
         <div className="catalog-grid mt-8">
           {Object.entries(catalog).map(([key, cfg]) => (
             <Link

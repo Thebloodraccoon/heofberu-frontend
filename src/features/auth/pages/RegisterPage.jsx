@@ -30,7 +30,6 @@ export default function RegisterPage() {
         <div className="mb-6 text-center">
           <span className="avatar-md mx-auto mb-3">H</span>
           <h1 className="heading-section">Регистрация</h1>
-          <p className="subtitle">Новый аккаунт игрока</p>
         </div>
         {error && <div className="mb-4"><ErrorBox error={error} /></div>}
         <form onSubmit={submit} className="flex flex-col gap-4">
