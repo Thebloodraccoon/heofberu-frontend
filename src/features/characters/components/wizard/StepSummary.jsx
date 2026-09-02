@@ -79,24 +79,30 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
         </div>
 
         <Section title="Сводка характеристик">
-          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
-            {STATS.map((s) => {
-              const value = derived.totals[s.code] ?? 10
-              const modifier = mod(value)
-              return (
-                <div key={s.code} className="flex items-center justify-between rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wider text-stone-500">{abilityName(s.code)}</p>
-                  <p className="font-display text-base font-bold text-stone-100">
-                    <span className={`${modifier >= 0 ? 'text-gold-light' : 'text-red-400'}`}>
-                      {modifier >= 0 ? '+' : ''}
-                      {modifier}
-                    </span>
-                    <span className="ml-1.5 text-sm font-normal text-stone-300">{value}</span>
-                  </p>
-                </div>
-              )
-            })}
-          </div>
+          <table className="w-full table-fixed border-separate border-spacing-y-0.5 bg-stone-700/60">
+            <tbody>
+              {STATS.map((s) => {
+                const value = derived.totals[s.code] ?? 10
+                const modifier = mod(value)
+                return (
+                  <tr key={s.code}>
+                    <td className="w-3/5 border-l border-stone-700/60 bg-stone-900 px-3 py-2 text-[11px] uppercase tracking-wider text-stone-500">
+                      {abilityName(s.code)}
+                    </td>
+                    <td className="w-1/5 bg-stone-900 py-2 text-center font-display text-xs font-bold text-stone-100">
+                      <span className={`${modifier >= 0 ? 'text-gold-light' : 'text-red-400'}`}>
+                        {modifier >= 0 ? '+' : ''}
+                        {modifier}
+                      </span>
+                    </td>
+                    <td className="w-1/5 border-r border-stone-700/60 bg-stone-900 py-2 text-center font-display text-base font-normal text-stone-300">
+                      {value}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </Section>
       </div>
 
@@ -104,11 +110,11 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
         {equipment.length === 0 ? (
           <p className="text-sm text-stone-400">Снаряжение не задано.</p>
         ) : (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-wrap gap-1.5">
             {equipment.map((it, i) => (
               <li
                 key={i}
-                className="flex items-center gap-2 rounded-lg border border-stone-800 bg-stone-900/60 px-3 py-2 text-sm text-stone-200"
+                className="flex w-full items-center gap-2 rounded-lg border border-stone-800 bg-stone-900/60 px-3 py-2 text-sm text-stone-200 sm:w-[calc(50%-0.375rem)] lg:w-[calc(33.333%-0.5rem)]"
               >
                 <span className="min-w-0 flex-1 truncate" title={it.name}>
                   {it.name}

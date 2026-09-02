@@ -113,7 +113,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
                 title={`Бросить к${dieSides}`}
                 subtitle={
                   rolled != null
-                    ? `Выпало ${rolled} ${conMod >= 0 ? '+' : ''}${conMod} = ${Math.max(1, rolled + conMod)} HP`
+                    ? `Выпало ${rolled} ${conMod >= 0 ? '+' : ''}${conMod} = ${Math.max(1, rolled + conMod)}`
                     : 'Бросок кости хитов + мод. Телосложения'
                 }
               >

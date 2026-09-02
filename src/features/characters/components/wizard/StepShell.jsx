@@ -8,12 +8,7 @@ export function StepShell({ stepNo, total, title, subtitle, children }) {
       </div>
       <h2 className="font-display text-2xl font-bold text-stone-100">{title}</h2>
       {subtitle && <p className="mt-1.5 text-[15px] text-stone-300">{subtitle}</p>}
-      <div className="ornate-rule mb-6 mt-3 max-w-md">
-        <span aria-hidden className="text-xs">
-          ✦
-        </span>
-      </div>
-      <div className="space-y-8">{children}</div>
+      <div className="mt-[15px] space-y-8">{children}</div>
     </div>
   )
 }

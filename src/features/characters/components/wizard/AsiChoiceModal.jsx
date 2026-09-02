@@ -46,6 +46,22 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
   }
   const featLevelOk = (f) => f.min_level == null || Number(f.min_level) <= Number(level)
 
+  const featIncreaseOptions = (f) =>
+    (f != null && String(expandedId) === String(f.id) ? detail?.ability_score_increases : undefined) ??
+    f?.ability_score_increases ??
+    []
+
+  const needsIncrease = (featIncreaseOptions(currentFeat)).length > 0
+
+  // Если у выбранной черты ровно один вариант увеличения характеристик —
+  // выбираем его автоматически (даже когда он подгружается из деталей позже).
+  const selectedOptions = featIncreaseOptions(selectedFeat)
+  useEffect(() => {
+    if (selectedFeat && selectedOptions.length === 1) {
+      setIncreaseId(selectedOptions[0].id)
+    }
+  }, [selectedFeat, selectedOptions])
+
   const confirm = () => {
     if (mode === 'asi') {
       const increasesList = Object.entries(totals)
@@ -53,7 +69,7 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
         .map(([code, v]) => ({ ability: code, amount: v }))
       onConfirm({ type: 'ASI', increases: increasesList })
     } else {
-      const feat = selectedFeat ?? viewedFeat
+      const feat = selectedFeat
       if (!feat) return
       onConfirm({
         type: 'FEAT',
@@ -63,7 +79,10 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
     }
   }
 
-  const canConfirm = mode === 'asi' ? budget >= 1 && budget <= 2 : Boolean(currentFeat)
+  // Черта должна быть реально выбрана, а если у неё есть варианты увеличения
+  // характеристик — один из них обязательно должен быть выбран.
+  const canConfirm =
+    mode === 'asi' ? budget >= 1 && budget <= 2 : Boolean(selectedFeat) && (!needsIncrease || increaseId != null)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
@@ -180,7 +199,8 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                           disabled={!ok}
                           onClick={() => {
                             setFeatId(f.id)
-                            setIncreaseId(null)
+                            const opts = featIncreaseOptions(f)
+                            setIncreaseId(opts.length === 1 ? opts[0].id : null)
                           }}
                           className={`min-w-0 flex-1 rounded text-left font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                         >
@@ -254,11 +274,11 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                   )
                 })}
               </div>
-              {currentFeat && ((detail?.ability_score_increases ?? currentFeat.ability_score_increases) ?? []).length > 0 && (
+              {currentFeat && featIncreaseOptions(currentFeat).length > 0 && (
                 <div className="mt-3 rounded border border-stone-700/50 bg-stone-800/40 p-3">
                   <p className="mb-2 text-sm text-stone-300">Черта даёт увеличение характеристик. Выберите вариант:</p>
                   <div className="grid gap-1.5 sm:grid-cols-2">
-                    {(detail?.ability_score_increases ?? currentFeat.ability_score_increases ?? []).map((ai) => {
+                    {featIncreaseOptions(currentFeat).map((ai) => {
                       const checked = String(ai.id) === String(increaseId)
                       return (
                         <label

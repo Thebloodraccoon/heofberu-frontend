@@ -37,16 +37,20 @@ function Toast({ toast, onDismiss }) {
     const id = setInterval(() => {
       setRemaining((r) => {
         const next = r - TICK
-        if (next <= 0) {
-          clearInterval(id)
-          onDismissRef.current(toast.id)
-          return 0
-        }
-        return next
+        return next <= 0 ? 0 : next
       })
     }, TICK)
     return () => clearInterval(id)
   }, [paused, toast.id])
+
+  // Скрываем тост, когда таймер дожил до нуля. Вызов onDismiss вынесен из
+  // апдейтера setRemaining, чтобы не мутировать родительское состояние
+  // во время рендера другого компонента.
+  useEffect(() => {
+    if (remaining <= 0) {
+      onDismissRef.current(toast.id)
+    }
+  }, [remaining, toast.id])
 
   const opacity = paused || reduceMotion ? 1 : remaining / LIFETIME
   const rolls = Array.isArray(toast.rolls) ? toast.rolls : null
