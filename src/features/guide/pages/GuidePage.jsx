@@ -26,6 +26,13 @@ export default function GuidePage() {
           </p>
         </blockquote>
 
+        {/* Изображение 1: Космос/Небо (отсылка к "Союзу Неба и Земли") */}
+        <img
+          src="/two-planets.jpg"
+          alt="Две планеты, символизирующие союз Неба и Земли"
+          className="w-full h-48 sm:h-64 object-cover rounded-md mt-6 mb-6 border border-[#a8853d]/30 opacity-80 hover:opacity-100 grayscale hover:grayscale-0 transition-all duration-500 shadow-lg"
+        />
+
         <p className="guide-text">
           <strong className="guide-strong">Историогенетическое фэнтези</strong> — это направление, в котором вторичный мир предстает как живая, развивающаяся система. <em>Почему именно «историогенетическое»?</em> Этот термин подчеркивает главную суть: мир не просто обладает историей — он непрерывно ею порождается.
         </p>
@@ -115,6 +122,13 @@ export default function GuidePage() {
             Здесь масштаб важнее отдельного героя, потому что человек входит в историю уже начатой и покидает её незавершённой. Персонаж здесь не автор истории, а точка, в которой история приобретает волю, голос и лицо.
           </li>
         </ul>
+
+        {/* Изображение 2: Руины/Древность (отсылка к эрозии традиций и бремени прошлого) */}
+        <img
+          src="/old-stone-ruins.jpg"
+          alt="Древние каменные руины и статуи"
+          className="w-full h-56 sm:h-72 object-cover rounded-md mt-8 mb-6 border border-[#a8853d]/30 opacity-80 hover:opacity-100 grayscale hover:grayscale-0 transition-all duration-500 shadow-lg"
+        />
 
         {/* Блок 2: Традиции */}
         <h3 className="guide-subtitle font-bold text-lg text-stone-100 mt-6 mb-2">
@@ -261,7 +275,7 @@ export default function GuidePage() {
         </p>
       </section>
 
-            <section className="guide-section">
+      <section className="guide-section">
         <h2 className="guide-heading">Почему масштаб важнее отдельного персонажа</h2>
 
         <p className="guide-text mb-4">
@@ -285,6 +299,13 @@ export default function GuidePage() {
           <li>развития нового оружия;</li>
           <li>накопленного противоречия между центром и окраинами.</li>
         </ul>
+
+        {/* Изображение 3: Масштаб (одинокий человек на фоне огромного пейзажа) */}
+        <img
+          src="/size-of-history.jpg"
+          alt="Одинокий путник на фоне величественного пейзажа"
+          className="w-full h-48 sm:h-64 object-cover rounded-md mt-6 mb-6 border border-[#a8853d]/30 opacity-80 hover:opacity-100 grayscale hover:grayscale-0 transition-all duration-500 shadow-lg"
+        />
 
         <p className="guide-text mb-6">
           Персонаж может ускорить процесс, изменить его форму, отложить катастрофу или направить насилие в другую сторону. Но он редко создаёт историческую ситуацию из ничего.
