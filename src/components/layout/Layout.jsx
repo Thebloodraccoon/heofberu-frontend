@@ -220,7 +220,7 @@ export default function Layout() {
         </aside>
       )}
 
-      <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col border-x border-stone-800/80 bg-stone-950/90 shadow-[0_0_70px_rgba(0,0,0,0.75)]">
+      <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col border-x border-stone-800/80 bg-stone-950/90 shadow-[0_0_30px_rgba(0,0,0,0.75)]">
         <main className="flex-1 px-5 py-5 sm:px-8 sm:py-8">
           <Outlet />
         </main>
