@@ -80,6 +80,25 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
 
   if (res.status === 204) return null
 
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10)
+    const limit = res.headers.get('X-RateLimit-Limit')
+    const remaining = res.headers.get('X-RateLimit-Remaining')
+    const reset = res.headers.get('X-RateLimit-Reset')
+
+    window.dispatchEvent(
+      new CustomEvent('heofberu:rate-limit', {
+        detail: { retryAfter, limit: limit ? Number(limit) : null, remaining: remaining ? Number(remaining) : null, reset: reset ? Number(reset) : null },
+      }),
+    )
+
+    const error = new Error(`Слишком много запросов. Повторите через ${retryAfter} сек.`)
+    error.status = 429
+    error.retryAfter = retryAfter
+    error.rateLimit = { limit: limit ? Number(limit) : null, remaining: remaining ? Number(remaining) : null, reset: reset ? Number(reset) : null }
+    throw error
+  }
+
   const text = await res.text()
   let data = null
   if (text) {
