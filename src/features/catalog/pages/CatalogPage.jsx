@@ -63,6 +63,7 @@ export function CatalogListPage() {
   const pageParam = Number(searchParams.get('page')) || 1
 
   const selectedId = id ? Number(id) : null
+  const requestedSubId = searchParams.get('sub') ? Number(searchParams.get('sub')) : null
 
   // Поиск применяется по кнопке «Найти», фильтры — при закрытии модального окна.
   const [queryInput, setQueryInput] = useState('')
@@ -72,11 +73,28 @@ export function CatalogListPage() {
   const [subSel, setSubSel] = useState({ parentId: null, id: null })
   const selectedSubId = subSel.parentId === selectedId ? subSel.id : null
 
+  // Deep-link: при переходе с персонажа сразу открываем конкретную подрасу/подкласс.
+  // Используем ref, чтобы при первом рендере эффект resource не перезатёр subSel.
+  const subDeepLinked = useRef(false)
+
+  useEffect(() => {
+    if (!selectedId || requestedSubId == null) return
+    setSubSel({ parentId: selectedId, id: requestedSubId })
+    subDeepLinked.current = true
+    const next = new URLSearchParams(searchParams)
+    next.delete('sub')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, requestedSubId])
+
   useEffect(() => {
     setQueryInput('')
     setAppliedSearch('')
     setFilters({})
-    setSubSel({ parentId: null, id: null })
+    if (!subDeepLinked.current) {
+      setSubSel({ parentId: null, id: null })
+    }
+    subDeepLinked.current = false
     if (searchParams.get('page')) {
       const next = new URLSearchParams(searchParams)
       next.delete('page')

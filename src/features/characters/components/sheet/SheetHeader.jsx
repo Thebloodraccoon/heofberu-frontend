@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BoxedValue, RollButton } from '@/components/sheet/primitives.jsx'
 import { Select } from '@/components/ui'
 import RollHistory from '@/components/sheet/RollHistory.jsx'
@@ -103,11 +104,11 @@ export default function SheetHeader({
   onOpenLevelUp,
   onRollInitiative,
   onRollFree,
+  onOpenSettings,
 }) {
   const { user } = useAuth()
   const allFields = user?.username ? [...fields, { label: 'Игрок', value: user.username }] : fields
   const pick = (label) => allFields.find((f) => f.label === label)?.value
-  const combine = (...labels) => labels.map(pick).filter(Boolean).join(' · ')
   return (
     <div className="sheet-header">
       <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
@@ -127,6 +128,18 @@ export default function SheetHeader({
           )}
         </div>
         <div className="order-2 flex flex-1 items-center justify-end gap-2 sm:order-3 sm:ml-auto sm:w-auto sm:flex-none">
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="grid size-10 place-items-center rounded-full border border-stone-700 bg-stone-800/70 text-stone-300 transition hover:border-ember hover:text-ember"
+            title="Настройки персонажа"
+            aria-label="Настройки персонажа"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
           <RollHistory />
           <DicePicker onRoll={onRollFree} />
         </div>
@@ -134,9 +147,54 @@ export default function SheetHeader({
           <span className="sheet-name">{pick('Имя') || character.name || 'Безымянный персонаж'}</span>
           <div className="sheet-chips">
             <span className="sheet-chip sheet-chip--lvl">Ур. {pick('Уровень') ?? '—'}</span>
-            {combine('Класс', 'Подкласс') && <span className="sheet-chip">{combine('Класс', 'Подкласс')}</span>}
-            {combine('Раса', 'Подраса') && <span className="sheet-chip">{combine('Раса', 'Подраса')}</span>}
-            {pick('Предыстория') && <span className="sheet-chip">{pick('Предыстория')}</span>}
+            {pick('Класс') &&
+              (character.class_id ? (
+                <Link to={`/catalog/classes/${character.class_id}`} className="sheet-chip sheet-chip--link" title="Класс в каталоге">
+                  {pick('Класс')}
+                </Link>
+              ) : (
+                <span className="sheet-chip">{pick('Класс')}</span>
+              ))}
+            {pick('Подкласс') &&
+              (character.class_id ? (
+                <Link
+                  to={character.subclass_id ? `/catalog/classes/${character.class_id}?sub=${character.subclass_id}` : `/catalog/classes/${character.class_id}`}
+                  className="sheet-chip sheet-chip--link"
+                  title="Подкласс — в каталоге класса"
+                >
+                  {pick('Подкласс')}
+                </Link>
+              ) : (
+                <span className="sheet-chip">{pick('Подкласс')}</span>
+              ))}
+            {pick('Раса') &&
+              (character.race_id ? (
+                <Link to={`/catalog/races/${character.race_id}`} className="sheet-chip sheet-chip--link" title="Раса в каталоге">
+                  {pick('Раса')}
+                </Link>
+              ) : (
+                <span className="sheet-chip">{pick('Раса')}</span>
+              ))}
+            {pick('Подраса') &&
+              (character.race_id ? (
+                <Link
+                  to={character.subrace_id ? `/catalog/races/${character.race_id}?sub=${character.subrace_id}` : `/catalog/races/${character.race_id}`}
+                  className="sheet-chip sheet-chip--link"
+                  title="Подраса — в каталоге расы"
+                >
+                  {pick('Подраса')}
+                </Link>
+              ) : (
+                <span className="sheet-chip">{pick('Подраса')}</span>
+              ))}
+            {pick('Предыстория') &&
+              (character.background_id ? (
+                <Link to={`/catalog/backgrounds/${character.background_id}`} className="sheet-chip sheet-chip--link" title="Предыстория в каталоге">
+                  {pick('Предыстория')}
+                </Link>
+              ) : (
+                <span className="sheet-chip">{pick('Предыстория')}</span>
+              ))}
             {pick('Игрок') && <span className="sheet-chip sheet-chip--dim">Игрок: {pick('Игрок')}</span>}
           </div>
         </div>

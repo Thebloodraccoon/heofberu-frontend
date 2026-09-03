@@ -38,6 +38,7 @@ import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
 import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
 import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
 import MoneyModal from '@/features/characters/components/sheet/MoneyModal.jsx'
+import CharacterSettingsModal from '@/features/characters/components/sheet/CharacterSettingsModal.jsx'
 import { ARMOR_OPTIONS, num } from '@/features/characters/components/sheet/constants.js'
 
 const EyeIcon = () => (
@@ -82,6 +83,7 @@ export default function CharacterDetailPage() {
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { data: canLevelUpData } = useCanLevelUp(id)
   const [moneyModal, setMoneyModal] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const load = useCallback(async () => {
     const res = await refetch()
@@ -475,6 +477,7 @@ export default function CharacterDetailPage() {
         initiativeLast={initiativeLast}
         onRollInitiative={rollInitiative}
         onRollFree={rollFree}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <div className="sheet-body">
@@ -562,6 +565,14 @@ export default function CharacterDetailPage() {
 
       {moneyModal && (
         <MoneyModal character={character} onClose={() => setMoneyModal(false)} onError={setMutationError} />
+      )}
+
+      {settingsOpen && (
+        <CharacterSettingsModal
+          character={character}
+          onClose={() => setSettingsOpen(false)}
+          onError={setMutationError}
+        />
       )}
 
       <SheetRollToasts toasts={rollToasts} onDismiss={dismissToast} />

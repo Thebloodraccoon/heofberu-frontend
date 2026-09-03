@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react'
-import { ABILITY_CAP, STATS, abilityName } from '@/lib/utils/ability.js'
+import { ABILITY_CAP, STATS, abilityName, mod } from '@/lib/utils/ability.js'
 import { Button, Input, Skeleton } from '@/components/ui'
 import { useAllFeats, useFeatDetail } from '@/features/catalog/queries.js'
 import { Tag } from './StepShell.jsx'
 
-export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCancel }) {
+export default function AsiChoiceModal({
+  level,
+  abilityTotals,
+  grantedFeatIds = [],
+  onConfirm,
+  onCancel,
+}) {
   const [mode, setMode] = useState('asi')
   const [increases, setIncreases] = useState({})
   const [featId, setFeatId] = useState(null)
@@ -13,6 +19,22 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [expandedId, setExpandedId] = useState(null)
 
+  const ownedFeatIds = new Set(grantedFeatIds.map((id) => Number(id)))
+
+  const switchMode = (next) => {
+    if (next !== mode) {
+      // Переключение на «Улучшение характеристик» сбрасывает выбор черты.
+      if (next === 'asi') {
+        setFeatId(null)
+        setIncreaseId(null)
+        setExpandedId(null)
+        setQuery('')
+        setDebouncedQuery('')
+      }
+      setMode(next)
+    }
+  }
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query.trim()), 300)
     return () => clearTimeout(t)
@@ -20,6 +42,9 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
 
   const featsQ = useAllFeats(debouncedQuery)
   const feats = featsQ.data ?? []
+
+  // Черты, уже взятые персонажем, на выбор не выводим.
+  const available = feats.filter((f) => !ownedFeatIds.has(Number(f.id)))
 
   const totals = { ...increases }
   const budget = Object.values(totals).reduce((a, b) => a + b, 0)
@@ -96,7 +121,7 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
           <div className="mb-4 flex gap-2">
             <button
               type="button"
-              onClick={() => setMode('asi')}
+              onClick={() => switchMode('asi')}
               className={`rounded-full px-4 py-1.5 text-sm transition ${
                 mode === 'asi' ? 'bg-ember text-white' : 'border border-stone-700 text-stone-300 hover:bg-stone-800'
               }`}
@@ -105,7 +130,7 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
             </button>
             <button
               type="button"
-              onClick={() => setMode('feat')}
+              onClick={() => switchMode('feat')}
               className={`rounded-full px-4 py-1.5 text-sm transition ${
                 mode === 'feat' ? 'bg-ember text-white' : 'border border-stone-700 text-stone-300 hover:bg-stone-800'
               }`}
@@ -120,10 +145,17 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                 {STATS.map((s) => {
                   const inc = totals[s.code] || 0
                   const final = (abilityTotals[s.code] || 0) + inc
+                  const bonus = mod(final)
                   return (
                     <div key={s.code} className="flex items-center justify-between gap-3 rounded border border-stone-700/40 bg-stone-800/40 px-3 py-2">
                       <span className="text-sm text-stone-200">{abilityName(s.code)}</span>
                       <div className="flex items-center gap-3">
+                        <span className="w-10 text-center text-sm font-semibold">
+                          <b className={bonus >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                            {bonus >= 0 ? '+' : ''}
+                            {bonus}
+                          </b>
+                        </span>
                         <span className="w-16 text-right text-sm text-stone-400">
                           {abilityTotals[s.code] || 0} → <b className="text-stone-100">{final}</b>
                         </span>
@@ -180,8 +212,11 @@ export default function AsiChoiceModal({ level, abilityTotals, onConfirm, onCanc
                   {debouncedQuery ? 'Ничего не найдено по запросу.' : 'Черты не найдены.'}
                 </p>
               )}
+              {!featsQ.isFetching && feats.length > 0 && available.length === 0 && (
+                <p className="py-6 text-center text-sm text-stone-400">Все доступные черты уже взяты персонажем.</p>
+              )}
               <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                {feats.map((f) => {
+                {available.map((f) => {
                   const ok = featPrereqOk(f) && featLevelOk(f)
                   const selected = String(f.id) === String(featId)
                   const expanded = String(expandedId) === String(f.id)

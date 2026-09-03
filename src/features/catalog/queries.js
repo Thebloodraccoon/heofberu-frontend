@@ -49,6 +49,14 @@ export const useSubracesForRace = (raceId) =>
     enabled: !!raceId,
   })
 
+export const useSubclassesForClass = (classId) =>
+  useQuery({
+    queryKey: ['catalog', 'classes', classId, 'subclasses'],
+    queryFn: () =>
+      catalogApi.classes.subclasses.list(Number(classId)).then((r) => (Array.isArray(r) ? r : r?.items ?? [])),
+    enabled: !!classId,
+  })
+
 export const useClassDetail = (id) =>
   useQuery({
     queryKey: queryKeys.catalog.classDetail(id),

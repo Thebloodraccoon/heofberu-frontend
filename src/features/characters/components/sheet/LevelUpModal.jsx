@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
+import { useCharacterFeats } from '@/features/characters/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { ASI_LEVELS, mod, rollDie } from '@/lib/utils/ability.js'
@@ -11,13 +12,40 @@ import { OptionCard } from '@/features/characters/components/wizard/OptionCard.j
 
 const asNum = (v) => Number(v) || 0
 
+const HP_MODE_KEY = 'heofberu-ui:levelup-hp-mode'
+
+function loadHpMode(characterId) {
+  try {
+    const key = `${HP_MODE_KEY}:${characterId}`
+    const raw = window.localStorage.getItem(key)
+    return raw === 'roll' || raw === 'average' ? raw : null
+  } catch {
+    return null
+  }
+}
+
+function saveHpMode(characterId, mode) {
+  try {
+    if (mode) window.localStorage.setItem(`${HP_MODE_KEY}:${characterId}`, mode)
+    else window.localStorage.removeItem(`${HP_MODE_KEY}:${characterId}`)
+  } catch {
+    /* localStorage недоступен */
+  }
+}
+
 export default function LevelUpModal({ character, onClose, onError, onRollToast }) {
   const queryClient = useQueryClient()
   const { data: classDetail } = useClassDetail(character?.class_id)
+  const { data: charFeats = [] } = useCharacterFeats(character?.id)
   const [phase, setPhase] = useState('hp')
-  const [hpMode, setHpMode] = useState(null)
+  const [hpMode, setHpMode] = useState(() => loadHpMode(character?.id))
   const [rolled, setRolled] = useState(null)
   const [busy, setBusy] = useState(false)
+
+  const chooseHpMode = (mode) => {
+    setHpMode(mode)
+    saveHpMode(character?.id, mode)
+  }
 
   const dieSides = classDetail?.hit_dice ? Number(String(classDetail.hit_dice).replace(/\D/g, '')) : 8
   const conMod = useMemo(() => {
@@ -53,6 +81,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
     await queryClient.invalidateQueries({
       queryKey: ['characters', Number(character.id), 'progression', 'can-level-up'],
     })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.characters.feats(Number(character.id)) })
   }
 
   const submit = async (choice) => {
@@ -63,7 +92,6 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
         ...(choice ? { choice } : {}),
       })
       setPhase('hp')
-      setHpMode(null)
       setRolled(null)
       await invalidate()
       const next = await charactersApi.progression.canLevelUp(Number(character.id))
@@ -109,7 +137,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
             <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <OptionCard
                 selected={hpMode === 'roll'}
-                onClick={() => setHpMode('roll')}
+                onClick={() => chooseHpMode('roll')}
                 title={`Бросить к${dieSides}`}
                 subtitle={
                   rolled != null
@@ -131,7 +159,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
               </OptionCard>
               <OptionCard
                 selected={hpMode === 'average'}
-                onClick={() => setHpMode('average')}
+                onClick={() => chooseHpMode('average')}
                 title="Среднее"
                 subtitle={`+${avgGain} HP`}
               />
@@ -157,6 +185,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
       {phase === 'asi' && (
         <AsiChoiceModal
           level={targetLevel}
+          grantedFeatIds={charFeats.map((cf) => cf.feat_id ?? cf.feat?.id).filter(Boolean)}
           abilityTotals={{
             STR: character?.ability_scores?.strength_total ?? 10,
             DEX: character?.ability_scores?.dexterity_total ?? 10,

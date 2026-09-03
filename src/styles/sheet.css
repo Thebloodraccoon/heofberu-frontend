@@ -331,6 +331,16 @@
 .sheet-chip--dim {
   color: var(--color-stone-600);
 }
+.sheet-chip--link {
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.sheet-chip--link:hover {
+  border-color: var(--color-ember);
+  color: var(--color-ember);
+}
 
 .sheet-xp {
   display: flex;
