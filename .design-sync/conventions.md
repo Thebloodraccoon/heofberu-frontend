@@ -31,6 +31,12 @@ Color tokens (Tailwind v4 `@theme`, usable as `bg-*`/`text-*`/`border-*` utiliti
 
 Read `styles.css` (imports `_ds_bundle.css`, which holds every class above plus the `@theme` token definitions) before styling anything by hand. Each component's `.prompt.md` documents its own props and real usage; its `.d.ts` is the prop contract — note that since this DS ships plain JS (no TypeScript), prop types were reconstructed by hand from the component source and describe the real accepted shape, but are not compiler-verified.
 
+### Responsive layout
+
+Breakpoints are Tailwind v4 defaults: `sm` 640px, `md` 768px, `lg` 1024px, `xl` 1280px, `2xl` 1536px. This app treats **everything ≥1024px as "desktop"** — a 1300px laptop and a 2560px 2K monitor get the *same* multi-column layouts; `xl`/`2xl` only bump the base font size a notch (14→15→16px), they never change structure. Tablet is `md`–`lg` (768–1023px, usually still single-column). Phone is below `sm`/`md`.
+
+**The character sheet's ability sidebar + tabbed panel are one persistent unit, not two independent widgets.** On desktop (`lg:` and up) they render side-by-side as a fixed two-column grid (9fr/11fr) — the ability scores are *always* visible next to whatever tab is open, never hidden or collapsible. Below `lg:` the sidebar column itself is removed (`display:none`) and the exact same ability content reappears as an extra first tab ("Характеристики") alongside the others — so the content always exists, but *how it's reached* (fixed column vs. a tab) changes at the 1024px line. When building a similar two-pane page, replicate this pattern rather than making the side panel a toggle or drawer: real desktop users never have to open anything to see it.
+
 ### Example composition
 
 ```jsx

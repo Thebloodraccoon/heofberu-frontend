@@ -30,6 +30,9 @@ dist-ssr
 .opencode/
 AGENTS.md
 
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json
+
 # OS cruft
 Thumbs.db
 .eslintcache
