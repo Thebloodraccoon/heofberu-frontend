@@ -29,3 +29,16 @@ dist-ssr
 /output/
 .opencode/
 AGENTS.md
+
+# OS cruft
+Thumbs.db
+.eslintcache
+
+# design-sync (claude.ai/design) - staged converter + generated build output.
+# .design-sync/ itself is NOT ignored: config.json, NOTES.md, conventions.md,
+# previews/, overrides/, and build.tsconfig.json are the durable, committed set.
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
