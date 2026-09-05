@@ -24,12 +24,13 @@
     "ForgotPasswordPage": { "cardMode": "single", "viewport": "420x520" },
     "ResetPasswordPage": { "cardMode": "column" },
     "SheetSidebar": { "cardMode": "column", "viewport": "420x1700" },
-    "SheetModals": { "cardMode": "single", "viewport": "560x760" },
+    "SheetModals": { "cardMode": "single", "viewport": "780x1150" },
+    "CatalogModals": { "cardMode": "single", "viewport": "1100x900" },
     "AppShell": { "cardMode": "single", "viewport": "1400x900", "primaryStory": "Desktop" },
     "AppShellMobile": { "cardMode": "single", "viewport": "390x844", "primaryStory": "MenuOpen" }
   },
   "tsconfig": "tsconfig.json",
-  "buildCmd": "npm run build && mkdir -p node_modules/heofberu-ui/pages && cp src/components/ui/primitives.jsx src/components/ui/ThemeSwitcher.jsx node_modules/heofberu-ui/ && cp .design-sync/pages/CharacterSheetPage.jsx .design-sync/pages/AuthPages.jsx .design-sync/pages/CharactersPage.jsx .design-sync/pages/CharacterCreatePage.jsx .design-sync/pages/CatalogPage.jsx .design-sync/pages/UsersPage.jsx .design-sync/pages/GmCharactersPage.jsx .design-sync/pages/GmEditorPage.jsx .design-sync/pages/SheetSidebar.jsx .design-sync/pages/SheetModals.jsx .design-sync/pages/AppShell.jsx node_modules/heofberu-ui/pages/ && cp dist/assets/index-*.css node_modules/heofberu-ui/styles.css && echo '{\"name\":\"heofberu-ui\",\"version\":\"0.0.0\",\"private\":true}' > node_modules/heofberu-ui/package.json && cp .design-sync/build.tsconfig.json node_modules/heofberu-ui/tsconfig.json",
+  "buildCmd": "npm run build && mkdir -p node_modules/heofberu-ui/pages && cp src/components/ui/primitives.jsx src/components/ui/ThemeSwitcher.jsx node_modules/heofberu-ui/ && cp .design-sync/pages/CharacterSheetPage.jsx .design-sync/pages/AuthPages.jsx .design-sync/pages/CharactersPage.jsx .design-sync/pages/CharacterCreatePage.jsx .design-sync/pages/CatalogPage.jsx .design-sync/pages/UsersPage.jsx .design-sync/pages/GmCharactersPage.jsx .design-sync/pages/GmEditorPage.jsx .design-sync/pages/SheetSidebar.jsx .design-sync/pages/SheetModals.jsx .design-sync/pages/AppShell.jsx .design-sync/pages/CatalogModals.jsx node_modules/heofberu-ui/pages/ && cp dist/assets/index-*.css node_modules/heofberu-ui/styles.css && echo '{\"name\":\"heofberu-ui\",\"version\":\"0.0.0\",\"private\":true}' > node_modules/heofberu-ui/package.json && cp .design-sync/build.tsconfig.json node_modules/heofberu-ui/tsconfig.json",
   "dtsPropsFor": {
     "Spinner": "label?: string;",
     "Skeleton": "className?: string;\n  style?: React.CSSProperties;",
@@ -68,7 +69,8 @@
     "GmCharactersPage": "initialSelectedId?: number | null;",
     "GmEditorPage": "initiallyEditing?: boolean;",
     "SheetSidebar": "level?: number;\n  abilityScores?: Record<string, number>;",
-    "SheetModals": "which?: \"hp\" | \"armor\" | \"money\" | \"levelUp\" | \"settings\";",
+    "SheetModals": "which?: \"hp\" | \"armor\" | \"money\" | \"levelUp\" | \"settings\" | \"attack\" | \"spellPicker\" | \"subracePicker\" | \"subclassPicker\" | \"backgroundPicker\" | \"asiChoice\";",
+    "CatalogModals": "which?: \"filter\" | \"itemInfo\" | \"featureCreate\" | \"featureEdit\" | \"itemPicker\" | \"itemPickerChoice\";",
     "AppShell": "authenticated?: boolean;\n  isGM?: boolean;\n  initialCollapsed?: boolean;\n  initialSidebarOpen?: boolean;\n  children?: React.ReactNode;",
     "AppShellMobile": "authenticated?: boolean;\n  isGM?: boolean;\n  initialSidebarOpen?: boolean;\n  children?: React.ReactNode;"
   }
