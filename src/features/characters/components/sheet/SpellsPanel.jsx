@@ -5,7 +5,7 @@ import { useCharacterSpellSlots, useCharacterSpells } from '@/features/character
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { abilityName } from '@/lib/utils/ability.js'
 import { diceTypeLabels, label } from '@/lib/i18n/index.js'
-import { EmptyState } from '@/components/ui'
+import { EmptyState, Skeleton } from '@/components/ui'
 import { useUiSet } from '@/lib/uiState.js'
 import { SPELL_LEVEL_ORDER } from './constants.js'
 import SpellPickerModal from './SpellPickerModal.jsx'
@@ -117,8 +117,9 @@ function SpellRow({ cs, open, onExpand, onRemove }) {
 
 export default function SpellsPanel({ character, classSpellcastingAbility, onError }) {
   const queryClient = useQueryClient()
-  const { data: spells = [] } = useCharacterSpells(character.id)
-  const { data: slots = [] } = useCharacterSpellSlots(character.id)
+  const { data: spells = [], isLoading: spellsLoading } = useCharacterSpells(character.id)
+  const { data: slots = [], isLoading: slotsLoading } = useCharacterSpellSlots(character.id)
+  const loading = spellsLoading || slotsLoading
   const [pickerOpen, setPickerOpen] = useState(false)
   const [openIds, toggleId] = useUiSet(`spells:${character.id}`)
 
@@ -181,34 +182,57 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
           </p>
         )}
 
-        {hasSpellcasting && spells.length === 0 && <EmptyState text="Заклинаний пока нет" />}
-        <div className="space-y-4">
-          {SPELL_LEVEL_ORDER.filter((lv) => byLevel[lv]).map((lv) => (
-            <div key={lv}>
-              <p className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
-                {lv === 'CANTRIP' ? 'Заговоры' : label(lv)}
-                {lv === 'CANTRIP' && cantripTotal > 0 && (
-                  <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                    cantripsFull ? 'bg-stone-800 text-stone-500' : 'bg-ember/15 text-ember'
-                  }`}>
-                    {cantripsCount} / {cantripTotal}
-                  </span>
-                )}
-              </p>
-              <ul className="space-y-2">
-                {byLevel[lv].map((cs) => (
-                  <SpellRow
-                    key={cs.spell_id}
-                    cs={cs}
-                    open={openIds.includes(String(cs.spell_id))}
-                    onExpand={() => toggleId(String(cs.spell_id))}
-                    onRemove={() => removeSpell(cs.spell_id)}
-                  />
-                ))}
-              </ul>
+        {loading ? (
+          <div aria-busy="true" className="space-y-4">
+            {[3, 2, 2].map((n, i) => (
+              <div key={i}>
+                <Skeleton className="mb-1.5 h-3 w-28" />
+                <ul className="space-y-2">
+                  {Array.from({ length: n }, (_, j) => (
+                    <li
+                      key={j}
+                      className="flex items-center gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5"
+                    >
+                      <Skeleton className="size-3.5" />
+                      <Skeleton className="h-3.5 w-36" />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {hasSpellcasting && spells.length === 0 && <EmptyState text="Заклинаний пока нет" />}
+            <div className="space-y-4">
+              {SPELL_LEVEL_ORDER.filter((lv) => byLevel[lv]).map((lv) => (
+                <div key={lv}>
+                  <p className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    {lv === 'CANTRIP' ? 'Заговоры' : label(lv)}
+                    {lv === 'CANTRIP' && cantripTotal > 0 && (
+                      <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                        cantripsFull ? 'bg-stone-800 text-stone-500' : 'bg-ember/15 text-ember'
+                      }`}>
+                        {cantripsCount} / {cantripTotal}
+                      </span>
+                    )}
+                  </p>
+                  <ul className="space-y-2">
+                    {byLevel[lv].map((cs) => (
+                      <SpellRow
+                        key={cs.spell_id}
+                        cs={cs}
+                        open={openIds.includes(String(cs.spell_id))}
+                        onExpand={() => toggleId(String(cs.spell_id))}
+                        onRemove={() => removeSpell(cs.spell_id)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
 
       {pickerOpen && (

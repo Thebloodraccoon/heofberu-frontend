@@ -265,7 +265,7 @@ export default function AttackModal({ characterId, attack = null, onClose, onSav
             <Input value={form.notes} onChange={set('notes')} />
           </Field>
         </div>
-        <div className="flex items-center justify-end gap-2 pt-3">
+        <div className="modal-actions pt-3">
           <Button type="button" variant="ghost" onClick={onClose}>Отмена</Button>
           <Button type="submit" disabled={saving}>
             {editing ? 'Сохранить' : 'Добавить атаку'}

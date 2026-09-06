@@ -438,16 +438,16 @@ export function Modal({
   const maxW = sizes[size] ?? sizes.md
   const overlay =
     align === 'top'
-      ? 'fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4'
-      : 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4'
+      ? 'fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 max-sm:p-2'
+      : 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 max-sm:p-2'
   const panelBase = `w-full rounded-lg bg-stone-900 shadow-2xl ${
     tone === 'danger' ? 'ring-1 ring-red-900/60' : 'ring-1 ring-stone-700'
   }`
   const panel = scroll
     ? `flex max-h-[88vh] flex-col ${maxW} ${panelBase}`
     : align === 'top'
-      ? `mx-auto mt-8 ${maxW} ${panelBase} p-5`
-      : `${maxW} ${panelBase} p-5`
+      ? `mx-auto mt-8 max-sm:mt-2 max-sm:max-h-[90vh] max-sm:overflow-y-auto ${maxW} ${panelBase} p-5 max-sm:p-3`
+      : `max-sm:max-h-[90vh] max-sm:overflow-y-auto ${maxW} ${panelBase} p-5 max-sm:p-3`
   return (
     <div className={`${overlay} ${className}`} onClick={onClose}>
       <div className={panel} onClick={(e) => e.stopPropagation()}>
@@ -455,7 +455,7 @@ export function Modal({
           <div
             className={
               scroll
-                ? 'flex items-start justify-between gap-3 border-b border-stone-700/70 px-5 py-4'
+                ? 'flex items-start justify-between gap-3 border-b border-stone-700/70 px-5 py-4 max-sm:px-3 max-sm:py-3'
                 : 'mb-4 flex items-start justify-between gap-3'
             }
           >
@@ -474,13 +474,13 @@ export function Modal({
             )}
           </div>
         )}
-        <div className={scroll ? 'flex-1 space-y-3 overflow-y-auto p-5' : ''}>{children}</div>
+        <div className={scroll ? 'flex-1 space-y-3 overflow-y-auto p-5 max-sm:p-3' : ''}>{children}</div>
         {footer && (
           <div
             className={
               scroll
-                ? 'flex items-center justify-end gap-2 border-t border-stone-700/70 px-5 py-4'
-                : 'mt-4 flex items-center justify-end gap-2'
+                ? 'flex items-center justify-end gap-2 border-t border-stone-700/70 px-5 py-4 max-sm:flex-col max-sm:items-stretch max-sm:px-3 max-sm:py-3'
+                : 'mt-4 flex items-center justify-end gap-2 max-sm:flex-col max-sm:items-stretch'
             }
           >
             {footer}
@@ -510,7 +510,7 @@ export function ConfirmDialog({
           <ErrorBox error={error} onRetry={() => {}} />
         </div>
       )}
-      <div className="mt-6 flex justify-end gap-2">
+      <div className="mt-6 modal-actions">
         <Button variant="ghost" disabled={busy} onClick={onCancel}>
           {cancelText}
         </Button>

@@ -108,6 +108,11 @@ h4 {
     var(--color-stone-900);
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
 }
+@media (max-width: 639px) {
+  .fantasy-panel {
+    padding: 15px;
+  }
+}
 .fantasy-panel::before,
 .fantasy-panel::after {
   content: "";

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 const FIELDS = [
   ['personality_traits', 'Черты характера'],
@@ -7,7 +7,7 @@ const FIELDS = [
   ['flaws', 'Слабости'],
 ]
 
-const FIELD_MAX = 500
+const FIELD_MAX = 2000
 
 const PencilIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -18,6 +18,14 @@ const PencilIcon = () => (
 function Field({ title, value, onSave }) {
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
+  const taRef = useRef(null)
+
+  useLayoutEffect(() => {
+    const el = taRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight + 20}px`
+  }, [draft, edit])
 
   const startEdit = () => {
     setDraft(value ?? '')
@@ -47,6 +55,7 @@ function Field({ title, value, onSave }) {
       {edit ? (
         <div className="px-4 py-2.5">
           <textarea
+            ref={taRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value.slice(0, FIELD_MAX))}
             rows={3}

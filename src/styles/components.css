@@ -166,3 +166,19 @@
   .btn-delete         { font-size: 0.875rem; }
   .badge-saved        { font-size: 0.875rem; }
 }
+
+/* --- Действия в модальных окнах: справа на десктопе, делят строку поровну на телефоне --- */
+
+.modal-actions {
+  @apply flex flex-wrap items-center justify-end gap-2;
+}
+
+@media (max-width: 640px) {
+  .modal-actions {
+    align-items: stretch;
+  }
+  .modal-actions > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}

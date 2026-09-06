@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BoxedValue, RollButton } from '@/components/sheet/primitives.jsx'
-import { Select } from '@/components/ui'
 import RollHistory from '@/components/sheet/RollHistory.jsx'
 import { useAuth } from '@/features/auth/useAuth.js'
+import { useUsers } from '@/features/users/queries.js'
 
 const DICE = [4, 6, 8, 10, 12, 20, 100]
 
@@ -90,16 +90,11 @@ export default function SheetHeader({
   fields = [],
   pb,
   inspiration,
-  exhaustion,
-  conditionCount,
   initiativeBonus = 0,
   initiativeLast = null,
   onInspiration,
-  onExhaustion,
   onOpenHp,
   onOpenAc,
-  onOpenConditions,
-  onOpenMoney,
   levelUpInfo,
   onOpenLevelUp,
   onRollInitiative,
@@ -107,199 +102,182 @@ export default function SheetHeader({
   onOpenSettings,
 }) {
   const { user } = useAuth()
-  const allFields = user?.username ? [...fields, { label: 'Игрок', value: user.username }] : fields
+  const isOwner = character?.owner_id == null || Number(character?.owner_id) === Number(user?.id)
+  const { data: users = [] } = useUsers({ enabled: !isOwner })
+  const ownerName = isOwner
+    ? user?.username
+    : character?.owner_username ??
+      users.find((u) => Number(u.id) === Number(character?.owner_id))?.username ??
+      `#${character?.owner_id}`
+  const allFields = ownerName ? [...fields, { label: 'Игрок', value: ownerName }] : fields
   const pick = (label) => allFields.find((f) => f.label === label)?.value
   return (
     <div className="sheet-header">
-      <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
-        <span className="order-1 sheet-avatar" title="Портрет персонажа">
+      <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-5 max-[800px]:flex-col">
+        <span className="sheet-avatar" title="Портрет персонажа">
           {(character.name || '?').slice(0, 1).toUpperCase()}
         </span>
-        <div className="order-4 flex w-full items-center justify-end gap-2 sm:order-3 sm:w-auto">
-          {levelUpInfo?.can_level_up && (
-            <button
-              type="button"
-              className="sheet-levelup-btn"
-              onClick={onOpenLevelUp}
-              title={`Доступен потолок ${levelUpInfo.max_level} — повышаемся с уровня ${levelUpInfo.current_level}`}
-            >
-              ↑ Уровень {(Number(levelUpInfo.current_level) || 1) + 1}
-            </button>
-          )}
-        </div>
-        <div className="order-2 flex flex-1 items-center justify-end gap-2 sm:order-3 sm:ml-auto sm:w-auto sm:flex-none">
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="grid size-10 place-items-center rounded-full border border-stone-700 bg-stone-800/70 text-stone-300 transition hover:border-ember hover:text-ember"
-            title="Настройки персонажа"
-            aria-label="Настройки персонажа"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
-          <RollHistory />
-          <DicePicker onRoll={onRollFree} />
-        </div>
-        <div className="order-3 w-full min-w-0 sm:order-2 sm:w-auto sm:flex-1">
-          <span className="sheet-name">{pick('Имя') || character.name || 'Безымянный персонаж'}</span>
-          <div className="sheet-chips">
-            <span className="sheet-chip sheet-chip--lvl">Ур. {pick('Уровень') ?? '—'}</span>
-            {pick('Класс') &&
-              (character.class_id ? (
-                <Link to={`/catalog/classes/${character.class_id}`} className="sheet-chip sheet-chip--link" title="Класс в каталоге">
-                  {pick('Класс')}
-                </Link>
-              ) : (
-                <span className="sheet-chip">{pick('Класс')}</span>
-              ))}
-            {pick('Подкласс') &&
-              (character.class_id ? (
-                <Link
-                  to={character.subclass_id ? `/catalog/classes/${character.class_id}?sub=${character.subclass_id}` : `/catalog/classes/${character.class_id}`}
-                  className="sheet-chip sheet-chip--link"
-                  title="Подкласс — в каталоге класса"
+
+        <div className="min-w-0 flex-1 max-[800px]:w-full">
+          <div className="flex flex-wrap items-center justify-between gap-2 max-sm:w-full max-sm:flex-nowrap">
+            <span className="sheet-name">{pick('Имя') || character.name || 'Безымянный персонаж'}</span>
+            <div className="flex items-center justify-end gap-2">
+              {levelUpInfo?.can_level_up && (
+                <button
+                  type="button"
+                  className="sheet-levelup-btn"
+                  onClick={onOpenLevelUp}
+                  title={`Доступен потолок ${levelUpInfo.max_level} — повышаемся с уровня ${levelUpInfo.current_level}`}
                 >
-                  {pick('Подкласс')}
-                </Link>
-              ) : (
-                <span className="sheet-chip">{pick('Подкласс')}</span>
-              ))}
-            {pick('Раса') &&
-              (character.race_id ? (
-                <Link to={`/catalog/races/${character.race_id}`} className="sheet-chip sheet-chip--link" title="Раса в каталоге">
-                  {pick('Раса')}
-                </Link>
-              ) : (
-                <span className="sheet-chip">{pick('Раса')}</span>
-              ))}
-            {pick('Подраса') &&
-              (character.race_id ? (
-                <Link
-                  to={character.subrace_id ? `/catalog/races/${character.race_id}?sub=${character.subrace_id}` : `/catalog/races/${character.race_id}`}
-                  className="sheet-chip sheet-chip--link"
-                  title="Подраса — в каталоге расы"
+                  ↑ Уровень {(Number(levelUpInfo.current_level) || 1) + 1}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="grid size-10 place-items-center rounded-full border border-stone-700 bg-stone-800/70 text-stone-300 transition hover:border-ember hover:text-ember"
+                title="Настройки персонажа"
+                aria-label="Настройки персонажа"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+              <RollHistory />
+              <DicePicker onRoll={onRollFree} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-x-[8rem] gap-y-2 mt-2.5 max-lg:w-full max-lg:flex-col sm:max-lg:items-center">
+            <div className="sheet-chips lg:min-w-0 lg:flex-[0_1_40%] sm:max-lg:justify-center max-sm:justify-center">
+              <span className="sheet-chip sheet-chip--lvl">Ур. {pick('Уровень') ?? '—'}</span>
+              {pick('Класс') &&
+                (character.class_id ? (
+                  <Link
+                    to={`/catalog/classes/${character.class_id}`}
+                    className="sheet-chip sheet-chip--link"
+                    title="Класс в каталоге"
+                  >
+                    {pick('Класс')}
+                  </Link>
+                ) : (
+                  <span className="sheet-chip">{pick('Класс')}</span>
+                ))}
+              {pick('Подкласс') &&
+                (character.class_id && character.subclass_id ? (
+                  <Link
+                    to={`/catalog/classes/${character.class_id}?sub=${character.subclass_id}`}
+                    className="sheet-chip sheet-chip--link"
+                    title="Подкласс — в каталоге класса"
+                  >
+                    {pick('Подкласс')}
+                  </Link>
+                ) : (
+                  <span className="sheet-chip">{pick('Подкласс')}</span>
+                ))}
+              {pick('Раса') &&
+                (character.race_id ? (
+                  <Link
+                    to={`/catalog/races/${character.race_id}`}
+                    className="sheet-chip sheet-chip--link"
+                    title="Раса в каталоге"
+                  >
+                    {pick('Раса')}
+                  </Link>
+                ) : (
+                  <span className="sheet-chip">{pick('Раса')}</span>
+                ))}
+              {pick('Подраса') &&
+                (character.race_id && character.subrace_id ? (
+                  <Link
+                    to={`/catalog/races/${character.race_id}?sub=${character.subrace_id}`}
+                    className="sheet-chip sheet-chip--link"
+                    title="Подраса — в каталоге расы"
+                  >
+                    {pick('Подраса')}
+                  </Link>
+                ) : (
+                  <span className="sheet-chip">{pick('Подраса')}</span>
+                ))}
+              {pick('Предыстория') &&
+                (character.background_id ? (
+                  <Link
+                    to={`/catalog/backgrounds/${character.background_id}`}
+                    className="sheet-chip sheet-chip--link"
+                    title="Предыстория в каталоге"
+                  >
+                    {pick('Предыстория')}
+                  </Link>
+                ) : (
+                  <span className="sheet-chip">{pick('Предыстория')}</span>
+                ))}
+              {pick('Игрок') && <span className="sheet-chip sheet-chip--dim">Игрок: {pick('Игрок')}</span>}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:justify-end sm:gap-x-5 sm:max-lg:justify-center lg:min-w-0 lg:flex-[0_1_60%] max-sm:pt-2.5 max-sm:[&>*]:grow max-sm:[&>*]:basis-[calc(33.333%_-_1rem)]">
+              <BoxedValue label="КД" boxClassName="p-0">
+                <button
+                  type="button"
+                  className="h-full w-full rounded-[inherit] px-2 text-inherit"
+                  onClick={onOpenAc}
+                  title="Класс доспеха и щит — нажмите, чтобы изменить"
                 >
-                  {pick('Подраса')}
-                </Link>
-              ) : (
-                <span className="sheet-chip">{pick('Подраса')}</span>
-              ))}
-            {pick('Предыстория') &&
-              (character.background_id ? (
-                <Link to={`/catalog/backgrounds/${character.background_id}`} className="sheet-chip sheet-chip--link" title="Предыстория в каталоге">
-                  {pick('Предыстория')}
-                </Link>
-              ) : (
-                <span className="sheet-chip">{pick('Предыстория')}</span>
-              ))}
-            {pick('Игрок') && <span className="sheet-chip sheet-chip--dim">Игрок: {pick('Игрок')}</span>}
+                  <span className="flex flex-col items-center gap-0.5 leading-none">
+                    <span>{(character.armor_class ?? 0) + (character.shield ?? 0)}</span>
+                    {(character.shield ?? 0) > 0 && (
+                      <span className="whitespace-nowrap text-[10px] font-normal text-gold">🛡 +{character.shield}</span>
+                    )}
+                  </span>
+                </button>
+              </BoxedValue>
+              <BoxedValue label="Хиты" boxClassName="p-0">
+                <button
+                  type="button"
+                  className="h-full w-full rounded-[inherit] px-2 text-inherit"
+                  onClick={onOpenHp}
+                  title="Хиты и отдых"
+                >
+                  <span className="flex flex-col items-center gap-0.5 leading-none">
+                    <span className="flex items-center gap-1">
+                      <span className="sheet-hp__heart">♥</span>
+                      {character.current_hp ?? 0}/{character.max_hp ?? 0}
+                    </span>
+                    {Number(character.temp_hp) > 0 && (
+                      <span className="whitespace-nowrap text-[10px] font-normal text-emerald-300">
+                        ♥ {character.temp_hp}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </BoxedValue>
+              <BoxedValue label="Скорость">
+                <span>{character.speed ?? '—'}</span>
+              </BoxedValue>
+              <BoxedValue label="Владение">
+                <span>+{pb}</span>
+              </BoxedValue>
+              <BoxedValue label="Инициатива" boxClassName="min-w-14">
+                <RollButton
+                  bonus={initiativeBonus}
+                  label={initiativeLast != null ? String(initiativeLast) : undefined}
+                  onClick={onRollInitiative}
+                  className="!text-sm !min-w-10 !h-9"
+                  title={initiativeLast != null ? `Последний бросок инициативы: ${initiativeLast}` : 'Инициатива'}
+                />
+              </BoxedValue>
+              <BoxedValue label="Вдохновение" boxClassName="p-0">
+                <input
+                  type="checkbox"
+                  checked={inspiration}
+                  onChange={onInspiration}
+                  className="sheet-insp"
+                  title="Вдохновение"
+                />
+              </BoxedValue>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 border-t border-stone-800 px-3 py-2.5 sm:justify-start sm:gap-x-5 sm:px-4">
-        <BoxedValue label="Хиты" boxClassName="p-0">
-          <button
-            type="button"
-            className="h-full w-full rounded-[inherit] px-2 text-inherit"
-            onClick={onOpenHp}
-            title="Хиты и отдых"
-          >
-            <span className="flex flex-col items-center gap-0.5 leading-none">
-              <span className="flex items-center gap-1">
-                <span className="sheet-hp__heart">♥</span>
-                {character.current_hp ?? 0}/{character.max_hp ?? 0}
-              </span>
-              {Number(character.temp_hp) > 0 && (
-                <span className="whitespace-nowrap text-[10px] font-normal text-emerald-300">
-                  ♥ {character.temp_hp}
-                </span>
-              )}
-            </span>
-          </button>
-        </BoxedValue>
-        <BoxedValue label="КД" boxClassName="p-0">
-          <button
-            type="button"
-            className="h-full w-full rounded-[inherit] px-2 text-inherit"
-            onClick={onOpenAc}
-            title="Класс доспеха и щит — нажмите, чтобы изменить"
-          >
-            <span className="flex flex-col items-center gap-0.5 leading-none">
-              <span>{(character.armor_class ?? 0) + (character.shield ?? 0)}</span>
-              {(character.shield ?? 0) > 0 && (
-                <span className="whitespace-nowrap text-[10px] font-normal text-gold">🛡 +{character.shield}</span>
-              )}
-            </span>
-          </button>
-        </BoxedValue>
-        <BoxedValue label="Скорость">
-          <span>{character.speed ?? '—'}</span>
-        </BoxedValue>
-        <BoxedValue label="Владение">
-          <span>+{pb}</span>
-        </BoxedValue>
-        <BoxedValue label="Инициатива" boxClassName="min-w-14">
-          <RollButton
-            bonus={initiativeBonus}
-            label={initiativeLast != null ? String(initiativeLast) : undefined}
-            onClick={onRollInitiative}
-            className="!text-sm !min-w-10 !h-9"
-            title={initiativeLast != null ? `Последний бросок инициативы: ${initiativeLast}` : 'Инициатива'}
-          />
-        </BoxedValue>
-        <BoxedValue label="Вдохновение" boxClassName="p-0">
-          <input
-            type="checkbox"
-            checked={inspiration}
-            onChange={onInspiration}
-            className="sheet-insp"
-            title="Вдохновение"
-          />
-        </BoxedValue>
-        <BoxedValue label="Состояния">
-          <button type="button" className="text-ember hover:underline" onClick={onOpenConditions}>
-            {conditionCount > 0 ? conditionCount : '—'}
-          </button>
-        </BoxedValue>
-        <BoxedValue label="Истощение">
-          <Select
-            value={exhaustion}
-            onChange={(e) => onExhaustion(Number(e.target.value))}
-            className="!w-14"
-            title="Уровень истощения"
-          >
-            {[0, 1, 2, 3, 4, 5, 6].map((v) => (
-              <option key={v} value={v}>{v}</option>
-            ))}
-          </Select>
-        </BoxedValue>
-        <BoxedValue label="Деньги" boxClassName="p-0 min-w-28">
-          <button
-            type="button"
-            className="h-full w-full rounded-[inherit] px-2 py-1 text-left text-stone-200"
-            onClick={onOpenMoney}
-            title="Изменить деньги"
-          >
-            <span className="flex items-center gap-2">
-              <span className="flex items-center gap-1">
-                <span className="text-yellow-300">⛁</span>
-                <span>{character.money_gold ?? 0}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-stone-300">⛀</span>
-                <span>{character.money_silver ?? 0}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-amber-700">⛁</span>
-                <span>{character.money_copper ?? 0}</span>
-              </span>
-            </span>
-          </button>
-        </BoxedValue>
       </div>
     </div>
   )

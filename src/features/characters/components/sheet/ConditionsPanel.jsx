@@ -4,7 +4,7 @@ import { charactersApi as api } from '@/features/characters/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { conditionLabels, label } from '@/lib/i18n/index.js'
 import { Button, EmptyState, Field, Input, Select } from '@/components/ui'
-import { CONDITIONS } from './constants.js'
+import { CONDITIONS, EXHAUSTION_LEVELS } from './constants.js'
 
 const SOURCE_MAX = 50
 
@@ -13,6 +13,7 @@ export default function ConditionsPanel({ character, onError }) {
   const [formOpen, setFormOpen] = useState(false)
   const [condition, setCondition] = useState('')
   const [source, setSource] = useState('')
+  const [exhaustionLevel, setExhaustionLevel] = useState('')
   const conditions = character.conditions ?? []
   const availableConditions = CONDITIONS.filter((c) => !conditions.some((a) => a.condition === c))
 
@@ -21,13 +22,16 @@ export default function ConditionsPanel({ character, onError }) {
 
   const add = async () => {
     if (!condition || conditions.some((c) => c.condition === condition)) return
+    if (condition === 'EXHAUSTION' && !exhaustionLevel) return
     try {
       await api.conditions.add(character.id, {
         condition,
         source: source || undefined,
+        exhaustion_level: condition === 'EXHAUSTION' ? Number(exhaustionLevel) : undefined,
       })
       setCondition('')
       setSource('')
+      setExhaustionLevel('')
       setFormOpen(false)
       await refresh()
     } catch (e) {
@@ -93,13 +97,29 @@ export default function ConditionsPanel({ character, onError }) {
           <p className="sheet-section-label m-0 !mt-0 leading-none">Новое состояние</p>
           <div className="mt-4 grid gap-x-4 gap-y-5 sm:grid-cols-2">
             <Field label="Состояние">
-              <Select value={condition} onChange={(e) => setCondition(e.target.value)}>
+              <Select
+                value={condition}
+                onChange={(e) => {
+                  setCondition(e.target.value)
+                  setExhaustionLevel('')
+                }}
+              >
                 <option value="">Выберите...</option>
                 {availableConditions.map((c) => (
                   <option key={c} value={c}>{conditionLabels[c] ?? label(c)}</option>
                 ))}
               </Select>
             </Field>
+            {condition === 'EXHAUSTION' && (
+              <Field label="Уровень истощения">
+                <Select value={exhaustionLevel} onChange={(e) => setExhaustionLevel(e.target.value)}>
+                  <option value="">Выберите уровень...</option>
+                  {EXHAUSTION_LEVELS.map((v) => (
+                    <option key={v} value={v}>Уровень {v}</option>
+                  ))}
+                </Select>
+              </Field>
+            )}
             <Field label="Источник (необязательно)">
               <Input
                 value={source}
@@ -111,7 +131,11 @@ export default function ConditionsPanel({ character, onError }) {
             <div className="flex items-end gap-2 sm:col-span-2">
               <Button
                 onClick={add}
-                disabled={!condition || !availableConditions.includes(condition)}
+                disabled={
+                  !condition ||
+                  !availableConditions.includes(condition) ||
+                  (condition === 'EXHAUSTION' && !exhaustionLevel)
+                }
               >
                 Добавить
               </Button>

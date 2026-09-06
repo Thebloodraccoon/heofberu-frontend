@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useCharacterFeatures, useCharacterFeats } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
+import { Skeleton } from '@/components/ui'
 
 const SOURCE_LABELS = {
   CLASS: 'Класс',
@@ -37,8 +38,9 @@ const SOURCE_RANK = { FEAT: 0, OTHER: 1, RACE: 2, SUBRACE: 3, BACKGROUND: 4, CLA
 
 export default function FeaturesPanel({ character }) {
   const characterId = character.id
-  const { data: feats = [] } = useCharacterFeats(characterId)
-  const { data: features = [] } = useCharacterFeatures(characterId)
+  const { data: feats = [], isLoading: featsLoading } = useCharacterFeats(characterId)
+  const { data: features = [], isLoading: featuresLoading } = useCharacterFeatures(characterId)
+  const loading = featsLoading || featuresLoading
   const [openKeys, toggleKey] = useUiSet(`features:${characterId}`)
 
   const items = useMemo(() => {
@@ -81,28 +83,43 @@ export default function FeaturesPanel({ character }) {
 
   return (
     <div className="space-y-4">
-      {items.length === 0 && <p className="text-sm text-stone-500">Пока ничего нет</p>}
-
-      <ul className="space-y-2">
-        {items.map((it) => (
-          <li key={it.key}>
-            <AccordionItem
-              name={it.name}
-              badge={it.badge}
-              level={it.level}
-              open={openKeys.includes(it.key)}
-              onToggle={() => toggleKey(it.key)}
+      {loading ? (
+        <ul className="space-y-2" aria-busy="true">
+          {Array.from({ length: 4 }, (_, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5"
             >
-              {it.description ? (
-                <p className="whitespace-pre-wrap break-words">{it.description}</p>
-              ) : (
-                <p className="text-stone-500">Нет описания</p>
-              )}
-              {it.notes && <p className="mt-1.5 text-stone-500">Заметка: {it.notes}</p>}
-            </AccordionItem>
-          </li>
-        ))}
-      </ul>
+              <Skeleton className="size-3.5" />
+              <Skeleton className="h-3.5 w-48" />
+              <Skeleton className="ml-auto h-4 w-14" />
+            </li>
+          ))}
+        </ul>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-stone-500">Пока ничего нет</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((it) => (
+            <li key={it.key}>
+              <AccordionItem
+                name={it.name}
+                badge={it.badge}
+                level={it.level}
+                open={openKeys.includes(it.key)}
+                onToggle={() => toggleKey(it.key)}
+              >
+                {it.description ? (
+                  <p className="whitespace-pre-wrap break-words">{it.description}</p>
+                ) : (
+                  <p className="text-stone-500">Нет описания</p>
+                )}
+                {it.notes && <p className="mt-1.5 text-stone-500">Заметка: {it.notes}</p>}
+              </AccordionItem>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

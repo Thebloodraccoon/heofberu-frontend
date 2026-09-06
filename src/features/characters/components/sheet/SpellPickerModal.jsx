@@ -241,7 +241,6 @@ export default function SpellPickerModal({ character, onClose, onError }) {
                 const slot = slotsByLevel[lv]
                 const known = knownCountByLevel[lv] ?? 0
                 const total = slot?.total ?? 0
-                const cap = capacityByLevel[lv] ?? 0
                 return (
                   <button
                     key={lv}
@@ -258,7 +257,7 @@ export default function SpellPickerModal({ character, onClose, onError }) {
               })}
             </div>
           )}
-          <div className="mt-4 flex items-center justify-end gap-2 pt-3">
+          <div className="modal-actions pt-3 mt-4">
             <Button variant="ghost" onClick={onClose}>Отмена</Button>
           </div>
         </>
@@ -340,7 +339,7 @@ export default function SpellPickerModal({ character, onClose, onError }) {
               })}
             </ul>
           </div>
-          <div className="mt-4 flex items-center justify-end gap-2 pt-3">
+          <div className="modal-actions pt-3 mt-4">
             <Button variant="ghost" onClick={back}>Назад</Button>
             <Button onClick={learnCell} disabled={saving || selected.size === 0}>
               {saving

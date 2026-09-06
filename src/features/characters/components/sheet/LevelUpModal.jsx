@@ -41,6 +41,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
   const [hpMode, setHpMode] = useState(() => loadHpMode(character?.id))
   const [rolled, setRolled] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [level, setLevel] = useState(() => asNum(character?.level) || 1)
 
   const chooseHpMode = (mode) => {
     setHpMode(mode)
@@ -53,7 +54,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
     return mod(asNum(totals.constitution_total))
   }, [character])
 
-  const currentLevel = asNum(character?.level) || 1
+  const currentLevel = level
   const targetLevel = currentLevel + 1
   const avgGain = Math.max(1, Math.floor(dieSides / 2) + 1 + conMod)
 
@@ -91,11 +92,11 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
         hit_points_gained: hpGain() ?? undefined,
         ...(choice ? { choice } : {}),
       })
-      setPhase('hp')
-      setRolled(null)
       await invalidate()
       const next = await charactersApi.progression.canLevelUp(Number(character.id))
-      if (!next?.can_level_up) setPhase('done')
+      if (next?.current_level != null) setLevel(asNum(next.current_level))
+      setRolled(null)
+      setPhase(next?.can_level_up ? 'hp' : 'done')
     } catch (e) {
       onError(e)
       onClose()
@@ -144,19 +145,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
                     ? `Выпало ${rolled} ${conMod >= 0 ? '+' : ''}${conMod} = ${Math.max(1, rolled + conMod)}`
                     : 'Бросок кости хитов + мод. Телосложения'
                 }
-              >
-                {hpMode === 'roll' && (
-                  <span
-                    className="mt-1.5 inline-block text-xs text-gold-light underline decoration-dotted"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      rollHp()
-                    }}
-                  >
-                    Перебросить
-                  </span>
-                )}
-              </OptionCard>
+              ></OptionCard>
               <OptionCard
                 selected={hpMode === 'average'}
                 onClick={() => chooseHpMode('average')}
@@ -165,14 +154,14 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
               />
             </div>
             {hpMode === 'roll' && rolled == null && (
-              <button type="button" className="sheet-btn sheet-btn_primary mt-3 w-full" onClick={rollHp}>
+              <button type="button" className="sheet-btn sheet-btn_primary mt-3 w-full max-sm:w-auto" onClick={rollHp}>
                 Бросить кубик
               </button>
             )}
 
             <button
               type="button"
-              className="sheet-btn sheet-btn_primary mt-4 w-full"
+              className="sheet-btn sheet-btn_primary mt-4 w-full max-sm:w-auto"
               disabled={busy || hpGain() == null}
               onClick={confirmHp}
             >

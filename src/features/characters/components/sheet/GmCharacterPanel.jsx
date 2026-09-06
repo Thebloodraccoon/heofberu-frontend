@@ -533,7 +533,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
               </div>
             </div>
           )}
-          <div className="flex items-center justify-end gap-2">
+          <div className="modal-actions">
             <Button type="button" variant="ghost" onClick={onClose}>
               Отмена
             </Button>
@@ -1182,7 +1182,7 @@ function ItemGrantModal({ catalogItem, onConfirm, onClose }) {
           autoFocus
         />
       </Field>
-      <div className="mt-4 flex justify-end gap-2">
+      <div className="mt-4 modal-actions">
         <Button type="button" variant="ghost" onClick={onClose}>
           Отмена
         </Button>

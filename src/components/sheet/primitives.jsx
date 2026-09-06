@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { fmtBonus } from '@/lib/utils/sheet.js'
 
 export function RollButton({ bonus, onClick, disabled, compact = false, className = '', title, label }) {
@@ -80,6 +80,14 @@ const PencilIcon = () => (
 export function EditableBlock({ title, value = '', onSave, rows = 4, maxLength }) {
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(value)
+  const taRef = useRef(null)
+
+  useLayoutEffect(() => {
+    const el = taRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight + 20}px`
+  }, [draft, edit])
 
   const startEdit = () => {
     setDraft(value ?? '')
@@ -109,6 +117,7 @@ export function EditableBlock({ title, value = '', onSave, rows = 4, maxLength }
       {edit ? (
         <div className="px-4 py-3">
           <textarea
+            ref={taRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={rows}

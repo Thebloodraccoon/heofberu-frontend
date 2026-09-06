@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { useBackgroundDetail, useSubclassesForClass, useSubracesForRace } from '@/features/catalog/queries.js'
+import { useSubclassesForClass, useSubracesForRace } from '@/features/catalog/queries.js'
 import { Button, Input, Modal } from '@/components/ui'
 import BackgroundPickerModal from './BackgroundPickerModal.jsx'
 import SubracePickerModal from './SubracePickerModal.jsx'
 import SubclassPickerModal from './SubclassPickerModal.jsx'
+import RebuildModal from './RebuildModal.jsx'
 
 function Tile({ title, present, currentName, onClick, editable = true }) {
   const body = (
@@ -40,8 +41,8 @@ export default function CharacterSettingsModal({ character, onClose, onError }) 
   const [saving, setSaving] = useState(false)
   const [savingSection, setSavingSection] = useState(false)
   const [picking, setPicking] = useState(null)
+  const [rebuilding, setRebuilding] = useState(false)
 
-  const { data: currentBg } = useBackgroundDetail(character.background_id)
   const subracesQ = useSubracesForRace(character.race_id)
   const subclassesQ = useSubclassesForClass(character.class_id)
   const currentSub = subracesQ.data?.find((s) => String(s.id) === String(character.subrace_id))
@@ -98,17 +99,28 @@ export default function CharacterSettingsModal({ character, onClose, onError }) 
           currentName={currentSubclass?.name}
           onClick={() => setPicking('subclass')}
         />
-        <Tile
-          title="Предыстория"
-          present={!!character.background_id}
-          currentName={currentBg?.name}
-          editable={!character.background_id}
-          onClick={() => setPicking('background')}
-        />
+        {!character.background_id && (
+          <Tile
+            title="Предыстория"
+            onClick={() => setPicking('background')}
+          />
+        )}
 
         {savingSection && <p className="text-xs text-stone-500">Сохранение…</p>}
+
+        <div className="rounded-lg border border-red-800/50 bg-red-950/20 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-stone-100">Полная переделка (ребилд)</p>
+              <p className="mt-0.5 text-xs text-stone-400">
+                Заново выбрать класс, расу, характеристики и навыки — как при создании персонажа.
+              </p>
+            </div>
+            <Button variant="ghost" onClick={() => setRebuilding(true)}>Ребилд</Button>
+          </div>
+        </div>
       </div>
-      <div className="mt-4 flex justify-end gap-2">
+      <div className="mt-4 modal-actions">
         <Button variant="ghost" onClick={onClose}>Отмена</Button>
         <Button disabled={!name.trim() || saving} onClick={saveName}>Сохранить имя</Button>
       </div>
@@ -142,6 +154,18 @@ export default function CharacterSettingsModal({ character, onClose, onError }) 
           onPick={async (id) => {
             await applyProgression('background', { background_id: id ? Number(id) : null })
             setPicking(null)
+          }}
+        />
+      )}
+
+      {rebuilding && (
+        <RebuildModal
+          character={character}
+          onClose={() => setRebuilding(false)}
+          onSuccess={async () => {
+            setRebuilding(false)
+            await refresh()
+            onClose()
           }}
         />
       )}

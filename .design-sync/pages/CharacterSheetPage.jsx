@@ -225,14 +225,6 @@ function CharacterSheet({ initialTab }) {
   // Local-only mutations: this reference composition has no backend, so
   // interactions update the mock character in place instead of calling the API.
   const toggleInspiration = () => setCharacter((c) => ({ ...c, inspiration: !c.inspiration }))
-  const changeExhaustion = (v) =>
-    setCharacter((c) => ({
-      ...c,
-      conditions:
-        v === 0
-          ? (c.conditions ?? []).filter((cond) => cond.condition !== 'EXHAUSTION')
-          : [...(c.conditions ?? []).filter((cond) => cond.condition !== 'EXHAUSTION'), { condition: 'EXHAUSTION', exhaustion_level: v }],
-    }))
   const hpDelta = (delta) => {
     setCharacter((c) => ({ ...c, current_hp: Math.max(0, Math.min(c.max_hp, c.current_hp + delta)) }))
     setHpModal(false)
@@ -254,11 +246,6 @@ function CharacterSheet({ initialTab }) {
     /* reference composition has no backend — panel mutations fail quietly */
   }
 
-  const exhaustionCondition = useMemo(
-    () => (character.conditions ?? []).find((c) => c.condition === 'EXHAUSTION'),
-    [character],
-  )
-  const exhaustion = exhaustionCondition?.exhaustion_level ?? 0
   const level = Number(character.level) || 1
   const pb = 2 + Math.floor((level - 1) / 4)
 
@@ -397,16 +384,11 @@ function CharacterSheet({ initialTab }) {
         level={level}
         pb={pb}
         inspiration={Boolean(character.inspiration)}
-        exhaustion={exhaustion}
-        conditionCount={(character.conditions ?? []).length}
         onInspiration={toggleInspiration}
-        onExhaustion={changeExhaustion}
         onOpenHp={() => setHpModal(true)}
         onOpenAc={() => setArmorModal(true)}
         levelUpInfo={LEVEL_UP_INFO}
         onOpenLevelUp={() => {}}
-        onOpenConditions={() => setTab('conditions')}
-        onOpenMoney={() => {}}
         initiativeBonus={modFor('DEX')}
         initiativeLast={null}
         onRollInitiative={() => rollDice('Инициатива', modFor('DEX'))}

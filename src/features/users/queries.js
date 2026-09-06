@@ -2,10 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/features/users/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 
-export const useUsers = () =>
+export const useUsers = (options = {}) =>
   useQuery({
     queryKey: queryKeys.users.all,
     queryFn: () => usersApi.list({ size: 100 }).then((p) => p?.items ?? []),
+    enabled: options.enabled !== false,
   })
 
 export const useUserCount = (enabled = true) =>

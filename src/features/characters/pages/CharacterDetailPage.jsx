@@ -37,7 +37,6 @@ import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.
 import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
 import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
 import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
-import MoneyModal from '@/features/characters/components/sheet/MoneyModal.jsx'
 import CharacterSettingsModal from '@/features/characters/components/sheet/CharacterSettingsModal.jsx'
 import { ARMOR_OPTIONS, num } from '@/features/characters/components/sheet/constants.js'
 
@@ -80,9 +79,8 @@ export default function CharacterDetailPage() {
   const [rollToasts, setRollToasts] = useState([])
   const [hpModal, setHpModal] = useState(false)
   const [armorModal, setArmorModal] = useState(false)
-  const [levelUpOpen, setLevelUpOpen] = useState(false)
+const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { data: canLevelUpData } = useCanLevelUp(id)
-  const [moneyModal, setMoneyModal] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -140,29 +138,6 @@ export default function CharacterDetailPage() {
   const dismissToast = useCallback((toastId) => {
     setRollToasts((prev) => prev.filter((t) => t.id !== toastId))
   }, [])
-
-  const exhaustionCondition = useMemo(
-    () => (character?.conditions ?? []).find((c) => c.condition === 'EXHAUSTION'),
-    [character]
-  )
-
-  const changeExhaustion = useCallback(
-    async (v) => {
-      try {
-        if (v === 0) {
-          if (exhaustionCondition) await api.conditions.remove(id, 'EXHAUSTION')
-        } else if (exhaustionCondition) {
-          await api.conditions.update(id, 'EXHAUSTION', { exhaustion_level: v })
-        } else {
-          await api.conditions.add(id, { condition: 'EXHAUSTION', exhaustion_level: v })
-        }
-        await load()
-      } catch (e) {
-        setMutationError(e)
-      }
-    },
-    [id, load, exhaustionCondition]
-  )
 
   const toggleInspiration = useCallback(async () => {
     try {
@@ -293,7 +268,7 @@ export default function CharacterDetailPage() {
               </div>
             </aside>
           </div>
-          <section className="sheet-right fantasy-panel rounded-lg p-4">
+          <section className="sheet-right fantasy-panel rounded-lg p-4 max-sm:p-2.5">
             <div className="flex flex-wrap gap-2">
               {Array.from({ length: 8 }, (_, i) => (
                 <Skeleton key={i} className="h-8 w-24" />
@@ -317,8 +292,6 @@ export default function CharacterDetailPage() {
     { label: 'Подраса', value: subraceDetail?.name },
     { label: 'Предыстория', value: backgroundDetail?.name },
   ]
-
-  const exhaustion = exhaustionCondition?.exhaustion_level ?? 0
 
   const initiativeBonus = modFor('DEX') + (num(character.initiative_bonus) ?? 0)
   const initiativeKey = `heofberu:initiative:${id}`
@@ -463,16 +436,11 @@ export default function CharacterDetailPage() {
         level={level}
         pb={pb}
         inspiration={Boolean(character?.inspiration)}
-        exhaustion={exhaustion}
-        conditionCount={(character.conditions ?? []).length}
         onInspiration={toggleInspiration}
-        onExhaustion={changeExhaustion}
         onOpenHp={() => setHpModal(true)}
         onOpenAc={() => setArmorModal(true)}
         levelUpInfo={canLevelUpData}
         onOpenLevelUp={() => setLevelUpOpen(true)}
-        onOpenConditions={() => setTab('conditions')}
-        onOpenMoney={() => setMoneyModal(true)}
         initiativeBonus={initiativeBonus}
         initiativeLast={initiativeLast}
         onRollInitiative={rollInitiative}
@@ -487,7 +455,7 @@ export default function CharacterDetailPage() {
           </aside>
         </div>
 
-        <section className="sheet-right fantasy-panel rounded-lg p-4">
+        <section className="sheet-right fantasy-panel rounded-lg p-4 max-sm:p-2.5">
           <SheetTabs tabs={tabs} active={tab} onSelect={setTab} />
 
           <div className="pt-4">
@@ -561,10 +529,6 @@ export default function CharacterDetailPage() {
           onError={setMutationError}
           onRollToast={pushToast}
         />
-      )}
-
-      {moneyModal && (
-        <MoneyModal character={character} onClose={() => setMoneyModal(false)} onError={setMutationError} />
       )}
 
       {settingsOpen && (

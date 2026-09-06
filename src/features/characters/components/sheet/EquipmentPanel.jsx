@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useCharacterItems } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
 import { diceTypeLabels, label } from '@/lib/i18n/index.js'
-import { EmptyState } from '@/components/ui'
+import { EmptyState, Skeleton } from '@/components/ui'
+import MoneyModal from './MoneyModal.jsx'
 
 function ItemFacts({ item }) {
   const damage =
@@ -85,13 +87,52 @@ function ItemRow({ ci, open, onToggle }) {
   )
 }
 
-export default function EquipmentPanel({ character }) {
-  const { data: items = [] } = useCharacterItems(character.id)
+export default function EquipmentPanel({ character, onError }) {
+  const { data: items = [], isLoading } = useCharacterItems(character.id)
   const [openIds, toggleId] = useUiSet(`equipment:${character.id}`)
+  const [moneyOpen, setMoneyOpen] = useState(false)
 
   return (
     <div className="space-y-4">
-      {items.length === 0 ? (
+      <div className="w-fit">
+        <div className="sheet-boxed__box p-0 min-w-28">
+          <button
+            type="button"
+            className="h-full w-full rounded-[inherit] px-2 py-1 text-left text-stone-200"
+            onClick={() => setMoneyOpen(true)}
+            title="Изменить деньги"
+          >
+            <span className="flex items-center gap-2">
+              <span className="flex items-center gap-1">
+                <span className="text-yellow-300">⛁</span>
+                <span>{character.money_gold ?? 0}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-stone-300">⛀</span>
+                <span>{character.money_silver ?? 0}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-amber-700">⛁</span>
+                <span>{character.money_copper ?? 0}</span>
+              </span>
+            </span>
+          </button>
+        </div>
+      </div>
+      {isLoading ? (
+        <ul className="space-y-2" aria-busy="true">
+          {Array.from({ length: 4 }, (_, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5"
+            >
+              <Skeleton className="size-3.5" />
+              <Skeleton className="h-3.5 w-40" />
+              <Skeleton className="ml-auto h-3.5 w-16" />
+            </li>
+          ))}
+        </ul>
+      ) : items.length === 0 ? (
         <EmptyState text="Инвентарь пуст" />
       ) : (
         <ul className="space-y-2">
@@ -104,6 +145,10 @@ export default function EquipmentPanel({ character }) {
             />
           ))}
         </ul>
+      )}
+
+      {moneyOpen && (
+        <MoneyModal character={character} onClose={() => setMoneyOpen(false)} onError={onError} />
       )}
     </div>
   )

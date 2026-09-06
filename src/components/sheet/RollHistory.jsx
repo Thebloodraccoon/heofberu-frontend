@@ -74,7 +74,7 @@ export default function RollHistory() {
                       className={`rounded p-1.5 transition ${
                         r.pinned
                           ? 'text-gold'
-                          : 'text-stone-600 opacity-0 group-hover:opacity-100 hover:text-stone-300'
+                          : 'text-stone-600 opacity-0 group-hover:opacity-100 hover:text-stone-300 max-sm:opacity-100'
                       }`}
                       title={r.pinned ? 'Открепить' : 'Закрепить'}
                       onClick={() => {
@@ -91,7 +91,7 @@ export default function RollHistory() {
           )}
 
           {sorted.some((r) => !r.pinned) && (
-            <div className="mt-4 flex justify-end border-t border-stone-700 pt-3">
+            <div className="modal-actions mt-4 border-t border-stone-700 pt-3">
               <button
                 type="button"
                 className="sheet-btn !py-1.5 text-xs"

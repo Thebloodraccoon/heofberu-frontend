@@ -150,5 +150,6 @@ export const charactersApi = {
       request(`/api/characters/${id}/progression/level-up`, { method: 'POST', body }),
     canLevelUp: (id) => request(`/api/characters/${id}/progression/can-level-up`),
     asiChoices: (id) => request(`/api/characters/${id}/progression/asi-choices`),
+    rebuild: (id, body) => request(`/api/characters/${id}/rebuild`, { method: 'POST', body }),
   },
 }

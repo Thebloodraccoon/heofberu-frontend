@@ -79,13 +79,10 @@ export default function AsiChoiceModal({
   const needsIncrease = (featIncreaseOptions(currentFeat)).length > 0
 
   // Если у выбранной черты ровно один вариант увеличения характеристик —
-  // выбираем его автоматически (даже когда он подгружается из деталей позже).
-  const selectedOptions = featIncreaseOptions(selectedFeat)
-  useEffect(() => {
-    if (selectedFeat && selectedOptions.length === 1) {
-      setIncreaseId(selectedOptions[0].id)
-    }
-  }, [selectedFeat, selectedOptions])
+  // считаем его выбранным автоматически (даже когда он подгружается из деталей позже).
+  const singleOption =
+    selectedFeat && featIncreaseOptions(selectedFeat).length === 1 ? featIncreaseOptions(selectedFeat)[0].id : null
+  const effectiveIncreaseId = singleOption ?? increaseId
 
   const confirm = () => {
     if (mode === 'asi') {
@@ -99,7 +96,7 @@ export default function AsiChoiceModal({
       onConfirm({
         type: 'FEAT',
         feat_id: feat.id,
-        ability_score_increase_id: increaseId ? Number(increaseId) : null,
+        ability_score_increase_id: effectiveIncreaseId ? Number(effectiveIncreaseId) : null,
       })
     }
   }
@@ -107,18 +104,18 @@ export default function AsiChoiceModal({
   // Черта должна быть реально выбрана, а если у неё есть варианты увеличения
   // характеристик — один из них обязательно должен быть выбран.
   const canConfirm =
-    mode === 'asi' ? budget >= 1 && budget <= 2 : Boolean(selectedFeat) && (!needsIncrease || increaseId != null)
+    mode === 'asi' ? budget >= 1 && budget <= 2 : Boolean(selectedFeat) && (!needsIncrease || effectiveIncreaseId != null)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
-      <div className="fantasy-panel w-full max-w-2xl rounded-lg">
-        <div className="px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm max-sm:p-2">
+      <div className="fantasy-panel w-full max-w-2xl rounded-lg max-sm:max-h-[90vh] max-sm:overflow-y-auto">
+        <div className="px-6 py-4 max-sm:px-[10px] max-sm:py-[10px]">
           <h3 className="font-display text-lg font-bold text-stone-100">Улучшение характеристик</h3>
           <p className="mt-0.5 text-sm text-stone-400">Уровень {level}: вы на развилке — у вас есть выбор.</p>
         </div>
 
-        <div className="px-6 py-4">
-          <div className="mb-4 flex gap-2">
+        <div className="px-6 py-4 max-sm:px-0 max-sm:py-[10px]">
+          <div className="mb-4 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => switchMode('asi')}
@@ -241,7 +238,7 @@ export default function AsiChoiceModal({
                         >
                           {f.name}
                         </button>
-                        <span className="flex shrink-0 items-center gap-1.5">
+                        <span className="flex flex-wrap items-center gap-1.5">
                           {(f.ability_score_increases ?? []).length > 0 && (
                             <Tag tone="good">Улучшение характеристики</Tag>
                           )}
@@ -314,7 +311,7 @@ export default function AsiChoiceModal({
                   <p className="mb-2 text-sm text-stone-300">Черта даёт увеличение характеристик. Выберите вариант:</p>
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     {featIncreaseOptions(currentFeat).map((ai) => {
-                      const checked = String(ai.id) === String(increaseId)
+                      const checked = String(ai.id) === String(effectiveIncreaseId)
                       return (
                         <label
                           key={ai.id}
@@ -345,11 +342,11 @@ export default function AsiChoiceModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-stone-700/60 px-6 py-4">
-          <Button variant="ghost" onClick={onCancel}>
+        <div className="flex justify-end gap-2 border-t border-stone-700/60 px-6 py-4 max-sm:px-[10px] max-sm:py-[10px]">
+          <Button variant="ghost" className="max-sm:flex-1" onClick={onCancel}>
             Отмена
           </Button>
-          <Button disabled={!canConfirm} onClick={confirm}>
+          <Button className="max-sm:flex-1" disabled={!canConfirm} onClick={confirm}>
             Применить
           </Button>
         </div>

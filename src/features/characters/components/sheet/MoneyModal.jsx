@@ -49,7 +49,7 @@ export default function MoneyModal({ character, onClose, onError }) {
           <Input type="text" inputMode="numeric" min="0" value={money.copper} onChange={(e) => setMoney({ ...money, copper: sanitizeMoney(e.target.value) })} />
         </label>
       </div>
-      <div className="mt-4 flex justify-end gap-2">
+      <div className="mt-4 modal-actions">
         <Button variant="ghost" onClick={onClose}>Отмена</Button>
         <Button onClick={save}>Сохранить</Button>
       </div>

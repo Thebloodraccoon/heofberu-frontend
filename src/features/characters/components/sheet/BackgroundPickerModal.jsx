@@ -128,7 +128,7 @@ export default function BackgroundPickerModal({ currentId, onPick, onClose }) {
         })}
       </div>
 
-      <div className="mt-4 flex justify-end gap-2">
+      <div className="mt-4 modal-actions">
         <Button variant="ghost" onClick={onClose}>Отмена</Button>
         <Button onClick={() => onPick(selected || null)}>Применить</Button>
       </div>
