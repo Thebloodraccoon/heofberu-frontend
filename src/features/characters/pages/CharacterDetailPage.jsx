@@ -25,6 +25,7 @@ import SheetRollToasts from '@/components/sheet/SheetRollToasts.jsx'
 import SheetHeader from '@/features/characters/components/sheet/SheetHeader.jsx'
 import AbilityBlock from '@/features/characters/components/sheet/AbilityBlock.jsx'
 import AttacksPanel from '@/features/characters/components/sheet/AttacksPanel.jsx'
+import QuickStatsPanel from '@/features/characters/components/sheet/QuickStatsPanel.jsx'
 import FeaturesPanel from '@/features/characters/components/sheet/FeaturesPanel.jsx'
 import EquipmentPanel from '@/features/characters/components/sheet/EquipmentPanel.jsx'
 import ConditionsPanel from '@/features/characters/components/sheet/ConditionsPanel.jsx'
@@ -36,6 +37,7 @@ import StatsCalculator from '@/features/characters/components/sheet/StatsCalcula
 import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
 import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
 import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
+import InspirationModal from '@/features/characters/components/sheet/InspirationModal.jsx'
 import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
 import CharacterSettingsModal from '@/features/characters/components/sheet/CharacterSettingsModal.jsx'
 import { ARMOR_OPTIONS, num } from '@/features/characters/components/sheet/constants.js'
@@ -79,6 +81,7 @@ export default function CharacterDetailPage() {
   const [rollToasts, setRollToasts] = useState([])
   const [hpModal, setHpModal] = useState(false)
   const [armorModal, setArmorModal] = useState(false)
+  const [inspirationModal, setInspirationModal] = useState(false)
 const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { data: canLevelUpData } = useCanLevelUp(id)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -139,14 +142,6 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
     setRollToasts((prev) => prev.filter((t) => t.id !== toastId))
   }, [])
 
-  const toggleInspiration = useCallback(async () => {
-    try {
-      await api.update(id, { inspiration: !character?.inspiration })
-      await load()
-    } catch (e) {
-      setMutationError(e)
-    }
-  }, [id, load, character])
 
   const level = Number(character?.level) || 1
   const pb = 2 + Math.floor((level - 1) / 4)
@@ -433,17 +428,8 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
       <SheetHeader
         character={character}
         fields={identityFields}
-        level={level}
-        pb={pb}
-        inspiration={Boolean(character?.inspiration)}
-        onInspiration={toggleInspiration}
-        onOpenHp={() => setHpModal(true)}
-        onOpenAc={() => setArmorModal(true)}
         levelUpInfo={canLevelUpData}
         onOpenLevelUp={() => setLevelUpOpen(true)}
-        initiativeBonus={initiativeBonus}
-        initiativeLast={initiativeLast}
-        onRollInitiative={rollInitiative}
         onRollFree={rollFree}
         onOpenSettings={() => setSettingsOpen(true)}
       />
@@ -455,8 +441,21 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
           </aside>
         </div>
 
-        <section className="sheet-right fantasy-panel rounded-lg p-4 max-sm:p-2.5">
-          <SheetTabs tabs={tabs} active={tab} onSelect={setTab} />
+        <div className="sheet-right flex min-w-0 flex-col gap-4">
+          <QuickStatsPanel
+            character={character}
+            pb={pb}
+            inspiration={Number(character?.inspiration) || 0}
+            onOpenInspiration={() => setInspirationModal(true)}
+            onOpenHp={() => setHpModal(true)}
+            onOpenAc={() => setArmorModal(true)}
+            initiativeBonus={initiativeBonus}
+            initiativeLast={initiativeLast}
+            onRollInitiative={rollInitiative}
+          />
+
+          <section className="fantasy-panel rounded-lg p-4 max-sm:p-2.5">
+            <SheetTabs tabs={tabs} active={tab} onSelect={setTab} />
 
           <div className="pt-4">
             {tab === 'abilities' && (
@@ -507,6 +506,7 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
           </div>
         </section>
       </div>
+      </div>
 
       {hpModal && (
         <HpModal
@@ -520,6 +520,14 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
 
       {armorModal && (
         <ArmorModal character={character} onClose={() => setArmorModal(false)} onSave={saveArmor} />
+      )}
+
+      {inspirationModal && (
+        <InspirationModal
+          character={character}
+          onClose={() => setInspirationModal(false)}
+          onError={setMutationError}
+        />
       )}
 
       {levelUpOpen && (

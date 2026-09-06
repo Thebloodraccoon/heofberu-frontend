@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BoxedValue, RollButton } from '@/components/sheet/primitives.jsx'
 import RollHistory from '@/components/sheet/RollHistory.jsx'
 import { useAuth } from '@/features/auth/useAuth.js'
 import { useUsers } from '@/features/users/queries.js'
@@ -88,16 +87,8 @@ function DicePicker({ onRoll }) {
 export default function SheetHeader({
   character,
   fields = [],
-  pb,
-  inspiration,
-  initiativeBonus = 0,
-  initiativeLast = null,
-  onInspiration,
-  onOpenHp,
-  onOpenAc,
   levelUpInfo,
   onOpenLevelUp,
-  onRollInitiative,
   onRollFree,
   onOpenSettings,
 }) {
@@ -119,9 +110,9 @@ export default function SheetHeader({
         </span>
 
         <div className="min-w-0 flex-1 max-[800px]:w-full">
-          <div className="flex flex-wrap items-center justify-between gap-2 max-sm:w-full max-sm:flex-nowrap">
-            <span className="sheet-name">{pick('Имя') || character.name || 'Безымянный персонаж'}</span>
-            <div className="flex items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 max-sm:w-full max-sm:flex-col-reverse">
+            <span className="sheet-name max-sm:w-full max-sm:text-center">{pick('Имя') || character.name || 'Безымянный персонаж'}</span>
+            <div className="flex items-center justify-end gap-2 max-sm:w-full max-sm:justify-center">
               {levelUpInfo?.can_level_up && (
                 <button
                   type="button"
@@ -149,8 +140,8 @@ export default function SheetHeader({
             </div>
           </div>
 
-          <div className="flex items-center gap-x-[8rem] gap-y-2 mt-2.5 max-lg:w-full max-lg:flex-col sm:max-lg:items-center">
-            <div className="sheet-chips lg:min-w-0 lg:flex-[0_1_40%] sm:max-lg:justify-center max-sm:justify-center">
+          <div className="flex items-center gap-x-[8rem] gap-y-2 max-lg:w-full max-lg:flex-col max-lg:items-center">
+            <div className="sheet-chips">
               <span className="sheet-chip sheet-chip--lvl">Ур. {pick('Уровень') ?? '—'}</span>
               {pick('Класс') &&
                 (character.class_id ? (
@@ -213,68 +204,6 @@ export default function SheetHeader({
                   <span className="sheet-chip">{pick('Предыстория')}</span>
                 ))}
               {pick('Игрок') && <span className="sheet-chip sheet-chip--dim">Игрок: {pick('Игрок')}</span>}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:justify-end sm:gap-x-5 sm:max-lg:justify-center lg:min-w-0 lg:flex-[0_1_60%] max-sm:pt-2.5 max-sm:[&>*]:grow max-sm:[&>*]:basis-[calc(33.333%_-_1rem)]">
-              <BoxedValue label="КД" boxClassName="p-0">
-                <button
-                  type="button"
-                  className="h-full w-full rounded-[inherit] px-2 text-inherit"
-                  onClick={onOpenAc}
-                  title="Класс доспеха и щит — нажмите, чтобы изменить"
-                >
-                  <span className="flex flex-col items-center gap-0.5 leading-none">
-                    <span>{(character.armor_class ?? 0) + (character.shield ?? 0)}</span>
-                    {(character.shield ?? 0) > 0 && (
-                      <span className="whitespace-nowrap text-[10px] font-normal text-gold">🛡 +{character.shield}</span>
-                    )}
-                  </span>
-                </button>
-              </BoxedValue>
-              <BoxedValue label="Хиты" boxClassName="p-0">
-                <button
-                  type="button"
-                  className="h-full w-full rounded-[inherit] px-2 text-inherit"
-                  onClick={onOpenHp}
-                  title="Хиты и отдых"
-                >
-                  <span className="flex flex-col items-center gap-0.5 leading-none">
-                    <span className="flex items-center gap-1">
-                      <span className="sheet-hp__heart">♥</span>
-                      {character.current_hp ?? 0}/{character.max_hp ?? 0}
-                    </span>
-                    {Number(character.temp_hp) > 0 && (
-                      <span className="whitespace-nowrap text-[10px] font-normal text-emerald-300">
-                        ♥ {character.temp_hp}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              </BoxedValue>
-              <BoxedValue label="Скорость">
-                <span>{character.speed ?? '—'}</span>
-              </BoxedValue>
-              <BoxedValue label="Владение">
-                <span>+{pb}</span>
-              </BoxedValue>
-              <BoxedValue label="Инициатива" boxClassName="min-w-14">
-                <RollButton
-                  bonus={initiativeBonus}
-                  label={initiativeLast != null ? String(initiativeLast) : undefined}
-                  onClick={onRollInitiative}
-                  className="!text-sm !min-w-10 !h-9"
-                  title={initiativeLast != null ? `Последний бросок инициативы: ${initiativeLast}` : 'Инициатива'}
-                />
-              </BoxedValue>
-              <BoxedValue label="Вдохновение" boxClassName="p-0">
-                <input
-                  type="checkbox"
-                  checked={inspiration}
-                  onChange={onInspiration}
-                  className="sheet-insp"
-                  title="Вдохновение"
-                />
-              </BoxedValue>
             </div>
           </div>
         </div>
