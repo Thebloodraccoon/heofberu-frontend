@@ -14,6 +14,7 @@ import {
 } from '@/lib/utils/ability.js'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterFeats } from '@/features/characters/queries.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { useFeatDetail } from '@/features/catalog/queries.js'
 import {
   useBackgroundDetail,
@@ -60,7 +61,7 @@ function describeAsiChoice(choice, featEffect) {
   }
   if (!featEffect) return 'Черта — уточняем…'
   const bonus = featEffect.ability ? ` (+${featEffect.amount} ${abilityName(featEffect.ability)})` : ''
-  return `${featEffect.name ?? 'Черта'}${bonus}`
+  return `${featEffect.name ? sentenceCase(featEffect.name) : 'Черта'}${bonus}`
 }
 
 // Резолвит фичу выбранной черты (имя + повышение характеристики, если оно
@@ -419,16 +420,18 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
               <Section title="Новая сборка">
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   <InfoCard label="Раса">
-                    {raceName ?? '—'}
-                    {subraceName ? ` · ${subraceName}` : ''}
+                    {raceName ? sentenceCase(raceName) : '—'}
+                    {subraceName ? ` · ${sentenceCase(subraceName)}` : ''}
                   </InfoCard>
                   <InfoCard label="Класс">
-                    {className ?? '—'}
-                    {subclassName ? ` · ${subclassName}` : ''}
+                    {className ? sentenceCase(className) : '—'}
+                    {subclassName ? ` · ${sentenceCase(subclassName)}` : ''}
                   </InfoCard>
-                  <InfoCard label="Предыстория">{backgroundName ?? '—'}</InfoCard>
+                  <InfoCard label="Предыстория">{backgroundName ? sentenceCase(backgroundName) : '—'}</InfoCard>
                   <InfoCard label="Хиты">{form.max_hp || '—'}</InfoCard>
-                  <InfoCard label="Навыки">{skillNames.length ? skillNames.join(', ') : '—'}</InfoCard>
+                  <InfoCard label="Навыки">
+                    {skillNames.length ? skillNames.map((n) => sentenceCase(n)).join(', ') : '—'}
+                  </InfoCard>
                   {requiredAsiLevels.length > 0 && (
                     <InfoCard label="Улучшения" className="sm:col-span-2">
                       <ul className="space-y-0.5">

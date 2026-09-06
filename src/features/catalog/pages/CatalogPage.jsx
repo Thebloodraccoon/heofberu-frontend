@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { catalogApi as api } from '@/features/catalog/api.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { catalog, PAGE_SIZE } from '../catalog.js'
 import { useCatalogPage } from '@/features/catalog/queries.js'
 import { Badge, Card, EmptyState, ErrorBox, PageHeader, Skeleton, SkeletonCard } from '@/components/ui'
@@ -294,7 +295,7 @@ export function CatalogListPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className={`font-display text-base font-bold ${isActive ? 'text-ember' : 'text-stone-100'}`}>
-                            {it.name}
+                            {sentenceCase(it.name)}
                           </p>
                         </div>
                         {it.description && (
@@ -335,7 +336,7 @@ export function CatalogListPage() {
                                           : 'border-stone-700 text-stone-300 hover:border-ember/50'
                                       }`}
                                     >
-                                      {sub.name}
+                                      {sentenceCase(sub.name)}
                                     </button>
                                   )
                                 })}

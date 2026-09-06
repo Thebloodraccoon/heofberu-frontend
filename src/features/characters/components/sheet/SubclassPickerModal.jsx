@@ -36,7 +36,7 @@ function SubclassDetail({ classId, subclassId }) {
           <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">Особенности</p>
           {detail.features.map((f) => (
             <div key={f.id} className="rounded border border-stone-700/50 bg-stone-900/40 px-2 py-1.5">
-              <p className="text-xs font-medium text-stone-200">{f.name}</p>
+              <p className="text-xs font-medium text-stone-200">{sentenceCase(f.name)}</p>
               {f.description && (
                 <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-relaxed text-stone-400">{f.description}</p>
               )}
@@ -86,7 +86,7 @@ export default function SubclassPickerModal({ character, currentId, onPick, onCl
                   onClick={() => setSelected(it.id)}
                   className="min-w-0 flex-1 text-left"
                 >
-                  <span className="text-sm font-medium text-stone-100">{it.name}</span>
+                  <span className="text-sm font-medium text-stone-100">{sentenceCase(it.name)}</span>
                 </button>
                 {it.id !== '' && (
                   <button

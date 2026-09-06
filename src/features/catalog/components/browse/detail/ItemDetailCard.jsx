@@ -1,4 +1,4 @@
-import { diceTypeLabels, label } from '@/lib/i18n/index.js'
+import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow } from '@/components/ui'
 import { Section, FeatureCards } from './detailHelpers.jsx'
 
@@ -51,7 +51,7 @@ export default function ItemDetailCard({ item }) {
     <Card className="my-[3px] detail-padded">
       <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
+          <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(item.name)}</h1>
           <div className="flex flex-wrap gap-1.5">
             {item.item_type && <Badge className="my-[5px]">{label(item.item_type)}</Badge>}
             {item.rarity && item.rarity !== 'NONE' && (

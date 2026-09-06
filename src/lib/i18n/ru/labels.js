@@ -364,11 +364,12 @@ export function label(value) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-// Первая буква заглавная, остальное — как есть (для имён из БД: «уход за животными» → «Уход за животными»).
+// Первая буква заглавная, остальное — строчными (для имён из БД: «уход за животными» →
+// «Уход за животными», «ЫАВПАВРПРАПР» → «Ывапаврпрапр»), независимо от исходного регистра.
 export function sentenceCase(value) {
   if (value === null || value === undefined || value === '') return '—'
   const s = String(value)
-  return s.charAt(0).toUpperCase() + s.slice(1)
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
 }
 
 export function fieldLabel(key) {

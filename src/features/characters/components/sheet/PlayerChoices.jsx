@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { STATS, abilityByCode } from '@/lib/utils/ability.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { useCharacterAsiChoices } from '@/features/characters/queries.js'
 import { useFeats } from '@/features/catalog/queries.js'
 import { Skeleton } from '@/components/ui'
@@ -33,9 +34,7 @@ const groupByLevel = (choices, featNameById) => {
     } else if (c?.choice_type === 'FEAT') {
       const featId = Number(c?.feat_id) || Number(c?.feat?.id)
       row.feats.push(
-        c?.feat?.name ??
-          featNameById?.get(featId) ??
-          (featId ? `Черта #${featId}` : 'Черта'),
+        sentenceCase(c?.feat?.name ?? featNameById?.get(featId) ?? (featId ? `Черта #${featId}` : 'Черта')),
       )
     } else {
       row.asi.push({ ability: 'Повышение', amount: 0 })

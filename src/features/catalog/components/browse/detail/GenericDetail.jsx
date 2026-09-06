@@ -1,4 +1,4 @@
-import { fieldLabel } from '@/lib/i18n/index.js'
+import { fieldLabel, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow } from '@/components/ui'
 import {
   isEmptyValue,
@@ -20,7 +20,7 @@ export default function GenericDetail({ item, hideAbility = false }) {
     <Card className="my-[3px] detail-padded">
       <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
+          <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(item.name)}</h1>
         </div>
       </div>
 

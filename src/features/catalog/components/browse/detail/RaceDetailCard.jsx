@@ -25,10 +25,10 @@ export default function RaceDetailCard({ race, selectedSub }) {
         <div className="order-2 min-w-0 flex-1 sm:order-1">
           <div className="mb-2">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="font-display text-2xl font-bold text-stone-100">{race.name}</h1>
+              <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(race.name)}</h1>
             </div>
             {selectedSub && (
-              <p className="mt-1 font-display text-lg font-semibold text-ember">{selectedSub.name}</p>
+              <p className="mt-1 font-display text-lg font-semibold text-ember">{sentenceCase(selectedSub.name)}</p>
             )}
           </div>
 

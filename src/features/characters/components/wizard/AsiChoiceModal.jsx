@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ABILITY_CAP, STATS, abilityName, mod } from '@/lib/utils/ability.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { Button, Input, Skeleton } from '@/components/ui'
 import { useAllFeats, useFeatDetail } from '@/features/catalog/queries.js'
 import { Tag } from './StepShell.jsx'
@@ -236,7 +237,7 @@ export default function AsiChoiceModal({
                           }}
                           className={`min-w-0 flex-1 rounded text-left font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                         >
-                          {f.name}
+                          {sentenceCase(f.name)}
                         </button>
                         <span className="flex flex-wrap items-center gap-1.5">
                           {(f.ability_score_increases ?? []).length > 0 && (

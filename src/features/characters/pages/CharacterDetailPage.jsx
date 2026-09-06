@@ -281,11 +281,11 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
   const identityFields = [
     { label: 'Имя', value: character.name || 'Безымянный персонаж' },
     { label: 'Уровень', value: String(level) },
-    { label: 'Класс', value: classDetail?.name },
-    { label: 'Подкласс', value: subclassDetail?.name },
-    { label: 'Раса', value: raceDetail?.name },
-    { label: 'Подраса', value: subraceDetail?.name },
-    { label: 'Предыстория', value: backgroundDetail?.name },
+    { label: 'Класс', value: classDetail?.name && sentenceCase(classDetail.name) },
+    { label: 'Подкласс', value: subclassDetail?.name && sentenceCase(subclassDetail.name) },
+    { label: 'Раса', value: raceDetail?.name && sentenceCase(raceDetail.name) },
+    { label: 'Подраса', value: subraceDetail?.name && sentenceCase(subraceDetail.name) },
+    { label: 'Предыстория', value: backgroundDetail?.name && sentenceCase(backgroundDetail.name) },
   ]
 
   const initiativeBonus = modFor('DEX') + (num(character.initiative_bonus) ?? 0)

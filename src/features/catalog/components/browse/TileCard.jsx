@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge } from '@/components/ui'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { summaryBadges } from './detail/detailHelpers.jsx'
 
 export default function TileCard({ item, resource }) {
@@ -11,7 +12,7 @@ export default function TileCard({ item, resource }) {
     >
       <div className="list-row">
         <p className="catalog-tile-title">
-          {item.name}
+          {sentenceCase(item.name)}
         </p>
       </div>
       {item.description && (

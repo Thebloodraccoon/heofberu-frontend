@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import {
   Card,
   EmptyState,
@@ -160,16 +161,19 @@ export default function GmCharactersPage() {
                 {characters.length === 0 ? 'Персонажей пока нет' : 'Ничего не найдено по запросу'}
               </p>
             ) : (
-              filtered.map((c) => (
-                <CharacterListItem
-                  key={c.id}
-                  character={c}
-                  playerName={playerNameOf(c.owner_id)}
-                  className={classById.get(Number(c.class_id))?.name}
-                  selected={selectedId === c.id}
-                  onEdit={openEditor}
-                />
-              ))
+              filtered.map((c) => {
+                const cn = classById.get(Number(c.class_id))?.name
+                return (
+                  <CharacterListItem
+                    key={c.id}
+                    character={c}
+                    playerName={playerNameOf(c.owner_id)}
+                    className={cn ? sentenceCase(cn) : undefined}
+                    selected={selectedId === c.id}
+                    onEdit={openEditor}
+                  />
+                )
+              })
             )}
           </aside>
 

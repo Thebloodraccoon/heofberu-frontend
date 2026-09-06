@@ -1,13 +1,14 @@
 import { useItems } from '@/features/catalog/queries.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
 
 export default function StepEquipment({ stepNo, total, form, update, lookups }) {
   const { classDetail, backgroundDetail } = lookups
   const { data: catalogItems = [] } = useItems()
-  const itemName = (opt) =>
-    opt?.item?.name ??
-    catalogItems.find((i) => Number(i.id) === Number(opt.item_id))?.name ??
-    `Предмет #${opt.item_id}`
+  const itemName = (opt) => {
+    const n = opt?.item?.name ?? catalogItems.find((i) => Number(i.id) === Number(opt.item_id))?.name
+    return n ? sentenceCase(n) : `Предмет #${opt.item_id}`
+  }
 
   const classItems = classDetail?.starting_items ?? []
   const bgItems = backgroundDetail?.starting_items ?? []

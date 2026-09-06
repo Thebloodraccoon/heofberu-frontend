@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AccordionItem, EmptyState } from '@/components/ui'
+import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
 import { useSearch } from './useSearch.js'
@@ -9,7 +10,7 @@ import { smoothScrollTo } from './scroll.js'
 
 function ItemLink({ entry }) {
   const id = entry?.item_id ?? entry?.id
-  const name = entry?.item?.name ?? entry?.name ?? itemName(id)
+  const name = sentenceCase(entry?.item?.name ?? entry?.name ?? itemName(id))
   if (id == null) return <span>{name}</span>
   return (
     <Link
@@ -65,8 +66,12 @@ export default function StepBackground({ stepNo, total, form, update, lookups })
               const skills = backgroundDetail.granted_skills ?? []
               const features = backgroundDetail.features ?? []
               const entries = [
-                ...skills.map((s) => ({ key: `skill-${s.id}`, name: s.name, description: s.description })),
-                ...features.map((f) => ({ key: `feature-${f.id}`, name: f.name, description: f.description })),
+                ...skills.map((s) => ({
+                  key: `skill-${s.id}`,
+                  name: skillLabels[s.name] ?? sentenceCase(s.name),
+                  description: s.description,
+                })),
+                ...features.map((f) => ({ key: `feature-${f.id}`, name: sentenceCase(f.name), description: f.description })),
               ]
               if (entries.length === 0) return null
               return (

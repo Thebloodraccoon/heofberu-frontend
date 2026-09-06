@@ -1,4 +1,4 @@
-import { diceTypeLabels, label } from '@/lib/i18n/index.js'
+import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow } from '@/components/ui'
 import { spellLevel, Section } from './detailHelpers.jsx'
 import SpellAvailability from '../SpellAvailability.jsx'
@@ -56,7 +56,7 @@ export default function SpellDetailCard({ spell }) {
     <Card className="my-[3px] detail-padded">
       <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-2xl font-bold text-stone-100">{spell.name}</h1>
+          <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(spell.name)}</h1>
           <div className="flex flex-wrap gap-1.5">
             {spell.level && <Badge tone="accent" className="my-[5px]">{spellLevel(spell.level)}</Badge>}
             {spell.school && <Badge className="my-[5px]">{label(spell.school)}</Badge>}

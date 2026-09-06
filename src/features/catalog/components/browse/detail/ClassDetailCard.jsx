@@ -38,7 +38,7 @@ function letterOf(i) {
 
 function ItemLink({ item }) {
   const id = item?.item_id ?? item?.id
-  const name = item?.item?.name ?? item?.name ?? itemName(id)
+  const name = sentenceCase(item?.item?.name ?? item?.name ?? itemName(id))
   if (id == null) return <span>{name}</span>
   return (
     <Link
@@ -179,11 +179,11 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
         <div className="order-2 min-w-0 flex-1 sm:order-1">
           <div className="mb-2">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="font-display text-2xl font-bold text-stone-100">{cls.name}</h1>
+              <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(cls.name)}</h1>
               <Badge className="my-[5px]">{`Кость хитов ${diceRu}`}</Badge>
             </div>
             {selectedSub && (
-              <p className="mt-1 font-display text-lg font-semibold text-ember">{selectedSub.name}</p>
+              <p className="mt-1 font-display text-lg font-semibold text-ember">{sentenceCase(selectedSub.name)}</p>
             )}
           </div>
 
@@ -280,7 +280,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                                 onClick={() => scrollToFeature(f.id)}
                                 className="cursor-pointer text-left italic text-stone-400 transition-colors hover:text-ember"
                               >
-                                {f.name}
+                                {sentenceCase(f.name)}
                               </button>
                             ) : (
                               <button
@@ -290,7 +290,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                                   f.fromSubclass ? 'rounded bg-ember/10 px-0.5 font-medium text-ember' : ''
                                 }`}
                               >
-                                {f.name}
+                                {sentenceCase(f.name)}
                               </button>
                             )}
                           </span>
@@ -439,7 +439,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                     header={
                       <>
                         <p className={`font-semibold ${feature.fromSubclass ? 'text-ember' : 'text-stone-100'}`}>
-                          {feature.name}
+                          {sentenceCase(feature.name)}
                         </p>
                         {feature.level != null && (
                           <Badge tone="accent">{ruLevel(feature.level)}</Badge>

@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { Section } from './detail/detailHelpers.jsx'
 
 export default function SpellAvailability({ spell }) {
@@ -16,7 +17,7 @@ export default function SpellAvailability({ spell }) {
       <div className="flex flex-wrap gap-1.5">
         {groups.map(([name, list]) => (
           <Badge key={name} tone="default" className="my-[5px]">
-            {name}: {list.map((x) => x.name).join(', ')}
+            {name}: {list.map((x) => sentenceCase(x.name)).join(', ')}
           </Badge>
         ))}
       </div>

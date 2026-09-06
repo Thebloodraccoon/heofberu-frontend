@@ -9,6 +9,7 @@ import {
   label,
   raceSizeLabels,
   ruLevel,
+  sentenceCase,
 } from '@/lib/i18n/index.js'
 import { AccordionItem, Badge, Chip } from '@/components/ui'
 import { abilityName } from '@/lib/utils/ability.js'
@@ -85,7 +86,9 @@ export function renderValue(value) {
   if (Array.isArray(value)) {
     if (value.length === 0) return '—'
     const names = value.map((item) => {
-      if (item && typeof item === 'object') return item.name ?? item.spell_level ?? item.ability ?? label(item)
+      if (item && typeof item === 'object') {
+        return item.name ? sentenceCase(item.name) : (item.spell_level ?? item.ability ?? label(item))
+      }
       return label(item)
     })
     return names.join(', ')
@@ -254,14 +257,14 @@ export function FeatureCards({ features }) {
               header={
                 <>
                   <p className={`font-semibold ${isSub(f) ? 'text-ember' : 'text-stone-100'}`}>
-                    {f.name}
+                    {sentenceCase(f.name)}
                   </p>
                   {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
                   {(f.ability_increases ?? []).length > 0 && (
                     <Badge tone="good">Изменения характеристик</Badge>
                   )}
                   {isSub(f) && groupName(f) && (
-                    <Badge tone="accent">{f.subclassName ? 'Подкласс' : 'Подраса'}: {groupName(f)}</Badge>
+                    <Badge tone="accent">{f.subclassName ? 'Подкласс' : 'Подраса'}: {sentenceCase(groupName(f))}</Badge>
                   )}
                 </>
               }

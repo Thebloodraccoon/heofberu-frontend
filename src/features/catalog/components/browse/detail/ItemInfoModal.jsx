@@ -1,4 +1,5 @@
 import { ErrorBox, Modal, Skeleton } from '@/components/ui'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { useItemDetail } from '@/features/catalog/queries.js'
 import ItemDetailCard from './ItemDetailCard.jsx'
 
@@ -8,7 +9,7 @@ export default function ItemInfoModal({ itemId, onClose }) {
   return (
     <Modal
       title="Предмет"
-      subtitle={detailQ.data?.name}
+      subtitle={detailQ.data?.name && sentenceCase(detailQ.data.name)}
       onClose={onClose}
       size="4xl"
       scroll

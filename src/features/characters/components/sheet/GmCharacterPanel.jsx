@@ -594,7 +594,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                   }}
                   className={`min-w-0 flex-1 rounded text-left font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                 >
-                  {f.name}
+                  {sentenceCase(f.name)}
                 </button>
                 <span className="flex shrink-0 items-center gap-1.5">
                   {(f.ability_score_increases ?? []).length > 0 && (
@@ -722,7 +722,7 @@ function FeaturePickerModal({ features, grantedIds, onPick, onClose }) {
                   onClick={() => onPick(f)}
                   className="min-w-0 flex-1 rounded text-left font-medium text-stone-100 hover:text-ember"
                 >
-                  {f.name}
+                  {sentenceCase(f.name)}
                 </button>
                 <span className="flex shrink-0 items-center gap-1.5">
                   {(f.ability_increases ?? []).length > 0 && (
@@ -902,7 +902,7 @@ function FeatsSection({ character, onError, reload }) {
                   >
                     <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
                     <span className="truncate text-sm font-medium text-stone-100">
-                      {cf.feat?.name || `Черта #${cf.feat_id}`}
+                      {cf.feat?.name ? sentenceCase(cf.feat.name) : `Черта #${cf.feat_id}`}
                     </span>
                     {inc && (
                       <span className="shrink-0 rounded border border-emerald-700/60 bg-emerald-900/30 px-1.5 py-0.5 text-[11px] text-emerald-200">
@@ -996,7 +996,7 @@ function FeaturesSection({ character, onError, reload }) {
     }
   }
 
-  const featureName = (cf) => cf.feature?.name || `Особенность #${cf.feature_id}`
+  const featureName = (cf) => (cf.feature?.name ? sentenceCase(cf.feature.name) : `Особенность #${cf.feature_id}`)
 
   return (
     <Section title="Особенности">
@@ -1171,7 +1171,7 @@ function ItemGrantModal({ catalogItem, onConfirm, onClose }) {
   const [qty, setQty] = useState('1')
 
   return (
-    <Modal title="Выдать предмет" subtitle={catalogItem?.name} onClose={onClose} size="sm">
+    <Modal title="Выдать предмет" subtitle={catalogItem?.name && sentenceCase(catalogItem.name)} onClose={onClose} size="sm">
       <Field label="Количество">
         <Input
           type="number"
@@ -1333,7 +1333,7 @@ function ItemsSection({ character, onError, reload }) {
                   disabled={!listQ.data}
                   className="w-full rounded-lg border border-stone-700/60 bg-stone-900/60 p-3 text-left transition hover:border-ember/50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <p className="text-sm font-medium text-stone-100">{it.name}</p>
+                  <p className="text-sm font-medium text-stone-100">{sentenceCase(it.name)}</p>
                   <p className="mt-0.5 text-xs text-stone-500">
                     {[it.item_type ? label(it.item_type) : null, it.rarity && it.rarity !== 'NONE' ? label(it.rarity) : null]
                       .filter(Boolean)
@@ -1375,7 +1375,7 @@ function ItemsSection({ character, onError, reload }) {
                       className="link-ember min-w-0 flex-1 truncate text-left font-display text-sm font-bold"
                       title="Показать предмет"
                     >
-                      {ci.item?.name ?? `Предмет #${ci.item_id}`}
+                      {ci.item?.name ? sentenceCase(ci.item.name) : `Предмет #${ci.item_id}`}
                       <span className="ml-2 font-sans text-xs font-normal tabular-nums text-stone-400">× {ci.quantity}</span>
                     </button>
                     {(ci.is_equipped || ci.is_attuned) && (
@@ -1411,7 +1411,7 @@ function ItemsSection({ character, onError, reload }) {
 
       {editTarget && (
         <ItemEditModal
-          title={`Изменить: ${editTarget.item?.name ?? `Предмет #${editTarget.item_id}`}`}
+          title={`Изменить: ${editTarget.item?.name ? sentenceCase(editTarget.item.name) : `Предмет #${editTarget.item_id}`}`}
           value={editTarget}
           catalogItem={editTarget.item}
           onSave={(form) => saveEdit(editTarget, form)}
@@ -1430,7 +1430,7 @@ function ItemsSection({ character, onError, reload }) {
             <>
               Вы точно хотите убрать{' '}
               <span className="font-semibold text-stone-100">
-                «{confirmTarget.item?.name ?? `Предмет #${confirmTarget.item_id}`}»
+                «{confirmTarget.item?.name ? sentenceCase(confirmTarget.item.name) : `Предмет #${confirmTarget.item_id}`}»
               </span>{' '}
               у персонажа? Это действие необратимо.
             </>

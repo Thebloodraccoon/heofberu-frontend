@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useCharacterItems } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
-import { diceTypeLabels, label } from '@/lib/i18n/index.js'
+import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { EmptyState, Skeleton } from '@/components/ui'
 import MoneyModal from './MoneyModal.jsx'
 
@@ -60,7 +60,7 @@ function ItemRow({ ci, open, onToggle }) {
       >
         <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
-          {item.name || `Предмет #${ci.item_id}`}
+          {item.name ? sentenceCase(item.name) : `Предмет #${ci.item_id}`}
           {ci.quantity > 1 && <span className="ml-2 text-xs font-normal text-stone-400">×{ci.quantity}</span>}
         </span>
         {ci.is_equipped && (

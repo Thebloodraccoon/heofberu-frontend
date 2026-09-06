@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AccordionItem } from '@/components/ui'
 import { abilityName } from '@/lib/utils/ability.js'
-import { armorProficiencyLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
+import { armorProficiencyLabels, sentenceCase, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
 import { smoothScrollTo } from './scroll.js'
@@ -118,7 +118,7 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
                           open={expanded}
                           onToggle={() => toggleOpen(f.id)}
                           bodyClassName="mt-1 px-[5px] lg:px-[15px]"
-                          header={<p className="font-semibold text-sm text-stone-100 sm:text-base">{f.name}</p>}
+                          header={<p className="font-semibold text-sm text-stone-100 sm:text-base">{sentenceCase(f.name)}</p>}
                         >
                           {f.description && (
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">

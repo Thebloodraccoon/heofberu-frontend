@@ -1,5 +1,5 @@
 import { ruLevel } from '@/lib/i18n/index.js'
-import { abilityLabels, label } from '@/lib/i18n/index.js'
+import { abilityLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow } from '@/components/ui'
 
 export default function FeatureDetailCard({ item }) {
@@ -9,7 +9,7 @@ export default function FeatureDetailCard({ item }) {
     <Card className="my-[3px] detail-padded">
       <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-2xl font-bold text-stone-100">{item.name}</h1>
+          <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(item.name)}</h1>
           {item.level != null && <Badge tone="accent" className="my-[5px]">{ruLevel(item.level)}</Badge>}
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { OptionCard } from './OptionCard.jsx'
 import { Hint, Search } from './StepShell.jsx'
 import Highlight from './Highlight.jsx'
@@ -38,7 +39,7 @@ export default function PickerGrid({
               selected={selected}
               disabled={isDisabled?.(it)}
               onClick={() => onSelect(it)}
-              title={<Highlight text={it.name} query={query} />}
+              title={<Highlight text={sentenceCase(it.name)} query={query} />}
               subtitle={
                 subtitle || description ? (
                   <>

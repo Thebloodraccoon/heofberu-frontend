@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useCharacterFeatures, useCharacterFeats } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { Skeleton } from '@/components/ui'
 
 const SOURCE_LABELS = {
@@ -103,7 +104,7 @@ export default function FeaturesPanel({ character }) {
           {items.map((it) => (
             <li key={it.key}>
               <AccordionItem
-                name={it.name}
+                name={sentenceCase(it.name)}
                 badge={it.badge}
                 level={it.level}
                 open={openKeys.includes(it.key)}

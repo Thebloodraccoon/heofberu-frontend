@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterItems, useCharacterSpells } from '@/features/characters/queries.js'
-import { diceTypeLabels, label } from '@/lib/i18n/index.js'
+import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { STATS } from '@/lib/utils/ability.js'
 import { Button, Field, Input, Modal, Select } from '@/components/ui'
 import { ATTACK_TYPES, DAMAGE_TYPES, DICE_TYPES, num } from './constants.js'
@@ -42,7 +42,7 @@ function ItemAttackOption({ ci, onPick }) {
         onClick={() => onPick(ci, item)}
         className="flex w-full items-center gap-2 rounded border border-stone-800 bg-stone-900/40 px-3 py-2 text-left transition hover:border-ember/60 hover:bg-stone-900"
       >
-        <span className="min-w-0 flex-1 truncate text-sm text-stone-100">{item.name || `Предмет #${ci.item_id}`}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-stone-100">{item.name ? sentenceCase(item.name) : `Предмет #${ci.item_id}`}</span>
         {dmg && <span className="shrink-0 text-xs text-stone-400">{dmg}</span>}
         {ci.is_equipped && (
           <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Экип.</span>
@@ -62,7 +62,7 @@ function SpellAttackOption({ cs, onPick }) {
         onClick={() => onPick(sp)}
         className="flex w-full items-center gap-2 rounded border border-stone-800 bg-stone-900/40 px-3 py-2 text-left transition hover:border-ember/60 hover:bg-stone-900"
       >
-        <span className="min-w-0 flex-1 truncate text-sm text-stone-100">{sp.name || `Заклинание #${cs.spell_id}`}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-stone-100">{sp.name ? sentenceCase(sp.name) : `Заклинание #${cs.spell_id}`}</span>
         <span className="shrink-0 text-xs text-stone-400">
           {[dmg, sp.level ? label(sp.level) : ''].filter(Boolean).join(' · ') || label(sp.school)}
         </span>

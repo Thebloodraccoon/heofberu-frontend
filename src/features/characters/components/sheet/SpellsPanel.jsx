@@ -4,7 +4,7 @@ import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterSpellSlots, useCharacterSpells } from '@/features/characters/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { abilityName } from '@/lib/utils/ability.js'
-import { diceTypeLabels, label } from '@/lib/i18n/index.js'
+import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { EmptyState, Skeleton } from '@/components/ui'
 import { useUiSet } from '@/lib/uiState.js'
 import { SPELL_LEVEL_ORDER } from './constants.js'
@@ -86,7 +86,7 @@ function SpellRow({ cs, open, onExpand, onRemove }) {
         >
           <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
-            {sp.name || `Заклинание #${cs.spell_id}`}
+            {sp.name ? sentenceCase(sp.name) : `Заклинание #${cs.spell_id}`}
           </span>
           {sp.school && <span className="shrink-0 text-xs text-stone-500">{label(sp.school)}</span>}
         </button>

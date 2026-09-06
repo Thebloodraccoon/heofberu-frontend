@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { useSubclassesForClass, useSubracesForRace } from '@/features/catalog/queries.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { Button, Input, Modal } from '@/components/ui'
 import BackgroundPickerModal from './BackgroundPickerModal.jsx'
 import SubracePickerModal from './SubracePickerModal.jsx'
@@ -90,13 +91,13 @@ export default function CharacterSettingsModal({ character, onClose, onError }) 
         <Tile
           title="Подраса"
           present={!!character.subrace_id}
-          currentName={currentSub?.name}
+          currentName={currentSub?.name && sentenceCase(currentSub.name)}
           onClick={() => setPicking('subrace')}
         />
         <Tile
           title="Подкласс"
           present={!!character.subclass_id}
-          currentName={currentSubclass?.name}
+          currentName={currentSubclass?.name && sentenceCase(currentSubclass.name)}
           onClick={() => setPicking('subclass')}
         />
         {!character.background_id && (

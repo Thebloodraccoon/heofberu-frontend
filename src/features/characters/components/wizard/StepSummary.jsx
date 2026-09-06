@@ -1,4 +1,5 @@
 import { STATS, abilityName, mod } from '@/lib/utils/ability.js'
+import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { useItems } from '@/features/catalog/queries.js'
 import { Section, StepShell } from './StepShell.jsx'
 
@@ -20,13 +21,17 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
   const chosenSkills = (form.class_skill_ids ?? [])
     .map((id) => skillsById.get(Number(id))?.name)
     .filter(Boolean)
+    .map((n) => skillLabels[n] ?? sentenceCase(n))
   const savingThrows = (classDetail?.saving_throws ?? []).map((s) => abilityName(s.ability))
 
-  const itemName = (opt) =>
-    opt?.item?.name ||
-    (opt?.name ? opt.name : undefined) ||
-    catalogItems.find((i) => Number(i.id) === Number(opt?.item_id))?.name ||
-    (opt?.item_id != null ? `Предмет #${opt.item_id}` : '—')
+  const itemName = (opt) => {
+    const n =
+      opt?.item?.name ||
+      (opt?.name ? opt.name : undefined) ||
+      catalogItems.find((i) => Number(i.id) === Number(opt?.item_id))?.name
+    if (n) return sentenceCase(n)
+    return opt?.item_id != null ? `Предмет #${opt.item_id}` : '—'
+  }
 
   const fixedItems = [
     ...(classDetail?.starting_items ?? []).map((it) => ({ ...it, name: itemName(it), source: 'класс' })),
@@ -65,12 +70,12 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
             <div className="grid gap-2.5 sm:grid-cols-2">
               <InfoCard label="Имя">{form.name || '—'}</InfoCard>
               <InfoCard label="Раса">
-                {raceDetail?.name ?? '—'}
-                {subraceDetail?.name ? ` · ${subraceDetail.name}` : ''}
+                {raceDetail?.name ? sentenceCase(raceDetail.name) : '—'}
+                {subraceDetail?.name ? ` · ${sentenceCase(subraceDetail.name)}` : ''}
               </InfoCard>
-              <InfoCard label="Предыстория">{backgroundDetail?.name ?? '—'}</InfoCard>
-              <InfoCard label="Класс">{classDetail?.name ?? '—'}</InfoCard>
-              <InfoCard label="Подкласс">{subclassDetail?.name ?? '—'}</InfoCard>
+              <InfoCard label="Предыстория">{backgroundDetail?.name ? sentenceCase(backgroundDetail.name) : '—'}</InfoCard>
+              <InfoCard label="Класс">{classDetail?.name ? sentenceCase(classDetail.name) : '—'}</InfoCard>
+              <InfoCard label="Подкласс">{subclassDetail?.name ? sentenceCase(subclassDetail.name) : '—'}</InfoCard>
               <InfoCard label="Кость хитов">{derived.dieSides ? `к${derived.dieSides}` : '—'}</InfoCard>
               <InfoCard label="Спасброски">{savingThrows.length ? savingThrows.join(', ') : '—'}</InfoCard>
               <InfoCard label="Навыки">{chosenSkills.length ? chosenSkills.join(', ') : '—'}</InfoCard>

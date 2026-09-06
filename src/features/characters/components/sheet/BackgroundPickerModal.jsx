@@ -36,7 +36,7 @@ function BackgroundDetail({ backgroundId }) {
           <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">Особенности</p>
           {detail.features.map((f) => (
             <div key={f.id} className="rounded border border-stone-700/50 bg-stone-900/40 px-2 py-1.5">
-              <p className="text-xs font-medium text-stone-200">{f.name}</p>
+              <p className="text-xs font-medium text-stone-200">{sentenceCase(f.name)}</p>
               {f.description && (
                 <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-relaxed text-stone-400">{f.description}</p>
               )}
@@ -51,7 +51,7 @@ function BackgroundDetail({ backgroundId }) {
             {detail.starting_items.map((entry, i) => (
               <li key={i}>
                 {entry.quantity > 1 && <span className="font-medium text-ember">{entry.quantity}×</span>}
-                {entry.name ?? entry.item?.name ?? entry}
+                {sentenceCase(entry.name ?? entry.item?.name ?? entry)}
               </li>
             ))}
           </ul>
@@ -99,7 +99,7 @@ export default function BackgroundPickerModal({ currentId, onPick, onClose }) {
                   onClick={() => setSelected(it.id)}
                   className="min-w-0 flex-1 text-left"
                 >
-                  <span className="text-sm font-medium text-stone-100">{it.name}</span>
+                  <span className="text-sm font-medium text-stone-100">{sentenceCase(it.name)}</span>
                 </button>
                 {it.id !== '' && (
                   <button

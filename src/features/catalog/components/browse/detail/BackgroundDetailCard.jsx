@@ -5,7 +5,7 @@ import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue, 
 
 function ItemLink({ item }) {
   const id = item?.item_id ?? item?.id
-  const name = item?.item?.name ?? item?.name ?? itemName(id)
+  const name = sentenceCase(item?.item?.name ?? item?.name ?? itemName(id))
   if (id == null) return <span>{name}</span>
   return (
     <Link
@@ -46,7 +46,7 @@ export default function BackgroundDetailCard({ bg }) {
     <Card className="my-[3px] detail-padded">
       <div className="mb-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-2xl font-bold text-stone-100">{bg.name}</h1>
+          <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(bg.name)}</h1>
         </div>
       </div>
 

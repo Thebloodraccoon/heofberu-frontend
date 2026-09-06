@@ -1,4 +1,5 @@
 import { STATS } from '@/lib/utils/ability.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { useCharacterStats } from '@/features/characters/queries.js'
 import { Skeleton } from '@/components/ui'
 
@@ -113,7 +114,7 @@ export default function StatsCalculator({ characterId }) {
                     key={`${c?.id ?? i}-${i}`}
                     className={`rounded px-1.5 py-0.5 text-[10px] ${chipClass(chipTone(contribSource(c)))}`}
                   >
-                    {contribLabel(c)} {fmtAmount(contribAmount(c))}
+                    {sentenceCase(contribLabel(c))} {fmtAmount(contribAmount(c))}
                   </span>
                 ))}
               </div>

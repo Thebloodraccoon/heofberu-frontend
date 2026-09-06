@@ -4,7 +4,7 @@ import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterSpells, useCharacterSpellSlots } from '@/features/characters/queries.js'
 import { useSpells, useSpellDetail } from '@/features/catalog/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { label, diceTypeLabels } from '@/lib/i18n/index.js'
+import { label, diceTypeLabels, sentenceCase } from '@/lib/i18n/index.js'
 import { Button, Modal, Skeleton } from '@/components/ui'
 import { SPELL_LEVEL_ORDER } from './constants.js'
 
@@ -309,7 +309,7 @@ export default function SpellPickerModal({ character, onClose, onError }) {
                         className={`min-w-0 flex-1 ${blocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                         title={blocked ? 'Нет свободных ячеек этого уровня' : undefined}
                       >
-                        <span className="block truncate text-sm text-stone-100">{sp.name}</span>
+                        <span className="block truncate text-sm text-stone-100">{sentenceCase(sp.name)}</span>
                         <span className="block text-xs text-stone-500">
                           {[sp.school && label(sp.school)].filter(Boolean).join(' · ')}
                         </span>
