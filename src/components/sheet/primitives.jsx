@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { fmtBonus } from '@/lib/utils/sheet.js'
+import { RichText, RichTextEditor } from '@/components/ui'
 
 export function RollButton({ bonus, onClick, disabled, compact = false, className = '', title, label }) {
   return (
@@ -63,13 +64,6 @@ export function SheetSectionLabel({ children, className = '' }) {
   return <p className={`sheet-section-label ${className}`.trim()}>{children}</p>
 }
 
-const ChevronIcon = ({ className = '' }) => (
-  <svg className={className} height="24" viewBox="0 0 24 24" width="24" fill="currentColor">
-    <path d="M0 0h24v24H0z" fill="none" />
-    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
-  </svg>
-)
-
 const PencilIcon = () => (
   <svg enableBackground="new 0 0 24 24" height="24" viewBox="0 0 24 24" width="24" fill="currentColor">
     <rect fill="none" height="24" width="24" />
@@ -77,17 +71,9 @@ const PencilIcon = () => (
   </svg>
 )
 
-export function EditableBlock({ title, value = '', onSave, rows = 4, maxLength }) {
+export function EditableBlock({ title, value = '', onSave, rows = 4 }) {
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(value)
-  const taRef = useRef(null)
-
-  useLayoutEffect(() => {
-    const el = taRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight + 20}px`
-  }, [draft, edit])
 
   const startEdit = () => {
     setDraft(value ?? '')
@@ -116,93 +102,15 @@ export function EditableBlock({ title, value = '', onSave, rows = 4, maxLength }
       </div>
       {edit ? (
         <div className="px-4 py-3">
-          <textarea
-            ref={taRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={rows}
-            maxLength={maxLength}
-            className="w-full resize-y rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember"
-          />
+          <RichTextEditor value={draft} onChange={(e) => setDraft(e.target.value)} rows={rows} autoFocus />
           <div className="mt-2 flex items-center gap-2">
             <button type="button" className="sheet-btn sheet-btn_primary" onClick={save}>Сохранить</button>
             <button type="button" className="sheet-btn" onClick={cancel}>Отмена</button>
           </div>
         </div>
       ) : (
-        <p className="mx-1 mb-1 whitespace-pre-wrap rounded-lg bg-stone-900/60 px-4 py-3 text-sm text-stone-300">
-          {value || '—'}
-        </p>
+        <RichText value={value} className="mx-1 mb-1 rounded-lg bg-stone-900/60 px-4 py-3" />
       )}
-    </div>
-  )
-}
-
-export function TextBlock({ title, value = '', editing = false, onSave, hint }) {
-  const [open, setOpen] = useState(false)
-  const [edit, setEdit] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const [saved, setSaved] = useState(false)
-
-  const startEdit = () => {
-    setDraft(value)
-    setEdit(true)
-    setOpen(true)
-    setSaved(false)
-  }
-
-  const cancel = () => {
-    setEdit(false)
-    setDraft(value)
-  }
-
-  const save = async () => {
-    await onSave?.(draft)
-    setEdit(false)
-    setSaved(true)
-  }
-
-  return (
-    <div className="sheet-text-block">
-      <div className="sheet-text-block__head">
-        <button type="button" className="sheet-text-block__label" onClick={() => setOpen(!open)}>
-          {title}
-          <ChevronIcon className={open ? 'rotate-90' : ''} />
-        </button>
-        {editing && onSave && !edit && (
-          <button type="button" className="sheet-edit-note" title="Изменить" onClick={startEdit}>
-            <PencilIcon />
-          </button>
-        )}
-      </div>
-      {open && (
-        <div className="sheet-text-block__body">
-          {edit ? (
-            <>
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={4}
-                className="w-full resize-y rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-ember"
-              />
-              <div className="mt-2 flex items-center gap-2">
-                <button type="button" className="sheet-btn sheet-btn_primary" onClick={save}>
-                  Сохранить
-                </button>
-                <button type="button" className="sheet-btn" onClick={cancel}>
-                  Отмена
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p>{value || '—'}</p>
-              {saved && <p className="mt-1 text-xs text-emerald-400">Сохранено</p>}
-            </>
-          )}
-        </div>
-      )}
-      {hint && !open && <p className="sr-only">{hint}</p>}
     </div>
   )
 }

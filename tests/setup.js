@@ -26,3 +26,15 @@ if (!window.matchMedia) {
 }
 
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || vi.fn()
+
+// jsdom не реализует эти DOM-геометрические API — нужны ProseMirror-редактору
+// (RichTextEditor) для определения позиции клика/курсора внутри contenteditable.
+if (!document.elementFromPoint) {
+  document.elementFromPoint = () => null
+}
+if (!Range.prototype.getBoundingClientRect) {
+  Range.prototype.getBoundingClientRect = () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 })
+}
+if (!Range.prototype.getClientRects) {
+  Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: function* () {} })
+}

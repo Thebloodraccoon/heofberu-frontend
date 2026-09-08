@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useCharacterItems } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
-import { EmptyState, Skeleton } from '@/components/ui'
+import { EmptyState, RichText, Skeleton } from '@/components/ui'
 import MoneyModal from './MoneyModal.jsx'
 
 function ItemFacts({ item }) {
@@ -74,13 +74,15 @@ function ItemRow({ ci, open, onToggle }) {
         <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">
           {item && <ItemFacts item={item} />}
           {description ? (
-            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-3 leading-relaxed text-stone-200">
-              {description}
-            </p>
+            <RichText value={description} className="text-stone-200" />
           ) : (
             <span className="text-stone-500">Описание отсутствует</span>
           )}
-          {ci.notes && <p className="mt-1.5 text-stone-500">Заметка: {ci.notes}</p>}
+          {ci.notes && (
+            <div className="mt-1.5 text-stone-500">
+              Заметка: <RichText value={ci.notes} className="inline" />
+            </div>
+          )}
         </div>
       )}
     </li>

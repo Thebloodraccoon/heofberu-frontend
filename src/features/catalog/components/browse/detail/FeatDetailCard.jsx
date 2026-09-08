@@ -1,5 +1,5 @@
 import { abilityLabels, label, sentenceCase } from '@/lib/i18n/index.js'
-import { Badge, Card, FactList, FactRow } from '@/components/ui'
+import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
 import { Section, FeatureCards } from './detailHelpers.jsx'
 
 export default function FeatDetailCard({ item }) {
@@ -27,7 +27,7 @@ export default function FeatDetailCard({ item }) {
         <FactList>
           {prerequisite && <FactRow label="Требования" value={prerequisite} />}
           {item.prerequisite_description && (
-            <FactRow label="Доп. требования" value={item.prerequisite_description} />
+            <FactRow label="Доп. требования" value={<RichText value={item.prerequisite_description} className="inline" />} />
           )}
           {increases.length > 0 && (
             <FactRow
@@ -42,11 +42,7 @@ export default function FeatDetailCard({ item }) {
         </FactList>
       )}
 
-      {item.description && (
-        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-          {item.description}
-        </p>
-      )}
+      {item.description && <RichText value={item.description} className="description-blockquote" />}
 
       {item.features && item.features.length > 0 && (
         <Section title="Умения">

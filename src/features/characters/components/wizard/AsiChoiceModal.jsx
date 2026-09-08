@@ -72,8 +72,13 @@ export default function AsiChoiceModal({
   }
   const featLevelOk = (f) => f.min_level == null || Number(f.min_level) <= Number(level)
 
+  // detail соответствует f, если по нему сейчас идёт подгрузка деталей — либо он
+  // раскрыт (expandedId), либо выбран как черта уровня (featId, тогда detailId
+  // берёт его же). Иначе используем то, что уже было в списке черт.
   const featIncreaseOptions = (f) =>
-    (f != null && String(expandedId) === String(f.id) ? detail?.ability_score_increases : undefined) ??
+    (f != null && (String(expandedId) === String(f.id) || String(featId) === String(f.id))
+      ? detail?.ability_score_increases
+      : undefined) ??
     f?.ability_score_increases ??
     []
 

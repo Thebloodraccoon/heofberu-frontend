@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { abilityName, bonusMap } from '@/lib/utils/ability.js'
 import { skillLabels, sentenceCase } from '@/lib/i18n/index.js'
-import { Button, Modal, Skeleton } from '@/components/ui'
+import { Button, Modal, RichText, Skeleton } from '@/components/ui'
 import { useSubracesForRace, useSubraceDetail } from '@/features/catalog/queries.js'
 
 const sizeLabel = (size) =>
@@ -37,9 +37,7 @@ function SubraceDetail({ raceId, subraceId }) {
 
   return (
     <div className="mt-2 space-y-4 border-t border-stone-800 px-[15px] pt-2 pb-2">
-      {detail.description && (
-        <p className="whitespace-pre-wrap text-xs leading-relaxed text-stone-400">{detail.description}</p>
-      )}
+      {detail.description && <RichText value={detail.description} className="text-xs text-stone-400" />}
       <span className="flex flex-wrap gap-1">
         {detail.speed && (
           <span className="rounded bg-stone-700/60 px-1.5 py-0.5 text-[11px] text-stone-300">
@@ -69,9 +67,7 @@ function SubraceDetail({ raceId, subraceId }) {
           {detail.features.map((f) => (
             <div key={f.id} className="rounded border border-stone-700/50 bg-stone-900/40 px-2 py-1.5">
               <p className="text-xs font-medium text-stone-200">{sentenceCase(f.name)}</p>
-              {f.description && (
-                <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-relaxed text-stone-400">{f.description}</p>
-              )}
+              {f.description && <RichText value={f.description} className="mt-0.5 text-[11px] text-stone-400" />}
             </div>
           ))}
         </div>

@@ -105,14 +105,98 @@
   @apply text-xs text-emerald-400;
 }
 
-/* --- Описание-цитата (с полоской слева) --- */
+/* --- Отступы для RichText-контента (типографику несёт .rich-text) ---
+   Без декоративной рамки/цвета: текст справочника должен выглядеть ровно
+   так, как его отформатировал ГМ в редакторе, а не поверх навязанного вида. */
 
 .description-blockquote {
-  @apply mb-6 break-words whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-base leading-relaxed text-stone-200;
+  @apply mb-6;
 }
 
 .description-secondary {
-  @apply mb-6 break-words whitespace-pre-wrap text-sm leading-relaxed text-stone-300;
+  @apply mb-2;
+}
+
+/* --- Форматированный текст (RichText/RichTextEditor): описания, предыстория, заметки --- */
+
+.rich-text {
+  @apply break-words text-sm leading-relaxed text-stone-300;
+}
+
+.rich-text :is(h2, h3) {
+  @apply font-display font-bold text-stone-100;
+}
+.rich-text h2 {
+  @apply mt-4 mb-1.5 text-lg;
+}
+.rich-text h3 {
+  @apply mt-3 mb-1 text-base;
+}
+.rich-text p {
+  @apply mb-2 last:mb-0;
+}
+.rich-text :is(ul, ol) {
+  @apply mb-2 space-y-1 pl-5;
+}
+.rich-text ul {
+  @apply list-disc;
+}
+.rich-text ol {
+  @apply list-decimal;
+}
+.rich-text blockquote {
+  @apply mb-2 border-l-2 border-ember/50 pl-3 italic text-stone-400;
+}
+.rich-text hr {
+  @apply my-3 border-stone-700;
+}
+.rich-text table {
+  @apply mb-2 w-full border-collapse overflow-hidden rounded border border-stone-700/60 text-left;
+}
+.rich-text :is(td, th) {
+  @apply border border-stone-700/60 px-2 py-1 align-top;
+}
+.rich-text th {
+  @apply bg-stone-800/70 font-semibold text-stone-100;
+}
+.rich-text a {
+  @apply font-medium text-ember/90 underline decoration-ember/40 underline-offset-2 transition hover:text-ember;
+}
+.rich-text strong {
+  @apply font-semibold text-stone-100;
+}
+
+.rich-editor {
+  @apply overflow-hidden rounded border border-stone-700 bg-stone-800/70 transition focus-within:border-ember;
+}
+.rich-editor_disabled {
+  @apply pointer-events-none opacity-60;
+}
+.rich-editor .rich-editor__content {
+  @apply px-3 py-2 outline-none;
+}
+.rich-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply pointer-events-none float-left h-0 text-stone-500;
+}
+.rich-editor__source textarea {
+  @apply outline-none;
+}
+
+.rich-toolbar {
+  @apply flex flex-wrap items-center gap-0.5 border-b border-stone-700/70 bg-stone-900/40 p-1;
+}
+.rich-toolbar__btn {
+  @apply flex size-7 shrink-0 items-center justify-center rounded text-xs font-medium text-stone-300 transition hover:bg-stone-700/70 hover:text-stone-100;
+}
+.rich-toolbar__btn_active {
+  @apply bg-ember/15 text-ember;
+}
+.rich-toolbar__sep {
+  @apply mx-0.5 h-5 w-px shrink-0 bg-stone-700;
+}
+.rich-toolbar__spacer {
+  @apply ml-auto;
 }
 
 /* --- Оверлей / модалка --- */

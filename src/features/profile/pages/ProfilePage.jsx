@@ -7,9 +7,10 @@ import {
   ErrorBox,
   Input,
   PageHeader,
+  RichText,
+  RichTextEditor,
   Skeleton,
   SkeletonCard,
-  TextArea,
 } from '@/components/ui'
 import { useUpdateMe } from '@/features/users/queries.js'
 
@@ -135,16 +136,18 @@ function ProfileCard({ user, roleLabel, roleTone, onSaved }) {
           <h3 className="heading-sub">О себе</h3>
           {edit ? (
             <div className="mt-3">
-              <TextArea
+              <RichTextEditor
                 rows={4}
                 value={form.bio}
                 onChange={set('bio')}
                 placeholder="Коротко о себе и своих героях..."
               />
             </div>
+          ) : user.bio ? (
+            <RichText value={user.bio} className="mt-2 text-body" />
           ) : (
-            <p className="mt-2 whitespace-pre-wrap text-body">
-              {user.bio || <span className="text-muted">Пока не заполнено</span>}
+            <p className="mt-2 text-body">
+              <span className="text-muted">Пока не заполнено</span>
             </p>
           )}
         </section>

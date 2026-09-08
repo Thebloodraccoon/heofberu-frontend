@@ -114,17 +114,20 @@ export default function CharacterCreatePage() {
   }
 
   const dieSides = classDetail?.hit_dice ? Number(String(classDetail.hit_dice).replace('D', '')) : 8
-  const bonusByCode = {
-    ...bonusMap(raceDetail?.ability_bonuses),
-    ...bonusMap(subraceDetail?.ability_bonuses),
-  }
+  const bonusByCode = useMemo(
+    () => ({
+      ...bonusMap(raceDetail?.ability_bonuses),
+      ...bonusMap(subraceDetail?.ability_bonuses),
+    }),
+    [raceDetail, subraceDetail],
+  )
   const totals = useMemo(
     () =>
       effectiveTotals(
         Object.fromEntries(STATS.map((s) => [s.key, form.ability_base[s.key] ?? 8])),
         bonusByCode,
       ),
-    [form.ability_base, raceDetail, subraceDetail],
+    [form.ability_base, bonusByCode],
   )
 
   const derived = {

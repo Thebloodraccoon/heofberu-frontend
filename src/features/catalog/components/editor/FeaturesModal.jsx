@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { abilityLabels } from '@/lib/i18n/index.js'
-import { Button, Field, Input, Modal, Select, TextArea } from '@/components/ui'
+import { Button, Field, Input, Modal, RichTextEditor, Select } from '@/components/ui'
 import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
 function blankFeature() {
@@ -123,7 +123,7 @@ export default function FeatureModal({ title, subtitle, value = null, showLevel 
       {showLevel && levelHint && <p className="text-xs text-stone-500">{levelHint}</p>}
 
       <Field label="Описание">
-        <TextArea value={edit.description} onChange={setField('description')} rows={4} />
+        <RichTextEditor value={edit.description} onChange={setField('description')} rows={4} />
       </Field>
 
       <div className="pt-3">

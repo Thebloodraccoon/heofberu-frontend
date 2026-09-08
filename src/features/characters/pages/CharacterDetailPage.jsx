@@ -208,7 +208,7 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
     }
     return [build('perception', <EyeIcon />), build('insight', <FaceIcon />), build('investigation', <SearchIcon />)]
       .filter(Boolean)
-  }, [skillsCatalog, profSet, pb, modFor])
+  }, [skillsCatalog, profSet, expertiseSet, pb, modFor])
 
   const armorProfs = useMemo(() => {
     const raw = classDetail?.armor_proficiencies ?? []

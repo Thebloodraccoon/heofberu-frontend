@@ -136,10 +136,10 @@ describe('AsiChoiceModal', () => {
     it('disables feats with unmet prerequisites or min level above the current one', async () => {
       renderModal()
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      expect(screen.getByRole('button', { name: /проворный/i })).not.toBeDisabled()
-      expect(screen.getByRole('button', { name: /могучий/i })).not.toBeDisabled()
-      expect(screen.getByRole('button', { name: /недостижимый/i })).toBeDisabled()
-      expect(screen.getByRole('button', { name: /поздний/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^проворный$/i })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: /^могучий$/i })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: /^недостижимый$/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^поздний$/i })).toBeDisabled()
       expect(screen.getByText('С уровня 12')).toBeInTheDocument()
     })
 
@@ -156,7 +156,7 @@ describe('AsiChoiceModal', () => {
       const onConfirm = vi.fn()
       renderModal({ onConfirm })
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      await userEvent.click(screen.getByRole('button', { name: /могучий/i }))
+      await userEvent.click(screen.getByRole('button', { name: /^могучий$/i }))
       await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
       expect(onConfirm).toHaveBeenCalledWith({
         type: 'FEAT',
@@ -169,7 +169,7 @@ describe('AsiChoiceModal', () => {
       const onConfirm = vi.fn()
       renderModal({ onConfirm })
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      await userEvent.click(screen.getByRole('button', { name: /сильный удар/i }))
+      await userEvent.click(screen.getByRole('button', { name: /^сильный удар$/i }))
       await userEvent.click(screen.getByLabelText('+1 к Телосложение'))
       await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
       expect(onConfirm).toHaveBeenCalledWith({

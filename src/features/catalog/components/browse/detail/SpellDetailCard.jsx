@@ -1,5 +1,5 @@
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
-import { Badge, Card, FactList, FactRow } from '@/components/ui'
+import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
 import { spellLevel, Section } from './detailHelpers.jsx'
 import SpellAvailability from '../SpellAvailability.jsx'
 
@@ -74,15 +74,11 @@ export default function SpellDetailCard({ spell }) {
         </FactList>
       )}
 
-      {spell.description && (
-        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-          {spell.description}
-        </p>
-      )}
+      {spell.description && <RichText value={spell.description} className="description-blockquote" />}
 
       {spell.higher_levels && (
         <Section title="На более высоких уровнях">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{spell.higher_levels}</p>
+          <RichText value={spell.higher_levels} className="description-secondary mb-0" />
         </Section>
       )}
 

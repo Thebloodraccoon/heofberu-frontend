@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AccordionItem, EmptyState } from '@/components/ui'
+import { AccordionItem, EmptyState, RichText } from '@/components/ui'
 import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
@@ -89,11 +89,7 @@ export default function StepBackground({ stepNo, total, form, update, lookups })
                           bodyClassName="mt-1 px-[5px] lg:px-[15px]"
                           header={<p className="font-semibold text-sm text-stone-100 sm:text-base">{e.name}</p>}
                         >
-                          {e.description && (
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
-                              {e.description}
-                            </p>
-                          )}
+                          {e.description && <RichText value={e.description} />}
                         </AccordionItem>
                       </li>
                     )

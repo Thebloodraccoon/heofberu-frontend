@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { screen } from '@testing-library/react'
 import StatsCalculator from '@/features/characters/components/sheet/StatsCalculator.jsx'
 import { renderWithProviders } from '@tests/helpers/render.jsx'
+import { byText } from '@tests/helpers/byText.js'
 import { useCharacterStats } from '@/features/characters/queries.js'
 
 vi.mock('@/features/characters/queries.js', () => ({
@@ -30,19 +31,6 @@ const STATS_DATA = {
   intelligence: { base: 8, total: 8, contributions: [] },
   wisdom: { base: 12, total: 12, contributions: [] },
   charisma: { base: 10, total: 13, contributions: [{ source: 'GM', value: 3 }] },
-}
-
-// Итог и чипы рендерятся разными текстовыми узлами (<b>, смежные комментарии),
-// поэтому сравниваем полный textContent элемента. При этом исключаем контейнеры,
-// чей текст целиком собран из дочерних элементов.
-const byText = (str) => (_, el) => {
-  if (!el) return false
-  const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
-  if (text !== str) return false
-  if (!el.childNodes || el.childNodes.length === 0) return true
-  return Array.from(el.childNodes).some(
-    (n) => n.nodeType === 3 && (n.textContent ?? '').trim() !== '',
-  )
 }
 
 beforeEach(() => {

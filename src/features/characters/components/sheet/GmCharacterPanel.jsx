@@ -23,7 +23,7 @@ import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { STATS, abilityByCode, abilityName } from '@/lib/utils/ability.js'
-import { Button, ConfirmDialog, ErrorBox, Field, Input, Modal, Select, Skeleton, TextArea } from '@/components/ui'
+import { Button, ConfirmDialog, ErrorBox, Field, Input, Modal, RichText, RichTextEditor, Select, Skeleton } from '@/components/ui'
 import { label, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import StatsCalculator from '@/features/characters/components/sheet/StatsCalculator.jsx'
 import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
@@ -810,11 +810,12 @@ function FeatureNotesModal({ name, notes, onSave, onClose }) {
       }
     >
       <Field label="Заметка для игрока">
-        <TextArea
+        <RichTextEditor
           rows={4}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Что это и зачем дана..."
+          ariaLabel="Заметка для игрока"
           autoFocus
         />
       </Field>
@@ -921,9 +922,7 @@ function FeatsSection({ character, onError, reload }) {
                   </Button>
                 </div>
                 {open && cf.feat?.description && (
-                  <div className="whitespace-pre-wrap border-t border-stone-800 px-4 py-3 text-xs text-stone-400">
-                    {cf.feat.description}
-                  </div>
+                  <RichText value={cf.feat.description} className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400" />
                 )}
               </li>
             )
@@ -1055,10 +1054,12 @@ function FeaturesSection({ character, onError, reload }) {
                 </div>
                 {open && (cf.feature?.description || cf.notes) && (
                   <div className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400">
-                    {cf.feature?.description ? (
-                      <p className="whitespace-pre-wrap">{cf.feature.description}</p>
-                    ) : null}
-                    {cf.notes && <p className="mt-1.5 text-stone-500">Заметка: {cf.notes}</p>}
+                    {cf.feature?.description ? <RichText value={cf.feature.description} /> : null}
+                    {cf.notes && (
+                      <div className="mt-1.5 text-stone-500">
+                        Заметка: <RichText value={cf.notes} className="inline" />
+                      </div>
+                    )}
                   </div>
                 )}
               </li>
@@ -1158,10 +1159,16 @@ function ItemEditModal({ title, subtitle, value, catalogItem, onSave, onClose })
         </div>
       </div>
       <Field label="Заметка">
-        <TextArea rows={3} value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} placeholder="Необязательно" />
+        <RichTextEditor
+          rows={3}
+          value={edit.notes}
+          onChange={(e) => setEdit({ ...edit, notes: e.target.value })}
+          placeholder="Необязательно"
+          ariaLabel="Заметка"
+        />
       </Field>
       {catalogItem?.description && (
-        <p className="line-clamp-3 text-xs text-stone-500">{catalogItem.description}</p>
+        <RichText value={catalogItem.description} className="line-clamp-3 text-xs text-stone-500" />
       )}
     </Modal>
   )

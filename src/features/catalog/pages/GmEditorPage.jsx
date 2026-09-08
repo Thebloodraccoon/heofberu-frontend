@@ -9,7 +9,7 @@ import EditorFieldControl, { SectionTitle, TrashIcon } from '@/features/catalog/
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
-import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, Select, Skeleton, SkeletonCard, TextArea } from '@/components/ui'
+import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
 import ImageUploadBlock from '@/features/catalog/components/editor/ImageUploadBlock.jsx'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
@@ -438,6 +438,14 @@ export default function GmEditorPage() {
 
   const setField = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const setBool = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.checked }))
+  // Текстовые поля при редактировании сохраняются сами по себе (PATCH только
+  // этого поля), не дожидаясь общей кнопки формы — см. EditorFieldControl.
+  const saveField = (key) => async (draft) => {
+    const updated = await cfg.api.update(editing.id, { [key]: draft })
+    const next = updated?.[key] ?? draft
+    setForm((f) => ({ ...f, [key]: next }))
+    setEditing((e) => (e ? { ...e, [key]: next } : e))
+  }
   const toggleIn = (key) => (value) =>
     setForm((f) => ({
       ...f,
@@ -870,6 +878,12 @@ export default function GmEditorPage() {
                               <span className="text-sm text-stone-200">{field.label}</span>
                             </label>
                           </div>
+                        ) : field.type === 'textarea' && editing ? (
+                          // RichTextField рисует свою метку и статус сохранения —
+                          // без дополнительной обёртки Field, чтобы не дублировать label.
+                          <div key={field.key} className={field.full ? 'sm:col-span-2' : ''}>
+                            <EditorFieldControl field={field} value={form[field.key]} onSaveField={saveField(field.key)} />
+                          </div>
                         ) : (
                           <div key={field.key} className={field.full ? 'sm:col-span-2' : ''}>
                             <Field label={field.label}>
@@ -1094,7 +1108,7 @@ export default function GmEditorPage() {
                                     }
                                     if (col.type === 'textarea') {
                                       return (
-                                        <TextArea
+                                        <RichTextEditor
                                           value={row[col.key] ?? ''}
                                           onChange={(e) => setRow(section.key, i, col.key, e.target.value)}
                                           placeholder={col.placeholder}
@@ -1244,7 +1258,7 @@ export default function GmEditorPage() {
                           <Input value={newSub.name} onChange={setNewSubField('name')} placeholder="Например, Школа Воплощения" />
                         </Field>
                         <Field label="Описание" className="my-[5px]">
-                          <TextArea value={newSub.description} onChange={setNewSubField('description')} rows={2} />
+                          <RichTextEditor value={newSub.description} onChange={setNewSubField('description')} rows={2} />
                         </Field>
                         <div className="mb-[5px] flex flex-wrap items-center gap-2">
                           <Button type="button" disabled={newSubSaving} onClick={saveNewSub} className="my-[5px]">
@@ -1358,7 +1372,7 @@ export default function GmEditorPage() {
                           </Field>
                         </div>
                         <Field label="Описание" className="my-[5px]">
-                          <TextArea value={newSubrace.description} onChange={setNewSubraceField('description')} rows={2} />
+                          <RichTextEditor value={newSubrace.description} onChange={setNewSubraceField('description')} rows={2} />
                         </Field>
                         <div className="mb-[5px] flex flex-wrap items-center gap-2">
                           <Button type="button" disabled={newSubraceSaving} onClick={saveNewSubrace} className="my-[5px]">

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
+import { toPlainText } from '@/lib/utils/richText.js'
 import { catalog, PAGE_SIZE } from '../catalog.js'
 import { useCatalogPage } from '@/features/catalog/queries.js'
 import { Badge, Card, EmptyState, ErrorBox, PageHeader, Skeleton, SkeletonCard } from '@/components/ui'
@@ -78,8 +79,11 @@ export function CatalogListPage() {
   // Используем ref, чтобы при первом рендере эффект resource не перезатёр subSel.
   const subDeepLinked = useRef(false)
 
+  // Синхронизация с URL (deep-link из карточки персонажа): читаем ?sub= один раз
+  // и сразу убираем его из адресной строки, поэтому setState здесь неизбежен.
   useEffect(() => {
     if (!selectedId || requestedSubId == null) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSubSel({ parentId: selectedId, id: requestedSubId })
     subDeepLinked.current = true
     const next = new URLSearchParams(searchParams)
@@ -88,7 +92,10 @@ export function CatalogListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, requestedSubId])
 
+  // Сброс локального поиска/фильтров при смене справочника (resource из URL) —
+  // страница не размонтируется между справочниками, так что это делает эффект.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQueryInput('')
     setAppliedSearch('')
     setFilters({})
@@ -299,7 +306,7 @@ export function CatalogListPage() {
                           </p>
                         </div>
                         {it.description && (
-                          <p className="mt-1.5 line-clamp-2 break-words whitespace-pre-wrap text-xs text-stone-400">{it.description}</p>
+                          <p className="mt-1.5 line-clamp-2 break-words text-xs text-stone-400">{toPlainText(it.description)}</p>
                         )}
                         {summaryBadges(it, resource).length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">

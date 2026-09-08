@@ -1,5 +1,5 @@
 import { abilityLabels, raceSizeLabels, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
-import { Badge, Card } from '@/components/ui'
+import { Badge, Card, RichText } from '@/components/ui'
 import { Section, FeatureCards, SkillChips, formatBonus, itemName } from './detailHelpers.jsx'
 import CatalogImage from '../CatalogImage.jsx'
 
@@ -38,16 +38,8 @@ export default function RaceDetailCard({ race, selectedSub }) {
           </div>
 
           {selectedSub
-            ? selectedSub.description && (
-                <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-                  {selectedSub.description}
-                </p>
-              )
-            : race.description && (
-                <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-                  {race.description}
-                </p>
-              )}
+            ? selectedSub.description && <RichText value={selectedSub.description} className="description-blockquote" />
+            : race.description && <RichText value={race.description} className="description-blockquote" />}
 
           {(race.ability_bonuses ?? []).length > 0 && (
             <p className="mt-3 text-sm leading-relaxed">

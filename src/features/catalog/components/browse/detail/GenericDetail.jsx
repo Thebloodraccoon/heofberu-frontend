@@ -1,5 +1,5 @@
 import { fieldLabel, sentenceCase } from '@/lib/i18n/index.js'
-import { Badge, Card, FactList, FactRow } from '@/components/ui'
+import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
 import {
   isEmptyValue,
   skipFields,
@@ -40,15 +40,11 @@ export default function GenericDetail({ item, hideAbility = false }) {
         </FactList>
       )}
 
-      {item.description && (
-        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-          {item.description}
-        </p>
-      )}
+      {item.description && <RichText value={item.description} className="description-blockquote" />}
 
       {item.higher_levels && (
         <Section title="На более высоких уровнях">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{item.higher_levels}</p>
+          <RichText value={item.higher_levels} className="description-secondary mb-0" />
         </Section>
       )}
 

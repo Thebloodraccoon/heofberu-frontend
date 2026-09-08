@@ -4,7 +4,7 @@ import { featurePayload, subclassPayload } from '@/features/catalog/config/edito
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
-import { Button, ErrorBox, Field, Input, TextArea } from '@/components/ui'
+import { Button, ErrorBox, Field, Input, RichTextEditor } from '@/components/ui'
 
 const SUBFEATURE_LEVEL_HINT =
   'Уровень, с которого умение доступно. Обязательно для заполнения.'
@@ -128,7 +128,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
           </Field>
 
           <Field label="Описание">
-            <TextArea value={draft.description} onChange={setField('description')} rows={2} />
+            <RichTextEditor value={draft.description} onChange={setField('description')} rows={2} />
           </Field>
 
           <div className="flex flex-wrap items-center gap-3">

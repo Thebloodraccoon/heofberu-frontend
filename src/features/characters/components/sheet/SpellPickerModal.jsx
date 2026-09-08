@@ -5,7 +5,7 @@ import { useCharacterSpells, useCharacterSpellSlots } from '@/features/character
 import { useSpells, useSpellDetail } from '@/features/catalog/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { label, diceTypeLabels, sentenceCase } from '@/lib/i18n/index.js'
-import { Button, Modal, Skeleton } from '@/components/ui'
+import { Button, Modal, RichText, Skeleton } from '@/components/ui'
 import { SPELL_LEVEL_ORDER } from './constants.js'
 
 const LEVEL_TITLE = (lv) => (lv === 'CANTRIP' ? 'Заговоры' : label(lv))
@@ -80,9 +80,7 @@ function SpellDetail({ sp }) {
         </dl>
       )}
       {description ? (
-        <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-3 leading-relaxed text-stone-200">
-          {description}
-        </p>
+        <RichText value={description} className="text-stone-200" />
       ) : (
         <span className="text-stone-500">Описание отсутствует</span>
       )}
@@ -91,7 +89,7 @@ function SpellDetail({ sp }) {
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
             На более высоких уровнях
           </p>
-          <p className="whitespace-pre-wrap leading-relaxed text-stone-300">{sp.higher_levels}</p>
+          <RichText value={sp.higher_levels} className="text-stone-300" />
         </div>
       )}
     </div>

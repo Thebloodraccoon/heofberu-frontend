@@ -11,7 +11,7 @@ import {
   ruLevel,
   sentenceCase,
 } from '@/lib/i18n/index.js'
-import { AccordionItem, Badge, Chip } from '@/components/ui'
+import { AccordionItem, Badge, Chip, RichText } from '@/components/ui'
 import { abilityName } from '@/lib/utils/ability.js'
 
 export const formatBonus = (n) => (n == null ? '' : n >= 0 ? `+${n}` : `${n}`)
@@ -269,11 +269,7 @@ export function FeatureCards({ features }) {
                 </>
               }
             >
-              {f.description && (
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
-                  {f.description}
-                </p>
-              )}
+              {f.description && <RichText value={f.description} className="description-secondary mb-0" />}
               {(f.ability_increases ?? []).length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {(f.ability_increases ?? []).map((inc, i) => (

@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GmCharacterPanel from '@/features/characters/components/sheet/GmCharacterPanel.jsx'
 import { renderWithProviders } from '@tests/helpers/render.jsx'
+import { byText } from '@tests/helpers/byText.js'
 import { charactersApi } from '@/features/characters/api.js'
 import {
   useCharacterFeatures,
@@ -130,9 +131,9 @@ describe('GmCharacterPanel feature management', () => {
     renderPanel()
     expect(screen.getByText('Печать древней клятвы')).toBeInTheDocument()
     expect(screen.getByText('Особая')).toBeInTheDocument()
-    expect(screen.queryByText('Заметка: Старая заметка')).not.toBeInTheDocument()
+    expect(screen.queryByText(byText('Заметка: Старая заметка'))).not.toBeInTheDocument()
     await user.click(screen.getByText('Печать древней клятвы'))
-    expect(screen.getByText('Заметка: Старая заметка')).toBeInTheDocument()
+    expect(screen.getByText(byText('Заметка: Старая заметка'))).toBeInTheDocument()
     expect(screen.queryByText('Файт-стиль')).not.toBeInTheDocument()
   })
 
@@ -145,7 +146,7 @@ describe('GmCharacterPanel feature management', () => {
     await user.click(within(featuresCard).getByRole('button', { name: 'Добавить...' }))
     expect(useFeatures).toHaveBeenCalledWith({ size: 100, source_type: 'OTHER' })
 
-    await user.click(screen.getByRole('button', { name: /Печать древней клятвы/i }))
+    await user.click(screen.getByRole('button', { name: 'Печать древней клятвы' }))
     await waitFor(() => {
       expect(charactersApi.gmPanel.features.add).toHaveBeenCalledWith(7, { feature_id: 5 })
     })
@@ -157,13 +158,19 @@ describe('GmCharacterPanel feature management', () => {
     renderPanel()
 
     await user.click(screen.getByRole('button', { name: 'Заметка' }))
-    const textarea = screen.getByLabelText('Заметка для игрока')
-    await user.clear(textarea)
-    await user.type(textarea, 'Новая заметка')
+    const editor = screen.getByLabelText('Заметка для игрока')
+    await user.click(editor)
+    await user.keyboard('{Control>}a{/Control}')
+    // По-символьный ввод (type) в ProseMirror-редактор не воспроизводим в jsdom
+    // (курсор/selection не синхронизируются как в реальном браузере) — вставляем
+    // через paste, который ProseMirror обрабатывает через свой paste-пайплайн.
+    fireEvent.paste(editor, {
+      clipboardData: { getData: (type) => (type === 'text/plain' ? 'Новая заметка' : '') },
+    })
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
 
     await waitFor(() => {
-      expect(charactersApi.gmPanel.features.update).toHaveBeenCalledWith(7, 10, { notes: 'Новая заметка' })
+      expect(charactersApi.gmPanel.features.update).toHaveBeenCalledWith(7, 10, { notes: '<p>Новая заметка</p>' })
     })
   })
 

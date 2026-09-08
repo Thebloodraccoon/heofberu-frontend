@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ruLevel } from '@/lib/i18n/index.js'
 import { abilityName } from '@/lib/utils/ability.js'
-import { Badge, ConfirmDialog, ErrorBox, Skeleton } from '@/components/ui'
+import { Badge, ConfirmDialog, ErrorBox, RichText, Skeleton } from '@/components/ui'
 import { SectionTitle, PencilIcon, TrashIcon } from './editorShared.jsx'
 
 function Chevron({ open }) {
@@ -126,9 +126,7 @@ export default function FeaturesEditorBlock({
                   </div>
                 </div>
                 {open && f.description && (
-                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-loose text-stone-300">
-                    {f.description}
-                  </p>
+                  <RichText value={f.description} className="mt-2 break-words text-sm leading-loose text-stone-300" />
                 )}
                 {open && (f.ability_increases ?? []).length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">

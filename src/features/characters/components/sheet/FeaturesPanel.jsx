@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useCharacterFeatures, useCharacterFeats } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
-import { Skeleton } from '@/components/ui'
+import { RichText, Skeleton } from '@/components/ui'
 
 const SOURCE_LABELS = {
   CLASS: 'Класс',
@@ -111,11 +111,15 @@ export default function FeaturesPanel({ character }) {
                 onToggle={() => toggleKey(it.key)}
               >
                 {it.description ? (
-                  <p className="whitespace-pre-wrap break-words">{it.description}</p>
+                  <RichText value={it.description} className="break-words" />
                 ) : (
                   <p className="text-stone-500">Нет описания</p>
                 )}
-                {it.notes && <p className="mt-1.5 text-stone-500">Заметка: {it.notes}</p>}
+                {it.notes && (
+                  <div className="mt-1.5 text-stone-500">
+                    Заметка: <RichText value={it.notes} className="inline" />
+                  </div>
+                )}
               </AccordionItem>
             </li>
           ))}

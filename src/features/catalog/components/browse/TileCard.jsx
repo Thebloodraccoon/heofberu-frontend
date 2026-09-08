@@ -1,6 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge } from '@/components/ui'
 import { sentenceCase } from '@/lib/i18n/index.js'
+import { toPlainText } from '@/lib/utils/richText.js'
 import { summaryBadges } from './detail/detailHelpers.jsx'
 
 export default function TileCard({ item, resource }) {
@@ -16,7 +17,7 @@ export default function TileCard({ item, resource }) {
         </p>
       </div>
       {item.description && (
-        <p className="item-desc-preview mt-1">{item.description}</p>
+        <p className="item-desc-preview mt-1">{toPlainText(item.description)}</p>
       )}
       {summaryBadges(item, resource).length > 0 && (
         <div className="badge-row mt-1.5">

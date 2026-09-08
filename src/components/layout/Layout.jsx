@@ -81,7 +81,7 @@ function SidebarContent({ onClick }) {
 }
 
 export default function Layout() {
-  const { authenticated, user, logout } = useAuth()
+  const { authenticated, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const [narrowMenu, setNarrowMenu] = useState(

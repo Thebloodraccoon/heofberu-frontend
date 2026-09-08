@@ -1,4 +1,4 @@
-import { Input, Select, TextArea } from '@/components/ui'
+import { Input, RichTextEditor, RichTextField, Select } from '@/components/ui'
 
 export function PencilIcon({ className = 'h-4 w-4' }) {
   return (
@@ -29,10 +29,16 @@ export function SectionTitle({ children, button }) {
   )
 }
 
-export default function EditorFieldControl({ field, value, onChange }) {
+export default function EditorFieldControl({ field, value, onChange, onSaveField }) {
   if (field.type === 'textarea') {
+    // При редактировании существующей записи текстовые поля сохраняются сами
+    // по себе (без общей кнопки формы) — так правки не теряются, если GM
+    // передумает менять остальные поля, и видно, какое поле уже сохранено.
+    if (onSaveField) {
+      return <RichTextField label={field.label} value={value} onSave={onSaveField} rows={field.rows ?? 4} placeholder={field.placeholder} />
+    }
     return (
-      <TextArea
+      <RichTextEditor
         value={value}
         onChange={onChange}
         placeholder={field.placeholder}

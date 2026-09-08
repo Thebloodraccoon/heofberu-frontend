@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { fieldLabel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
-import { Card, StatTable } from '@/components/ui'
+import { Card, RichText, StatTable } from '@/components/ui'
 import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue, SkillChips } from './detailHelpers.jsx'
 
 function ItemLink({ item }) {
@@ -50,11 +50,7 @@ export default function BackgroundDetailCard({ bg }) {
         </div>
       </div>
 
-      {bg.description && (
-        <p className="mb-6 whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-          {bg.description}
-        </p>
-      )}
+      {bg.description && <RichText value={bg.description} className="description-blockquote" />}
 
       {skills.length > 0 && (
         <p className="mt-4 flex flex-wrap items-center gap-2 text-sm leading-relaxed">
@@ -76,7 +72,7 @@ export default function BackgroundDetailCard({ bg }) {
             <StatTable
               rows={suggestionRows.map(([lbl, v]) => [
                 lbl,
-                <span key={lbl} className="whitespace-pre-wrap leading-relaxed">{v}</span>,
+                <RichText key={lbl} value={v} className="leading-relaxed" />,
               ])}
             />
           </div>

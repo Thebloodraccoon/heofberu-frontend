@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
-import { abilityName } from '@/lib/utils/ability.js'
-import { Badge, Card, AccordionItem } from '@/components/ui'
+import { abilityName, ASI_LEVELS } from '@/lib/utils/ability.js'
+import { Badge, Card, AccordionItem, RichText } from '@/components/ui'
 import { itemName } from './detailHelpers.jsx'
 import CatalogImage from '../CatalogImage.jsx'
 
@@ -51,7 +51,6 @@ function ItemLink({ item }) {
 }
 
 // Статичное умение PHB: показывается в таблице у всех классов, но нигде не хранится.
-export const ASI_LEVELS = [4, 8, 12, 16, 19]
 const ASI_FEATURE_DESCRIPTION =
   'При достижении 4, 8, 12, 16 и 19 уровней вы можете повысить значение одной из ваших характеристик на 2 ' +
   'или двух характеристик на 1 или выбрать черту. Как обычно, значение характеристики при этом не должно превысить 20.'
@@ -187,19 +186,9 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
             )}
           </div>
 
-          {selectedSub ? (
-            selectedSub.description && (
-              <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-                {selectedSub.description}
-              </p>
-            )
-          ) : (
-            cls.description && (
-              <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-4 text-sm leading-relaxed text-stone-200">
-                {cls.description}
-              </p>
-            )
-          )}
+          {selectedSub
+            ? selectedSub.description && <RichText value={selectedSub.description} className="description-blockquote" />
+            : cls.description && <RichText value={cls.description} className="description-blockquote" />}
 
           <div className="mt-4">
             <div className="mb-3 flex items-center gap-3">
@@ -453,11 +442,7 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                       </>
                     }
                   >
-                    {feature.description && (
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
-                        {feature.description}
-                      </p>
-                    )}
+                    {feature.description && <RichText value={feature.description} className="description-secondary mb-0" />}
                     {(feature.ability_increases ?? []).length > 0 && (
                       <div className="mt-2.5 flex flex-wrap gap-1.5">
                         {(feature.ability_increases ?? []).map((inc, i) => (

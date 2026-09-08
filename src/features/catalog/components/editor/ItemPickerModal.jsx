@@ -69,7 +69,7 @@ export default function ItemPickerModal({
 
   const listQ = useCatalogPage('items', listParams)
   const pageData = listQ.data ?? null
-  const pageItems = pageData?.items ?? []
+  const pageItems = useMemo(() => pageData?.items ?? [], [pageData])
   const total = pageData?.total ?? 0
 
   // Кэш имён уже увиденных предметов, чтобы выбранное отображалось,
@@ -79,7 +79,10 @@ export default function ItemPickerModal({
     for (const it of items) map[String(it.id)] = it
     return map
   })
+  // Пополняем кэш именами со страницы списка; ключ по значению не помогает — сам
+  // объект страницы не совпадает с уже известными предметами.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setKnown((prev) => {
       let changed = false
       const next = { ...prev }

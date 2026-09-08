@@ -111,10 +111,9 @@ describe('StepAbilities', () => {
       )
     })
 
-    it('shows the remaining budget and the price hint', () => {
+    it('shows the remaining budget', () => {
       renderStep(baseForm({ ability_method: 'pointbuy', ability_base: all8() }))
       expect(screen.getByText('Осталось очков: 27')).toBeInTheDocument()
-      expect(screen.getByText(/Цена: 8→0, 9→1, 10→2, 11→3, 12→4, 13→5, 14→7, 15→9/)).toBeInTheDocument()
       expect(screen.queryByTestId('ability-pool')).not.toBeInTheDocument()
     })
 

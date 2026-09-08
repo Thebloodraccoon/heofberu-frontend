@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { abilityName, bonusMap } from '@/lib/utils/ability.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
-import { AccordionItem } from '@/components/ui'
+import { AccordionItem, RichText } from '@/components/ui'
 import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
 import { smoothScrollTo } from './scroll.js'
@@ -108,11 +108,7 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
                           bodyClassName="mt-1 px-[5px] lg:px-[15px]"
                           header={<p className="font-semibold text-sm text-stone-100 sm:text-base">{sentenceCase(f.name)}</p>}
                         >
-                        {f.description && (
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
-                            {f.description}
-                          </p>
-                        )}
+                        {f.description && <RichText value={f.description} />}
                       </AccordionItem>
                     </li>
                   )
@@ -168,11 +164,7 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
                           bodyClassName="mt-1 px-[5px] lg:px-[15px]"
                           header={<p className="font-semibold text-sm text-stone-100 sm:text-base">{sentenceCase(f.name)}</p>}
                         >
-                          {f.description && (
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
-                              {f.description}
-                            </p>
-                          )}
+                          {f.description && <RichText value={f.description} />}
                         </AccordionItem>
                       </li>
                     )

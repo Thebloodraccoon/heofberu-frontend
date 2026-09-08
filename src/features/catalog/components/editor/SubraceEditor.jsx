@@ -5,7 +5,7 @@ import { abilityLabels } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
-import { Button, ErrorBox, Field, Input, Select, TextArea } from '@/components/ui'
+import { Button, ErrorBox, Field, Input, RichTextEditor, Select } from '@/components/ui'
 import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
 function blankSubrace() {
@@ -141,7 +141,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
           </Field>
 
           <Field label="Описание">
-            <TextArea value={draft.description} onChange={setField('description')} rows={2} />
+            <RichTextEditor value={draft.description} onChange={setField('description')} rows={2} />
           </Field>
 
           <div>

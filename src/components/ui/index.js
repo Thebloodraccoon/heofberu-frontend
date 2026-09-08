@@ -1,2 +1,6 @@
 export * from './primitives.jsx'
 export { default as ThemeSwitcher } from './ThemeSwitcher.jsx'
+export { default as ErrorBoundary } from './ErrorBoundary.jsx'
+export { default as RichText } from './RichText.jsx'
+export { default as RichTextEditor } from './RichTextEditor.jsx'
+export { default as RichTextField } from './RichTextField.jsx'

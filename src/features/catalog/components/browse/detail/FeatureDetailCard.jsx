@@ -1,6 +1,6 @@
 import { ruLevel } from '@/lib/i18n/index.js'
 import { abilityLabels, label, sentenceCase } from '@/lib/i18n/index.js'
-import { Badge, Card, FactList, FactRow } from '@/components/ui'
+import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
 
 export default function FeatureDetailCard({ item }) {
   const increases = item.ability_increases ?? []
@@ -37,7 +37,7 @@ export default function FeatureDetailCard({ item }) {
       )}
 
       {item.description ? (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-200">{item.description}</p>
+        <RichText value={item.description} className="text-sm leading-relaxed text-stone-200" />
       ) : (
         <p className="text-sm text-stone-500">Описание не указано</p>
       )}

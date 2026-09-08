@@ -1,5 +1,5 @@
 import { Field, Input } from '@/components/ui'
-import { Hint, StepShell } from './StepShell.jsx'
+import { StepShell } from './StepShell.jsx'
 
 export default function StepName({ stepNo, total, form, update }) {
   return (

@@ -5,7 +5,7 @@ import { useCharacterSpellSlots, useCharacterSpells } from '@/features/character
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { abilityName } from '@/lib/utils/ability.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
-import { EmptyState, Skeleton } from '@/components/ui'
+import { EmptyState, RichText, Skeleton } from '@/components/ui'
 import { useUiSet } from '@/lib/uiState.js'
 import { SPELL_LEVEL_ORDER } from './constants.js'
 import SpellPickerModal from './SpellPickerModal.jsx'
@@ -103,9 +103,7 @@ function SpellRow({ cs, open, onExpand, onRemove }) {
         <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">
           <SpellFacts sp={sp} />
           {description ? (
-            <p className="whitespace-pre-wrap border-l-2 border-ember/50 pl-3 leading-relaxed text-stone-200">
-              {description}
-            </p>
+            <RichText value={description} className="text-stone-200" />
           ) : (
             <span className="text-stone-500">Описание отсутствует</span>
           )}

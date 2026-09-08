@@ -1,10 +1,10 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider } from '@/features/auth/AuthProvider.jsx'
 import { useAuth } from '@/features/auth/useAuth.js'
 import ProtectedRoute, { GMRoute } from '@/features/auth/ProtectedRoute.jsx'
 import Layout from '@/components/layout/Layout.jsx'
-import { Skeleton, SkeletonCard } from '@/components/ui'
+import { ErrorBoundary, Skeleton, SkeletonCard } from '@/components/ui'
 
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage.jsx'))
 const RegisterPage = lazy(() => import('@/features/auth/pages/RegisterPage.jsx'))
@@ -42,60 +42,69 @@ function PageFallback() {
   )
 }
 
+function RouteBoundary({ children }) {
+  const location = useLocation()
+  return (
+    <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+  )
+}
+
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Suspense fallback={<PageFallback />}>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-              <Route index element={<LandingPage />} />
-              <Route path="guide" element={<GuidePage />} />
-              <Route path="catalog/:resource" element={<CatalogListPage />} />
-              <Route path="catalog/:resource/:id" element={<CatalogListPage />} />
-            </Route>
-
-            <Route element={<ProtectedRoute />}>
+        <RouteBoundary>
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
               <Route element={<Layout />}>
-                <Route path="characters" element={<CharactersPage />} />
-                <Route path="characters/new" element={<CharacterCreatePage />} />
-                <Route path="characters/:id" element={<CharacterDetailPage />} />
-                <Route
-                  path="users"
-                  element={
-                    <GMRoute>
-                      <UsersPage />
-                    </GMRoute>
-                  }
-                />
-                <Route
-                  path="gm/editor"
-                  element={
-                    <GMRoute>
-                      <GmEditorPage />
-                    </GMRoute>
-                  }
-                />
-                <Route
-                  path="gm/characters"
-                  element={
-                    <GMRoute>
-                      <GmCharactersPage />
-                    </GMRoute>
-                  }
-                />
-                <Route path="profile" element={<ProfilePage />} />
-              </Route>
-            </Route>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            <Route path="*" element={<RootRedirect />} />
-          </Routes>
-        </Suspense>
+                <Route index element={<LandingPage />} />
+                <Route path="guide" element={<GuidePage />} />
+                <Route path="catalog/:resource" element={<CatalogListPage />} />
+                <Route path="catalog/:resource/:id" element={<CatalogListPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute />}>
+                <Route element={<Layout />}>
+                  <Route path="characters" element={<CharactersPage />} />
+                  <Route path="characters/new" element={<CharacterCreatePage />} />
+                  <Route path="characters/:id" element={<CharacterDetailPage />} />
+                  <Route
+                    path="users"
+                    element={
+                      <GMRoute>
+                        <UsersPage />
+                      </GMRoute>
+                    }
+                  />
+                  <Route
+                    path="gm/editor"
+                    element={
+                      <GMRoute>
+                        <GmEditorPage />
+                      </GMRoute>
+                    }
+                  />
+                  <Route
+                    path="gm/characters"
+                    element={
+                      <GMRoute>
+                        <GmCharactersPage />
+                      </GMRoute>
+                    }
+                  />
+                  <Route path="profile" element={<ProfilePage />} />
+                </Route>
+              </Route>
+
+              <Route path="*" element={<RootRedirect />} />
+            </Routes>
+          </Suspense>
+        </RouteBoundary>
       </BrowserRouter>
     </AuthProvider>
   )

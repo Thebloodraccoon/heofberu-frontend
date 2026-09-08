@@ -5,7 +5,6 @@ import { charactersApi } from '@/features/characters/api.js'
 import { useBackstory } from '@/features/characters/queries.js'
 
 const BACKSTORY_KEY = (id) => ['characters', Number(id), 'backstory']
-const MAX_BACKSTORY_LENGTH = 12000
 
 export default function BackstoryPanel({ characterId, onError }) {
   const queryClient = useQueryClient()
@@ -30,12 +29,6 @@ export default function BackstoryPanel({ characterId, onError }) {
   }
 
   return (
-    <EditableBlock
-      title="Предыстория"
-      value={content}
-      rows={12}
-      maxLength={MAX_BACKSTORY_LENGTH}
-      onSave={save}
-    />
+    <EditableBlock title="Предыстория" value={content} rows={12} onSave={save} />
   )
 }

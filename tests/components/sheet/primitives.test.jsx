@@ -1,18 +1,24 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   BoxedValue,
   CheckDot,
+  EditableBlock,
   PassiveSenses,
   ProficiencyChips,
   RollButton,
   RollModal,
   SheetSectionLabel,
   SheetTabs,
-  TextBlock,
   XpBar,
 } from '@/components/sheet/primitives.jsx'
+
+// ProseMirror-редактор (RichTextEditor) в jsdom не поддерживает по-символьный
+// ввод (userEvent.type) надёжно — selection не синхронизируется как в браузере.
+// Заменяем содержимое через paste, который ProseMirror обрабатывает штатно.
+const pasteInto = (el, text) =>
+  fireEvent.paste(el, { clipboardData: { getData: (type) => (type === 'text/plain' ? text : '') } })
 import { fmtBonus } from '@/lib/utils/sheet.js'
 
 describe('fmtBonus', () => {
@@ -141,34 +147,34 @@ describe('SheetTabs', () => {
   })
 })
 
-describe('TextBlock', () => {
+describe('EditableBlock', () => {
   it('shows the value and starts editing', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
-    render(<TextBlock title="История" value="Текст" editing onSave={onSave} />)
-    await userEvent.click(screen.getByRole('button', { name: 'История' }))
+    render(<EditableBlock title="История" value="Текст" onSave={onSave} />)
     expect(screen.getByText('Текст')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Изменить' }))
-    await userEvent.clear(screen.getByRole('textbox'))
-    await userEvent.type(screen.getByRole('textbox'), 'Новый текст')
+    const editor = screen.getByRole('textbox')
+    await userEvent.click(editor)
+    await userEvent.keyboard('{Control>}a{/Control}')
+    pasteInto(editor, 'Новый текст')
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
-    expect(onSave).toHaveBeenCalledWith('Новый текст')
-    expect(await screen.findByText('Сохранено')).toBeInTheDocument()
+    expect(onSave).toHaveBeenCalledWith('<p>Новый текст</p>')
   })
 
   it('cancels editing and restores the original value', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
-    render(<TextBlock title="История" value="Исходный" editing onSave={onSave} />)
-    await userEvent.click(screen.getByRole('button', { name: 'История' }))
+    render(<EditableBlock title="История" value="Исходный" onSave={onSave} />)
     await userEvent.click(screen.getByRole('button', { name: 'Изменить' }))
-    await userEvent.clear(screen.getByRole('textbox'))
-    await userEvent.type(screen.getByRole('textbox'), 'Другое')
+    const editor = screen.getByRole('textbox')
+    await userEvent.click(editor)
+    await userEvent.keyboard('{Control>}a{/Control}')
+    pasteInto(editor, 'Другое')
     await userEvent.click(screen.getByRole('button', { name: 'Отмена' }))
     expect(screen.getByText('Исходный')).toBeInTheDocument()
   })
 
-  it('renders an em dash for empty values', async () => {
-    render(<TextBlock title="История" value="" />)
-    await userEvent.click(screen.getByRole('button', { name: 'История' }))
+  it('renders an em dash for empty values', () => {
+    render(<EditableBlock title="История" value="" />)
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 })

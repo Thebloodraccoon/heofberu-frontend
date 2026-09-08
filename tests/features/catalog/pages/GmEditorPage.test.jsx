@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../../../helpers/render.jsx'
+import { byText } from '../../../helpers/byText.js'
 import GmEditorPage from '@/features/catalog/pages/GmEditorPage.jsx'
 import { catalogApi } from '@/features/catalog/api.js'
 
@@ -35,12 +36,20 @@ const respond = (items) => (params = {}) => {
   return Promise.resolve({ items: out.slice(start, start + size), total: out.length })
 }
 
-vi.mock('@/features/catalog/api.js', () => ({
-  catalogApi: {
-    races: { list: vi.fn() },
-    skills: { list: vi.fn() },
-  },
-}))
+// Заменяем каждую функцию реального catalogApi на vi.fn(), сохраняя вложенную
+// форму (races.subraces.image.upload и т.п.) — так конфиги редакторов, которые
+// разбирают api.<resource>.<op> на верхнем уровне модуля, не падают на undefined.
+vi.mock('@/features/catalog/api.js', async () => {
+  const actual = await vi.importActual('@/features/catalog/api.js')
+  const mockify = (value) => {
+    if (typeof value === 'function') return vi.fn()
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, mockify(v)]))
+    }
+    return value
+  }
+  return { catalogApi: mockify(actual.catalogApi) }
+})
 
 const renderPage = () => renderWithProviders(<GmEditorPage />, { auth: false })
 
@@ -104,7 +113,7 @@ describe('GmEditorPage', () => {
     catalogApi.races.list.mockImplementation(respond(manyRaces))
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText(/Стр\. 1 из 2/)
+    await screen.findByText(byText('Стр. 1 из 2'))
 
     await user.click(screen.getByRole('button', { name: /вперёд/i }))
 
@@ -113,7 +122,7 @@ describe('GmEditorPage', () => {
         expect.objectContaining({ page: 2, size: PAGE_SIZE }),
       )
     })
-    expect(screen.getByText(/Стр\. 2 из 2/)).toBeInTheDocument()
+    expect(screen.getByText(byText('Стр. 2 из 2'))).toBeInTheDocument()
   })
 
   it('shows an empty message when nothing matches the query', async () => {

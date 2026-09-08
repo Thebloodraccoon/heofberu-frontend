@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 
-import { Children, isValidElement, useEffect, useMemo, useRef, useState } from 'react'
+import { Children, isValidElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 export function Spinner({ label = 'Загрузка...' }) {
@@ -99,7 +99,6 @@ export function TextArea({ value, onChange, rows, ...props }) {
 
   useEffect(() => {
     resize()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
   return (
@@ -142,7 +141,7 @@ export function Select({ value, onChange, children, className = '', disabled, pl
   const selectedIndex = options.findIndex((o) => String(o.value) === String(value))
   const selected = options[selectedIndex]
 
-  const updatePos = () => {
+  const updatePos = useCallback(() => {
     const el = btnRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
@@ -156,7 +155,7 @@ export function Select({ value, onChange, children, className = '', disabled, pl
       width: Math.max(r.width, 200),
       up,
     })
-  }
+  }, [options.length])
 
   const toggle = () => {
     if (disabled) return
@@ -185,7 +184,7 @@ export function Select({ value, onChange, children, className = '', disabled, pl
       window.removeEventListener('resize', onResize)
       document.removeEventListener('mousedown', onDown)
     }
-  }, [open])
+  }, [open, updatePos])
 
   useEffect(() => {
     if (!open) return
