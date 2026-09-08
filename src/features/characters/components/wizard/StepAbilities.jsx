@@ -179,7 +179,7 @@ export default function StepAbilities({ stepNo, total, form, update, derived, on
         </div>
       )}
 
-      <div className="rounded-lg border border-stone-700/60">
+      <div className="overflow-x-auto rounded-lg border border-stone-700/60">
         <table className="w-full bg-stone-900/40">
           <thead className="hidden sm:table-header-group">
             <tr className="bg-stone-800/70 text-xs font-medium uppercase tracking-wide text-stone-400">
@@ -257,7 +257,7 @@ function Stepper({ value, remaining, label, onStep }) {
         aria-label={`Уменьшить ${label}`}
         disabled={!canStepDown}
         onClick={() => onStep(-1)}
-        className="flex size-7 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-sm font-bold text-stone-200 transition hover:border-ember/60 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35 sm:size-8 sm:text-base"
+        className="flex size-9 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-base font-bold text-stone-200 transition hover:border-ember/60 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35 sm:size-8 sm:text-base"
       >
         −
       </button>
@@ -267,7 +267,7 @@ function Stepper({ value, remaining, label, onStep }) {
         aria-label={`Увеличить ${label}`}
         disabled={!canStepUp}
         onClick={() => onStep(1)}
-        className="flex size-7 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-sm font-bold text-stone-200 transition hover:border-ember/60 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35 sm:size-8 sm:text-base"
+        className="flex size-9 items-center justify-center rounded border border-stone-600 bg-stone-800/60 text-base font-bold text-stone-200 transition hover:border-ember/60 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35 sm:size-8 sm:text-base"
       >
         +
       </button>

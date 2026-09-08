@@ -145,7 +145,7 @@ export default function Layout() {
                     logout()
                     navigate('/')
                   }}
-                  className="hidden h-[30px] items-center gap-1.5 rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
+                  className="hidden h-10 items-center gap-1.5 rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -167,7 +167,7 @@ export default function Layout() {
             ) : (
               <Link
                 to="/login"
-                className="hidden h-[30px] items-center rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
+                className="hidden h-10 items-center rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
               >
                 Войти
               </Link>
@@ -177,7 +177,7 @@ export default function Layout() {
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="flex h-[30px] items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800 lg:hidden"
+            className="flex h-10 items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800 lg:hidden"
             aria-label="Открыть меню"
           >
             ☰
@@ -253,7 +253,7 @@ export default function Layout() {
                       navigate('/')
                       close()
                     }}
-                    className="flex h-[30px] items-center gap-1.5 rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800"
+                    className="flex h-10 items-center gap-1.5 rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -276,7 +276,7 @@ export default function Layout() {
                 <Link
                   to="/login"
                   onClick={close}
-                  className="flex h-[30px] items-center rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800"
+                  className="flex h-10 items-center rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800"
                 >
                   Войти
                 </Link>
@@ -286,7 +286,7 @@ export default function Layout() {
             <button
               type="button"
               onClick={close}
-              className="flex h-[30px] items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800"
+              className="flex h-10 items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800"
               aria-label="Закрыть меню"
             >
               ✕

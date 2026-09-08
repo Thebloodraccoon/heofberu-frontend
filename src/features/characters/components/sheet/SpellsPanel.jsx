@@ -92,7 +92,7 @@ function SpellRow({ cs, open, onExpand, onRemove }) {
         </button>
         <button
           type="button"
-          className="mr-2 inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
+          className="mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
           title="Забыть заклинание"
           onClick={onRemove}
         >

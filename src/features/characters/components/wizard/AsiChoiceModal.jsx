@@ -150,9 +150,9 @@ export default function AsiChoiceModal({
                   const final = (abilityTotals[s.code] || 0) + inc
                   const bonus = mod(final)
                   return (
-                    <div key={s.code} className="flex items-center justify-between gap-3 rounded border border-stone-700/40 bg-stone-800/40 px-3 py-2">
+                    <div key={s.code} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded border border-stone-700/40 bg-stone-800/40 px-3 py-2">
                       <span className="text-sm text-stone-200">{abilityName(s.code)}</span>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
                         <span className="w-10 text-center text-sm font-semibold">
                           <b className={bonus >= 0 ? 'text-emerald-300' : 'text-red-300'}>
                             {bonus >= 0 ? '+' : ''}
@@ -166,7 +166,7 @@ export default function AsiChoiceModal({
                           type="button"
                           disabled={inc <= 0}
                           onClick={() => bump(s.code, -1)}
-                          className="size-7 rounded border border-stone-600 text-stone-200 hover:bg-stone-700 disabled:opacity-40"
+                          className="size-9 shrink-0 rounded border border-stone-600 text-stone-200 hover:bg-stone-700 disabled:opacity-40 sm:size-8"
                         >
                           −
                         </button>
@@ -175,7 +175,7 @@ export default function AsiChoiceModal({
                           type="button"
                           disabled={inc >= 2 || budget >= 2 || final >= ABILITY_CAP}
                           onClick={() => bump(s.code, 1)}
-                          className="size-7 rounded border border-stone-600 text-stone-200 hover:bg-stone-700 disabled:opacity-40"
+                          className="size-9 shrink-0 rounded border border-stone-600 text-stone-200 hover:bg-stone-700 disabled:opacity-40 sm:size-8"
                         >
                           +
                         </button>

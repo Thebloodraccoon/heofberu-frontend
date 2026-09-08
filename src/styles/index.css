@@ -271,6 +271,18 @@ main > * {
   .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
   .text-4xl { font-size: 2.25rem;  line-height: 2.5rem; }
 
-  /* Tailwind-утилита с произвольным размером */
+  /* Tailwind-утилиты с произвольным размером */
+  .text-\[9px\]  { font-size: 0.875rem; }
+  .text-\[10px\] { font-size: 0.875rem; }
   .text-\[11px\] { font-size: 0.875rem; }
+}
+
+/* ===== Читаемость на телефонах/планшетах: те же мелкие подписи (чипы, метки),
+   что и в правиле выше, но с более скромным минимумом — места на экране мало,
+   а 14px везде превратил бы компактные ряды в нечитаемую кашу. ===== */
+@media (max-width: 1023px) {
+  .text-\[9px\]  { font-size: 10px; }
+  .text-\[10px\] { font-size: 11px; }
+  .text-\[11px\] { font-size: 12px; }
+  .text-xs       { font-size: 0.8125rem; line-height: 1.15rem; } /* 13px */
 }

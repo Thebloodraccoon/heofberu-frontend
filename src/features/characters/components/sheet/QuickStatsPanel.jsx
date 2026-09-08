@@ -1,5 +1,17 @@
 import { BoxedValue, RollButton } from '@/components/sheet/primitives.jsx'
 
+const ShieldIcon = ({ className = 'size-3.5' }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3Z" />
+  </svg>
+)
+
+const HeartIcon = ({ className = 'size-3.5' }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M12 21s-6.7-4.35-9.3-8.1C.6 9.9 1.6 6.4 4.6 5.1c2-.85 4.15-.2 5.4 1.35C11.25 8 12 8 12 8s.75 0 2-1.55c1.25-1.55 3.4-2.2 5.4-1.35 3 1.3 4 4.8 1.9 7.8C18.7 16.65 12 21 12 21Z" />
+  </svg>
+)
+
 export default function QuickStatsPanel({
   character,
   pb,
@@ -21,11 +33,10 @@ export default function QuickStatsPanel({
             onClick={onOpenAc}
             title="Класс доспеха и щит — нажмите, чтобы изменить"
           >
-            <span className="flex flex-col items-center gap-0.5 leading-none">
-              <span>{(character.armor_class ?? 0) + (character.shield ?? 0)}</span>
-              {(character.shield ?? 0) > 0 && (
-                <span className="whitespace-nowrap text-[10px] font-normal text-gold">🛡 +{character.shield}</span>
-              )}
+            <span className="flex items-center justify-center gap-1 leading-none">
+              <ShieldIcon className="size-4 text-stone-400" />
+              {(character.armor_class ?? 0) + (character.shield ?? 0)}
+              {(character.shield ?? 0) > 0 && <ShieldIcon className="size-3 text-gold" />}
             </span>
           </button>
         </BoxedValue>
@@ -36,14 +47,13 @@ export default function QuickStatsPanel({
             onClick={onOpenHp}
             title="Хиты и отдых"
           >
-            <span className="flex flex-col items-center gap-0.5 leading-none">
-              <span className="flex items-center gap-1">
-                <span className="sheet-hp__heart">♥</span>
-                {character.current_hp ?? 0}/{character.max_hp ?? 0}
-              </span>
+            <span className="flex items-center justify-center gap-1 leading-none">
+              <HeartIcon className="sheet-hp__heart size-4" />
+              {character.current_hp ?? 0}/{character.max_hp ?? 0}
               {Number(character.temp_hp) > 0 && (
-                <span className="whitespace-nowrap text-[10px] font-normal text-emerald-300">
-                  ♥ {character.temp_hp}
+                <span className="flex items-center gap-0.5 whitespace-nowrap text-[10px] font-normal text-emerald-300">
+                  <HeartIcon className="size-2.5" />
+                  {character.temp_hp}
                 </span>
               )}
             </span>
