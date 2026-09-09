@@ -14,6 +14,17 @@ const catalogLinks = [
   { to: '/catalog/features', label: 'Особенности' },
 ]
 
+const personalLinks = [
+  { to: '/profile', label: 'Профиль' },
+  { to: '/characters', label: 'Мои персонажи' },
+]
+
+const gmLinks = [
+  { to: '/gm/editor', label: 'Редактор справочников' },
+  { to: '/gm/characters', label: 'Персонажи игроков' },
+  { to: '/users', label: 'Пользователи' },
+]
+
 function Crest({ size = 'size-9' }) {
   return <img src="/logo.svg" alt="Heofberu" className={`${size} h-auto object-contain`} draggable="false" />
 }
@@ -45,8 +56,6 @@ function SectionTitle({ children }) {
     </p>
   )
 }
-
-const SIDEBAR_KEY = 'heofberu.sidebar.collapsed'
 
 function SidebarContent({ onClick }) {
   const { authenticated, isGM } = useAuth()
@@ -80,49 +89,114 @@ function SidebarContent({ onClick }) {
   )
 }
 
+function DesktopNavItem({ label, to, children }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const timer = useRef(null)
+
+  const enter = () => {
+    clearTimeout(timer.current)
+    setOpen(true)
+  }
+
+  const leave = () => {
+    timer.current = setTimeout(() => setOpen(false), 100)
+  }
+
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  if (to) {
+    return (
+      <NavLink
+        to={to}
+        end={to === '/'}
+        className={({ isActive }) =>
+          `rounded px-3 py-2 text-sm font-medium transition ${
+            isActive ? 'bg-stone-800 text-stone-100' : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'
+          }`
+        }
+      >
+        {label}
+      </NavLink>
+    )
+  }
+
+  return (
+    <div
+      ref={ref}
+      className="relative"
+      onMouseEnter={enter}
+      onMouseLeave={leave}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 rounded px-3 py-2 text-sm font-medium text-stone-300 transition hover:bg-stone-800/60 hover:text-stone-100"
+      >
+        {label}
+        <svg
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        >
+          <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[12rem] rounded-lg border border-stone-700/50 bg-stone-900 py-1 shadow-xl">
+          {children.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/catalog/races'}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `block px-4 py-2 text-sm transition ${
+                  isActive
+                    ? 'bg-stone-800 text-stone-100'
+                    : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DesktopNav() {
+  const { authenticated, isGM } = useAuth()
+
+  const groups = [
+    { label: 'Главная', to: '/' },
+    { label: 'Руководство', to: '/guide' },
+    { label: 'Справочники', children: catalogLinks },
+    authenticated && { label: 'Личное', children: personalLinks },
+    authenticated && isGM && { label: 'Для ГМ', children: gmLinks },
+  ].filter(Boolean)
+
+  return (
+    <nav className="hidden border-t border-stone-800 bg-stone-950/85 backdrop-blur lg:flex">
+      <div className="mx-auto flex h-11 max-w-[80rem] items-center gap-1 px-5 sm:px-8">
+        {groups.map((g) => (
+          <DesktopNavItem key={g.label} {...g} />
+        ))}
+      </div>
+    </nav>
+  )
+}
+
 export default function Layout() {
   const { authenticated, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
-  const [narrowMenu, setNarrowMenu] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1799px)').matches,
-  )
   const navigate = useNavigate()
-  const sidebarRef = useRef(null)
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1799px)')
-    const onChange = (e) => setNarrowMenu(e.matches)
-    onChange(mq)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-
-  useEffect(() => {
-    if (!narrowMenu) return undefined
-    const onDocClick = (e) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
-        setCollapsed(true)
-      }
-    }
-    document.addEventListener('click', onDocClick)
-    return () => document.removeEventListener('click', onDocClick)
-  }, [narrowMenu])
 
   const close = () => setSidebarOpen(false)
-
-  const onMenuClick = () => {
-    close()
-    if (narrowMenu) setCollapsed(true)
-  }
-
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev
-      localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0')
-      return next
-    })
-  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-stone-950">
@@ -185,40 +259,7 @@ export default function Layout() {
         </nav>
       </header>
 
-      {collapsed ? (
-        <aside ref={sidebarRef} className="hidden shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-2 lg:fixed lg:left-0 lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)]">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleCollapsed()
-            }}
-            className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2.5 py-1.5 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
-            aria-label="Развернуть меню"
-            title="Развернуть меню"
-          >
-            Меню
-          </button>
-        </aside>
-      ) : (
-        <aside ref={sidebarRef} className="hidden w-[16.75rem] shrink-0 flex-col border-r border-stone-800 bg-stone-950/95 p-3 lg:fixed lg:left-0 lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)] lg:overflow-y-auto">
-          <div className="mb-2 flex items-center justify-between border-b border-stone-800 pb-2 pl-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-              Меню
-            </span>
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              className="flex items-center gap-1 whitespace-nowrap rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:border-ember hover:text-ember"
-              aria-label="Свернуть меню"
-              title="Свернуть меню"
-            >
-              « Свернуть
-            </button>
-          </div>
-          <SidebarContent onClick={onMenuClick} />
-        </aside>
-      )}
+      <DesktopNav />
 
       <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col border-x border-stone-800/80 bg-stone-950/90 shadow-[0_0_30px_rgba(0,0,0,0.75)]">
         <main className="flex-1 px-5 py-5 sm:px-8 sm:py-8">
