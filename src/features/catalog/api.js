@@ -145,6 +145,10 @@ export const catalogApi = {
       list: (id) => request(`/api/backgrounds/${id}/items`),
       set: (id, body) => request(`/api/backgrounds/${id}/items`, { method: 'PUT', body }),
     },
+    suggestions: {
+      list: (id) => request(`/api/backgrounds/${id}/suggestions`),
+      set: (id, body) => request(`/api/backgrounds/${id}/suggestions`, { method: 'PUT', body }),
+    },
     features: {
       // Фичи централизованы: только список по источнику (GET-only).
       list: (id) => request(`/api/backgrounds/${id}/features`),
@@ -167,10 +171,33 @@ export const catalogApi = {
     get: (id) => request(`/api/features/${id}`),
     update: (id, body) => request(`/api/features/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/features/${id}`, { method: 'DELETE' }),
-    abilityIncreases: {
-      get: (id) => request(`/api/features/${id}/ability-increases`),
-      set: (id, body) =>
-        request(`/api/features/${id}/ability-increases`, { method: 'PUT', body }),
+    // Двигатель особенностей: полное дерево эффектов + группы выбора.
+    // GET уже отдаётся вместе с самой особенностью (ability_effects), этот
+    // блок нужен для записи и для остальных 5 типов эффектов/групп выбора.
+    effects: {
+      get: (id) => request(`/api/features/${id}/effects`),
+      set: (id, body) => request(`/api/features/${id}/effects`, { method: 'PUT', body }),
+      // PUT полностью заменяет ВСЕ типы фиксированных эффектов разом — чтобы
+      // редактор увеличений характеристик не затирал другие типы эффектов,
+      // подтягиваем текущее дерево и меняем только ability_effects.
+      setAbilityEffects: async (id, abilityEffects) => {
+        const current = await request(`/api/features/${id}/effects`)
+        return request(`/api/features/${id}/effects`, {
+          method: 'PUT',
+          body: {
+            ability_effects: abilityEffects,
+            skill_effects: current?.skill_effects ?? [],
+            saving_throw_effects: current?.saving_throw_effects ?? [],
+            armor_effects: current?.armor_effects ?? [],
+            weapon_effects: current?.weapon_effects ?? [],
+            spell_effects: current?.spell_effects ?? [],
+          },
+        })
+      },
+    },
+    choiceGroups: {
+      get: (id) => request(`/api/features/${id}/choice-groups`),
+      set: (id, body) => request(`/api/features/${id}/choice-groups`, { method: 'PUT', body }),
     },
   },
 

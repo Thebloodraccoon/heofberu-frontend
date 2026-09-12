@@ -16,15 +16,8 @@ import { summaryBadges } from '@/features/catalog/components/browse/detail/detai
 async function fetchDetail(resource, selectedId) {
   const cfg = catalog[resource]
   const data = await cfg.api.get(selectedId)
+  // FeatureResponse уже содержит ability_effects — отдельный запрос не нужен.
   let withFeatures = data
-  if (resource === 'features') {
-    try {
-      const res = await api.features.abilityIncreases.get(selectedId).catch(() => null)
-      withFeatures = { ...withFeatures, ability_increases: res?.ability_increases ?? [] }
-    } catch {
-      withFeatures = { ...withFeatures, ability_increases: [] }
-    }
-  }
   if (resource === 'classes') {
     try {
       const subs = withFeatures.subclasses ?? []

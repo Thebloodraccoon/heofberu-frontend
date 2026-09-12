@@ -69,7 +69,9 @@ export function RichTextEditor({
     editable: !disabled,
     autofocus: autoFocus ? 'end' : false,
     onUpdate: ({ editor: ed }) => {
-      onChange?.({ target: { value: sanitizeHtml(ed.getHTML()) } })
+      const next = sanitizeHtml(ed.getHTML())
+      lastReported.current = next
+      onChange?.({ target: { value: next } })
     },
     editorProps: {
       attributes: {
@@ -83,15 +85,22 @@ export function RichTextEditor({
 
   // Синхронизируем внешние изменения value (сброс формы, загрузка другой записи),
   // но только когда контент реально другой — иначе курсор будет прыгать при вводе.
-  // Пропускаем самый первый прогон: на монтировании контент уже равен value, а
-  // ProseMirror нормализует пустую строку в "<p></p>", что дало бы ложное расхождение.
+  // Сравниваем с последним значением, которое редактор сам отдал наружу (lastReported):
+  // родитель почти всегда возвращает его как есть, а прямое сравнение с
+  // editor.getHTML() давало ложное расхождение на таблицах — санитайзер вырезает
+  // их colgroup/col, и каждый ввод символа перезагружал весь документ (курсор
+  // улетал в конец таблицы). Пропускаем самый первый прогон: на монтировании
+  // контент уже равен value, а ProseMirror нормализует пустую строку в "<p></p>",
+  // что дало бы ложное расхождение.
   const skipNextSync = useRef(true)
+  const lastReported = useRef(null)
   useEffect(() => {
     if (!editor) return
     if (skipNextSync.current) {
       skipNextSync.current = false
       return
     }
+    if (lastReported.current !== null && value === lastReported.current) return
     const next = sanitizeHtml(toEditableHtml(value))
     if (next !== editor.getHTML()) {
       editor.commands.setContent(next, { emitUpdate: false })
@@ -124,8 +133,10 @@ export function RichTextEditor({
 
   const applySource = () => {
     const clean = sanitizeHtml(sourceDraft)
-    editor.commands.setContent(clean)
-    onChange?.({ target: { value: clean } })
+    // emitUpdate: true (по умолчанию) — контент проходит через onUpdate, который
+    // один-единственный отвечает за lastReported/onChange, иначе синк-эффект
+    // выше посчитает это внешним изменением и передёрнет курсор.
+    editor.commands.setContent(clean, { emitUpdate: true })
     setShowCode(false)
   }
 

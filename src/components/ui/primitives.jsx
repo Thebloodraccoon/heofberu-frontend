@@ -430,10 +430,12 @@ export function Modal({
   size = 'md',
   align = 'center',
   scroll = false,
+  maxH = '88vh',
   tone = 'default',
   className = '',
 }) {
-  const sizes = { xs: 'max-w-xs', sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', '2xl': 'max-w-2xl', '4xl': 'max-w-4xl' }
+  const sizes = { xs: 'max-w-xs', sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', lg600: 'max-w-[600px]', '2xl': 'max-w-2xl', '4xl': 'max-w-4xl' }
+  const scrollHeights = { '80vh': 'max-h-[80vh]', '88vh': 'max-h-[88vh]', '94vh': 'max-h-[94vh]' }
   const maxW = sizes[size] ?? sizes.md
   const overlay =
     align === 'top'
@@ -443,7 +445,7 @@ export function Modal({
     tone === 'danger' ? 'ring-1 ring-red-900/60' : 'ring-1 ring-stone-700'
   }`
   const panel = scroll
-    ? `flex max-h-[88vh] flex-col ${maxW} ${panelBase}`
+    ? `flex ${scrollHeights[maxH] ?? scrollHeights['88vh']} flex-col ${maxW} ${panelBase}`
     : align === 'top'
       ? `mx-auto mt-8 max-sm:mt-2 max-sm:max-h-[90vh] max-sm:overflow-y-auto ${maxW} ${panelBase} p-5 max-sm:p-3`
       : `max-sm:max-h-[90vh] max-sm:overflow-y-auto ${maxW} ${panelBase} p-5 max-sm:p-3`

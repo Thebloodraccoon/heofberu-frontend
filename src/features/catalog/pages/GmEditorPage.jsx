@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
-import { editorConfig, featurePayload, featuresFromRecord, sortedByLevel, subclassPayload, subracePayload, SPELL_LEVEL_KEYS } from '@/features/catalog/config/editors/index.js'
+import { editorConfig, featurePayload, featuresFromRecord, persistFeatureEffects, sortedByLevel, subclassPayload, subracePayload, SPELL_LEVEL_KEYS } from '@/features/catalog/config/editors/index.js'
 import FeatureModal from '@/features/catalog/components/editor/FeaturesModal.jsx'
+import FeatureEffectsEditor from '@/features/catalog/components/editor/FeatureEffectsEditor.jsx'
 import SubclassEditor from '@/features/catalog/components/editor/SubclassEditor.jsx'
 import SubraceEditor from '@/features/catalog/components/editor/SubraceEditor.jsx'
-import EditorFieldControl, { SectionTitle, TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
+import EditorFieldControl, { CheckIcon, PencilIcon, SectionTitle, TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
-import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
+import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, RichText, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
 import ImageUploadBlock from '@/features/catalog/components/editor/ImageUploadBlock.jsx'
+import { useToasts } from '@/components/ToastProvider.jsx'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import { useCatalogPage } from '@/features/catalog/queries.js'
@@ -57,13 +59,43 @@ export default function GmEditorPage() {
 
   const [fieldSaving, setFieldSaving] = useState(false)
   const [fieldError, setFieldError] = useState(null)
-  const [fieldSaved, setFieldSaved] = useState(false)
+
+  const { push: pushStatus } = useToasts()
+
+  // Автосохранение полей при редактировании: без общей кнопки формы правки
+  // копятся 700мс (обычный дебаунс), затем уходят через saveFields. Флаг
+  // нужен, чтобы системные setForm (открытие записи, обновление формы после
+  // сохранения) сами себя не считали новой правкой и не зациклили сохранение.
+  const skipNextAutoSaveRef = useRef(false)
+  // saveFields читает форму/запись из этих рефов (не из замыкания), чтобы
+  // повторный вызов после параллельной правки всегда уходил с актуальными
+  // данными, а не с теми, что были на момент постановки в очередь.
+  const formRef = useRef(form)
+  useEffect(() => {
+    formRef.current = form
+  }, [form])
+  const editingRef = useRef(editing)
+  useEffect(() => {
+    editingRef.current = editing
+  }, [editing])
+  const savingInFlightRef = useRef(false)
+  const pendingAutoSaveRef = useRef(false)
+  // saveFields сама объявлена ниже (ей нужны loadNested и др.) — эффект
+  // всегда дёргает актуальную версию через реф, не саму переменную напрямую.
+  const saveFieldsRef = useRef(() => {})
 
   useEffect(() => {
-    if (!fieldSaved) return
-    const id = setTimeout(() => setFieldSaved(false), 10000)
+    if (!editing || !form) return
+    if (skipNextAutoSaveRef.current) {
+      skipNextAutoSaveRef.current = false
+      return
+    }
+    const id = setTimeout(() => {
+      saveFieldsRef.current()
+    }, 700)
     return () => clearTimeout(id)
-  }, [fieldSaved])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form])
 
   const [features, setFeatures] = useState([])
   const [featuresLoading, setFeaturesLoading] = useState(false)
@@ -105,6 +137,7 @@ export default function GmEditorPage() {
   const [confirmSubraceDeleting, setConfirmSubraceDeleting] = useState(false)
   const [subraceDeleteError, setSubraceDeleteError] = useState(null)
   const [confirmRow, setConfirmRow] = useState(null)
+  const [editingGroupedRows, setEditingGroupedRows] = useState(() => new Set())
 
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -205,19 +238,9 @@ export default function GmEditorPage() {
     setFeaturesLoading(true)
     setFeaturesError(null)
     try {
-      const base = featuresFromRecord(await cfg.featuresOps.list(id ?? editing.id))
-      const withIncreases = await Promise.all(
-        base.map(async (f) => {
-          if (!f.id) return f
-          try {
-            const res = await api.features.abilityIncreases.get(f.id)
-            return { ...f, ability_increases: res?.ability_increases ?? [] }
-          } catch {
-            return { ...f, ability_increases: [] }
-          }
-        })
-      )
-      setFeatures(withIncreases)
+      // Список фич по источнику уже приходит с ability_effects внутри
+      // (NestedFeatureResponse) — отдельный запрос за эффектами не нужен.
+      setFeatures(featuresFromRecord(await cfg.featuresOps.list(id ?? editing.id)))
     } catch (e) {
       setFeaturesError(e)
     } finally {
@@ -378,7 +401,6 @@ export default function GmEditorPage() {
   const openEdit = async (rec) => {
     setError(null)
     setFeatureModal(null)
-    setFieldSaved(false)
     setEditLoading(true)
     setShowForm(true)
     setSelectedId(rec.id)
@@ -387,6 +409,7 @@ export default function GmEditorPage() {
       const enriched = cfg.enrich ? await cfg.enrich(full) : full
       setEditing(enriched)
       setImageUrl(enriched?.image_url ?? full?.image_url ?? null)
+      skipNextAutoSaveRef.current = true
       setForm(cfg.fromRecord(enriched))
       await loadNested(full.id)
     } catch (e) {
@@ -407,7 +430,6 @@ export default function GmEditorPage() {
     setImageBusy(false)
     setImageError(null)
     setFieldError(null)
-    setFieldSaved(false)
     setFeatures([])
     setFeaturesError(null)
     setStartingItems([])
@@ -443,6 +465,9 @@ export default function GmEditorPage() {
   const saveField = (key) => async (draft) => {
     const updated = await cfg.api.update(editing.id, { [key]: draft })
     const next = updated?.[key] ?? draft
+    // Поле уже сохранено само по себе — не нужно, чтобы общий дебаунс формы
+    // следом отправил его ещё раз.
+    skipNextAutoSaveRef.current = true
     setForm((f) => ({ ...f, [key]: next }))
     setEditing((e) => (e ? { ...e, [key]: next } : e))
   }
@@ -473,6 +498,14 @@ export default function GmEditorPage() {
   }
   const removeRow = (key, i) =>
     setForm((f) => ({ ...f, [key]: f[key].filter((_, idx) => idx !== i) }))
+  const toggleGroupedRowEdit = (key, i) =>
+    setEditingGroupedRows((prev) => {
+      const id = `${key}:${i}`
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   const setSpellSlot = (key, classLevel, spellLevel, v) =>
     setForm((f) => {
       const slots = { ...(f[key]?.[classLevel] ?? {}) }
@@ -511,25 +544,48 @@ export default function GmEditorPage() {
   })()
 
   const saveFields = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
+    if (!editingRef.current) return
+    if (savingInFlightRef.current) {
+      // Уже идёт сохранение — эта правка уйдёт следующим прогоном сразу
+      // после текущего, а не потеряется.
+      pendingAutoSaveRef.current = true
+      return
+    }
+    savingInFlightRef.current = true
     setFieldSaving(true)
     setFieldError(null)
-    setFieldSaved(false)
+    pushStatus(
+      'Сохраняем…',
+      `${cfg.singular[0].toUpperCase()}${cfg.singular.slice(1)}: ${formRef.current?.name ?? editingRef.current?.name ?? ''}`,
+      'saving',
+    )
     try {
-      await cfg.submitFields(form, editing)
-      const full = await cfg.api.get(editing.id)
+      const currentForm = formRef.current
+      const currentEditing = editingRef.current
+      await cfg.submitFields(currentForm, currentEditing)
+      const full = await cfg.api.get(currentEditing.id)
       const enriched = cfg.enrich ? await cfg.enrich(full) : full
       setEditing(enriched)
       setImageUrl(enriched?.image_url ?? full?.image_url ?? null)
+      skipNextAutoSaveRef.current = true
       setForm(cfg.fromRecord(enriched))
       await loadNested(full.id)
-      setFieldSaved(true)
+      pushStatus('Сохранено', `${cfg.singular[0].toUpperCase()}${cfg.singular.slice(1)}: ${enriched?.name ?? ''}`)
     } catch (err) {
       setFieldError(err)
     } finally {
       setFieldSaving(false)
+      savingInFlightRef.current = false
+      if (pendingAutoSaveRef.current) {
+        pendingAutoSaveRef.current = false
+        saveFields()
+      }
     }
   }
+  useEffect(() => {
+    saveFieldsRef.current = saveFields
+  })
 
   const createSubmit = async (e) => {
     e.preventDefault()
@@ -578,20 +634,23 @@ export default function GmEditorPage() {
     }
   }
 
-  // Общие операции централизованы на /api/features (+ /api/features/ability-increases).
+  // Общие операции централизованы на /api/features (+ /effects и /choice-groups):
+  // фиксированные эффекты и группы выбора сохраняются полной заменой дерева.
   const upsertFeature = async (next, index, source) => {
+    const effects = next.effects ?? { ...(next.ability_effects ? { ability_effects: next.ability_effects } : {}) }
     if (index == null) {
       const created = await api.features.create(featurePayload(next, source))
-      await saveFeatureIncreases(created.id, next.ability_increases)
+      await saveFeatureEffects(created.id, effects)
     } else {
       await api.features.update(next.id, featurePayload(next))
-      await saveFeatureIncreases(next.id, next.ability_increases)
+      await saveFeatureEffects(next.id, effects)
     }
   }
 
-  const saveFeatureIncreases = async (featureId, increases = []) => {
-    const list = Array.isArray(increases) ? increases : []
-    await api.features.abilityIncreases.set(featureId, { ability_increases: list })
+  const saveFeatureEffects = async (featureId, effects = {}) => {
+    // Полная замена: persistFeatureEffects всегда шлёт все шесть списков +
+    // группы выбора, чтобы ни один тип не был случайно затёрт.
+    await persistFeatureEffects(featureId, effects)
   }
 
   const removeFeature = async (f) => {
@@ -878,9 +937,10 @@ export default function GmEditorPage() {
                               <span className="text-sm text-stone-200">{field.label}</span>
                             </label>
                           </div>
-                        ) : field.type === 'textarea' && editing ? (
-                          // RichTextField рисует свою метку и статус сохранения —
-                          // без дополнительной обёртки Field, чтобы не дублировать label.
+                        ) : (field.type === 'textarea' || field.type === 'text') && editing ? (
+                          // RichTextField/TextField рисуют свою метку и статус
+                          // сохранения — без дополнительной обёртки Field, чтобы
+                          // не дублировать label.
                           <div key={field.key} className={field.full ? 'sm:col-span-2' : ''}>
                             <EditorFieldControl field={field} value={form[field.key]} onSaveField={saveField(field.key)} />
                           </div>
@@ -1046,6 +1106,116 @@ export default function GmEditorPage() {
                         </div>
                       )
                     }
+if (section.type === 'effectsTree') {
+                      return (
+                        <div key={section.key}>
+                          <SectionTitle>{section.label}</SectionTitle>
+                          <FeatureEffectsEditor
+                            value={form[section.key]}
+                            onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
+                          />
+                        </div>
+                      )
+                    }
+                    if (section.type === 'groupedRows') {
+                      const rows = form[section.key] ?? []
+                      return (
+                        <div key={section.key} className="flex flex-col gap-5">
+                          {section.groups.map((group) => {
+                            const entries = rows
+                              .map((row, idx) => ({ row, idx }))
+                              .filter(({ row }) => row[section.groupKey] === group.value)
+                            return (
+                              <div key={group.value}>
+                                <SectionTitle
+                                  button={
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newIdx = rows.length
+                                        setForm((f) => ({
+                                          ...f,
+                                          [section.key]: [
+                                            ...(f[section.key] ?? []),
+                                            { [section.groupKey]: group.value, [section.textKey]: '' },
+                                          ],
+                                        }))
+                                        setEditingGroupedRows((prev) => new Set(prev).add(`${section.key}:${newIdx}`))
+                                      }}
+                                      className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                                    >
+                                      {section.addLabel}
+                                    </button>
+                                  }
+                                >
+                                  {group.label}
+                                </SectionTitle>
+                                {entries.length === 0 && (
+                                  <p className="text-sm text-stone-500">{section.empty}</p>
+                                )}
+                                <div className="flex flex-col gap-2">
+                                  {entries.map(({ row, idx }, n) => {
+                                    const editing = editingGroupedRows.has(`${section.key}:${idx}`)
+                                    return (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center gap-2 rounded border border-stone-700/60 bg-stone-900/40 p-2"
+                                      >
+                                        <span className="shrink-0 text-xs font-semibold text-stone-500">
+                                          {n + 1}.
+                                        </span>
+                                        {editing ? (
+                                          <RichTextEditor
+                                            value={row[section.textKey] ?? ''}
+                                            onChange={(e) => setRow(section.key, idx, section.textKey, e.target.value)}
+                                            rows={2}
+                                            className="min-h-0 flex-1"
+                                          />
+                                        ) : (
+                                          <RichText
+                                            value={row[section.textKey] ?? ''}
+                                            className="flex-1 text-sm leading-relaxed"
+                                          />
+                                        )}
+                                        <div className="flex shrink-0 items-center gap-1">
+                                          {editing ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleGroupedRowEdit(section.key, idx)}
+                                              className="my-[5px] inline-flex h-[32px] w-[32px] items-center justify-center rounded border border-ember/60 bg-ember/20 text-ember transition hover:bg-ember/30"
+                                              title="Готово"
+                                            >
+                                              <CheckIcon />
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleGroupedRowEdit(section.key, idx)}
+                                              className="my-[5px] inline-flex h-[32px] w-[32px] items-center justify-center rounded border border-stone-700 text-stone-300 transition hover:bg-stone-800"
+                                              title="Изменить"
+                                            >
+                                              <PencilIcon />
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => setConfirmRow({ key: section.key, index: idx })}
+                                            className="my-[5px] inline-flex h-[32px] w-[32px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                            title="Удалить"
+                                          >
+                                            <TrashIcon />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    }
                     if (section.type === 'rows') {
                       const selCol = section.columns?.find((c) => c.type === 'select')
                       const selOptions = selCol ? selCol.options ?? listOptions[selCol.listKey] ?? [] : []
@@ -1187,20 +1357,6 @@ export default function GmEditorPage() {
                       </div>
                     )
                   })}
-
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button type="submit" disabled={fieldSaving}>
-                      {fieldSaving
-                        ? 'Сохраняем...'
-                        : editing
-                          ? 'Обновить поля'
-                          : 'Создать'}
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={closeForm}>
-                      Отмена
-                    </Button>
-                    {fieldSaved && <span className="text-xs text-emerald-400">Поля обновлены</span>}
-                  </div>
                   {fieldError && <ErrorBox error={fieldError} onRetry={() => {}} />}
                 </form>
 

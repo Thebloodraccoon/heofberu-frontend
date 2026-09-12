@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RichTextField } from '@/components/ui/RichTextField.jsx'
+import { ToastProvider } from '@/components/ToastProvider.jsx'
 
 const pasteInto = (el, text) =>
   fireEvent.paste(el, { clipboardData: { getData: (type) => (type === 'text/plain' ? text : '') } })
@@ -14,9 +15,13 @@ describe('RichTextField', () => {
     expect(screen.getByRole('button', { name: 'Изменить' })).toBeInTheDocument()
   })
 
-  it('saves only this field and shows a saved confirmation', async () => {
+  it('saves only this field and confirms with a toast', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
-    render(<RichTextField label="Описание" value="<p>Старый</p>" onSave={onSave} />)
+    render(
+      <ToastProvider>
+        <RichTextField label="Описание" value="<p>Старый</p>" onSave={onSave} />
+      </ToastProvider>
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Изменить' }))
     const editor = screen.getByRole('textbox')
     await userEvent.click(editor)
@@ -24,7 +29,7 @@ describe('RichTextField', () => {
     pasteInto(editor, 'Новый')
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
     expect(onSave).toHaveBeenCalledWith('<p>Новый</p>')
-    expect(await screen.findByText('Сохранено')).toBeInTheDocument()
+    expect((await screen.findAllByText('Сохранено')).length).toBeGreaterThan(0)
   })
 
   it('cancels without calling onSave', async () => {

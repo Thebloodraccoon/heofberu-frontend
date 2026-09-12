@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { fmtBonus } from '@/lib/utils/sheet.js'
-import { useCharacter, useCanLevelUp } from '@/features/characters/queries.js'
+import { useCharacter, useCanLevelUp, useCharacterProficiencies } from '@/features/characters/queries.js'
 import {
   useBackgroundDetail,
   useClassDetail,
@@ -76,6 +76,7 @@ export default function CharacterDetailPage() {
   const { data: subraceDetail } = useSubraceDetail(character?.race_id, character?.subrace_id)
   const { data: backgroundDetail } = useBackgroundDetail(character?.background_id)
   const { data: skillsCatalog = [] } = useSkills({ size: 100 })
+  const { data: proficienciesData } = useCharacterProficiencies(id)
 
   const [tab, setTab] = useState('attacks')
   const [rollToasts, setRollToasts] = useState([])
@@ -164,18 +165,18 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { profSet, expertiseSet } = useMemo(() => {
     const profs = new Set()
     const experts = new Set()
-    for (const p of character?.skill_proficiencies ?? []) {
+    for (const p of proficienciesData?.skills ?? []) {
       const sid = Number(p.skill_id)
       if (Number.isNaN(sid)) continue
       profs.add(sid)
       if (p.is_expertise) experts.add(sid)
     }
     return { profSet: profs, expertiseSet: experts }
-  }, [character?.skill_proficiencies])
+  }, [proficienciesData?.skills])
 
   const saveSet = useMemo(
-    () => new Set((character?.saving_throw_proficiencies ?? []).map((s) => s.ability)),
-    [character?.saving_throw_proficiencies]
+    () => new Set((proficienciesData?.saving_throws ?? []).map((s) => s.ability)),
+    [proficienciesData?.saving_throws]
   )
 
   const skillsByAbility = useMemo(() => {

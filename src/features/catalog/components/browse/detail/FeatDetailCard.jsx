@@ -1,5 +1,6 @@
 import { abilityLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
+import { effectSummaryLines } from '@/lib/utils/featureEffects.js'
 import { Section, FeatureCards } from './detailHelpers.jsx'
 
 export default function FeatDetailCard({ item }) {
@@ -13,6 +14,28 @@ export default function FeatDetailCard({ item }) {
       : null
 
   const increases = item.ability_score_increases ?? []
+  const treeLines = effectSummaryLines(item)
+  const hasTreeAbility = treeLines.some((l) => l.key === 'ability')
+
+  const rows = []
+  if (prerequisite) rows.push({ key: 'prereq', label: 'Требования', value: prerequisite })
+  if (item.prerequisite_description) {
+    rows.push({
+      key: 'prereq-desc',
+      label: 'Доп. требования',
+      value: <RichText value={item.prerequisite_description} className="inline" />,
+    })
+  }
+  for (const line of treeLines) rows.push({ key: line.key, label: line.label, value: line.text })
+  // Новый бэк отдаёт полное дерево (строки характеристик в ability_effects);
+  // legacy ability_score_increases показываем только когда дерева нет.
+  if (!hasTreeAbility && increases.length > 0) {
+    rows.push({
+      key: 'asi',
+      label: 'Увеличение характеристик',
+      value: increases.map((a) => `${abilityLabels[a.ability] ?? label(a.ability)} +${a.amount}`).join(' '),
+    })
+  }
 
   return (
     <Card className="my-[3px] detail-padded">
@@ -23,22 +46,11 @@ export default function FeatDetailCard({ item }) {
         </div>
       </div>
 
-      {(prerequisite || item.prerequisite_description || increases.length > 0) && (
+      {rows.length > 0 && (
         <FactList>
-          {prerequisite && <FactRow label="Требования" value={prerequisite} />}
-          {item.prerequisite_description && (
-            <FactRow label="Доп. требования" value={<RichText value={item.prerequisite_description} className="inline" />} />
-          )}
-          {increases.length > 0 && (
-            <FactRow
-              label="Увеличение характеристик"
-              value={
-                <span className="font-semibold text-stone-100">
-                  {increases.map((a) => `${abilityLabels[a.ability] ?? label(a.ability)} +${a.amount}`).join(' ')}
-                </span>
-              }
-            />
-          )}
+          {rows.map((row) => (
+            <FactRow key={row.key} label={row.label} value={row.value} />
+          ))}
         </FactList>
       )}
 

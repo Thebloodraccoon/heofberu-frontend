@@ -13,6 +13,7 @@ export {
   buildSpellSlotPayload,
   featurePayload,
   featuresFromRecord,
+  persistFeatureEffects,
   saveSpellSlots,
   sortedByLevel,
   subclassPayload,

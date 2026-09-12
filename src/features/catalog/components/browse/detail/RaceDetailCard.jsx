@@ -3,6 +3,21 @@ import { Badge, Card, RichText } from '@/components/ui'
 import { Section, FeatureCards, SkillChips, formatBonus, itemName } from './detailHelpers.jsx'
 import CatalogImage from '../CatalogImage.jsx'
 
+function AbilityBonusChips({ bonuses = [] }) {
+  return (
+    <span className="badge-row align-middle">
+      {bonuses.map((b, i) => (
+        <span
+          key={i}
+          className="inline-block rounded bg-stone-800/80 px-1.5 py-0.5 text-sm text-stone-100"
+        >
+          {abilityLabels[b.ability] ?? b.ability} {formatBonus(b.bonus)}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export default function RaceDetailCard({ race, selectedSub }) {
   const raceFeatures = (race.features ?? []).map((f) => ({ ...f, fromSubrace: false }))
   const subFeatures = selectedSub
@@ -13,11 +28,6 @@ export default function RaceDetailCard({ race, selectedSub }) {
       }))
     : []
   const features = [...raceFeatures, ...subFeatures]
-
-  const fmtBonuses = (list) =>
-    (list ?? [])
-      .map((b) => `${abilityLabels[b.ability] ?? b.ability} ${formatBonus(b.bonus)}`)
-      .join(' ')
 
   return (
     <Card className="my-[3px] detail-padded">
@@ -42,19 +52,15 @@ export default function RaceDetailCard({ race, selectedSub }) {
             : race.description && <RichText value={race.description} className="description-blockquote" />}
 
           {(race.ability_bonuses ?? []).length > 0 && (
-            <p className="mt-3 text-sm leading-relaxed">
+            <p className="mt-3 flex flex-wrap items-center gap-2 text-sm leading-relaxed">
               <span className="font-semibold text-stone-100">Бонусы характеристик: </span>
-              <span className="font-semibold text-stone-100">
-                {fmtBonuses(race.ability_bonuses)}
-              </span>
+              <AbilityBonusChips bonuses={race.ability_bonuses} />
             </p>
           )}
           {selectedSub && (selectedSub.ability_bonuses ?? []).length > 0 && (
-            <p className="mt-1 text-sm leading-relaxed">
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-sm leading-relaxed">
               <span className="font-semibold text-stone-100">Бонусы характеристик подрасы: </span>
-              <span className="font-semibold text-stone-100">
-                {fmtBonuses(selectedSub.ability_bonuses)}
-              </span>
+              <AbilityBonusChips bonuses={selectedSub.ability_bonuses} />
             </p>
           )}
 

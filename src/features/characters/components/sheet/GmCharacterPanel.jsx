@@ -8,6 +8,7 @@ import {
   useCharacterFeatures,
   useCharacterItems,
   useCharacterMaxLevel,
+  useCharacterProficiencies,
   useCharacterStats,
 } from '@/features/characters/queries.js'
 import {
@@ -366,8 +367,10 @@ function skillName(skill) {
 }
 
 function ExpertiseSection({ character, onError, reload }) {
+  const queryClient = useQueryClient()
   const { data: skillsCatalog = [] } = useSkills({ size: 100 })
-  const proficiencies = character.skill_proficiencies ?? []
+  const { data: proficienciesData } = useCharacterProficiencies(character.id)
+  const proficiencies = proficienciesData?.skills ?? []
   const [busyId, setBusyId] = useState(null)
 
   const skillById = useMemo(() => new Map(skillsCatalog.map((s) => [Number(s.id), s])), [skillsCatalog])
@@ -375,7 +378,8 @@ function ExpertiseSection({ character, onError, reload }) {
   const toggle = async (skillId, next) => {
     setBusyId(skillId)
     try {
-      await charactersApi.gmPanel.skills.setExpertise(character.id, skillId, { is_expertise: next })
+      await charactersApi.gmPanel.proficiencies.setSkillExpertise(character.id, skillId, { is_expertise: next })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.proficiencies(Number(character.id)) })
       await reload()
     } catch (e) {
       onError(e)
@@ -677,14 +681,9 @@ function FeaturePickerModal({ features, grantedIds, onPick, onClose }) {
   const [expandedId, setExpandedId] = useState(null)
 
   const detailQ = useQuery({
+    // FeatureResponse уже содержит ability_effects — отдельный запрос не нужен.
     queryKey: ['catalog', 'features', 'detail', expandedId],
-    queryFn: async () => {
-      const [base, inc] = await Promise.all([
-        catalogApi.features.get(expandedId),
-        catalogApi.features.abilityIncreases.get(expandedId).catch(() => null),
-      ])
-      return { ...base, ability_increases: inc?.ability_increases ?? [] }
-    },
+    queryFn: () => catalogApi.features.get(expandedId),
     enabled: expandedId != null,
   })
   const detail = expandedId != null && detailQ.data ? detailQ.data : null
@@ -725,7 +724,7 @@ function FeaturePickerModal({ features, grantedIds, onPick, onClose }) {
                   {sentenceCase(f.name)}
                 </button>
                 <span className="flex shrink-0 items-center gap-1.5">
-                  {(f.ability_increases ?? []).length > 0 && (
+                  {(f.ability_effects ?? []).length > 0 && (
                     <span className="rounded bg-emerald-900/50 px-1.5 py-0.5 text-[10px] text-emerald-200">
                       Улучшение характеристики
                     </span>
@@ -760,9 +759,9 @@ function FeaturePickerModal({ features, grantedIds, onPick, onClose }) {
                     </div>
                   ) : (
                     <>
-                      {(rowDetail.ability_increases ?? []).length > 0 && (
+                      {(rowDetail.ability_effects ?? []).length > 0 && (
                         <div className="mb-2 flex flex-wrap gap-1.5">
-                          {rowDetail.ability_increases.map((ai, i) => (
+                          {rowDetail.ability_effects.map((ai, i) => (
                             <span
                               key={i}
                               className="rounded border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-200"
@@ -1026,9 +1025,9 @@ function FeaturesSection({ character, onError, reload }) {
                   >
                     <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
                     <span className="truncate text-sm font-medium text-stone-100">{featureName(cf)}</span>
-                    {(cf.feature?.ability_increases ?? []).length > 0 ? (
+                    {(cf.feature?.ability_effects ?? []).length > 0 ? (
                       <span className="flex shrink-0 flex-wrap items-center gap-1">
-                        {(cf.feature?.ability_increases ?? []).map((ai, i) => (
+                        {(cf.feature?.ability_effects ?? []).map((ai, i) => (
                           <span
                             key={i}
                             className="rounded border border-emerald-700/60 bg-emerald-900/30 px-1.5 py-0.5 text-[10px] text-emerald-200"

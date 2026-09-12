@@ -17,6 +17,7 @@ export const queryKeys = {
     features: (id) => ['characters', id, 'features'],
     items: (id) => ['characters', id, 'items'],
     conditions: (id) => ['characters', id, 'conditions'],
+    proficiencies: (id) => ['characters', id, 'proficiencies'],
     asiChoices: (id) => ['characters', id, 'asi-choices'],
     stats: (id) => ['characters', id, 'stats'],
   },

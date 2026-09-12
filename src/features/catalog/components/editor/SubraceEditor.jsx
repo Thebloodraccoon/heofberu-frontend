@@ -1,61 +1,92 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
-import { featurePayload, subracePayload } from '@/features/catalog/config/editors/index.js'
+import { featurePayload, persistFeatureEffects } from '@/features/catalog/config/editors/index.js'
 import { abilityLabels } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
-import { Button, ErrorBox, Field, Input, RichTextEditor, Select } from '@/components/ui'
+import { ErrorBox, Input, RichTextField, Select, TextField } from '@/components/ui'
+import { useToasts } from '@/components/ToastProvider.jsx'
 import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
-function blankSubrace() {
-  return {
-    name: '',
-    description: '',
-    ability_bonuses: [],
-  }
-}
-
 export default function SubraceEditor({ raceId, detail, features, busy = false, error = null, onRefresh }) {
-  const [draft, setDraft] = useState(() => ({ ...blankSubrace(), ...(detail ?? {}) }))
+  const { push: pushStatus } = useToasts()
+  const [bonuses, setBonuses] = useState(() => detail?.ability_bonuses ?? [])
   const [imageUrl, setImageUrl] = useState(detail?.image_url ?? null)
   const [imageBusy, setImageBusy] = useState(false)
   const [imageError, setImageError] = useState(null)
   const [featureModal, setFeatureModal] = useState(null)
-  const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
-  const [saved, setSaved] = useState(false)
 
-  const setField = (key) => (e) => setDraft((d) => ({ ...d, [key]: e.target.value }))
+  // Название и описание сохраняются сами по себе (клик «Изменить» → правка →
+  // «Сохранить»), без общей кнопки формы — см. TextField/RichTextField.
+  const saveField = (key) => async (value) => {
+    await api.races.subraces.update(raceId, detail.id, { [key]: value })
+    await onRefresh()
+  }
 
-  const save = async (e) => {
-    e.preventDefault()
-    setSaving(true)
+  const savingRef = useRef(false)
+  const pendingSaveRef = useRef(false)
+  const bonusesRef = useRef(bonuses)
+  useEffect(() => {
+    bonusesRef.current = bonuses
+  }, [bonuses])
+
+  const saveBonuses = async () => {
+    if (savingRef.current) {
+      // Уже сохраняем — эта правка уйдёт следующим прогоном сразу после текущего.
+      pendingSaveRef.current = true
+      return
+    }
+    savingRef.current = true
     setSaveError(null)
-    setSaved(false)
+    pushStatus('Сохраняем…', 'Бонусы характеристик', 'saving')
     try {
-      await api.races.subraces.update(raceId, detail.id, subracePayload(draft))
-      await api.races.subraces.abilityBonuses(raceId, detail.id, { ability_bonuses: draft.ability_bonuses })
-      setSaved(true)
+      await api.races.subraces.abilityBonuses(raceId, detail.id, { ability_bonuses: bonusesRef.current })
+      pushStatus('Сохранено', 'Бонусы характеристик')
       await onRefresh()
     } catch (err) {
       setSaveError(err)
     } finally {
-      setSaving(false)
+      savingRef.current = false
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false
+        saveBonuses()
+      }
     }
   }
 
+  // Автосохранение бонусов: правки копятся 700мс, затем уходят без отдельной
+  // кнопки. Первый рендер (значения из detail) не считается правкой.
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    const id = setTimeout(() => {
+      saveBonuses()
+    }, 700)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bonuses])
+
   const setBonus = (i, key, val) =>
-    setDraft((d) => {
-      const ability_bonuses = d.ability_bonuses.map((row, j) => (j === i ? { ...row, [key]: val } : row))
-      return { ...d, ability_bonuses }
-    })
+    setBonuses((rows) => rows.map((row, j) => (j === i ? { ...row, [key]: val } : row)))
 
   const addBonus = () =>
-    setDraft((d) => ({ ...d, ability_bonuses: [...d.ability_bonuses, { ability: 'STR', bonus: 1 }] }))
+    setBonuses((rows) => {
+      const used = new Set(rows.map((r) => r.ability))
+      const free = Object.keys(abilityLabels).find((k) => !used.has(k))
+      if (!free) return rows
+      return [...rows, { ability: free, bonus: 1 }]
+    })
 
-  const removeBonus = (i) =>
-    setDraft((d) => ({ ...d, ability_bonuses: d.ability_bonuses.filter((_, j) => j !== i) }))
+  const removeBonus = (i) => setBonuses((rows) => rows.filter((_, j) => j !== i))
+
+  const abilitiesUsedUp = Object.keys(abilityLabels).every((k) =>
+    bonuses.some((r) => r.ability === k)
+  )
 
   const saveFeature = async (next) => {
     setSaveError(null)
@@ -63,21 +94,16 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
     try {
       if (featureModal.index == null) {
         const created = await api.features.create(featurePayload(next, source))
-        await saveFeatureIncreases(created.id, next.ability_increases)
+        await persistFeatureEffects(created.id, next.effects)
       } else {
         await api.features.update(next.id, featurePayload(next))
-        await saveFeatureIncreases(next.id, next.ability_increases)
+        await persistFeatureEffects(next.id, next.effects)
       }
       setFeatureModal(null)
       await onRefresh()
     } catch (err) {
       setSaveError(err)
     }
-  }
-
-  const saveFeatureIncreases = async (featureId, increases = []) => {
-    const list = Array.isArray(increases) ? increases : []
-    await api.features.abilityIncreases.set(featureId, { ability_increases: list })
   }
 
   const removeFeature = async (f) => {
@@ -136,13 +162,14 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
             error={imageError}
           />
 
-          <Field label="Название подрасы">
-            <Input value={draft.name} onChange={setField('name')} placeholder="Например, Высший эльф" />
-          </Field>
+          <TextField
+            label="Название подрасы"
+            value={detail.name}
+            onSave={saveField('name')}
+            placeholder="Например, Высший эльф"
+          />
 
-          <Field label="Описание">
-            <RichTextEditor value={draft.description} onChange={setField('description')} rows={2} />
-          </Field>
+          <RichTextField label="Описание" value={detail.description} onSave={saveField('description')} rows={2} />
 
           <div>
             <SectionTitle
@@ -150,7 +177,8 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
                 <button
                   type="button"
                   onClick={addBonus}
-                  className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+                  disabled={abilitiesUsedUp}
+                  className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
                 >
                   + Добавить
                 </button>
@@ -158,56 +186,59 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
             >
               Бонусы характеристик
             </SectionTitle>
-            {draft.ability_bonuses.length === 0 ? (
+            {bonuses.length === 0 ? (
               <p className="text-sm text-stone-500">Бонусов нет</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {draft.ability_bonuses.map((row, i) => (
-                  <div
-                    key={i}
-                    className="flex w-[calc(50%-0.5rem)] min-w-[260px] items-center gap-2"
-                  >
-                    <div className="w-48">
-                      <Select
-                        value={row.ability}
-                        onChange={(e) => setBonus(i, 'ability', e.target.value)}
-                        className="w-full"
+              <>
+                {abilitiesUsedUp && (
+                  <p className="mb-2 text-xs text-stone-500">
+                    Все доступные варианты использованы — каждый вариант не может повторяться.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {bonuses.map((row, i) => {
+                    const used = new Set(bonuses.map((r) => r.ability))
+                    return (
+                      <div
+                        key={i}
+                        className="flex w-[calc(50%-0.5rem)] min-w-[260px] items-center gap-2"
                       >
-                        {Object.entries(abilityLabels).map(([k, v]) => (
-                          <option key={k} value={k}>
-                            {v}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="w-20">
-                      <Input
-                        type="number"
-                        min={-5}
-                        max={5}
-                        value={row.bonus}
-                        onChange={(e) => setBonus(i, 'bonus', Number(e.target.value))}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeBonus(i)}
-                      className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
-                      title="Удалить"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                        <div className="w-48">
+                          <Select
+                            value={row.ability}
+                            onChange={(e) => setBonus(i, 'ability', e.target.value)}
+                            className="w-full"
+                          >
+                            {Object.entries(abilityLabels).map(([k, v]) => (
+                              <option key={k} value={k} disabled={used.has(k) && k !== row.ability}>
+                                {v}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                        <div className="w-20">
+                          <Input
+                            type="number"
+                            min={-5}
+                            max={5}
+                            value={row.bonus}
+                            onChange={(e) => setBonus(i, 'bonus', Number(e.target.value))}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeBonus(i)}
+                          className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                          title="Удалить"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
             )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" disabled={saving} onClick={save} className="my-[5px]">
-              {saving ? 'Сохраняем...' : 'Обновить подрасу'}
-            </Button>
-            {saved && <span className="text-xs text-emerald-400">Подраса обновлена</span>}
           </div>
 
           <div className=" pt-3">

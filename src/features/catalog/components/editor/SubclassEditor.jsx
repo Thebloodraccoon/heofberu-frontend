@@ -1,47 +1,26 @@
 import { useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
-import { featurePayload, subclassPayload } from '@/features/catalog/config/editors/index.js'
+import { featurePayload, persistFeatureEffects } from '@/features/catalog/config/editors/index.js'
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
-import { Button, ErrorBox, Field, Input, RichTextEditor } from '@/components/ui'
+import { ErrorBox, RichTextField, TextField } from '@/components/ui'
 
 const SUBFEATURE_LEVEL_HINT =
   'Уровень, с которого умение доступно. Обязательно для заполнения.'
 
-function blankSubclass() {
-  return {
-    name: '',
-    description: '',
-  }
-}
-
 export default function SubclassEditor({ classId, detail, features, busy = false, error = null, onRefresh }) {
-  const [draft, setDraft] = useState(() => ({ ...blankSubclass(), ...(detail ?? {}) }))
   const [imageUrl, setImageUrl] = useState(detail?.image_url ?? null)
   const [imageBusy, setImageBusy] = useState(false)
   const [imageError, setImageError] = useState(null)
   const [featureModal, setFeatureModal] = useState(null)
-  const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
-  const [saved, setSaved] = useState(false)
 
-  const setField = (key) => (e) => setDraft((d) => ({ ...d, [key]: e.target.value }))
-
-  const save = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    setSaveError(null)
-    setSaved(false)
-    try {
-      await api.classes.subclasses.update(classId, detail.id, subclassPayload(draft))
-      setSaved(true)
-      await onRefresh()
-    } catch (err) {
-      setSaveError(err)
-    } finally {
-      setSaving(false)
-    }
+  // Название и описание сохраняются сами по себе (клик «Изменить» → правка →
+  // «Сохранить»), без общей кнопки формы — см. TextField/RichTextField.
+  const saveField = (key) => async (value) => {
+    await api.classes.subclasses.update(classId, detail.id, { [key]: value })
+    await onRefresh()
   }
 
   const saveFeature = async (next) => {
@@ -50,21 +29,16 @@ export default function SubclassEditor({ classId, detail, features, busy = false
     try {
       if (featureModal.index == null) {
         const created = await api.features.create(featurePayload(next, source))
-        await saveFeatureIncreases(created.id, next.ability_increases)
+        await persistFeatureEffects(created.id, next.effects)
       } else {
         await api.features.update(next.id, featurePayload(next))
-        await saveFeatureIncreases(next.id, next.ability_increases)
+        await persistFeatureEffects(next.id, next.effects)
       }
       setFeatureModal(null)
       await onRefresh()
     } catch (err) {
       setSaveError(err)
     }
-  }
-
-  const saveFeatureIncreases = async (featureId, increases = []) => {
-    const list = Array.isArray(increases) ? increases : []
-    await api.features.abilityIncreases.set(featureId, { ability_increases: list })
   }
 
   const removeFeature = async (f) => {
@@ -123,20 +97,14 @@ export default function SubclassEditor({ classId, detail, features, busy = false
             error={imageError}
           />
 
-          <Field label="Название подкласса">
-            <Input value={draft.name} onChange={setField('name')} placeholder="Например, Школа Воплощения" />
-          </Field>
+          <TextField
+            label="Название подкласса"
+            value={detail.name}
+            onSave={saveField('name')}
+            placeholder="Например, Школа Воплощения"
+          />
 
-          <Field label="Описание">
-            <RichTextEditor value={draft.description} onChange={setField('description')} rows={2} />
-          </Field>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" disabled={saving} onClick={save} className="my-[5px]">
-              {saving ? 'Сохраняем...' : 'Обновить подкласс'}
-            </Button>
-            {saved && <span className="text-xs text-emerald-400">Подкласс обновлён</span>}
-          </div>
+          <RichTextField label="Описание" value={detail.description} onSave={saveField('description')} rows={2} />
 
           <div>
             <FeaturesEditorBlock

@@ -22,9 +22,9 @@ export const racesCfg = {
     noun: 'подрасу',
   },
   fields: [
-    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Эльф' },
-    { key: 'size', label: 'Размер', type: 'select', options: opt(raceSizeLabels) },
-    { key: 'speed', label: 'Скорость (фт.)', type: 'number', min: 0 },
+    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Эльф', full: true },
+    { key: 'size', label: 'Размер', type: 'select', options: opt(raceSizeLabels), inline: true },
+    { key: 'speed', label: 'Скорость (фт.)', type: 'number', min: 0, inline: true },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [

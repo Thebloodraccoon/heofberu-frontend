@@ -1,4 +1,5 @@
 import { catalogApi as api } from '../../api.js'
+import { buildChoiceGroupsPayload, buildFixedEffectsPayload } from '@/lib/utils/featureEffects.js'
 
 export const opt = (map) => Object.entries(map).map(([value, label]) => ({ value, label }))
 export const optOptional = (map) => [{ value: '', label: '—' }, ...opt(map)]
@@ -58,6 +59,13 @@ const byLevelThenName = (a, b) => {
   return (a.name ?? '').localeCompare(b.name ?? '', 'ru')
 }
 
+// Полная замена дерева эффектов особенности: фиксированные эффекты (все шесть
+// типов) + группы выбора. Единый путь сохранения для всех редакторов.
+export const persistFeatureEffects = async (featureId, effects = {}) => {
+  await api.features.effects.set(featureId, buildFixedEffectsPayload(effects))
+  await api.features.choiceGroups.set(featureId, buildChoiceGroupsPayload(effects))
+}
+
 export const sortedByLevel = (list) => [...(list ?? [])].sort(byLevelThenName)
 
 export const featuresFromRecord = (r) =>
@@ -67,6 +75,7 @@ export const featuresFromRecord = (r) =>
       name: f.name,
       description: f.description ?? '',
       level: f.level ?? null,
+      ability_effects: f.ability_effects ?? [],
     }))
     .sort(byLevelThenName)
 

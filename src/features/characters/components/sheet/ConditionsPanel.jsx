@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi as api } from '@/features/characters/api.js'
+import { useCharacterConditions } from '@/features/characters/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { conditionLabels, label } from '@/lib/i18n/index.js'
 import { Button, EmptyState, Field, Input, Select } from '@/components/ui'
@@ -14,11 +15,11 @@ export default function ConditionsPanel({ character, onError }) {
   const [condition, setCondition] = useState('')
   const [source, setSource] = useState('')
   const [exhaustionLevel, setExhaustionLevel] = useState('')
-  const conditions = character.conditions ?? []
+  const { data: conditions = [] } = useCharacterConditions(character.id)
   const availableConditions = CONDITIONS.filter((c) => !conditions.some((a) => a.condition === c))
 
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.characters.conditions(Number(character.id)) })
 
   const add = async () => {
     if (!condition || conditions.some((c) => c.condition === condition)) return

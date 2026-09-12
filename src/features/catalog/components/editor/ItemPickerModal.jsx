@@ -4,6 +4,7 @@ import { label } from '@/lib/i18n/index.js'
 import { useCatalogPage } from '@/features/catalog/queries.js'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
+import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import { ITEM_FILTERS } from './itemFilters.js'
 import { SectionTitle, TrashIcon } from './editorShared.jsx'
@@ -38,6 +39,7 @@ export default function ItemPickerModal({
   const doingChoice = choiceGroups != null
   const [groups, setGroups] = useState(() => (choiceGroups ?? []).map((g) => ({ ...g })))
   const [pickerTarget, setPickerTarget] = useState(null)
+  const [infoItemId, setInfoItemId] = useState(null)
 
   const addGroup = () =>
     setGroups((g) => [...g, { id: null, pick_count: 1, sort_order: g.length, options: [] }])
@@ -176,6 +178,7 @@ export default function ItemPickerModal({
       onClose={onClose}
       size="4xl"
       scroll
+      maxH="94vh"
       footer={
         <div className="flex w-full items-center justify-between gap-2">
           <span className="text-sm text-stone-400">
@@ -247,7 +250,7 @@ export default function ItemPickerModal({
 
           {(listQ.error) && <ErrorBox error={listQ.error} onRetry={() => listQ.refetch()} />}
           {!listQ.data && !listQ.error && (
-            <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1" aria-busy="true">
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1" aria-busy="true">
               {Array.from({ length: 8 }, (_, i) => (
                 <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
                   <Skeleton className="h-4 w-2/3" />
@@ -257,28 +260,38 @@ export default function ItemPickerModal({
             </div>
           )}
 
-          <div id="item-picker-list" className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+          <div id="item-picker-list" className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
             {available.length === 0 ? (
               <p className="text-sm text-stone-500">Предметов не найдено</p>
             ) : (
               available.map((it) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  onClick={() => handlePickItem(it)}
-                  className={`w-full cursor-pointer rounded-lg border p-3 text-left transition ${
-                    doingChoice && pickerTarget != null
-                      ? 'border-ember/60 bg-ember/5 hover:border-ember'
-                      : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/50'
-                  }`}
-                >
-                  <span className="block font-semibold text-stone-100">{it.name}</span>
-                  <span className="block text-xs text-stone-400">
-                    {[it.item_type ? label(it.item_type) : null, it.rarity && it.rarity !== 'NONE' ? label(it.rarity) : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                </button>
+                <div key={it.id} className="flex items-stretch gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePickItem(it)}
+                    className={`min-w-0 flex-1 cursor-pointer rounded-lg border p-3 text-left transition ${
+                      doingChoice && pickerTarget != null
+                        ? 'border-ember/60 bg-ember/5 hover:border-ember'
+                        : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/50'
+                    }`}
+                  >
+                    <span className="block truncate font-semibold text-stone-100">{it.name}</span>
+                    <span className="block text-xs text-stone-400">
+                      {[it.item_type ? label(it.item_type) : null, it.rarity && it.rarity !== 'NONE' ? label(it.rarity) : null]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInfoItemId(it.id)}
+                    className="my-[5px] shrink-0 rounded-lg border border-stone-700 bg-stone-800/40 px-2.5 text-xs font-medium text-stone-300 transition hover:bg-stone-800 hover:text-stone-100"
+                    title="Просмотр карточки предмета"
+                    aria-label={`Просмотр ${it.name}`}
+                  >
+                    Просмотр
+                  </button>
+                </div>
               ))
             )}
           </div>
@@ -313,7 +326,7 @@ export default function ItemPickerModal({
               {groups.length === 0 ? (
                 <p className="text-sm text-stone-500">Групп нет</p>
               ) : (
-                <div className="max-h-[40vh] space-y-3 overflow-y-auto pr-1">
+                <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
                   {groups.map((g, gi) => (
                     <div
                       key={gi}
@@ -401,7 +414,7 @@ export default function ItemPickerModal({
           {selectedList.length === 0 ? (
             <p className="text-sm text-stone-500">Ничего не выбрано</p>
           ) : (
-            <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
               {selectedList.map(({ item_id, quantity }) => {
                 const id = String(item_id)
                 const it = known[id]
@@ -441,6 +454,10 @@ export default function ItemPickerModal({
           onChange={applyFilters}
           onClose={() => setShowFilters(false)}
         />
+      )}
+
+      {infoItemId != null && (
+        <ItemInfoModal itemId={infoItemId} onClose={() => setInfoItemId(null)} />
       )}
     </Modal>
   )

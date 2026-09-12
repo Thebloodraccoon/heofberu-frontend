@@ -51,7 +51,7 @@
     "Chip": "children?: React.ReactNode;\n  className?: string;",
     "AccordionItem": "open?: boolean;\n  onToggle?: () => void;\n  header?: React.ReactNode;\n  children?: React.ReactNode;\n  className?: string;\n  bodyClassName?: string;",
     "PillToggle": "options: { value: string | number; label: React.ReactNode }[];\n  selected: (string | number)[];\n  onToggle: (value: string | number) => void;\n  className?: string;",
-    "Modal": "title?: React.ReactNode;\n  subtitle?: React.ReactNode;\n  onClose?: () => void;\n  children?: React.ReactNode;\n  footer?: React.ReactNode;\n  size?: \"xs\" | \"sm\" | \"md\" | \"lg\" | \"2xl\" | \"4xl\";\n  align?: \"center\" | \"top\";\n  scroll?: boolean;\n  tone?: \"default\" | \"danger\";\n  className?: string;",
+    "Modal": "title?: React.ReactNode;\n  subtitle?: React.ReactNode;\n  onClose?: () => void;\n  children?: React.ReactNode;\n  footer?: React.ReactNode;\n  size?: \"xs\" | \"sm\" | \"md\" | \"lg\" | \"lg600\" | \"2xl\" | \"4xl\";\n  align?: \"center\" | \"top\";\n  scroll?: boolean;\n  maxH?: \"80vh\" | \"88vh\" | \"94vh\";\n  tone?: \"default\" | \"danger\";\n  className?: string;",
     "ConfirmDialog": "title?: React.ReactNode;\n  message?: React.ReactNode;\n  error?: unknown;\n  busy?: boolean;\n  cancelText?: string;\n  confirmText?: string;\n  busyText?: string;\n  onCancel?: () => void;\n  onConfirm?: () => void;",
     "StatTable": "rows?: [React.ReactNode, React.ReactNode][];",
     "FactList": "children?: React.ReactNode;",

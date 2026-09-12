@@ -70,6 +70,13 @@ export const useCharacterItems = subResource(queryKeys.characters.items, charact
 
 export const useCharacterConditions = subResource(queryKeys.characters.conditions, charactersApi.conditions.list)
 
+export const useCharacterProficiencies = (id) =>
+  useQuery({
+    queryKey: queryKeys.characters.proficiencies(Number(id)),
+    queryFn: () => charactersApi.proficiencies.get(Number(id)),
+    enabled: !!id,
+  })
+
 export const useBackstory = (id) =>
   useQuery({
     queryKey: ['characters', Number(id), 'backstory'],

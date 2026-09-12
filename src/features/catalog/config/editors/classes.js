@@ -28,9 +28,9 @@ export const classesCfg = {
   hasSubclasses: true,
   imageOps: api.classes.image,
   fields: [
-    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Волшебник' },
-    { key: 'hit_dice', label: 'Кость хитов', type: 'select', options: opt(diceTypeLabels) },
-    { key: 'skill_choice_count', label: 'Количество навыков', type: 'number', min: 0 },
+    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Волшебник', full: true },
+    { key: 'hit_dice', label: 'Кость хитов', type: 'select', options: opt(diceTypeLabels), inline: true },
+    { key: 'skill_choice_count', label: 'Количество навыков', type: 'number', min: 0, inline: true },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [

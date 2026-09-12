@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth.js'
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher.jsx'
@@ -91,19 +92,63 @@ function SidebarContent({ onClick }) {
 
 function DesktopNavItem({ label, to, children }) {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null)
   const ref = useRef(null)
+  const menuRef = useRef(null)
   const timer = useRef(null)
+
+  const place = () => {
+    const rect = ref.current?.getBoundingClientRect()
+    if (!rect) return
+    let left = rect.left
+    const width = Math.max(rect.width, 176)
+    if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8)
+    setPos({ left, top: rect.bottom + 4, width })
+  }
 
   const enter = () => {
     clearTimeout(timer.current)
-    setOpen(true)
+    if (!open) {
+      place()
+      setOpen(true)
+    }
   }
 
   const leave = () => {
     timer.current = setTimeout(() => setOpen(false), 100)
   }
 
+  useEffect(() => {
+    if (!open) return undefined
+    const onScroll = () => {
+      const rect = ref.current?.getBoundingClientRect()
+      if (!rect) return
+      if (rect.top < 0) {
+        setOpen(false)
+        return
+      }
+      place()
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [open])
+
   useEffect(() => () => clearTimeout(timer.current), [])
+
+  useEffect(() => {
+    if (!open) return
+    const menuWidth = menuRef.current?.getBoundingClientRect().width
+    if (!menuWidth) return
+    setPos((p) => {
+      if (!p) return p
+      const left = Math.max(8, Math.min(p.left, window.innerWidth - menuWidth - 8))
+      return left === p.left ? p : { ...p, left }
+    })
+  }, [open])
 
   if (to) {
     return (
@@ -144,27 +189,36 @@ function DesktopNavItem({ label, to, children }) {
         </svg>
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 min-w-[12rem] rounded-lg border border-stone-700/50 bg-stone-900 py-1 shadow-xl">
-          {children.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/catalog/races'}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `block px-4 py-2 text-sm transition ${
-                  isActive
-                    ? 'bg-stone-800 text-stone-100'
-                    : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            onMouseEnter={enter}
+            onMouseLeave={leave}
+            style={{ left: pos.left, top: pos.top, minWidth: pos.width }}
+            className="fixed z-[100] whitespace-nowrap rounded-lg border border-stone-700/50 bg-stone-900 py-1 shadow-2xl shadow-black/50"
+          >
+            {children.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/catalog/races'}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `block px-4 py-2 text-sm transition ${
+                    isActive
+                      ? 'bg-stone-800 text-stone-100'
+                      : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

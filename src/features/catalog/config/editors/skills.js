@@ -5,7 +5,7 @@ import { opt } from './shared.js'
 export const skillsCfg = {
   singular: 'навык',
   fields: [
-    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Акробатика' },
+    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Акробатика', full: true },
     { key: 'key', label: 'Ключ (key)', type: 'text', required: true, placeholder: 'Например, acrobatics' },
     { key: 'ability', label: 'Характеристика', type: 'select', options: opt(abilityLabels) },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },

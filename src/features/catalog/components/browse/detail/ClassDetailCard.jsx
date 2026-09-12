@@ -433,19 +433,19 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                         {feature.level != null && (
                           <Badge tone="accent">{ruLevel(feature.level)}</Badge>
                         )}
-                        {(feature.ability_increases ?? []).length > 0 && (
+                        {(feature.ability_effects ?? []).length > 0 && (
                           <Badge tone="good">Изменения характеристик</Badge>
                         )}
                         {feature.fromSubclass && feature.subclassName && (
-                          <Badge tone="accent">Подкласс: {feature.subclassName}</Badge>
+                          <Badge tone="accent">{feature.subclassName}</Badge>
                         )}
                       </>
                     }
                   >
                     {feature.description && <RichText value={feature.description} className="description-secondary mb-0" />}
-                    {(feature.ability_increases ?? []).length > 0 && (
+                    {(feature.ability_effects ?? []).length > 0 && (
                       <div className="mt-2.5 flex flex-wrap gap-1.5">
-                        {(feature.ability_increases ?? []).map((inc, i) => (
+                        {(feature.ability_effects ?? []).map((inc, i) => (
                           <Badge key={i} tone="good">
                             {abilityName(inc.ability)}
                             {inc.amount > 0 ? ` +${inc.amount}` : ` ${inc.amount}`}

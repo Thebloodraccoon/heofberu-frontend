@@ -5,7 +5,7 @@ import { opt, optOptional, toNum, toStr } from './shared.js'
 export const itemsCfg = {
   singular: 'предмет',
   fields: [
-    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Длинный меч' },
+    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Длинный меч', full: true },
     { key: 'item_type', label: 'Тип предмета', type: 'select', options: opt(itemTypeLabels) },
     { key: 'rarity', label: 'Редкость', type: 'select', options: opt(itemRarityLabels) },
     { key: 'requires_attunement', label: 'Требует настройки', type: 'checkbox' },

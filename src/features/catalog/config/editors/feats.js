@@ -5,7 +5,7 @@ import { opt, optOptional, toNum, toStr } from './shared.js'
 export const featsCfg = {
   singular: 'черта',
   fields: [
-    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Проворный' },
+    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Проворный', full: true },
     { key: 'prerequisite_ability', label: 'Требуемая характеристика', type: 'select', options: optOptional(abilityLabels), inline: true },
     { key: 'prerequisite_minimum_score', label: 'Минимальное значение', type: 'number', min: 1, max: 30, inline: true },
     { key: 'prerequisite_description', label: 'Описание требований', type: 'textarea', full: true },

@@ -22,7 +22,7 @@ const hasHeal = (f) =>
 export const spellsCfg = {
   singular: 'заклинание',
   fields: [
-    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Огненный шар' },
+    { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Огненный шар', full: true },
     { key: 'level', label: 'Уровень', type: 'select', options: opt(spellLevelLabels) },
     { key: 'school', label: 'Школа', type: 'select', options: opt(spellSchoolLabels) },
     { key: 'cast_time', label: 'Время накладывания', type: 'select', options: opt(spellCastTimeLabels) },

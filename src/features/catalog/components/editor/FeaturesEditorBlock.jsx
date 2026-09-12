@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ruLevel } from '@/lib/i18n/index.js'
-import { abilityName } from '@/lib/utils/ability.js'
+import { effectBadges, effectSummaryLines } from '@/lib/utils/featureEffects.js'
 import { Badge, ConfirmDialog, ErrorBox, RichText, Skeleton } from '@/components/ui'
 import { SectionTitle, PencilIcon, TrashIcon } from './editorShared.jsx'
 
@@ -102,9 +102,11 @@ export default function FeaturesEditorBlock({
                       {f.name || 'Без названия'}
                     </span>
                     {showLevel && f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-                    {(f.ability_increases ?? []).length > 0 && (
-                      <Badge tone="good">Изменения характеристик</Badge>
-                    )}
+                    {effectBadges(f).map((badge, i) => (
+                      <Badge key={i} tone={badge.tone}>
+                        {badge.text}
+                      </Badge>
+                    ))}
                   </button>
                   <div className="flex shrink-0 gap-1">
                     <button
@@ -128,13 +130,11 @@ export default function FeaturesEditorBlock({
                 {open && f.description && (
                   <RichText value={f.description} className="mt-2 break-words text-sm leading-loose text-stone-300" />
                 )}
-                {open && (f.ability_increases ?? []).length > 0 && (
+                {open && effectSummaryLines(f).length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(f.ability_increases ?? []).map((inc, i) => (
+                    {effectSummaryLines(f).map((line, i) => (
                       <Badge key={i} tone="good">
-                        {abilityName(inc.ability)}
-                        {inc.amount > 0 ? ` +${inc.amount}` : ` ${inc.amount}`}
-                        {inc.new_cap != null && ` (макс. ${inc.new_cap})`}
+                        {line.text}
                       </Badge>
                     ))}
                   </div>

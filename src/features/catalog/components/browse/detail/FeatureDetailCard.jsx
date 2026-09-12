@@ -1,9 +1,10 @@
 import { ruLevel } from '@/lib/i18n/index.js'
-import { abilityLabels, label, sentenceCase } from '@/lib/i18n/index.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
+import { effectSummaryLines } from '@/lib/utils/featureEffects.js'
 import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
 
 export default function FeatureDetailCard({ item }) {
-  const increases = item.ability_increases ?? []
+  const lines = effectSummaryLines(item)
 
   return (
     <Card className="my-[3px] detail-padded">
@@ -14,25 +15,11 @@ export default function FeatureDetailCard({ item }) {
         </div>
       </div>
 
-      {increases.length > 0 && (
+      {lines.length > 0 && (
         <FactList>
-          <FactRow
-            label="Увеличение характеристик"
-            value={
-              <span className="font-semibold text-stone-100">
-                {increases
-                  .map((a) => {
-                    const suffix =
-                      a.amount != null
-                        ? `${a.amount > 0 ? '+' : ''}${a.amount}`
-                        : ''
-                    const cap = a.new_cap != null ? ` (макс. ${a.new_cap})` : ''
-                    return `${abilityLabels[a.ability] ?? label(a.ability)} ${suffix}${cap}`
-                  })
-                  .join(' ')}
-              </span>
-            }
-          />
+          {lines.map((line) => (
+            <FactRow key={line.key} label={line.label} value={line.text} />
+          ))}
         </FactList>
       )}
 

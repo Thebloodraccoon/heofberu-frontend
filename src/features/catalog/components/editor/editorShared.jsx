@@ -1,10 +1,18 @@
-import { Input, RichTextEditor, RichTextField, Select } from '@/components/ui'
+import { Input, RichTextEditor, RichTextField, Select, TextField } from '@/components/ui'
 
 export function PencilIcon({ className = 'h-4 w-4' }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
       <path d="m15 5 4 4" />
+    </svg>
+  )
+}
+
+export function CheckIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M20 6 9 17l-5-5" />
     </svg>
   )
 }
@@ -59,6 +67,11 @@ export default function EditorFieldControl({ field, value, onChange, onSaveField
         ))}
       </Select>
     )
+  }
+  // Однострочный текст при редактировании сохраняется сам по себе (как
+  // textarea выше) — без общей кнопки формы, тем же путём через onSaveField.
+  if (onSaveField) {
+    return <TextField label={field.label} value={value} onSave={onSaveField} placeholder={field.placeholder} />
   }
   return (
     <Input

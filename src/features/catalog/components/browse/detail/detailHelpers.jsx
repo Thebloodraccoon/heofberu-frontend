@@ -110,7 +110,7 @@ export function summaryBadges(item, resource) {
     })
   }
   if (resource === 'features') {
-    if ((item.ability_increases ?? []).length > 0) {
+    if ((item.ability_effects ?? []).length > 0) {
       badges.push({ text: 'Улучшение характеристики', tone: 'good' })
     }
   }
@@ -260,19 +260,19 @@ export function FeatureCards({ features }) {
                     {sentenceCase(f.name)}
                   </p>
                   {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-                  {(f.ability_increases ?? []).length > 0 && (
+                  {(f.ability_effects ?? []).length > 0 && (
                     <Badge tone="good">Изменения характеристик</Badge>
                   )}
                   {isSub(f) && groupName(f) && (
-                    <Badge tone="accent">{f.subclassName ? 'Подкласс' : 'Подраса'}: {sentenceCase(groupName(f))}</Badge>
+                    <Badge tone="accent">{sentenceCase(groupName(f))}</Badge>
                   )}
                 </>
               }
             >
               {f.description && <RichText value={f.description} className="description-secondary mb-0" />}
-              {(f.ability_increases ?? []).length > 0 && (
+              {(f.ability_effects ?? []).length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {(f.ability_increases ?? []).map((inc, i) => (
+                  {(f.ability_effects ?? []).map((inc, i) => (
                     <Badge key={i} tone="good">
                       {abilityName(inc.ability)}
                       {inc.amount > 0 ? ` +${inc.amount}` : ` ${inc.amount}`}

@@ -18,6 +18,10 @@ export const charactersApi = {
     // Общий калькулятор характеристик: база, итог и вклад каждого источника.
     get: (id) => request(`/api/characters/${id}/stats`),
   },
+  proficiencies: {
+    // Материализованные владения (навыки/спасброски/доспехи/оружие) с источником каждой записи.
+    get: (id) => request(`/api/characters/${id}/proficiencies`),
+  },
   gmPanel: {
     maxHp: (id, body) => request(`/api/characters/${id}/gm-panel/max-hp`, { method: 'PATCH', body }),
     maxLevel: {
@@ -34,12 +38,54 @@ export const charactersApi = {
           params: { adjustment_id: adjustmentId },
         }),
     },
-    skills: {
-      setExpertise: (id, skillId, body) =>
-        request(`/api/characters/${id}/gm-panel/skills`, {
+    proficiencies: {
+      addSkill: (id, skillId) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/skills`, {
+          method: 'POST',
+          body: { skill_id: skillId },
+        }),
+      removeSkill: (id, skillId) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/skills`, {
+          method: 'DELETE',
+          params: { skill_id: skillId },
+        }),
+      setSkillExpertise: (id, skillId, body) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/skills/expertise`, {
           method: 'PATCH',
           body,
           params: { skill_id: skillId },
+        }),
+      addSavingThrow: (id, ability) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/saving-throws`, {
+          method: 'POST',
+          body: { ability },
+        }),
+      removeSavingThrow: (id, ability) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/saving-throws`, {
+          method: 'DELETE',
+          params: { ability },
+        }),
+      addArmor: (id, armorType) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/armor`, {
+          method: 'POST',
+          body: { armor_type: armorType },
+        }),
+      removeArmor: (id, armorType) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/armor`, {
+          method: 'DELETE',
+          params: { armor_type: armorType },
+        }),
+      addWeapon: (id, body) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/weapons`, { method: 'POST', body }),
+      removeWeapon: (id, params) =>
+        request(`/api/characters/${id}/gm-panel/proficiencies/weapons`, { method: 'DELETE', params }),
+    },
+    spells: {
+      add: (id, body) => request(`/api/characters/${id}/gm-panel/spells`, { method: 'POST', body }),
+      remove: (id, grantedSpellId) =>
+        request(`/api/characters/${id}/gm-panel/spells`, {
+          method: 'DELETE',
+          params: { granted_spell_id: grantedSpellId },
         }),
     },
     feats: {
