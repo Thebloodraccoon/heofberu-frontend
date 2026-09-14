@@ -30,6 +30,7 @@ export const DEFAULT_FORM = {
   ability_sources: {},
   class_skill_ids: [],
   starting_choices: {},
+  suggestion_ids: [],
   name: '',
 }
 
@@ -75,4 +76,19 @@ export function choiceGroupsComplete(classDetail, backgroundDetail, startingChoi
     const pick = Number(group?.pick_count) || 1
     return (startingChoices[`${source}:${gi}`] ?? []).length >= pick
   })
+}
+
+/**
+ * Whether the player has picked one personality suggestion (trait/ideal/bond/
+ * flaw) for every group the background actually offers. Groups with no
+ * options (nothing to pick) don't block progress.
+ */
+export function suggestionGroupsComplete(backgroundDetail, suggestionIds = []) {
+  const suggestions = (backgroundDetail?.suggestions ?? []).filter((s) => s.text)
+  const types = new Set(suggestions.map((s) => s.suggestion_type))
+  if (types.size === 0) return true
+  const chosenTypes = new Set(
+    suggestions.filter((s) => suggestionIds.map(Number).includes(Number(s.id))).map((s) => s.suggestion_type),
+  )
+  return [...types].every((t) => chosenTypes.has(t))
 }

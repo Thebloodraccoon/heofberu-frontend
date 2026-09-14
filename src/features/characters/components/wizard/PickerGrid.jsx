@@ -16,6 +16,7 @@ export default function PickerGrid({
   emptyText = 'Ничего не найдено.',
   isDisabled,
   noSearch = false,
+  subtitleLines = 2,
   children,
 }) {
   return (
@@ -40,6 +41,7 @@ export default function PickerGrid({
               disabled={isDisabled?.(it)}
               onClick={() => onSelect(it)}
               title={<Highlight text={sentenceCase(it.name)} query={query} />}
+              subtitleLines={subtitleLines}
               subtitle={
                 subtitle || description ? (
                   <>

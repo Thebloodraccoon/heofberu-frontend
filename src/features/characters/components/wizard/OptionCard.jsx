@@ -1,4 +1,4 @@
-export function OptionCard({ selected, disabled, onClick, title, subtitle, children, className = '' }) {
+export function OptionCard({ selected, disabled, onClick, title, subtitle, subtitleLines = 2, children, className = '' }) {
   return (
     <button
       type="button"
@@ -18,9 +18,21 @@ export function OptionCard({ selected, disabled, onClick, title, subtitle, child
       >
         ✓
       </span>
-      <span className="pr-6">
+      <span className="flex h-full w-full flex-col justify-center pr-6">
         {title && <span className="block font-display text-base font-semibold text-stone-100">{title}</span>}
-        {subtitle && <span className="mt-0.5 block text-xs text-stone-400">{subtitle}</span>}
+        {subtitle && (
+          <span
+            className="mt-0.5 block text-xs text-stone-400"
+            style={{
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: subtitleLines,
+              overflow: 'hidden',
+            }}
+          >
+            {subtitle}
+          </span>
+        )}
         {children}
       </span>
     </button>

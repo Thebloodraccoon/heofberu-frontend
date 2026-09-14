@@ -101,8 +101,8 @@ export default function StatsCalculator({ characterId }) {
         return (
           <li key={s.key} className="rounded border border-stone-800 bg-stone-900/70 px-3 py-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-sm text-stone-300">{s.label}</span>
-              <span className="font-mono text-sm text-stone-100">
+              <span className="text-base text-stone-300 sm:text-sm">{s.label}</span>
+              <span className="font-mono text-base text-stone-100 sm:text-sm">
                 {view.base} → <b className="text-ember">{view.total}</b>
               </span>
             </div>

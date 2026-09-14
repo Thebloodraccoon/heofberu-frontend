@@ -335,7 +335,7 @@ export default function AsiChoiceModal({
                               setIncreaseId(ai.id)
                               setFeatId(currentFeat.id)
                             }}
-                            className="accent-ember"
+                            className="checkbox-base"
                           />
                           +{ai.amount} к {abilityName(ai.ability)}
                         </label>

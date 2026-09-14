@@ -74,6 +74,7 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
             update({ class_id: String(c.id), subclass_id: '', class_skill_ids: [], starting_choices: {} })
           }}
           subtitleOf={(c) => (c.hit_dice ? `к${c.hit_dice.replace('D', '')}` : undefined)}
+          subtitleLines={1}
         />
         {selectedClass && !classDetail && <Hint className="mt-3">Загружаем класс…</Hint>}
         {classDetail && (
@@ -95,6 +96,7 @@ export default function StepClass({ stepNo, total, form, update, lookups }) {
             noSearch
             columns="sm:grid-cols-2 xl:grid-cols-3"
             selectedId={form.subclass_id}
+            subtitleLines={0}
             onSelect={(s) => {
               if (s.id) subSelected.current = true
               update({ subclass_id: String(s.id) })

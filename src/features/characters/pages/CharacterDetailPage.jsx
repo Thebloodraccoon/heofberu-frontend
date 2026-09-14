@@ -34,6 +34,7 @@ import BackstoryPanel from '@/features/characters/components/sheet/BackstoryPane
 import NotesPanel from '@/features/characters/components/sheet/NotesPanel.jsx'
 import SpellsPanel from '@/features/characters/components/sheet/SpellsPanel.jsx'
 import StatsCalculator from '@/features/characters/components/sheet/StatsCalculator.jsx'
+import ProficiencyTable from '@/features/characters/components/sheet/ProficiencyTable.jsx'
 import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
 import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
 import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
@@ -139,6 +140,28 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
     []
   )
 
+  const rollDamage = useCallback((title, diceCount, diceSides, bonus) => {
+    const count = Math.max(0, Number(diceCount) || 0)
+    const sides = Number(diceSides) || 6
+    const rolls = []
+    let total = 0
+    for (let i = 0; i < count; i += 1) {
+      const v = 1 + Math.floor(Math.random() * sides)
+      rolls.push(v)
+      total += v
+    }
+    const bonusNum = Number(bonus) || 0
+    total += bonusNum
+    const idv = Date.now() + Math.random()
+    const detail = rolls.length
+      ? bonusNum
+        ? `${rolls.join(' + ')} ${fmtBonus(bonusNum)}`
+        : rolls.join(' + ')
+      : fmtBonus(bonusNum)
+    setRollToasts((prev) => [...prev.slice(-3), { id: idv, title, rolls, bonus: bonusNum, total }])
+    recordRoll({ id: idv, title, detail, total, at: Date.now() })
+  }, [])
+
   const dismissToast = useCallback((toastId) => {
     setRollToasts((prev) => prev.filter((t) => t.id !== toastId))
   }, [])
@@ -197,8 +220,12 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
   }, [skillsCatalog])
 
   const passiveSenses = useMemo(() => {
-    const findSkill = (key) =>
-      skillsCatalog.find((s) => [s.key, s.slug, s.name].some((v) => String(v ?? '').toLowerCase() === key))
+    const findSkill = (key) => {
+      const target = (skillLabels[key] ?? key).toLowerCase()
+      return skillsCatalog.find((s) =>
+        [s.key, s.slug, s.name].some((v) => String(v ?? '').toLowerCase() === key || String(v ?? '').toLowerCase() === target),
+      )
+    }
     const build = (key, icon) => {
       const sk = findSkill(key)
       if (!sk) return null
@@ -212,13 +239,15 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
   }, [skillsCatalog, profSet, expertiseSet, pb, modFor])
 
   const armorProfs = useMemo(() => {
-    const raw = classDetail?.armor_proficiencies ?? []
-    return raw.map((a) => (typeof a === 'string' ? a : a.armor_type))
-  }, [classDetail])
+    const raw = proficienciesData?.armor ?? classDetail?.armor_proficiencies ?? []
+    const values = raw.map((a) => (typeof a === 'string' ? a : a.armor_type))
+    return [...new Set(values)]
+  }, [proficienciesData?.armor, classDetail])
   const weaponProfs = useMemo(() => {
-    const raw = classDetail?.weapon_proficiencies ?? []
-    return raw.map((a) => (typeof a === 'string' ? a : (a.weapon_category ?? a.weapon_type)))
-  }, [classDetail])
+    const raw = proficienciesData?.weapons ?? classDetail?.weapon_proficiencies ?? []
+    const values = raw.map((a) => (typeof a === 'string' ? a : (a.weapon_category ?? a.weapon_type)))
+    return [...new Set(values)]
+  }, [proficienciesData?.weapons, classDetail])
 
   if (error || mutationError) return <ErrorBox error={error ?? mutationError} onRetry={load} />
   if (!character) {
@@ -366,7 +395,6 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
     ['equipment', 'Снаряжение'],
     ['conditions', 'Состояния'],
     ['personality', 'Личность'],
-    ['backstory', 'Предыстория'],
     ['notes', 'Заметки'],
     ['spells', 'Заклинания'],
     ['calculator', 'Развитие персонажа'],
@@ -408,7 +436,7 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
     paired.push(
       <div key="armor-profs" style={{ gridColumn: '1 / -1' }}>
         <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
-        <ProficiencyList items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано классом" />
+        <ProficiencyList items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано" />
       </div>,
     )
     paired.push(
@@ -417,7 +445,7 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
         <ProficiencyList
           items={weaponProfs}
           options={Object.entries(weaponProficiencyLabels).map(([value, label]) => ({ value, label }))}
-          empty="Не задано классом"
+          empty="Не задано"
         />
       </div>,
     )
@@ -465,9 +493,12 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
               </div>
             )}
             {tab === 'calculator' && (
-              <div className="grid gap-5 lg:grid-cols-2">
-                <StatsCalculator characterId={character.id} />
-                <PlayerChoices characterId={character.id} />
+              <div className="space-y-5">
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <StatsCalculator characterId={character.id} />
+                  <PlayerChoices characterId={character.id} />
+                </div>
+                <ProficiencyTable characterId={character.id} />
               </div>
             )}
             {tab === 'attacks' && (
@@ -475,6 +506,7 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
                 characterId={character.id}
                 attackBonus={attackBonus}
                 onRoll={rollDice}
+                onRollDamage={rollDamage}
                 onError={setMutationError}
                 classSpellcastingAbility={classDetail?.spellcasting_ability}
               />
@@ -489,10 +521,10 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
               <ConditionsPanel character={character} onError={setMutationError} />
             )}
             {tab === 'personality' && (
-              <PersonalityPanel character={character} onSave={saveField} />
-            )}
-            {tab === 'backstory' && (
-              <BackstoryPanel characterId={id} onError={setMutationError} />
+              <div className="space-y-4">
+                <PersonalityPanel character={character} onSave={saveField} />
+                <BackstoryPanel characterId={id} onError={setMutationError} />
+              </div>
             )}
             {tab === 'notes' && (
               <NotesPanel character={character} onSave={saveField} />

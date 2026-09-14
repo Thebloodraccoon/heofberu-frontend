@@ -5,8 +5,96 @@ import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
 import { useSearch } from './useSearch.js'
-import { itemName } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
+import { itemName, SkillChips } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
 import { smoothScrollTo } from './scroll.js'
+
+const suggestionTypeLabels = {
+  PERSONALITY_TRAIT: 'Черта характера',
+  IDEAL: 'Идеал',
+  BOND: 'Привязанность',
+  FLAW: 'Слабость',
+}
+
+function SuggestionsPicker({ suggestions, selectedIds, onChange }) {
+  const groups = Object.entries(suggestionTypeLabels)
+    .map(([type, label]) => [type, label, (suggestions ?? []).filter((s) => s.suggestion_type === type && s.text)])
+    .filter(([, , items]) => items.length > 0)
+
+  if (groups.length === 0) return null
+
+  const selected = new Set((selectedIds ?? []).map(String))
+
+  const pickOne = (id) =>
+    onChange((prev) => {
+      const byType = new Map(groups.map(([type, , items]) => [type, new Set(items.map((s) => String(s.id)))]))
+      const type = [...byType.entries()].find(([, ids]) => ids.has(String(id)))?.[0]
+      const next = (prev ?? []).filter((pid) => !byType.get(type)?.has(String(pid)))
+      next.push(id)
+      return next
+    })
+
+  const randomize = () => {
+    onChange(() => groups.map(([, , items]) => items[Math.floor(Math.random() * items.length)].id))
+  }
+
+  return (
+    <Section title="Личность">
+      <div className="mb-3 flex flex-nowrap items-center gap-3">
+        <p className="min-w-0 flex-1 truncate text-sm leading-relaxed text-stone-300" title="Выберите подходящий вариант из таблицы или бросьте кубик — кнопка «Случайно» решит за все четыре сразу.">
+          Выберите подходящий вариант из таблицы или бросьте кубик — кнопка «Случайно» решит за все четыре сразу.
+        </p>
+        <button
+          type="button"
+          onClick={randomize}
+          className="shrink-0 rounded border border-stone-700 px-2.5 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+        >Случайно
+        </button>
+      </div>
+      <div className="flex flex-col gap-4">
+        {groups.map(([type, label, items]) => (
+          <div key={type} className="overflow-hidden rounded-lg border border-stone-700/60 bg-stone-900/60">
+            <table className="sheet-table">
+              <thead>
+                <tr>
+                  <th className="w-12">{`к${items.length}`}</th>
+                  <th>{label}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((s, i) => {
+                  const isSelected = selected.has(String(s.id))
+                  return (
+                    <tr
+                      key={s.id}
+                      onClick={() => pickOne(s.id)}
+                      className={`cursor-pointer transition ${isSelected ? 'bg-ember/10' : 'hover:bg-stone-800/60'}`}
+                    >
+                      <td>
+                        <span className="inline-flex items-center gap-1.5">
+                          <input
+                            type="radio"
+                            name={`suggestion-${type}`}
+                            checked={isSelected}
+                            onChange={() => pickOne(s.id)}
+                            className="accent-ember"
+                          />
+                          {i + 1}
+                        </span>
+                      </td>
+                      <td>
+                        <RichText value={s.text} className="inline leading-relaxed" />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
+}
 
 function ItemLink({ entry }) {
   const id = entry?.item_id ?? entry?.id
@@ -25,12 +113,12 @@ function ItemLink({ entry }) {
 export default function StepBackground({ stepNo, total, form, update, lookups }) {
   const { backgroundDetail } = lookups
   const search = useSearch(lookups.backgrounds ?? [])
-  const [openSkills, setOpenSkills] = useState(() => new Set())
+  const [openFeatures, setOpenFeatures] = useState(() => new Set())
   const detailRef = useRef(null)
   const justSelected = useRef(false)
 
-  const toggleOpen = (id) =>
-    setOpenSkills((prev) => {
+  const toggleFeature = (id) =>
+    setOpenFeatures((prev) => {
       const next = new Set(prev)
       if (next.has(String(id))) next.delete(String(id))
       else next.add(String(id))
@@ -61,42 +149,44 @@ export default function StepBackground({ stepNo, total, form, update, lookups })
         />
         {form.background_id && !backgroundDetail && <Hint className="mt-3">Загружаем предысторию…</Hint>}
         {backgroundDetail && (
-          <div ref={detailRef} className="mt-4 space-y-3 scroll-mt-24">
-            {(() => {
-              const skills = backgroundDetail.granted_skills ?? []
-              const features = backgroundDetail.features ?? []
-              const entries = [
-                ...skills.map((s) => ({
-                  key: `skill-${s.id}`,
-                  name: skillLabels[s.name] ?? sentenceCase(s.name),
-                  description: s.description,
-                })),
-                ...features.map((f) => ({ key: `feature-${f.id}`, name: sentenceCase(f.name), description: f.description })),
-              ]
-              if (entries.length === 0) return null
-              return (
+          <div ref={detailRef} className="mt-4 space-y-5 scroll-mt-24">
+            {(backgroundDetail.granted_skills ?? []).length > 0 && (
+              <p className="flex flex-wrap items-center gap-2 text-sm leading-relaxed">
+                <span className="font-semibold text-stone-100">Владение навыками: </span>
+                <SkillChips
+                  names={(backgroundDetail.granted_skills ?? [])
+                    .map((s) => ({
+                      id: s.id ?? s.item_id,
+                      __name: skillLabels[s.name] ?? sentenceCase(s.name),
+                    }))
+                    .sort((a, b) => a.__name.localeCompare(b.__name, 'ru'))}
+                />
+              </p>
+            )}
+            {(backgroundDetail.features ?? []).length > 0 && (
+              <Section title="Особенности">
                 <ul className="flex flex-col gap-[5px]">
-                  {entries.map((e) => {
-                    const expanded = openSkills.has(e.key)
+                  {(backgroundDetail.features ?? []).map((f) => {
+                    const expanded = openFeatures.has(String(f.id))
                     return (
                       <li
-                        key={e.key}
+                        key={f.id}
                         className="rounded-lg border border-stone-700/60 bg-stone-900/60 py-3 pl-[10px] pr-[10px] transition-colors"
                       >
                         <AccordionItem
                           open={expanded}
-                          onToggle={() => toggleOpen(e.key)}
+                          onToggle={() => toggleFeature(f.id)}
                           bodyClassName="mt-1 px-[5px] lg:px-[15px]"
-                          header={<p className="font-semibold text-sm text-stone-100 sm:text-base">{e.name}</p>}
+                          header={<p className="font-semibold text-sm text-stone-100 sm:text-base">{sentenceCase(f.name)}</p>}
                         >
-                          {e.description && <RichText value={e.description} />}
+                          {f.description && <RichText value={f.description} />}
                         </AccordionItem>
                       </li>
                     )
                   })}
                 </ul>
-              )
-            })()}
+              </Section>
+            )}
             {(backgroundDetail.starting_items ?? []).length > 0 && (
               <>
                 <p className="text-sm leading-relaxed text-stone-300">
@@ -112,6 +202,11 @@ export default function StepBackground({ stepNo, total, form, update, lookups })
                 </ul>
               </>
             )}
+            <SuggestionsPicker
+              suggestions={backgroundDetail.suggestions}
+              selectedIds={form.suggestion_ids}
+              onChange={(updater) => update({ suggestion_ids: updater(form.suggestion_ids) })}
+            />
           </div>
         )}
       </Section>

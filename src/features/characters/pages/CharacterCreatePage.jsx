@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { POINT_BUY_BUDGET, POINT_BUY_MIN, STATS, bonusMap, effectiveTotals, pointCost } from '@/lib/utils/ability.js'
-import { STEPS, DEFAULT_FORM, buildItemChoiceIds, choiceGroupsComplete } from '@/lib/utils/characterCreate.js'
+import { STEPS, DEFAULT_FORM, buildItemChoiceIds, choiceGroupsComplete, suggestionGroupsComplete } from '@/lib/utils/characterCreate.js'
 import { Button, Card, ErrorBox, PageHeader, Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui'
 import StepAbilities from '@/features/characters/components/wizard/StepAbilities.jsx'
 import StepBackground from '@/features/characters/components/wizard/StepBackground.jsx'
@@ -79,6 +79,9 @@ export default function CharacterCreatePage() {
   const update = (patch) =>
     setForm((f) => {
       const next = { ...f, ...patch }
+      if (patch.background_id !== undefined && patch.suggestion_ids === undefined) {
+        next.suggestion_ids = []
+      }
       if (
         (patch.race_id !== undefined || patch.background_id !== undefined) &&
         (next.class_skill_ids ?? []).length > 0
@@ -143,7 +146,8 @@ export default function CharacterCreatePage() {
       case 'race':
         return Boolean(form.race_id)
       case 'background':
-        return true
+        if (!form.background_id) return true
+        return suggestionGroupsComplete(backgroundDetail, form.suggestion_ids)
       case 'class': {
         return Boolean(form.class_id)
       }
@@ -199,6 +203,9 @@ export default function CharacterCreatePage() {
       // бэкенд в item_choice_ids. Базовый комплект (starting_items расы/класса/
       // предыстории) выдаётся сервером автоматически.
       body.item_choice_ids = buildItemChoiceIds(classDetail, backgroundDetail, form.starting_choices)
+      if ((form.suggestion_ids ?? []).length > 0) {
+        body.suggestion_ids = form.suggestion_ids.map(Number)
+      }
 
       const created = await charactersApi.create(body)
 

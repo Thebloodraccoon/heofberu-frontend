@@ -235,8 +235,9 @@ function DesktopNav() {
   ].filter(Boolean)
 
   return (
-    <nav className="hidden border-t border-stone-800 bg-stone-950/85 backdrop-blur lg:flex">
-      <div className="mx-auto flex h-11 max-w-[80rem] items-center gap-1 px-5 sm:px-8">
+    <nav className="hidden backdrop-blur lg:flex">
+      <div className="mx-auto border-b border-l border-r  border-stone-800 bg-stone-950/85 flex h-11 w-full max-w-[80rem] items-center justify-center gap-1 borde
+r-x border-stone-800/80 px-5 sm:px-8">
         {groups.map((g) => (
           <DesktopNavItem key={g.label} {...g} />
         ))}

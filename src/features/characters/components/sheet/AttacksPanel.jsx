@@ -84,7 +84,7 @@ const AttackNotes = ({ notes }) => (
   </>
 )
 
-export default function AttacksPanel({ characterId, attackBonus, onRoll, onError, classSpellcastingAbility }) {
+export default function AttacksPanel({ characterId, attackBonus, onRoll, onRollDamage, onError, classSpellcastingAbility }) {
   const queryClient = useQueryClient()
   const { data: attacks = [], isLoading } = useCharacterAttacks(characterId)
   const [modal, setModal] = useState(null) // null | 'new' | attack object
@@ -166,7 +166,14 @@ export default function AttacksPanel({ characterId, attackBonus, onRoll, onError
                         <td className="whitespace-nowrap px-3 py-2 align-middle">
                           <RollButton
                             label={damageLabel(a)}
-                            onClick={() => onRoll(`Урон: ${a.name}`, dmg)}
+                            onClick={() =>
+                              onRollDamage(
+                                `Урон: ${a.name}`,
+                                a.damage_dice_count && a.damage_dice_type ? a.damage_dice_count : 0,
+                                Number(String(a.damage_dice_type ?? '').replace(/D/i, '')) || 0,
+                                dmg,
+                              )
+                            }
                             title={`Бросок урона: ${a.name} ${fmtPlus(dmg)}`}
                             className="!min-w-[4.5rem]"
                           />

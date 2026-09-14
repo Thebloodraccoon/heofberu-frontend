@@ -485,7 +485,7 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
                   type="checkbox"
                   checked={confirmed}
                   onChange={(e) => setConfirmed(e.target.checked)}
-                  className="size-4 accent-ember"
+                  className="checkbox-base"
                 />
                 Я понимаю последствия и хочу применить ребилд
               </label>

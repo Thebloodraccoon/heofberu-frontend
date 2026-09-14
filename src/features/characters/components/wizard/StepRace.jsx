@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { abilityName, bonusMap } from '@/lib/utils/ability.js'
-import { sentenceCase } from '@/lib/i18n/index.js'
+import { abilityLabels, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { AccordionItem, RichText } from '@/components/ui'
+import { formatBonus, itemName, SkillChips } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
 import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
 import { smoothScrollTo } from './scroll.js'
@@ -18,6 +18,18 @@ const sizeLabel = (size) =>
           : size === 'HUGE'
             ? 'Огромный'
             : 'Гигантский'
+
+function AbilityBonusChips({ bonuses = [] }) {
+  return (
+    <span className="badge-row align-middle">
+      {bonuses.map((b, i) => (
+        <span key={i} className="inline-block rounded bg-stone-800/80 px-1.5 py-0.5 text-sm text-stone-100">
+          {abilityLabels[b.ability] ?? b.ability} {formatBonus(b.bonus)}
+        </span>
+      ))}
+    </span>
+  )
+}
 
 export default function StepRace({ stepNo, total, form, update, lookups }) {
   const { raceDetail, raceFeatures, subraceDetail, subraceFeatures } = lookups
@@ -71,6 +83,7 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
           noSearch
           columns="sm:grid-cols-2 xl:grid-cols-4"
           selectedId={form.race_id}
+          subtitleLines={0}
           onSelect={(r) => {
             raceSelected.current = true
             update({ race_id: String(r.id), subrace_id: '' })
@@ -78,21 +91,31 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
         />
         {raceDetail && (
           <div ref={raceDetailRef} className="mt-4 space-y-3 scroll-mt-24">
-            {(() => {
-              const bonuses = Object.entries(bonusMap(raceDetail.ability_bonuses)).filter(([, v]) => v)
-              const hasTags = raceDetail.speed || raceDetail.size || bonuses.length > 0
-              return hasTags && (
-                <span className="flex flex-wrap gap-1">
-                  {raceDetail.speed && <Tag>Скорость: {raceDetail.speed} фт.</Tag>}
-                  {raceDetail.size && <Tag>{sizeLabel(raceDetail.size)}</Tag>}
-                  {bonuses.map(([code, v]) => (
-                    <Tag key={code} tone="accent">
-                      {abilityName(code)} +{v}
-                    </Tag>
-                  ))}
-                </span>
-              )
-            })()}
+            {(raceDetail.speed || raceDetail.size) && (
+              <span className="flex flex-wrap gap-1">
+                {raceDetail.speed && <Tag>Скорость: {raceDetail.speed} фт.</Tag>}
+                {raceDetail.size && <Tag>{sizeLabel(raceDetail.size)}</Tag>}
+              </span>
+            )}
+            {(raceDetail.ability_bonuses ?? []).length > 0 && (
+              <p className="flex flex-wrap items-center gap-2 text-sm leading-relaxed">
+                <span className="font-semibold text-stone-100">Бонусы характеристик: </span>
+                <AbilityBonusChips bonuses={raceDetail.ability_bonuses} />
+              </p>
+            )}
+            {(raceDetail.granted_skills ?? []).length > 0 && (
+              <p className="flex flex-wrap items-center gap-2 text-sm leading-relaxed">
+                <span className="font-semibold text-stone-100">Навыки расы: </span>
+                <SkillChips
+                  names={raceDetail.granted_skills
+                    .map((s) => {
+                      const n = itemName(s)
+                      return { id: s.id ?? s.item_id, __name: skillLabels[n] ?? sentenceCase(n) }
+                    })
+                    .sort((a, b) => a.__name.localeCompare(b.__name, 'ru'))}
+                />
+              </p>
+            )}
             {(raceFeatures ?? []).length > 0 && (
               <ul className="flex flex-col gap-[5px]">
                 {(raceFeatures ?? []).map((f) => {
@@ -127,6 +150,7 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
             noSearch
             columns="sm:grid-cols-2 xl:grid-cols-4"
             selectedId={form.subrace_id}
+            subtitleLines={0}
             onSelect={(s) => {
               if (s.id) subSelected.current = true
               update({ subrace_id: String(s.id) })
@@ -134,21 +158,18 @@ export default function StepRace({ stepNo, total, form, update, lookups }) {
           />
           {subraceDetail && (
             <div ref={subraceDetailRef} className="mt-4 space-y-3 scroll-mt-24">
-              {(() => {
-                const bonuses = Object.entries(bonusMap(subraceDetail.ability_bonuses)).filter(([, v]) => v)
-                const hasTags = subraceDetail.speed || subraceDetail.size || bonuses.length > 0
-                return hasTags && (
-                  <span className="flex flex-wrap gap-1">
-                    {subraceDetail.speed && <Tag>Скорость: {subraceDetail.speed} фт.</Tag>}
-                    {subraceDetail.size && <Tag>{sizeLabel(subraceDetail.size)}</Tag>}
-                    {bonuses.map(([code, v]) => (
-                      <Tag key={code} tone="accent">
-                        {abilityName(code)} +{v}
-                      </Tag>
-                    ))}
-                  </span>
-                )
-              })()}
+              {(subraceDetail.speed || subraceDetail.size) && (
+                <span className="flex flex-wrap gap-1">
+                  {subraceDetail.speed && <Tag>Скорость: {subraceDetail.speed} фт.</Tag>}
+                  {subraceDetail.size && <Tag>{sizeLabel(subraceDetail.size)}</Tag>}
+                </span>
+              )}
+              {(subraceDetail.ability_bonuses ?? []).length > 0 && (
+                <p className="flex flex-wrap items-center gap-2 text-sm leading-relaxed">
+                  <span className="font-semibold text-stone-100">Бонусы характеристик подрасы: </span>
+                  <AbilityBonusChips bonuses={subraceDetail.ability_bonuses} />
+                </p>
+              )}
               {(subraceFeatures ?? []).length > 0 && (
                 <ul className="flex flex-col gap-[5px]">
                   {(subraceFeatures ?? []).map((f) => {

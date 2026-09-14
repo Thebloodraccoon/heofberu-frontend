@@ -89,6 +89,9 @@ function Toast({ toast, onDismiss }) {
                 {r}
               </span>
             ))}
+            {toast.bonus ? (
+              <span className="text-xs text-stone-500">{toast.bonus >= 0 ? `+${toast.bonus}` : toast.bonus}</span>
+            ) : null}
             <span className="w-[8ch] rounded bg-ember px-1.5 py-0.5 text-center font-mono text-xs font-bold text-white">
               = {toast.total}
             </span>

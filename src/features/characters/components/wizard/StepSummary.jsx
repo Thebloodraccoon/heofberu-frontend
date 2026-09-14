@@ -3,11 +3,14 @@ import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { useItems } from '@/features/catalog/queries.js'
 import { Section, StepShell } from './StepShell.jsx'
 
-function InfoCard({ label, children }) {
+function InfoCard({ label, children, full = false }) {
   return (
-    <div className="min-w-0 rounded-lg border border-stone-800 bg-stone-900/60 px-3 py-2">
+    <div className={`min-w-0 rounded-lg border border-stone-800 bg-stone-900/60 px-3 py-2 ${full ? 'sm:col-span-2' : ''}`}>
       <p className="text-[10px] uppercase tracking-widest text-stone-500">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-medium text-stone-100" title={typeof children === 'string' ? children : undefined}>
+      <p
+        className={`mt-0.5 text-sm font-medium text-stone-100 ${full ? 'break-words' : 'truncate'}`}
+        title={!full && typeof children === 'string' ? children : undefined}
+      >
         {children}
       </p>
     </div>
@@ -77,8 +80,8 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
               <InfoCard label="Класс">{classDetail?.name ? sentenceCase(classDetail.name) : '—'}</InfoCard>
               <InfoCard label="Подкласс">{subclassDetail?.name ? sentenceCase(subclassDetail.name) : '—'}</InfoCard>
               <InfoCard label="Кость хитов">{derived.dieSides ? `к${derived.dieSides}` : '—'}</InfoCard>
-              <InfoCard label="Спасброски">{savingThrows.length ? savingThrows.join(', ') : '—'}</InfoCard>
-              <InfoCard label="Навыки">{chosenSkills.length ? chosenSkills.join(', ') : '—'}</InfoCard>
+              <InfoCard label="Спасброски" full>{savingThrows.length ? savingThrows.join(', ') : '—'}</InfoCard>
+              <InfoCard label="Навыки" full>{chosenSkills.length ? chosenSkills.join(', ') : '—'}</InfoCard>
             </div>
           </Section>
         </div>

@@ -53,7 +53,7 @@ export default function StepEquipment({ stepNo, total, form, update, lookups }) 
             {fixedItems.map((it, i) => (
               <li
                 key={i}
-                className="flex items-center gap-2 rounded-lg border border-stone-800 bg-stone-900/60 px-3 py-2 text-sm text-emerald-300"
+                className="flex items-center gap-2 rounded-lg border border-stone-800 bg-stone-900/60 px-3 py-2 text-sm text-stone-100"
               >
                 <span className="min-w-0 flex-1 truncate" title={itemName(it)}>
                   {itemName(it)}
@@ -99,7 +99,7 @@ export default function StepEquipment({ stepNo, total, form, update, lookups }) 
                           }`}
                         >
                           <span
-                            className={`min-w-0 flex-1 truncate ${on ? 'text-emerald-200' : 'text-emerald-300/80'}`}
+                            className={`min-w-0 flex-1 truncate ${on ? 'text-ember' : 'text-stone-200'}`}
                             title={itemName(opt)}
                           >
                             {itemName(opt)}
