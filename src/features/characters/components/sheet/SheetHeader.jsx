@@ -89,6 +89,8 @@ export default function SheetHeader({
   fields = [],
   levelUpInfo,
   onOpenLevelUp,
+  pendingChoicesCount = 0,
+  onOpenChoices,
   onRollFree,
   onOpenSettings,
 }) {
@@ -121,6 +123,16 @@ export default function SheetHeader({
                   title={`Доступен потолок ${levelUpInfo.max_level} — повышаемся с уровня ${levelUpInfo.current_level}`}
                 >
                   ↑ Уровень {(Number(levelUpInfo.current_level) || 1) + 1}
+                </button>
+              )}
+              {pendingChoicesCount > 0 && (
+                <button
+                  type="button"
+                  className="sheet-levelup-btn"
+                  onClick={onOpenChoices}
+                  title="Есть особенности, для которых нужно сделать выбор"
+                >
+                  ✦ Выборы {pendingChoicesCount > 1 ? `(${pendingChoicesCount})` : ''}
                 </button>
               )}
               <button

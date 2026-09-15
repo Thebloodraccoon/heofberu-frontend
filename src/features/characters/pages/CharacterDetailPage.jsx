@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { fmtBonus } from '@/lib/utils/sheet.js'
-import { useCharacter, useCanLevelUp, useCharacterProficiencies } from '@/features/characters/queries.js'
+import { useCharacter, useCanLevelUp, useCharacterPendingChoices, useCharacterProficiencies } from '@/features/characters/queries.js'
 import {
   useBackgroundDetail,
   useClassDetail,
@@ -40,6 +40,8 @@ import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
 import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
 import InspirationModal from '@/features/characters/components/sheet/InspirationModal.jsx'
 import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
+import PendingChoicesModal from '@/features/characters/components/sheet/PendingChoicesModal.jsx'
+import AnsweredChoicesSection from '@/features/characters/components/sheet/AnsweredChoicesSection.jsx'
 import CharacterSettingsModal from '@/features/characters/components/sheet/CharacterSettingsModal.jsx'
 import { ARMOR_OPTIONS, num } from '@/features/characters/components/sheet/constants.js'
 
@@ -86,6 +88,8 @@ export default function CharacterDetailPage() {
   const [inspirationModal, setInspirationModal] = useState(false)
 const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { data: canLevelUpData } = useCanLevelUp(id)
+  const [choicesOpen, setChoicesOpen] = useState(false)
+  const { data: pendingChoices = [] } = useCharacterPendingChoices(id)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -459,6 +463,8 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
         fields={identityFields}
         levelUpInfo={canLevelUpData}
         onOpenLevelUp={() => setLevelUpOpen(true)}
+        pendingChoicesCount={pendingChoices.length}
+        onOpenChoices={() => setChoicesOpen(true)}
         onRollFree={rollFree}
         onOpenSettings={() => setSettingsOpen(true)}
       />
@@ -499,6 +505,7 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
                   <PlayerChoices characterId={character.id} />
                 </div>
                 <ProficiencyTable characterId={character.id} />
+                <AnsweredChoicesSection characterId={character.id} />
               </div>
             )}
             {tab === 'attacks' && (
@@ -569,6 +576,14 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
           onClose={() => setLevelUpOpen(false)}
           onError={setMutationError}
           onRollToast={pushToast}
+        />
+      )}
+
+      {choicesOpen && (
+        <PendingChoicesModal
+          character={character}
+          onClose={() => setChoicesOpen(false)}
+          onError={setMutationError}
         />
       )}
 

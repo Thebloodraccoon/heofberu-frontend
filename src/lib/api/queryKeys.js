@@ -19,6 +19,8 @@ export const queryKeys = {
     conditions: (id) => ['characters', id, 'conditions'],
     proficiencies: (id) => ['characters', id, 'proficiencies'],
     asiChoices: (id) => ['characters', id, 'asi-choices'],
+    pendingChoices: (id) => ['characters', id, 'grants', 'pending'],
+    answeredChoices: (id) => ['characters', id, 'grants', 'answered'],
     stats: (id) => ['characters', id, 'stats'],
   },
   catalog: {

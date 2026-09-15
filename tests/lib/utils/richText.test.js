@@ -72,6 +72,24 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml('')).toBe('')
     expect(sanitizeHtml(null)).toBe('')
   })
+
+  it('trims leading/trailing empty paragraphs left by ProseMirror', () => {
+    expect(sanitizeHtml('<p></p><p>Текст</p><p><br></p>')).toBe('<p>Текст</p>')
+    expect(sanitizeHtml('<p><br></p><p><br></p><p>Текст</p>')).toBe('<p>Текст</p>')
+  })
+
+  it('collapses a fully empty document to an empty string', () => {
+    expect(sanitizeHtml('<p></p>')).toBe('')
+    expect(sanitizeHtml('<p><br></p>')).toBe('')
+  })
+
+  it('never trims empty paragraphs in the middle of the document', () => {
+    expect(sanitizeHtml('<p>Раз</p><p></p><p>Два</p>')).toBe('<p>Раз</p><p></p><p>Два</p>')
+  })
+
+  it('does not treat a leading/trailing hr or table as empty', () => {
+    expect(sanitizeHtml('<hr><p>Текст</p>')).toBe('<hr><p>Текст</p>')
+  })
 })
 
 describe('toPlainText', () => {

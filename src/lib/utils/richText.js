@@ -20,6 +20,8 @@ const ALLOWED_ATTR = ['href', 'target', 'rel', 'style', 'colspan', 'rowspan']
 const SAFE_STYLE_DECLARATIONS = [
   [/^text-align$/, /^(left|right|center|justify)$/],
   [/^margin-left$/, /^\d+(\.\d+)?em$/],
+  [/^opacity$/, /^(0(\.\d+)?|1)$/],
+  [/^font-style$/, /^italic$/],
 ]
 DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
   if (data.attrName !== 'style') return
@@ -53,20 +55,48 @@ export function looksLikeHtml(value) {
 
 // Старые записи хранятся как обычный текст с переносами строк — оборачиваем их
 // в параграфы, чтобы редактор и просмотр показывали то же самое, что и раньше.
+export function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 export function toEditableHtml(value) {
   if (!value) return ''
   if (looksLikeHtml(value)) return value
-  const escape = (s) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   return String(value)
     .split(/\n{2,}/)
-    .map((block) => `<p>${escape(block).replace(/\n/g, '<br>')}</p>`)
+    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, '<br>')}</p>`)
     .join('')
+}
+
+// Пустой узел на краю документа: текст без содержимого (только пробелы) или
+// пустой параграф (в т.ч. "<p><br></p>" — так ProseMirror/Tiptap нормализует
+// пустую строку). Медиа-элементы (img/hr/table) пустыми не считаем.
+function isEdgeNodeEmpty(node) {
+  if (node.nodeType === Node.TEXT_NODE) return !node.textContent.trim()
+  if (node.nodeType !== Node.ELEMENT_NODE) return true
+  if (node.matches?.('img, hr, table') || node.querySelector?.('img, hr, table')) return false
+  return !node.textContent.trim()
+}
+
+// Срезает пустые параграфы/пробелы в начале и в конце HTML — глобально для
+// всех описаний, чтобы редактор не копил случайные пустые строки, которые
+// ProseMirror оставляет после Enter в начале/конце текста.
+function trimEdges(html) {
+  const container = document.createElement('div')
+  container.innerHTML = html
+  while (container.firstChild && isEdgeNodeEmpty(container.firstChild)) {
+    container.removeChild(container.firstChild)
+  }
+  while (container.lastChild && isEdgeNodeEmpty(container.lastChild)) {
+    container.removeChild(container.lastChild)
+  }
+  return container.innerHTML
 }
 
 export function sanitizeHtml(html) {
   if (!html) return ''
-  return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR })
+  const clean = DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR })
+  return trimEdges(clean)
 }
 
 // Для превью в одну-две строки (карточки списков, чипы) — обычный текст без разметки.

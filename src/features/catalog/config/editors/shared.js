@@ -1,4 +1,5 @@
 import { catalogApi as api } from '../../api.js'
+import { queryClient } from '@/lib/api/queryClient.js'
 import { buildChoiceGroupsPayload, buildFixedEffectsPayload } from '@/lib/utils/featureEffects.js'
 
 export const opt = (map) => Object.entries(map).map(([value, label]) => ({ value, label }))
@@ -59,11 +60,18 @@ const byLevelThenName = (a, b) => {
   return (a.name ?? '').localeCompare(b.name ?? '', 'ru')
 }
 
-// Полная замена дерева эффектов особенности: фиксированные эффекты (все шесть
-// типов) + группы выбора. Единый путь сохранения для всех редакторов.
+// Сохраняет дерево эффектов особенности целиком: фиксированные эффекты (все
+// шесть типов) + группы выбора. Единый путь сохранения для всех редакторов.
+// Бэк diff-ит эти списки по id строки (не full-replace) — билдеры пробрасывают
+// id существующих строк, поэтому здесь ничего дополнительно делать не нужно,
+// просто шлём всё дерево целиком каждый раз.
 export const persistFeatureEffects = async (featureId, effects = {}) => {
   await api.features.effects.set(featureId, buildFixedEffectsPayload(effects))
   await api.features.choiceGroups.set(featureId, buildChoiceGroupsPayload(effects))
+  // Иначе повторное открытие модалки «Изменить» этой же особенности подхватит
+  // закешированный react-query'ем ответ GET /features/{id} с ДО правки —
+  // FeaturesModal держит дерево эффектов под этим же ключом.
+  await queryClient.invalidateQueries({ queryKey: ['catalog', 'featureTree', featureId] })
 }
 
 export const sortedByLevel = (list) => [...(list ?? [])].sort(byLevelThenName)
@@ -76,6 +84,9 @@ export const featuresFromRecord = (r) =>
       description: f.description ?? '',
       level: f.level ?? null,
       ability_effects: f.ability_effects ?? [],
+      has_static_effects: f.has_static_effects,
+      has_choices: f.has_choices,
+      effects_summary: f.effects_summary ?? '',
     }))
     .sort(byLevelThenName)
 

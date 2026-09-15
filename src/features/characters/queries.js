@@ -63,6 +63,16 @@ export const useCharacterSpellSlots = (id) =>
     enabled: !!id,
     select: (d) => d?.spell_slots ?? [],
   })
+
+// Заклинания, выданные вне ячеек (расой/чертой/особенностью) — не занимают
+// слоты и доступны независимо от того, умеет ли класс колдовать.
+export const useCharacterGrantedSpells = (id) =>
+  useQuery({
+    queryKey: queryKeys.characters.spells(Number(id)),
+    queryFn: () => charactersApi.spells.list(Number(id)),
+    enabled: !!id,
+    select: (d) => d?.granted_spells ?? [],
+  })
 export const useCharacterAttacks = subResource(queryKeys.characters.attacks, charactersApi.attacks.list)
 export const useCharacterFeats = subResource(queryKeys.characters.feats, charactersApi.feats.list)
 export const useCharacterFeatures = subResource(queryKeys.characters.features, charactersApi.features.list)
@@ -124,4 +134,24 @@ export const useCanLevelUp = (id) =>
     queryKey: ['characters', Number(id), 'progression', 'can-level-up'],
     queryFn: () => charactersApi.progression.canLevelUp(Number(id)),
     enabled: !!id,
+  })
+
+// Все гранты персонажа, у которых ещё остались неотвеченные группы выбора —
+// драйвит кнопку «Выборы» в шапке листа, по аналогии с can-level-up.
+export const useCharacterPendingChoices = (id) =>
+  useQuery({
+    queryKey: queryKeys.characters.pendingChoices(Number(id)),
+    queryFn: () => charactersApi.grants.pending(Number(id)),
+    enabled: !!id,
+    select: (d) => (Array.isArray(d) ? d.filter((g) => (g.groups ?? []).length > 0) : []),
+  })
+
+// Уже сделанные игроком выборы по всем грантам — секция «Выборы
+// способностей» на листе персонажа (ответная сторона pending-choices).
+export const useCharacterAnsweredChoices = (id) =>
+  useQuery({
+    queryKey: queryKeys.characters.answeredChoices(Number(id)),
+    queryFn: () => charactersApi.grants.answered(Number(id)),
+    enabled: !!id,
+    select: (d) => (Array.isArray(d) ? d.filter((g) => (g.choices ?? []).length > 0) : []),
   })

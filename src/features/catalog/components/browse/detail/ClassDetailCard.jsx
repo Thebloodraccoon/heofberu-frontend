@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
-import { abilityName, ASI_LEVELS } from '@/lib/utils/ability.js'
+import { ASI_LEVELS } from '@/lib/utils/ability.js'
 import { Badge, Card, AccordionItem, RichText } from '@/components/ui'
-import { itemName } from './detailHelpers.jsx'
+import { effectBadges } from '@/lib/utils/featureEffects.js'
+import { itemName, FeatureDescription } from './detailHelpers.jsx'
 import CatalogImage from '../CatalogImage.jsx'
 
 const SPELL_LEVELS = [
@@ -433,27 +434,18 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
                         {feature.level != null && (
                           <Badge tone="accent">{ruLevel(feature.level)}</Badge>
                         )}
-                        {(feature.ability_effects ?? []).length > 0 && (
-                          <Badge tone="good">Изменения характеристик</Badge>
-                        )}
+                        {effectBadges(feature).map((badge, i) => (
+                          <Badge key={i} tone={badge.tone}>
+                            {badge.text}
+                          </Badge>
+                        ))}
                         {feature.fromSubclass && feature.subclassName && (
                           <Badge tone="accent">{feature.subclassName}</Badge>
                         )}
                       </>
                     }
                   >
-                    {feature.description && <RichText value={feature.description} className="description-secondary mb-0" />}
-                    {(feature.ability_effects ?? []).length > 0 && (
-                      <div className="mt-2.5 flex flex-wrap gap-1.5">
-                        {(feature.ability_effects ?? []).map((inc, i) => (
-                          <Badge key={i} tone="good">
-                            {abilityName(inc.ability)}
-                            {inc.amount > 0 ? ` +${inc.amount}` : ` ${inc.amount}`}
-                            {inc.new_cap != null && ` (макс. ${inc.new_cap})`}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+                    <FeatureDescription feature={feature} />
                   </AccordionItem>
                 </li>
               )

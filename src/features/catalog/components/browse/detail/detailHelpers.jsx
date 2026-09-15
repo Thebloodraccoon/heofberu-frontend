@@ -12,9 +12,17 @@ import {
   sentenceCase,
 } from '@/lib/i18n/index.js'
 import { AccordionItem, Badge, Chip, RichText } from '@/components/ui'
-import { abilityName } from '@/lib/utils/ability.js'
+import { effectBadges } from '@/lib/utils/featureEffects.js'
 
 export const formatBonus = (n) => (n == null ? '' : n >= 0 ? `+${n}` : `${n}`)
+
+// Описание особенности + резюме её эффектов (effects_summary), которое
+// теперь считает бэк — дорендериваем его в конце описания единым куском,
+// без ручного пересчёта на фронте.
+export function FeatureDescription({ feature, className = 'description-secondary mb-0' }) {
+  if (!feature.description && !feature.effects_summary) return null
+  return <RichText value={feature.description} tail={feature.effects_summary} className={className} />
+}
 
 export function SkillChips({ names = [] }) {
   if (names.length === 0) return null
@@ -109,13 +117,17 @@ export function summaryBadges(item, resource) {
       tone: 'accent',
     })
   }
-  if (resource === 'features') {
-    if ((item.ability_effects ?? []).length > 0) {
-      badges.push({ text: 'Улучшение характеристики', tone: 'good' })
-    }
-  }
-  if (resource === 'feats' && (item.ability_score_increases ?? []).length > 0) {
-    badges.push({ text: 'Улучшение характеристики', tone: 'good' })
+  if (resource === 'features' || resource === 'feats') {
+    // Ровно два бейджа у названия — «Даёт эффекты» и «Выбор» — по флагам
+    // has_static_effects/has_choices, которые бэк считает для любой карточки
+    // (в т.ч. короткой, без полного дерева эффектов).
+    const hasStaticFallback =
+      (item.ability_effects ?? []).length > 0 ||
+      (resource === 'feats' && (item.ability_score_increases ?? []).length > 0)
+    const hasStatic = item.has_static_effects ?? hasStaticFallback
+    if (hasStatic) badges.push({ text: 'Даёт эффекты', tone: 'good' })
+    const hasChoices = item.has_choices ?? (item.choice_groups ?? []).length > 0
+    if (hasChoices) badges.push({ text: 'Выбор', tone: 'violet' })
   }
   if (item.school) badges.push({ text: label(item.school), tone: 'default' })
   if (item.rarity && item.rarity !== 'NONE') {
@@ -260,27 +272,18 @@ export function FeatureCards({ features }) {
                     {sentenceCase(f.name)}
                   </p>
                   {f.level != null && <Badge tone="accent">{ruLevel(f.level)}</Badge>}
-                  {(f.ability_effects ?? []).length > 0 && (
-                    <Badge tone="good">Изменения характеристик</Badge>
-                  )}
+                  {effectBadges(f).map((badge, i) => (
+                    <Badge key={i} tone={badge.tone}>
+                      {badge.text}
+                    </Badge>
+                  ))}
                   {isSub(f) && groupName(f) && (
                     <Badge tone="accent">{sentenceCase(groupName(f))}</Badge>
                   )}
                 </>
               }
             >
-              {f.description && <RichText value={f.description} className="description-secondary mb-0" />}
-              {(f.ability_effects ?? []).length > 0 && (
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {(f.ability_effects ?? []).map((inc, i) => (
-                    <Badge key={i} tone="good">
-                      {abilityName(inc.ability)}
-                      {inc.amount > 0 ? ` +${inc.amount}` : ` ${inc.amount}`}
-                      {inc.new_cap != null && ` (макс. ${inc.new_cap})`}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              <FeatureDescription feature={f} />
             </AccordionItem>
           </li>
         )

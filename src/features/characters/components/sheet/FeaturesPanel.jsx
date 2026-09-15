@@ -51,6 +51,7 @@ export default function FeaturesPanel({ character }) {
         key: `feat-${cf.id}`,
         name: cf.feat?.name || `Черта #${cf.feat_id}`,
         description: cf.feat?.description,
+        effectsSummary: cf.feat?.effects_summary,
         notes: null,
         level: null,
         sub: 0,
@@ -65,6 +66,7 @@ export default function FeaturesPanel({ character }) {
           key: `feature-${cf.id}`,
           name: cf.feature?.name || `Свойство #${cf.feature_id}`,
           description: cf.feature?.description,
+          effectsSummary: cf.feature?.effects_summary,
           notes: cf.notes,
           level: st === 'CLASS' || st === 'SUBCLASS' ? cf.feature?.level ?? null : null,
           rank: SOURCE_RANK[st] ?? 5,
@@ -110,8 +112,8 @@ export default function FeaturesPanel({ character }) {
                 open={openKeys.includes(it.key)}
                 onToggle={() => toggleKey(it.key)}
               >
-                {it.description ? (
-                  <RichText value={it.description} className="break-words" />
+                {it.description || it.effectsSummary ? (
+                  <RichText value={it.description} tail={it.effectsSummary} className="break-words" />
                 ) : (
                   <p className="text-stone-500">Нет описания</p>
                 )}

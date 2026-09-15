@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
-import { useCharacterSpellSlots, useCharacterSpells } from '@/features/characters/queries.js'
+import { useCharacterGrantedSpells, useCharacterSpellSlots, useCharacterSpells } from '@/features/characters/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { abilityName } from '@/lib/utils/ability.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
@@ -113,10 +113,43 @@ function SpellRow({ cs, open, onExpand, onRemove }) {
   )
 }
 
+// Заклинание вне ячеек: та же карточка, что и обычное заклинание, но без
+// кнопки «Забыть» — игрок не выбирал его сам, оно привязано к особенности.
+function GrantedSpellRow({ cs, open, onExpand }) {
+  const sp = cs.spell || {}
+  const description = sp.description?.trim()
+  return (
+    <li className="rounded-lg border border-stone-700/60 bg-stone-900/60">
+      <button
+        type="button"
+        onClick={onExpand}
+        className="flex w-full min-w-0 items-center gap-2 px-4 py-2.5 text-left"
+      >
+        <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
+          {sp.name ? sentenceCase(sp.name) : `Заклинание #${cs.spell_id}`}
+        </span>
+        {sp.school && <span className="shrink-0 text-xs text-stone-500">{label(sp.school)}</span>}
+      </button>
+      {open && (
+        <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">
+          <SpellFacts sp={sp} />
+          {description ? (
+            <RichText value={description} className="text-stone-200" />
+          ) : (
+            <span className="text-stone-500">Описание отсутствует</span>
+          )}
+        </div>
+      )}
+    </li>
+  )
+}
+
 export default function SpellsPanel({ character, classSpellcastingAbility, onError }) {
   const queryClient = useQueryClient()
   const { data: spells = [], isLoading: spellsLoading } = useCharacterSpells(character.id)
   const { data: slots = [], isLoading: slotsLoading } = useCharacterSpellSlots(character.id)
+  const { data: grantedSpells = [] } = useCharacterGrantedSpells(character.id)
   const loading = spellsLoading || slotsLoading
   const [pickerOpen, setPickerOpen] = useState(false)
   const [openIds, toggleId] = useUiSet(`spells:${character.id}`)
@@ -178,6 +211,24 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
           <p className="mt-2 rounded-md border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-xs text-stone-400">
             У вашего класса нет возможности использовать заклинания.
           </p>
+        )}
+
+        {grantedSpells.length > 0 && (
+          <div className={hasSpellcasting ? 'mt-4' : 'mt-3'}>
+            <p className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Заклинания вне ячеек
+            </p>
+            <ul className="space-y-2">
+              {grantedSpells.map((cs) => (
+                <GrantedSpellRow
+                  key={cs.id}
+                  cs={cs}
+                  open={openIds.includes(`granted:${cs.id}`)}
+                  onExpand={() => toggleId(`granted:${cs.id}`)}
+                />
+              ))}
+            </ul>
+          </div>
         )}
 
         {loading ? (

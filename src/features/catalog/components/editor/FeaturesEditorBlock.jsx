@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ruLevel } from '@/lib/i18n/index.js'
-import { effectBadges, effectSummaryLines } from '@/lib/utils/featureEffects.js'
+import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { Badge, ConfirmDialog, ErrorBox, RichText, Skeleton } from '@/components/ui'
 import { SectionTitle, PencilIcon, TrashIcon } from './editorShared.jsx'
 
@@ -127,17 +127,12 @@ export default function FeaturesEditorBlock({
                     </button>
                   </div>
                 </div>
-                {open && f.description && (
-                  <RichText value={f.description} className="mt-2 break-words text-sm leading-loose text-stone-300" />
-                )}
-                {open && effectSummaryLines(f).length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {effectSummaryLines(f).map((line, i) => (
-                      <Badge key={i} tone="good">
-                        {line.text}
-                      </Badge>
-                    ))}
-                  </div>
+                {open && (f.description || f.effects_summary) && (
+                  <RichText
+                    value={f.description}
+                    tail={f.effects_summary}
+                    className="mt-2 break-words text-sm leading-loose text-stone-300"
+                  />
                 )}
               </li>
             )

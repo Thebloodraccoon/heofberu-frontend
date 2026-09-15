@@ -648,8 +648,11 @@ export default function GmEditorPage() {
   }
 
   const saveFeatureEffects = async (featureId, effects = {}) => {
-    // Полная замена: persistFeatureEffects всегда шлёт все шесть списков +
-    // группы выбора, чтобы ни один тип не был случайно затёрт.
+    // Бэк diff-ит по id: persistFeatureEffects всегда шлёт все шесть списков +
+    // группы выбора целиком (с сохранёнными id существующих строк), чтобы ни
+    // один тип не был случайно затёрт и уже отвеченные игроками выборы не
+    // сбросились в pending без необходимости. Кеш react-query для дерева
+    // эффектов этой особенности инвалидируется внутри persistFeatureEffects.
     await persistFeatureEffects(featureId, effects)
   }
 

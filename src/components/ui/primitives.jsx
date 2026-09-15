@@ -333,6 +333,7 @@ export function Badge({ children, tone = 'default', className = '' }) {
     accent: 'bg-ember/15 text-orange-200',
     good: 'bg-emerald-900/50 text-emerald-300',
     bad: 'bg-red-900/50 text-red-300',
+    violet: 'bg-violet-900/50 text-violet-300',
   }
   return (
     <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tones[tone]} ${className}`}>

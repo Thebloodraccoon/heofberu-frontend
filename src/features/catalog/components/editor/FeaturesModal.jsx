@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Button, Field, Input, Modal, RichTextEditor } from '@/components/ui'
+import { Button, Field, Input, Modal, RichText, RichTextEditor } from '@/components/ui'
 import { normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
 import FeatureEffectsEditor from './FeatureEffectsEditor.jsx'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -32,7 +32,7 @@ export default function FeatureModal({
       // Новый бэк встраивает всё дерево в GET /features/{id}; на старом —
       // догружаем двумя запросами.
       if (detail && (Array.isArray(detail.choice_groups) || Array.isArray(detail.skill_effects))) {
-        return normalizeEffectsTree(detail)
+        return { ...normalizeEffectsTree(detail), effects_summary: detail.effects_summary ?? '' }
       }
       const [fx, groups] = await Promise.all([
         api.features.effects.get(value.id),

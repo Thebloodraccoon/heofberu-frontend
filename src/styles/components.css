@@ -160,7 +160,7 @@
   @apply bg-stone-800/70 font-semibold text-stone-100;
 }
 .rich-text a {
-  @apply font-medium text-ember/90 underline decoration-ember/40 underline-offset-2 transition hover:text-ember;
+  @apply font-medium text-ember/90 no-underline transition hover:text-ember;
 }
 .rich-text strong {
   @apply font-semibold text-stone-100;

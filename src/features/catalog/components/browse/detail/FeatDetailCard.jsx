@@ -1,6 +1,6 @@
 import { abilityLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
-import { effectSummaryLines } from '@/lib/utils/featureEffects.js'
+import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { Section, FeatureCards } from './detailHelpers.jsx'
 
 export default function FeatDetailCard({ item }) {
@@ -14,8 +14,6 @@ export default function FeatDetailCard({ item }) {
       : null
 
   const increases = item.ability_score_increases ?? []
-  const treeLines = effectSummaryLines(item)
-  const hasTreeAbility = treeLines.some((l) => l.key === 'ability')
 
   const rows = []
   if (prerequisite) rows.push({ key: 'prereq', label: 'Требования', value: prerequisite })
@@ -26,10 +24,9 @@ export default function FeatDetailCard({ item }) {
       value: <RichText value={item.prerequisite_description} className="inline" />,
     })
   }
-  for (const line of treeLines) rows.push({ key: line.key, label: line.label, value: line.text })
-  // Новый бэк отдаёт полное дерево (строки характеристик в ability_effects);
-  // legacy ability_score_increases показываем только когда дерева нет.
-  if (!hasTreeAbility && increases.length > 0) {
+  // Новый бэк отдаёт полное дерево эффектов (ability_effects, effects_summary);
+  // legacy ability_score_increases показываем только когда бэк не прислал summary.
+  if (!item.effects_summary && increases.length > 0) {
     rows.push({
       key: 'asi',
       label: 'Увеличение характеристик',
@@ -43,6 +40,11 @@ export default function FeatDetailCard({ item }) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(item.name)}</h1>
           {prerequisite && <Badge className="my-[5px]">{`Треб: ${prerequisite}`}</Badge>}
+          {effectBadges(item).map((badge, i) => (
+            <Badge key={i} tone={badge.tone} className="my-[5px]">
+              {badge.text}
+            </Badge>
+          ))}
         </div>
       </div>
 
@@ -54,7 +56,9 @@ export default function FeatDetailCard({ item }) {
         </FactList>
       )}
 
-      {item.description && <RichText value={item.description} className="description-blockquote" />}
+      {(item.description || item.effects_summary) && (
+        <RichText value={item.description} tail={item.effects_summary} className="description-blockquote" />
+      )}
 
       {item.features && item.features.length > 0 && (
         <Section title="Умения">

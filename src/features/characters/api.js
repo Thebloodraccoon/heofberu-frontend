@@ -154,6 +154,19 @@ export const charactersApi = {
   },
   features: {
     list: (id) => request(`/api/characters/${id}/features`),
+    choices: {
+      get: (id, characterFeatureId) =>
+        request(`/api/characters/${id}/features/${characterFeatureId}/choices`),
+      answer: (id, characterFeatureId, body) =>
+        request(`/api/characters/${id}/features/${characterFeatureId}/choices`, { method: 'PATCH', body }),
+    },
+  },
+  grants: {
+    // Все ещё не отвеченные группы выбора по всем грантам персонажа разом —
+    // чтобы не опрашивать choices каждого granted-feature по отдельности.
+    pending: (id) => request(`/api/characters/${id}/grants/pending`),
+    // Отвеченная сторона того же — какие варианты игрок уже выбрал.
+    answered: (id) => request(`/api/characters/${id}/grants/answered`),
   },
   items: {
     list: (id) => request(`/api/characters/${id}/items`),
