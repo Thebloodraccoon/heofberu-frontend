@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
+import { catalog } from '@/features/catalog/catalog.js'
 import { useSpellDetail } from '@/features/catalog/queries.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { spellLevel } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
 import { Badge, Button, Input, Modal, RichText, Skeleton } from '@/components/ui'
+import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 
 const COMPONENT_FULL = { VERBAL: 'Вербальный', SOMATIC: 'Соматический', MATERIAL: 'Материальный' }
+const PAGE_SIZE = 30
+const SCROLL_THRESHOLD = 120
 
 // Тот же набор полей, что и в карточке заклинания игрока/каталога
 // (SpellDetailCard) — школа, время накладывания, дистанция, длительность,
@@ -97,19 +101,60 @@ function SpellDetail({ spellId }) {
   )
 }
 
-// Модалка выбора заклинания для статичного эффекта/варианта выбора: поиск
-// (уходит на сервер, как в каталоге), прокручиваемый список с уровнем возле
-// названия, «Подробнее» — раскрывает ту же карточку, что видит игрок.
+// Модалка выбора заклинания для статичного эффекта/варианта выбора — тот же
+// стиль поиска, что и в основном списке ГМ-редактора: поле + кнопка «⌕» +
+// «Фильтр», список подгружается по скроллу вниз, «Подробнее» раскрывает ту же
+// карточку, что видит игрок.
 export default function SpellPickerModal({ excludeIds = [], onPick, onClose }) {
-  const [query, setQuery] = useState('')
+  const [queryInput, setQueryInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [filters, setFilters] = useState({})
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage] = useState(1)
+  const [allSpells, setAllSpells] = useState([])
   const [expanded, setExpanded] = useState(() => new Set())
+  const listRef = useRef(null)
   const excluded = new Set(excludeIds)
 
+  const listParams = { page, size: PAGE_SIZE }
+  if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
+  for (const f of catalog.spells.filters) {
+    if (Array.isArray(filters[f.name]) && filters[f.name].length > 0) listParams[f.name] = filters[f.name]
+  }
+
   const listQ = useQuery({
-    queryKey: ['catalog', 'spell-picker', query.trim()],
-    queryFn: () => api.spells.list({ size: 100, ...(query.trim() ? { search: query.trim() } : {}) }),
+    queryKey: ['catalog', 'spell-picker-modal', appliedSearch.trim(), filters, page],
+    queryFn: () => api.spells.list(listParams),
   })
-  const spells = (listQ.data?.items ?? []).filter((sp) => !excluded.has(sp.id))
+
+  // Смена поиска/фильтров начинает список заново, а не докидывает страницы
+  // к прежней выборке.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1)
+    setAllSpells([])
+  }, [appliedSearch, filters])
+
+  useEffect(() => {
+    if (!listQ.data) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAllSpells((prev) => (page === 1 ? listQ.data.items : [...prev, ...listQ.data.items]))
+  }, [listQ.data, page])
+
+  const total = listQ.data?.total ?? 0
+  const hasMore = allSpells.length < total
+  const spells = allSpells.filter((sp) => !excluded.has(sp.id))
+  const hasActiveFilters = Object.keys(filters).length > 0
+
+  const applySearch = () => setAppliedSearch(queryInput)
+
+  const onScroll = () => {
+    const el = listRef.current
+    if (!el || listQ.isFetching || !hasMore) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD) {
+      setPage((p) => p + 1)
+    }
+  }
 
   const toggleExpand = (id) =>
     setExpanded((prev) => {
@@ -121,22 +166,37 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose }) {
 
   return (
     <Modal title="Заклинания" subtitle="Поиск и выбор заклинания" onClose={onClose} size="lg" scroll>
-      <Input
-        autoFocus
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Поиск заклинания…"
-        className="mb-3"
-      />
-      <div className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
-        {listQ.isFetching && (
-          <div className="space-y-1.5" aria-busy="true">
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-9 w-full" />
-            ))}
-          </div>
-        )}
+      <div className="mb-3 flex gap-2">
+        <Input
+          autoFocus
+          type="search"
+          value={queryInput}
+          onChange={(e) => setQueryInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+          placeholder="Поиск заклинания…"
+          className="flex-1"
+        />
+        <button
+          type="button"
+          onClick={applySearch}
+          title="Искать"
+          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 text-sm text-stone-200 transition hover:bg-stone-800"
+        >
+          ⌕
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowFilters(true)}
+          className={`shrink-0 rounded border px-3 text-sm transition ${
+            hasActiveFilters
+              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
+              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
+          }`}
+        >
+          Фильтр
+        </button>
+      </div>
+      <div ref={listRef} onScroll={onScroll} className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
         {!listQ.isFetching && spells.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
         <ul className="space-y-1">
           {spells.map((sp) => {
@@ -186,12 +246,28 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose }) {
             )
           })}
         </ul>
+        {listQ.isFetching && (
+          <div className="space-y-1.5 py-1" aria-busy="true">
+            {Array.from({ length: 5 }, (_, i) => (
+              <Skeleton key={i} className="h-9 w-full" />
+            ))}
+          </div>
+        )}
       </div>
       <div className="modal-actions pt-3 mt-4">
         <Button type="button" variant="ghost" onClick={onClose}>
           Закрыть
         </Button>
       </div>
+
+      {showFilters && (
+        <FilterModal
+          filters={catalog.spells.filters}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
     </Modal>
   )
 }

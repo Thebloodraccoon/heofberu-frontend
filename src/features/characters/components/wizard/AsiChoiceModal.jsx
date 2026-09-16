@@ -248,7 +248,7 @@ export default function AsiChoiceModal({
                           {(f.ability_score_increases ?? []).length > 0 && (
                             <Tag tone="good">Улучшение характеристики</Tag>
                           )}
-                          {!featLevelOk(f) && <Tag tone="bad">С уровня {f.min_level}</Tag>}
+                          {!featLevelOk(f) && <Tag tone="bad">с ур. {f.min_level}</Tag>}
                           {!featPrereqOk(f) && (
                             <Tag tone="bad">
                               Нужно: {abilityName(f.prerequisite_ability)} ≥ {f.prerequisite_minimum_score}

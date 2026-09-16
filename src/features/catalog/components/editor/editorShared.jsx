@@ -1,4 +1,4 @@
-import { Input, RichTextEditor, RichTextField, Select, TextField } from '@/components/ui'
+import { Input, RichText, RichTextEditor, RichTextField, Select, TextField } from '@/components/ui'
 
 export function PencilIcon({ className = 'h-4 w-4' }) {
   return (
@@ -37,7 +37,75 @@ export function SectionTitle({ children, button }) {
   )
 }
 
+function Chevron({ open }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={`h-4 w-4 shrink-0 text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`}
+      aria-hidden="true"
+    >
+      <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// Аккордеон-строка уже добавленной группы (эффектов особенности, снаряжения
+// на выбор и т.п.): заголовок с названием/счётчиком и Изменить/Удалить всегда
+// виден, по клику раскрывается read-only содержимое. Сама правка — только
+// через отдельную модалку конкретной группы.
+export function GroupRow({ title, count, open, onToggle, onEdit, onRemove, children }) {
+  return (
+    <div
+      className={`rounded-lg border transition ${
+        open ? 'border-ember/60 bg-stone-900' : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/40'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2 p-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <Chevron open={open} />
+          <span className="min-w-0 truncate text-sm font-medium text-stone-100">
+            {title}
+            {count != null && <span className="ml-1.5 text-xs font-normal text-stone-500">· {count}</span>}
+          </span>
+        </button>
+        <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="my-[5px] inline-flex h-[36px] w-[36px] items-center justify-center rounded border border-stone-700 text-stone-300 transition hover:bg-stone-800"
+            title="Изменить"
+          >
+            <PencilIcon />
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="my-[5px] inline-flex h-[36px] w-[36px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+            title="Удалить"
+          >
+            <TrashIcon />
+          </button>
+        </div>
+      </div>
+      {open && <div className="border-t border-stone-800 px-3 py-2.5 text-sm text-stone-300">{children}</div>}
+    </div>
+  )
+}
+
 export default function EditorFieldControl({ field, value, onChange, onSaveField }) {
+  if (field.type === 'summary') {
+    // Только для чтения: авто-сводка эффектов с бэка, GM её не редактирует
+    // напрямую здесь — она обновляется при сохранении дерева эффектов ниже.
+    return <RichText value={value} className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm leading-relaxed text-stone-300" />
+  }
   if (field.type === 'textarea') {
     // При редактировании существующей записи текстовые поля сохраняются сами
     // по себе (без общей кнопки формы) — так правки не теряются, если GM

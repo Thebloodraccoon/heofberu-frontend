@@ -120,6 +120,15 @@ export default function FeatureModal({
         <RichTextEditor value={edit.description} onChange={setField('description')} rows={4} />
       </Field>
 
+      {tree?.effects_summary && (
+        <Field label="Сводка эффектов">
+          <RichText
+            value={tree.effects_summary}
+            className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm leading-relaxed text-stone-300"
+          />
+        </Field>
+      )}
+
       {loading ? (
         <p className="py-4 text-sm text-stone-500">Загрузка эффектов…</p>
       ) : (

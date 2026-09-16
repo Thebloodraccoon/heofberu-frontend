@@ -1,463 +1,264 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, ErrorBox, Input, Modal, Select, Skeleton } from '@/components/ui'
-import { label } from '@/lib/i18n/index.js'
-import { useCatalogPage } from '@/features/catalog/queries.js'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
+import { useItemDetail } from '@/features/catalog/queries.js'
+import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
+import { Badge, Button, Input, Modal, RichText, Skeleton } from '@/components/ui'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
-import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
-import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
 import { ITEM_FILTERS } from './itemFilters.js'
-import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
-const PAGE_SIZE = 50
+const PAGE_SIZE = 30
+const SCROLL_THRESHOLD = 120
 
+// Тот же набор полей, что и в карточке предмета (ItemDetailCard), без
+// заголовка — имя и так видно в строке аккордеона.
+function ItemDetail({ itemId }) {
+  const { data: it, isLoading } = useItemDetail(itemId)
+  if (isLoading || !it) {
+    return (
+      <div className="border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400">
+        <Skeleton className="h-3 w-3/4" />
+        <Skeleton className="mt-2 h-3 w-1/2" />
+      </div>
+    )
+  }
+
+  const damage =
+    it.damage_dice_count && it.damage_dice_type
+      ? `${it.damage_dice_count}${diceTypeLabels[it.damage_dice_type] ?? it.damage_dice_type}${
+          it.damage_type ? ` ${label(it.damage_type)}` : ''
+        }`.trim()
+      : null
+  const ac =
+    it.armor_class_base != null && it.armor_class_base !== ''
+      ? `${it.armor_class_base}${it.armor_class_dex_bonus ? ' + Ловкость' : ''}${
+          it.armor_class_max_dex_bonus ? ` (макс. ${it.armor_class_max_dex_bonus})` : ''
+        }`
+      : null
+  const properties = (it.weapon_properties ?? '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => label(p))
+    .join(', ')
+  const cost = it.cost_gold != null && it.cost_gold !== '' ? `${it.cost_gold} зм.` : null
+  const weight = it.weight != null && it.weight !== '' ? `${it.weight} фнт.` : null
+
+  const rows = [
+    it.requires_attunement != null
+      ? { key: 'attunement', label: 'Настройка', value: it.requires_attunement ? 'Требуется' : 'Не требуется' }
+      : null,
+    weight ? { key: 'weight', label: 'Вес', value: weight } : null,
+    cost ? { key: 'cost', label: 'Цена', value: cost } : null,
+    damage ? { key: 'damage', label: 'Урон', value: damage } : null,
+    ac ? { key: 'ac', label: 'Класс доспеха', value: ac } : null,
+    it.strength_requirement != null && it.strength_requirement !== ''
+      ? { key: 'str', label: 'Требование силы', value: `Сила ${it.strength_requirement}` }
+      : null,
+    it.stealth_disadvantage ? { key: 'stealth', label: 'Скрытность', value: 'Помеха' } : null,
+    properties ? { key: 'props', label: 'Свойства оружия', value: properties } : null,
+  ].filter(Boolean)
+
+  return (
+    <div className="border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400">
+      {rows.length > 0 && (
+        <dl className="mb-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+          {rows.map((r) => (
+            <div key={r.key} className="col-span-2 flex gap-2">
+              <dt className="shrink-0 text-stone-500">{r.label}:</dt>
+              <dd className="text-stone-300">{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {it.description ? (
+        <RichText value={it.description} className="text-stone-200" />
+      ) : (
+        <span className="text-stone-500">Описание отсутствует</span>
+      )}
+    </div>
+  )
+}
+
+// Модалка выбора предмета для снаряжения — тот же стиль поиска, что и в
+// основном списке ГМ-редактора: поле + кнопка «⌕» + «Фильтр», список
+// подгружается по скроллу вниз, «Подробнее» раскрывает карточку в строке.
 export default function ItemPickerModal({
-  title = 'Стартовое снаряжение',
-  items = [],
-  value = [],
-  choiceGroups = null,
-  onSave,
+  title = 'Предметы',
+  subtitle = 'Поиск и выбор предмета',
+  excludeIds,
+  onPick,
   onClose,
 }) {
-  // Поиск и фильтры применяются по кнопке / закрытию фильтра и уходят на сервер,
-  // как в каталоге: страница запрашивается с search/item_type/rarity.
   const [queryInput, setQueryInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState({})
   const [showFilters, setShowFilters] = useState(false)
   const [page, setPage] = useState(1)
-  const [selected, setSelected] = useState(() => {
-    const map = {}
-    for (const it of value ?? []) {
-      if (it.item_id != null) map[String(it.item_id)] = { item_id: it.item_id, quantity: it.quantity ?? 1 }
-    }
-    return map
+  const [allItems, setAllItems] = useState([])
+  const [expanded, setExpanded] = useState(() => new Set())
+  const listRef = useRef(null)
+
+  const listParams = { page, size: PAGE_SIZE }
+  if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
+  if (filters.item_type?.length) listParams.item_type = filters.item_type
+  if (filters.rarity?.length) listParams.rarity = filters.rarity
+
+  const listQ = useQuery({
+    queryKey: ['catalog', 'item-picker-modal', appliedSearch.trim(), filters, page],
+    queryFn: () => api.items.list(listParams),
   })
 
-  // Группы «выбери-себе-из-N» (только для классов). Если choiceGroups === null —
-  // снаряжение простое, без групп.
-  const doingChoice = choiceGroups != null
-  const [groups, setGroups] = useState(() => (choiceGroups ?? []).map((g) => ({ ...g })))
-  const [pickerTarget, setPickerTarget] = useState(null)
-  const [infoItemId, setInfoItemId] = useState(null)
-
-  const addGroup = () =>
-    setGroups((g) => [...g, { id: null, pick_count: 1, sort_order: g.length, options: [] }])
-  const removeGroup = (gi) => setGroups((g) => g.filter((_, j) => j !== gi))
-  const setGroupField = (gi, key, val) =>
-    setGroups((g) => g.map((gr, j) => (j === gi ? { ...gr, [key]: val } : gr)))
-  const addOption = (gi, opt) =>
-    setGroups((g) =>
-      g.map((gr, j) => (j === gi ? { ...gr, options: [...(gr.options ?? []), { ...opt, sort_order: (gr.options ?? []).length }] } : gr)),
-    )
-  const setOptionField = (gi, oi, key, val) =>
-    setGroups((g) =>
-      g.map((gr, j) =>
-        j === gi ? { ...gr, options: (gr.options ?? []).map((o, k) => (k === oi ? { ...o, [key]: val } : o)) } : gr,
-      ),
-    )
-  const removeOption = (gi, oi) =>
-    setGroups((g) =>
-      g.map((gr, j) => (j === gi ? { ...gr, options: (gr.options ?? []).filter((_, k) => k !== oi) } : gr)),
-    )
-
-  const listParams = useMemo(() => {
-    const params = { page, size: PAGE_SIZE }
-    if (appliedSearch.trim()) params.search = appliedSearch.trim()
-    if (Array.isArray(filters.item_type) && filters.item_type.length > 0) params.item_type = filters.item_type
-    if (Array.isArray(filters.rarity) && filters.rarity.length > 0) params.rarity = filters.rarity
-    return params
-  }, [page, appliedSearch, filters])
-
-  const listQ = useCatalogPage('items', listParams)
-  const pageData = listQ.data ?? null
-  const pageItems = useMemo(() => pageData?.items ?? [], [pageData])
-  const total = pageData?.total ?? 0
-
-  // Кэш имён уже увиденных предметов, чтобы выбранное отображалось,
-  // даже если предмет не попал в текущую страницу выдачи.
-  const [known, setKnown] = useState(() => {
-    const map = {}
-    for (const it of items) map[String(it.id)] = it
-    return map
-  })
-  // Пополняем кэш именами со страницы списка; ключ по значению не помогает — сам
-  // объект страницы не совпадает с уже известными предметами.
+  // Смена поиска/фильтров начинает список заново, а не докидывает страницы
+  // к прежней выборке.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setKnown((prev) => {
-      let changed = false
-      const next = { ...prev }
-      for (const it of pageItems) {
-        const key = String(it.id)
-        if (!next[key]) {
-          next[key] = it
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
-  }, [pageItems])
+    setPage(1)
+    setAllItems([])
+  }, [appliedSearch, filters])
 
-  // Догружаем имена выбранных предметов и вариантов групп по ID, если их нет
-  // в кэше, чтобы показывать название, а не «Предмет #N».
-  const selectedIds = useMemo(() => {
-    const ids = new Set()
-    for (const s of Object.values(selected)) {
-      if (s.item_id != null) ids.add(String(s.item_id))
-    }
-    for (const g of groups) {
-      for (const o of g.options ?? []) {
-        if (o.item_id != null) ids.add(String(o.item_id))
-      }
-    }
-    return [...ids]
-  }, [selected, groups])
-  const fetchedRef = useRef(new Set())
   useEffect(() => {
-    const missing = selectedIds.filter((id) => !known[id] && !fetchedRef.current.has(id))
-    if (missing.length === 0) return
-    missing.forEach((id) => fetchedRef.current.add(id))
-    for (const id of missing) {
-      api.items
-        .get(Number(id))
-        .then((it) => it && setKnown((prev) => ({ ...prev, [id]: it })))
-        .catch(() => {})
+    if (!listQ.data) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAllItems((prev) => (page === 1 ? listQ.data.items : [...prev, ...listQ.data.items]))
+  }, [listQ.data, page])
+
+  const total = listQ.data?.total ?? 0
+  const hasMore = allItems.length < total
+  const items = allItems.filter((it) => !excludeIds.has(it.id))
+  const hasActiveFilters = Object.keys(filters).length > 0
+
+  const applySearch = () => setAppliedSearch(queryInput)
+
+  const onScroll = () => {
+    const el = listRef.current
+    if (!el || listQ.isFetching || !hasMore) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD) {
+      setPage((p) => p + 1)
     }
-  }, [selectedIds, known])
-
-  // Слева показываем только ещё не выбранные предметы текущей страницы.
-  const available = useMemo(
-    () => pageItems.filter((it) => !selected[String(it.id)]),
-    [pageItems, selected]
-  )
-
-  const applySearch = () => {
-    setAppliedSearch(queryInput)
-    setPage(1)
   }
 
-  const applyFilters = (next) => {
-    setFilters(next)
-    setPage(1)
-  }
-
-  const add = (it) =>
-    setSelected((s) => ({ ...s, [String(it.id)]: { item_id: it.id, quantity: 1 } }))
-
-  const removeSelected = (id) =>
-    setSelected((s) => {
-      const next = { ...s }
-      delete next[id]
+  const toggleExpand = (id) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
 
-  const setQuantity = (id, v) =>
-    setSelected((s) => ({ ...s, [id]: { ...s[id], quantity: Number(v) || 1 } }))
-
-  // Единый выбор предмета из левого списка: в режиме добавления варианта
-  // предмет уходит в активную группу, иначе — в выбранное снаряжение.
-  const handlePickItem = (it) => {
-    if (doingChoice && pickerTarget != null) {
-      addOption(pickerTarget, { item_id: it.id, quantity: 1 })
-    } else {
-      add(it)
-    }
-  }
-
-  const activeGroup = doingChoice && pickerTarget != null ? groups[pickerTarget] : null
-
-  const selectedList = Object.values(selected)
-
-  const hasActiveFilters = Object.keys(filters).length > 0
-
   return (
-    <Modal
-      title={title}
-      subtitle="Выберите предметы и укажите количество"
-      onClose={onClose}
-      size="4xl"
-      scroll
-      maxH="94vh"
-      footer={
-        <div className="flex w-full items-center justify-between gap-2">
-          <span className="text-sm text-stone-400">
-            {doingChoice
-              ? `Предметов: ${selectedList.length} · Групп: ${groups.length}`
-              : `Выбрано: ${selectedList.length}`}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Отмена
-            </Button>
-            <Button
-              type="button"
-              onClick={() =>
-                doingChoice ? onSave({ items: selectedList, choice_groups: groups }) : onSave(selectedList)
-              }
-            >
-              Сохранить
-            </Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Левая колонка: поиск и доступные предметы */}
-        <section>
-          <SectionTitle>Доступные предметы</SectionTitle>
-          {doingChoice && pickerTarget != null && activeGroup && (
-            <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-ember/60 bg-ember/10 p-2">
-              <span className="min-w-0 flex-1 truncate text-xs text-ember">
-                Добавляете вариант в группу «выберите {activeGroup.pick_count ?? 1}» — кликните предмет
-              </span>
-              <button
-                type="button"
-                onClick={() => setPickerTarget(null)}
-                className="shrink-0 rounded border border-ember/70 px-1.5 py-0.5 text-xs text-ember transition hover:bg-ember/10"
+    <Modal title={title} subtitle={subtitle} onClose={onClose} size="lg" scroll>
+      <div className="mb-3 flex gap-2">
+        <Input
+          autoFocus
+          type="search"
+          value={queryInput}
+          onChange={(e) => setQueryInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+          placeholder="Поиск предмета…"
+          className="flex-1"
+        />
+        <button
+          type="button"
+          onClick={applySearch}
+          title="Искать"
+          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 text-sm text-stone-200 transition hover:bg-stone-800"
+        >
+          ⌕
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowFilters(true)}
+          className={`shrink-0 rounded border px-3 text-sm transition ${
+            hasActiveFilters
+              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
+              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
+          }`}
+        >
+          Фильтр
+        </button>
+      </div>
+
+      <div ref={listRef} onScroll={onScroll} className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
+        {!listQ.isFetching && items.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
+        <ul className="space-y-1">
+          {items.map((item) => {
+            const isOpen = expanded.has(item.id)
+            return (
+              <li
+                key={item.id}
+                className={`rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${isOpen ? 'bg-stone-900' : ''}`}
               >
-                Готово
-              </button>
-            </div>
-          )}
-          <div className="mb-3 flex gap-2">
-            <Input
-              value={queryInput}
-              onChange={(e) => setQueryInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-              placeholder="Поиск: имя, описание..."
-            />
-            <button
-              type="button"
-              onClick={applySearch}
-              className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
-              title="Искать на сервере"
-            >
-              ⌕
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowFilters(true)}
-              className={`shrink-0 rounded border px-3 py-2.5 text-sm font-medium transition ${
-                hasActiveFilters
-                  ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
-                  : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
-              }`}
-            >
-              Фильтр
-            </button>
-          </div>
-
-          {(listQ.error) && <ErrorBox error={listQ.error} onRetry={() => listQ.refetch()} />}
-          {!listQ.data && !listQ.error && (
-            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1" aria-busy="true">
-              {Array.from({ length: 8 }, (_, i) => (
-                <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3.5 w-1/2" />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div id="item-picker-list" className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-            {available.length === 0 ? (
-              <p className="text-sm text-stone-500">Предметов не найдено</p>
-            ) : (
-              available.map((it) => (
-                <div key={it.id} className="flex items-stretch gap-2">
+                <div className="flex items-center gap-2 px-3 py-1.5">
                   <button
                     type="button"
-                    onClick={() => handlePickItem(it)}
-                    className={`min-w-0 flex-1 cursor-pointer rounded-lg border p-3 text-left transition ${
-                      doingChoice && pickerTarget != null
-                        ? 'border-ember/60 bg-ember/5 hover:border-ember'
-                        : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/50'
-                    }`}
+                    onClick={() => {
+                      onPick(item)
+                      onClose()
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <span className="block truncate font-semibold text-stone-100">{it.name}</span>
-                    <span className="block text-xs text-stone-400">
-                      {[it.item_type ? label(it.item_type) : null, it.rarity && it.rarity !== 'NONE' ? label(it.rarity) : null]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </span>
+                    <span className="truncate text-sm text-stone-100 hover:text-ember">{sentenceCase(item.name)}</span>
+                    {item.item_type && (
+                      <Badge tone="accent" className="shrink-0">
+                        {label(item.item_type)}
+                      </Badge>
+                    )}
+                    {item.rarity && item.rarity !== 'NONE' && (
+                      <Badge
+                        tone={item.rarity === 'LEGENDARY' || item.rarity === 'ARTIFACT' ? 'accent' : 'default'}
+                        className="shrink-0"
+                      >
+                        {label(item.rarity)}
+                      </Badge>
+                    )}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setInfoItemId(it.id)}
-                    className="my-[5px] shrink-0 rounded-lg border border-stone-700 bg-stone-800/40 px-2.5 text-xs font-medium text-stone-300 transition hover:bg-stone-800 hover:text-stone-100"
-                    title="Просмотр карточки предмета"
-                    aria-label={`Просмотр ${it.name}`}
+                    onClick={() => toggleExpand(item.id)}
+                    className="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 transition hover:text-stone-100"
+                    title={isOpen ? 'Свернуть' : 'Подробнее'}
+                    aria-expanded={isOpen}
                   >
-                    Просмотр
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-          <Pagination
-            page={page}
-            total={total}
-            size={PAGE_SIZE}
-            onPage={(p) => {
-              setPage(p)
-              document.getElementById('item-picker-list')?.scrollIntoView({ block: 'start' })
-            }}
-          />
-        </section>
-
-        {/* Правая колонка: выбираемое (группы) поверх выбранного снаряжения */}
-        <section>
-          {doingChoice && (
-            <div className="mb-4">
-              <SectionTitle
-                button={
-                  <button
-                    type="button"
-                    onClick={addGroup}
-                    className="rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-                  >
-                    + Добавить
-                  </button>
-                }
-              >
-                Выбираемое снаряжение
-              </SectionTitle>
-              {groups.length === 0 ? (
-                <p className="text-sm text-stone-500">Групп нет</p>
-              ) : (
-                <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-                  {groups.map((g, gi) => (
-                    <div
-                      key={gi}
-                      className={`rounded-lg border p-2.5 ${
-                        pickerTarget === gi ? 'border-ember/70 bg-ember/5' : 'border-stone-700/60 bg-stone-900/60'
-                      }`}
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className={`size-4 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                      aria-hidden="true"
                     >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <label className="flex items-center gap-1.5 text-xs text-stone-400">
-                          <span className="whitespace-nowrap">Выбрать:</span>
-                          <Select
-                            value={String(g.pick_count ?? 1)}
-                            onChange={(e) => setGroupField(gi, 'pick_count', Number(e.target.value))}
-                            className="w-[70px]"
-                            dropdownClassName="w-[70px] min-w-0"
-                          >
-                            {[1, 2, 3].map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </Select>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setPickerTarget(pickerTarget === gi ? null : gi)}
-                          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-                        >
-                          {pickerTarget === gi ? 'Готово' : '+ Вариант'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeGroup(gi)}
-                          className="my-[5px] ml-auto inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
-                          title="Удалить группу"
-                        >
-                          <TrashIcon />
-                        </button>
-                      </div>
-                      {(g.options ?? []).length === 0 ? (
-                        <p className="mt-2 text-xs text-stone-500">Вариантов нет — нажмите «+ Вариант» и выберите предмет слева</p>
-                      ) : (
-                        <div className="mt-2 space-y-1.5">
-                          {(g.options ?? []).map((o, oi) => {
-                            const it = known[String(o.item_id)]
-                            return (
-                              <div key={oi} className="flex items-center gap-2 rounded border border-stone-800 bg-stone-900/60 px-2 py-1.5">
-                                <span
-                                  className="min-w-0 flex-1 truncate text-sm text-stone-200"
-                                  title={it?.name ?? `Предмет #${o.item_id}`}
-                                >
-                                  {it?.name ?? `Предмет #${o.item_id}`}
-                                </span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={o.quantity}
-                                  onChange={(e) =>
-                                    setOptionField(gi, oi, 'quantity', Math.max(1, Number(e.target.value) || 1))
-                                  }
-                                  className="w-14 rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
-                                />
-                                <span className="text-xs text-stone-400">шт.</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeOption(gi, oi)}
-                                  className="rounded border border-red-800 px-1.5 py-0.5 text-xs text-red-300 transition hover:bg-red-950/50"
-                                  title="Убрать"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
+                {isOpen && <ItemDetail itemId={item.id} />}
+              </li>
+            )
+          })}
+        </ul>
+        {listQ.isFetching && (
+          <div className="space-y-1.5 py-1" aria-busy="true">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-9 w-full" />
+            ))}
+          </div>
+        )}
+      </div>
 
-          <SectionTitle>Обязательное снаряжение</SectionTitle>
-          {selectedList.length === 0 ? (
-            <p className="text-sm text-stone-500">Ничего не выбрано</p>
-          ) : (
-            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-              {selectedList.map(({ item_id, quantity }) => {
-                const id = String(item_id)
-                const it = known[id]
-                return (
-                  <div key={id} className="flex items-center gap-3 rounded-lg border border-ember/60 bg-ember/5 p-2.5">
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ember" title={it?.name ?? `Предмет #${item_id}`}>
-                      {it?.name ?? `Предмет #${item_id}`}
-                    </span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={quantity}
-                      onChange={(e) => setQuantity(id, e.target.value)}
-                      className="w-16 rounded border border-stone-700 bg-stone-800/70 px-1 py-1 text-center text-sm text-stone-100 outline-none focus:border-ember"
-                    />
-                    <span className="text-xs text-stone-400">шт.</span>
-                    <button
-                      type="button"
-                      onClick={() => removeSelected(id)}
-                      className="rounded border border-red-800 px-2 py-0.5 text-xs text-red-300 transition hover:bg-red-950/50"
-                      title="Убрать"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </section>
+      <div className="modal-actions pt-3 mt-4">
+        <Button type="button" variant="ghost" onClick={onClose}>
+          Закрыть
+        </Button>
       </div>
 
       {showFilters && (
         <FilterModal
           filters={ITEM_FILTERS}
           value={filters}
-          onChange={applyFilters}
+          onChange={setFilters}
           onClose={() => setShowFilters(false)}
         />
-      )}
-
-      {infoItemId != null && (
-        <ItemInfoModal itemId={infoItemId} onClose={() => setInfoItemId(null)} />
       )}
     </Modal>
   )

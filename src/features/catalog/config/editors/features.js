@@ -10,6 +10,13 @@ export const featuresCfg = {
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Печать древней клятвы', full: true },
     { key: 'level', label: 'Уровень', type: 'number', min: 1, max: 20 },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
+    {
+      key: 'effects_summary',
+      label: 'Сводка эффектов',
+      type: 'summary',
+      full: true,
+      showWhen: (f) => !!f.effects_summary,
+    },
   ],
   sections: [
     {
@@ -18,11 +25,12 @@ export const featuresCfg = {
       label: 'Эффекты и группы выбора',
     },
   ],
-  emptyForm: () => ({ name: '', level: '', description: '', effects: normalizeEffectsTree() }),
+  emptyForm: () => ({ name: '', level: '', description: '', effects_summary: '', effects: normalizeEffectsTree() }),
   fromRecord: (r) => ({
     name: r.name,
     level: toStr(r.level),
     description: r.description ?? '',
+    effects_summary: r.effects_summary ?? '',
     effects: normalizeEffectsTree(r),
   }),
   submitFields: async (form, rec) => {

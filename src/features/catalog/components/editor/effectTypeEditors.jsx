@@ -139,9 +139,9 @@ export function PickerMenu({ options, onPick, disabled, addLabel, searchable }) 
   )
 }
 
-export function Section({ title, count, empty, addControl, onRemoveAll, onHide, children }) {
+export function Section({ title, count, empty, addControl, onHide, children }) {
   return (
-    <div className="pt-3">
+    <div>
       <SectionTitle
         button={
           <>
@@ -152,15 +152,6 @@ export function Section({ title, count, empty, addControl, onRemoveAll, onHide, 
                 className="my-[5px] mr-1 rounded border border-stone-700 px-2 py-1 text-xs text-stone-400 transition hover:bg-stone-800"
               >
                 Скрыть
-              </button>
-            )}
-            {onRemoveAll && count > 0 && (
-              <button
-                type="button"
-                onClick={onRemoveAll}
-                className="my-[5px] mr-1 rounded border border-red-800 px-2 py-1 text-xs text-red-300 transition hover:bg-red-950/50"
-              >
-                Очистить
               </button>
             )}
             {addControl}
@@ -193,7 +184,6 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide }) {
       title="Изменение характеристик"
       count={rows.length}
       empty="Увеличений нет"
-      onRemoveAll={() => onChange([])}
       onHide={onHide}
       addControl={<PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Увеличение" />}
     >
@@ -254,7 +244,6 @@ export function SkillEffectsEditor({ rows = [], onChange, onHide }) {
       title="Владение навыками"
       count={rows.length}
       empty="Навыков нет"
-      onRemoveAll={() => onChange([])}
       onHide={onHide}
       addControl={
         <PickerMenu options={options} onPick={add} disabled={skills.length === 0} addLabel="+ Навык" searchable />
@@ -293,7 +282,6 @@ export function SavingThrowEffectsEditor({ rows = [], onChange, onHide }) {
       title="Проверки спасброска"
       count={rows.length}
       empty="Спасбросков нет"
-      onRemoveAll={() => onChange([])}
       onHide={onHide}
       addControl={<PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Спасбросок" />}
     >
@@ -324,7 +312,6 @@ export function ArmorEffectsEditor({ rows = [], onChange, onHide }) {
       title="Владение доспехами"
       count={rows.length}
       empty="Доспехов нет"
-      onRemoveAll={() => onChange([])}
       onHide={onHide}
       addControl={<PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Доспех" />}
     >
@@ -344,106 +331,28 @@ export function ArmorEffectsEditor({ rows = [], onChange, onHide }) {
   )
 }
 
-// Всплывающее меню поиска конкретного предмета/заклинания (без нативного select).
-export function SearchMenu({ addLabel, placeholder, search, onPick, excludeIds, keepOpen }) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const ref = useRef(null)
-  const pos = useMenuPosition(open, ref)
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-
-  const resultsQ = useQuery({
-    queryKey: ['catalog', 'ref-menu', placeholder, query.trim()],
-    enabled: open && query.trim().length > 0,
-    queryFn: () => search({ search: query.trim(), size: 8 }),
-  })
-  const results = (resultsQ.data?.items ?? []).filter((item) => !excludeIds.has(item.id))
-
-  return (
-    <div className="relative inline-block" ref={ref}>
-      <AddButton onClick={() => setOpen((v) => !v)} title={addLabel} />
-      {open && pos && (
-        <div
-          style={{ position: 'fixed', top: pos.top, left: pos.left }}
-          className="z-30 w-72 rounded-lg border border-stone-700 bg-stone-900 p-1 shadow-xl"
-        >
-          <input
-            autoFocus
-            type="search"
-            className="input-base mb-1 w-full"
-            placeholder={placeholder}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <ul className="max-h-56 overflow-auto">
-            {resultsQ.isFetching && <li className="px-2 py-1.5 text-xs text-stone-500">Поиск…</li>}
-            {!resultsQ.isFetching && query.trim() && results.length === 0 && (
-              <li className="px-2 py-1.5 text-xs text-stone-500">Ничего не найдено</li>
-            )}
-            {results.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className="block w-full truncate rounded px-2 py-1.5 text-left text-sm text-stone-200 transition hover:bg-stone-800"
-                  onClick={() => {
-                    onPick(item.id, item.name)
-                    setQuery('')
-                    if (!keepOpen) setOpen(false)
-                  }}
-                >
-                  {item.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function WeaponEffectsEditor({ rows = [], onChange, onHide }) {
   const usedCategories = new Set(rows.filter((r) => r.item_id == null).map((r) => r.weapon_category))
-  const usedItemIds = new Set(rows.filter((r) => r.item_id != null).map((r) => r.item_id))
   const categoryOptions = Object.entries(weaponProficiencyLabels).map(([k, v]) => ({
     key: k,
     label: v,
     disabled: usedCategories.has(k),
   }))
   const addCategory = (cat) => onChange([...rows, { weapon_category: cat, item_id: null }])
-  const addItem = (id, name) => onChange([...rows, { item_id: id, weapon_category: null, itemName: name }])
 
   return (
     <Section
       title="Владение оружием"
       count={rows.length}
       empty="Оружия нет"
-      onRemoveAll={() => onChange([])}
       onHide={onHide}
       addControl={
-        <div className="flex flex-wrap gap-1">
-          <PickerMenu
-            options={categoryOptions}
-            onPick={addCategory}
-            disabled={categoryOptions.every((o) => o.disabled)}
-            addLabel="+ Категория"
-          />
-          <SearchMenu
-            addLabel="+ Конкретное оружие"
-            placeholder="Поиск оружия…"
-            search={api.items.list}
-            onPick={addItem}
-            excludeIds={usedItemIds}
-          />
-        </div>
+        <PickerMenu
+          options={categoryOptions}
+          onPick={addCategory}
+          disabled={categoryOptions.every((o) => o.disabled)}
+          addLabel="+ Категория"
+        />
       }
     >
       {rows.map((row, i) => (
@@ -477,7 +386,6 @@ export function SpellEffectsEditor({ rows = [], onChange, onHide }) {
         title="Заклинания"
         count={rows.length}
         empty="Заклинаний нет"
-        onRemoveAll={() => onChange([])}
         onHide={onHide}
         addControl={<AddButton onClick={() => setPickerOpen(true)} title="+ Заклинание" />}
       >

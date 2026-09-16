@@ -4,23 +4,8 @@ import { catalogApi as api } from '@/features/catalog/api.js'
 import { abilityLabels, armorProficiencyLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { inferGroupEffectType, normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
 import { EFFECT_TYPES } from './effectTypeEditors.jsx'
-import { SectionTitle, PencilIcon, TrashIcon } from './editorShared.jsx'
+import { SectionTitle, GroupRow } from './editorShared.jsx'
 import EffectGroupModal from './EffectGroupModal.jsx'
-
-function Chevron({ open }) {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className={`h-4 w-4 shrink-0 text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`}
-      aria-hidden="true"
-    >
-      <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
 
 // Человекочитаемая метка одной строки эффекта — используется только для
 // read-only просмотра внутри аккордеона (сама правка — только через модалку).
@@ -50,54 +35,6 @@ function rowLabel(key, row, { skillNames, spellNames }) {
     default:
       return ''
   }
-}
-
-// Строка уже добавленного статичного эффекта или группы выбора: аккордеон —
-// заголовок с названием, счётчиком и Изменить/Удалить всегда виден, по клику
-// раскрывается read-only список того, что там есть. Сама правка — только
-// через EffectGroupModal.
-function GroupRow({ title, count, open, onToggle, onEdit, onRemove, children }) {
-  return (
-    <div
-      className={`rounded-lg border transition ${
-        open ? 'border-ember/60 bg-stone-900' : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/40'
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2 p-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
-        >
-          <Chevron open={open} />
-          <span className="min-w-0 truncate text-sm font-medium text-stone-100">
-            {title}
-            {count != null && <span className="ml-1.5 text-xs font-normal text-stone-500">· {count}</span>}
-          </span>
-        </button>
-        <div className="flex shrink-0 gap-1">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="my-[5px] inline-flex h-[36px] w-[36px] items-center justify-center rounded border border-stone-700 text-stone-300 transition hover:bg-stone-800"
-            title="Изменить"
-          >
-            <PencilIcon />
-          </button>
-          <button
-            type="button"
-            onClick={onRemove}
-            className="my-[5px] inline-flex h-[36px] w-[36px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
-            title="Удалить"
-          >
-            <TrashIcon />
-          </button>
-        </div>
-      </div>
-      {open && <div className="border-t border-stone-800 px-3 py-2.5 text-sm text-stone-300">{children}</div>}
-    </div>
-  )
 }
 
 const pluralOption = (n) => {
@@ -159,7 +96,7 @@ export default function FeatureEffectsEditor({ value, onChange }) {
 
   return (
     <div className="space-y-4">
-      <div className="pt-3">
+      <div>
         <SectionTitle
           button={
             <button
@@ -202,7 +139,7 @@ export default function FeatureEffectsEditor({ value, onChange }) {
         )}
       </div>
 
-      <div className="pt-3">
+      <div>
         <SectionTitle
           button={
             <button

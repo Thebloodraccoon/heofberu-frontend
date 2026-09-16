@@ -11,7 +11,7 @@ function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove })
   return (
     <div className="space-y-2 rounded-lg border border-stone-700/60 p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-stone-300">Вариант {index + 1}</p>
+        <p className="text-[18px] font-medium text-stone-300">Вариант {index + 1}</p>
         <button
           type="button"
           onClick={onRemove}
