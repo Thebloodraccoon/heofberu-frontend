@@ -1,6 +1,21 @@
 import { catalogApi as api } from '../../api.js'
 import { abilityLabels } from '@/lib/i18n/index.js'
-import { opt, optOptional, toNum, toStr } from './shared.js'
+import {
+  buildChoiceGroupsPayload,
+  buildFixedEffectsPayload,
+  effectSummaryLines,
+  normalizeEffectsTree,
+} from '@/lib/utils/featureEffects.js'
+import { optOptional, toNum, toStr } from './shared.js'
+
+// FeatResponse (в отличие от FeatureResponse) не присылает готовую effects_summary
+// с бэка — собираем её на клиенте из дерева эффектов тем же форматом
+// (ul/li), что и бэкендовская сводка особенностей.
+function effectsSummaryHtml(feature) {
+  const lines = effectSummaryLines(feature)
+  if (lines.length === 0) return ''
+  return `<ul>${lines.map((l) => `<li><strong>${l.label}:</strong> ${l.text}</li>`).join('')}</ul>`
+}
 
 export const featsCfg = {
   singular: 'черта',
@@ -11,20 +26,19 @@ export const featsCfg = {
     { key: 'prerequisite_description', label: 'Описание требований', type: 'textarea', full: true },
     { key: 'min_level', label: 'Минимальный уровень', type: 'number', min: 1, max: 20, inline: true },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
+    {
+      key: 'effects_summary',
+      label: 'Сводка эффектов',
+      type: 'summary',
+      full: true,
+      showWhen: (f) => !!f.effects_summary,
+    },
   ],
   sections: [
     {
-      type: 'rows',
-      key: 'ability_score_increases',
-      label: 'Увеличение характеристик',
-      addLabel: '+ Добавить',
-      empty: 'Увеличений нет',
-      fixedWidths: true,
-      defaults: { ability: 'STR', amount: 1 },
-      columns: [
-        { key: 'ability', label: 'Характеристика', type: 'select', options: opt(abilityLabels), width: 'w-48' },
-        { key: 'amount', label: 'Величина', type: 'number', min: 0, max: 5, width: 'w-20' },
-      ],
+      type: 'effectsTree',
+      key: 'effects',
+      label: 'Эффекты и группы выбора',
     },
   ],
   emptyForm: () => ({
@@ -34,7 +48,8 @@ export const featsCfg = {
     prerequisite_description: '',
     min_level: '',
     description: '',
-    ability_score_increases: [],
+    effects_summary: '',
+    effects: normalizeEffectsTree(),
   }),
   fromRecord: (r) => ({
     name: r.name,
@@ -43,10 +58,8 @@ export const featsCfg = {
     prerequisite_description: r.prerequisite_description ?? '',
     min_level: toStr(r.min_level),
     description: r.description ?? '',
-    ability_score_increases: (r.ability_score_increases ?? []).map((a) => ({
-      ability: a.ability,
-      amount: a.amount,
-    })),
+    effects_summary: r.effects_summary ?? effectsSummaryHtml(r),
+    effects: normalizeEffectsTree(r),
   }),
   submitFields: async (form, rec) => {
     const base = {
@@ -57,12 +70,17 @@ export const featsCfg = {
       min_level: toNum(form.min_level),
       description: form.description,
     }
+    const effects = form.effects ?? { ability_effects: [] }
     if (rec) {
       await api.feats.update(rec.id, base)
-      await api.feats.abilityScoreIncreases(rec.id, { ability_score_increases: form.ability_score_increases })
-    } else {
-      return api.feats.create({ ...base, ability_score_increases: form.ability_score_increases })
+      await api.feats.effects.set(rec.id, buildFixedEffectsPayload(effects))
+      await api.feats.choiceGroups.set(rec.id, buildChoiceGroupsPayload(effects))
+      return rec
     }
+    const created = await api.feats.create(base)
+    await api.feats.effects.set(created.id, buildFixedEffectsPayload(effects))
+    await api.feats.choiceGroups.set(created.id, buildChoiceGroupsPayload(effects))
+    return created
   },
   listBadges: (item) => [
     ...(item.min_level != null ? [{ text: `с ${item.min_level}-го уровня`, tone: 'accent' }] : []),

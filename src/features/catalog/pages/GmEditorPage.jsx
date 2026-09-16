@@ -11,7 +11,6 @@ import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEd
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
 import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, RichText, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
-import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
 import ImageUploadBlock from '@/features/catalog/components/editor/ImageUploadBlock.jsx'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
@@ -104,7 +103,6 @@ export default function GmEditorPage() {
   const [startingItems, setStartingItems] = useState([])
   const [startingItemsLoading, setStartingItemsLoading] = useState(false)
   const [startingItemsError, setStartingItemsError] = useState(null)
-  const [itemsModalOpen, setItemsModalOpen] = useState(false)
 
   const [choiceGroups, setChoiceGroups] = useState([])
   const [choiceGroupsLoading, setChoiceGroupsLoading] = useState(false)
@@ -157,8 +155,6 @@ export default function GmEditorPage() {
         }
       }
     }
-    if (cfg.itemsOps) keys.add('items')
-    if (cfg.choiceGroupsOps) keys.add('items')
     return Array.from(keys)
   }, [cfg])
 
@@ -260,26 +256,37 @@ export default function GmEditorPage() {
     }
   }
 
-  const saveItems = async (payload) => {
+  // Не глотаем ошибку здесь — она должна долететь до ItemsGrantModal/
+  // ItemChoiceGroupModal (см. ItemsEditorBlock), чтобы GM видел её прямо в
+  // открытой модалке и мог повторить сохранение, не потеряв правки.
+  const saveGrant = async (rows) => {
+    await cfg.itemsOps.set(editing.id, { items: rows })
+    await reloadItems()
+  }
+
+  const choiceGroupsPayload = (groups) =>
+    groups.map((g, i) => ({
+      pick_count: Math.max(1, Number(g.pick_count) || 1),
+      sort_order: i,
+      options: (g.options ?? []).map((o) => ({
+        item_id: Number(o.item_id),
+        quantity: Math.max(1, Number(o.quantity) || 1),
+      })),
+    }))
+
+  const saveChoiceGroup = async (group, index) => {
+    const next = index == null ? [...choiceGroups, group] : choiceGroups.map((g, i) => (i === index ? group : g))
+    await cfg.choiceGroupsOps.set(editing.id, { choice_groups: choiceGroupsPayload(next) })
+    await reloadChoiceGroups()
+  }
+
+  const removeChoiceGroup = async (index) => {
     try {
-      const rows = Array.isArray(payload) ? payload : payload?.items
-      await cfg.itemsOps.set(editing.id, { items: rows ?? [] })
-      if (payload?.choice_groups && cfg.choiceGroupsOps) {
-        const groups = payload.choice_groups.map((g) => ({
-          pick_count: Math.max(1, Number(g.pick_count) || 1),
-          sort_order: Number(g.sort_order) || 0,
-          options: (g.options ?? []).map((o) => ({
-            item_id: Number(o.item_id),
-            quantity: Math.max(1, Number(o.quantity) || 1),
-          })),
-        }))
-        await cfg.choiceGroupsOps.set(editing.id, { choice_groups: groups })
-      }
-      setItemsModalOpen(false)
-      await reloadItems()
-      if (cfg.choiceGroupsOps) await reloadChoiceGroups()
+      const next = choiceGroups.filter((_, i) => i !== index)
+      await cfg.choiceGroupsOps.set(editing.id, { choice_groups: choiceGroupsPayload(next) })
+      await reloadChoiceGroups()
     } catch (e) {
-      setStartingItemsError(e)
+      setChoiceGroupsError(e)
     }
   }
 
@@ -434,7 +441,6 @@ export default function GmEditorPage() {
     setFeaturesError(null)
     setStartingItems([])
     setStartingItemsError(null)
-    setItemsModalOpen(false)
     setSubclasses([])
     setSubDetails({})
     setSubError(null)
@@ -838,7 +844,7 @@ export default function GmEditorPage() {
 
       {(findQ.error || error) && <ErrorBox error={findQ.error ?? error} onRetry={load} />}
       {!error && !records && (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]" aria-busy="true">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] " aria-busy="true">
           <aside className="space-y-2">
             <Skeleton className="h-10 w-full" />
             {Array.from({ length: 6 }, (_, i) => (
@@ -855,9 +861,9 @@ export default function GmEditorPage() {
       )}
 
       {!error && records && (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+        <div className="grid items-start gap-6 mt-[5px] lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
           <aside className="flex max-h-[calc(100vh-280px)] min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div className="editor-record-list min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {records.length === 0 ? (
                 <p className="text-sm text-stone-500">
                   {hasQuery ? 'Ничего не найдено по запросу' : 'Нет записей — создайте первую'}
@@ -1111,13 +1117,11 @@ export default function GmEditorPage() {
                     }
 if (section.type === 'effectsTree') {
                       return (
-                        <div key={section.key}>
-                          <SectionTitle>{section.label}</SectionTitle>
-                          <FeatureEffectsEditor
-                            value={form[section.key]}
-                            onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
-                          />
-                        </div>
+                        <FeatureEffectsEditor
+                          key={section.key}
+                          value={form[section.key]}
+                          onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
+                        />
                       )
                     }
                     if (section.type === 'groupedRows') {
@@ -1383,12 +1387,14 @@ if (section.type === 'effectsTree') {
                     items={startingItems}
                     loading={startingItemsLoading}
                     error={startingItemsError}
-                    onAdd={() => setItemsModalOpen(true)}
                     onRetry={reloadItems}
+                    onSaveItems={saveGrant}
                     choiceGroups={cfg.choiceGroupsOps ? choiceGroups : null}
                     choiceGroupsLoading={choiceGroupsLoading}
                     choiceGroupsError={choiceGroupsError}
                     onChoiceGroupsRetry={reloadChoiceGroups}
+                    onSaveChoiceGroup={saveChoiceGroup}
+                    onRemoveChoiceGroup={removeChoiceGroup}
                   />
                 )}
 
@@ -1678,16 +1684,6 @@ if (section.type === 'effectsTree') {
         )
       })()}
 
-      {itemsModalOpen && editing && cfg.itemsOps && (
-        <ItemPickerModal
-          title={`Стартовое снаряжение${editing.name ? ` — ${editing.name}` : ''}`}
-          items={pills.items ?? []}
-          value={startingItems}
-          choiceGroups={cfg.choiceGroupsOps ? choiceGroups : null}
-          onSave={saveItems}
-          onClose={() => setItemsModalOpen(false)}
-        />
-      )}
 
       {confirmRow && (
         <ConfirmDialog

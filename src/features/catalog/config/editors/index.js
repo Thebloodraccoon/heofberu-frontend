@@ -26,7 +26,7 @@ export const editorConfig = {
   skills: { ...catalog.skills, ...skillsCfg },
   spells: { ...catalog.spells, ...spellsCfg },
   backgrounds: { ...catalog.backgrounds, ...backgroundsCfg },
-  feats: { ...catalog.feats, ...featsCfg },
   items: { ...catalog.items, ...itemsCfg },
+  feats: { ...catalog.feats, ...featsCfg },
   features: { ...catalog.features, ...featuresCfg },
 }

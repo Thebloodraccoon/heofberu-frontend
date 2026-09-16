@@ -161,8 +161,16 @@ export const catalogApi = {
     get: (id) => request(`/api/feats/${id}`),
     update: (id, body) => request(`/api/feats/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/feats/${id}`, { method: 'DELETE' }),
-    abilityScoreIncreases: (id, body) =>
-      request(`/api/feats/${id}/ability-score-increases`, { method: 'PUT', body }),
+    // Черта — подтип особенности: полное дерево эффектов + группы выбора
+    // сохраняются теми же дифф-эндпоинтами, что и у /api/features.
+    effects: {
+      get: (id) => request(`/api/feats/${id}/effects`),
+      set: (id, body) => request(`/api/feats/${id}/effects`, { method: 'PUT', body }),
+    },
+    choiceGroups: {
+      get: (id) => request(`/api/feats/${id}/choice-groups`),
+      set: (id, body) => request(`/api/feats/${id}/choice-groups`, { method: 'PUT', body }),
+    },
   },
 
   features: {

@@ -8,6 +8,11 @@
   @apply grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)];
 }
 
+/* Первый элемент списка записей не поднимается при наведении */
+.editor-record-list > .card-hover:first-child:hover {
+  transform: none;
+}
+
 /* --- Заголовок записи в редакторе --- */
 
 .editor-record-row {

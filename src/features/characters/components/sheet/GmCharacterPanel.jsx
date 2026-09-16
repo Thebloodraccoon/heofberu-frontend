@@ -1,38 +1,60 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { catalogApi } from '@/features/catalog/api.js'
+import { catalog } from '@/features/catalog/catalog.js'
 import {
   useCharacterAsiAdjustments,
   useCharacterFeats,
   useCharacterFeatures,
+  useCharacterGrantedSpells,
   useCharacterItems,
   useCharacterMaxLevel,
   useCharacterProficiencies,
   useCharacterStats,
 } from '@/features/characters/queries.js'
-import {
-  useAllFeats,
-  useFeatDetail,
-  useFeatures,
-  useSkills,
-  useCatalogPage,
-} from '@/features/catalog/queries.js'
-import { ITEM_FILTERS } from '@/features/catalog/components/editor/itemFilters.js'
-import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
-import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
+import { useFeatDetail, useSkills } from '@/features/catalog/queries.js'
+import { TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
+import { PickerMenu } from '@/features/catalog/components/editor/effectTypeEditors.jsx'
+import SpellPickerModal from '@/features/catalog/components/editor/SpellPickerModal.jsx'
+import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
+import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
+import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { STATS, abilityByCode, abilityName } from '@/lib/utils/ability.js'
-import { Button, ConfirmDialog, ErrorBox, Field, Input, Modal, RichText, RichTextEditor, Select, Skeleton } from '@/components/ui'
-import { label, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
+import { Badge, Button, ConfirmDialog, Field, Input, Modal, RichText, Select, Skeleton } from '@/components/ui'
+import { armorProficiencyLabels, label, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import StatsCalculator from '@/features/characters/components/sheet/StatsCalculator.jsx'
 import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
 
-function Section({ title, children }) {
+function PlusIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function Section({ title, action, children }) {
   return (
     <div className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-      <p className="sheet-section-label !mt-0">{title}</p>
+      {action ? (
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className="sheet-section-label !mt-0">{title}</p>
+          {action}
+        </div>
+      ) : (
+        <p className="sheet-section-label !mt-0">{title}</p>
+      )}
       {children}
     </div>
   )
@@ -375,11 +397,14 @@ function ExpertiseSection({ character, onError, reload }) {
 
   const skillById = useMemo(() => new Map(skillsCatalog.map((s) => [Number(s.id), s])), [skillsCatalog])
 
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.characters.proficiencies(Number(character.id)) })
+
   const toggle = async (skillId, next) => {
     setBusyId(skillId)
     try {
       await charactersApi.gmPanel.proficiencies.setSkillExpertise(character.id, skillId, { is_expertise: next })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.proficiencies(Number(character.id)) })
+      await invalidate()
       await reload()
     } catch (e) {
       onError(e)
@@ -388,72 +413,329 @@ function ExpertiseSection({ character, onError, reload }) {
     }
   }
 
-  if (proficiencies.length === 0) {
-    return (
-      <Section title="Навыки и экспертиза">
-        <p className="text-sm text-stone-500">У персонажа нет владений навыками.</p>
-      </Section>
-    )
+  const addSkill = async (skillId) => {
+    setBusyId(skillId)
+    try {
+      await charactersApi.gmPanel.proficiencies.addSkill(character.id, skillId)
+      await invalidate()
+      await reload()
+    } catch (e) {
+      onError(e)
+    } finally {
+      setBusyId(null)
+    }
   }
+
+  const removeSkill = async (skillId) => {
+    setBusyId(skillId)
+    try {
+      await charactersApi.gmPanel.proficiencies.removeSkill(character.id, skillId)
+      await invalidate()
+      await reload()
+    } catch (e) {
+      onError(e)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const usedSkillIds = new Set(proficiencies.map((p) => Number(p.skill_id)))
+  const addOptions = skillsCatalog
+    .filter((s) => !usedSkillIds.has(Number(s.id)))
+    .map((s) => ({ key: s.id, label: skillName(s) }))
 
   return (
     <Section title="Навыки и экспертиза">
-      <p className="-mt-1 mb-2 text-xs text-stone-500">
-        Нажмите на навык с ★, чтобы снять экспертизу; обычный навык — чтобы дать её. Бонус мастерства удваивается.
-      </p>
-      <ul className="space-y-1.5">
-        {[...proficiencies]
-          .sort((a, b) => skillName(skillById.get(Number(a.skill_id))).localeCompare(skillName(skillById.get(Number(b.skill_id))), 'ru'))
-          .map((p) => {
-          const skill = skillById.get(Number(p.skill_id))
-          const expert = Boolean(p.is_expertise)
-          return (
-            <li key={p.skill_id}>
-              <button
-                type="button"
-                disabled={busyId === p.skill_id}
-                onClick={() => toggle(p.skill_id, !expert)}
-                title={expert ? 'Снять экспертизу' : 'Дать экспертизу'}
-                className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-50 ${
-                  expert
-                    ? 'border-ember/70 bg-ember/10'
-                    : 'border-stone-700/60 bg-stone-900/60 hover:border-stone-600'
-                }`}
-              >
-                <span
-                  className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs ${
-                    expert ? 'border-ember bg-ember/20 text-ember' : 'border-stone-600 text-transparent'
-                  }`}
-                >
-                  ★
-                </span>
-                <span className={`min-w-0 flex-1 truncate ${expert ? 'font-medium text-orange-100' : 'text-stone-200'}`}>
-                  {skill ? skillName(skill) : `Навык #${p.skill_id}`}
-                </span>
-                {skill?.ability && <span className="shrink-0 text-[11px] text-stone-500">{abilityLabel(skill.ability)}</span>}
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+      <div className="-mt-1 mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs text-stone-500">
+          Нажмите на навык с ★, чтобы снять экспертизу; обычный навык — чтобы дать её.
+        </p>
+        <PickerMenu
+          options={addOptions}
+          onPick={addSkill}
+          disabled={addOptions.length === 0}
+          addLabel={<PlusIcon />}
+          searchable
+        />
+      </div>
+      {proficiencies.length === 0 ? (
+        <p className="text-sm text-stone-500">У персонажа нет владений навыками.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {[...proficiencies]
+            .sort((a, b) => skillName(skillById.get(Number(a.skill_id))).localeCompare(skillName(skillById.get(Number(b.skill_id))), 'ru'))
+            .map((p) => {
+              const skill = skillById.get(Number(p.skill_id))
+              const expert = Boolean(p.is_expertise)
+              const removable = (p.sources ?? []).some((s) => s.source_type === 'GM')
+              return (
+                <li key={p.skill_id} className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={busyId === p.skill_id}
+                    onClick={() => toggle(p.skill_id, !expert)}
+                    title={expert ? 'Снять экспертизу' : 'Дать экспертизу'}
+                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-50 ${
+                      expert
+                        ? 'border-ember/70 bg-ember/10'
+                        : 'border-stone-700/60 bg-stone-900/60 hover:border-stone-600'
+                    }`}
+                  >
+                    <span
+                      className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs ${
+                        expert ? 'border-ember bg-ember/20 text-ember' : 'border-stone-600 text-transparent'
+                      }`}
+                    >
+                      ★
+                    </span>
+                    <span className={`min-w-0 flex-1 truncate ${expert ? 'font-medium text-orange-100' : 'text-stone-200'}`}>
+                      {skill ? skillName(skill) : `Навык #${p.skill_id}`}
+                    </span>
+                    {skill?.ability && <span className="shrink-0 text-[11px] text-stone-500">{abilityLabel(skill.ability)}</span>}
+                  </button>
+                  {removable && (
+                    <button
+                      type="button"
+                      onClick={() => removeSkill(p.skill_id)}
+                      disabled={busyId === p.skill_id}
+                      className="inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50 disabled:opacity-50"
+                      title="Убрать владение"
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+        </ul>
+      )}
     </Section>
   )
 }
 
+// Владения доспехами/оружием — тот же принцип, что и навыки: список текущих
+// владений с «Убрать» (только для GM-строки, остальные приходят от
+// класса/расы/особенностей и не редактируются здесь) и подменю добавления.
+function ArmorProficienciesSection({ character, onError, reload }) {
+  const queryClient = useQueryClient()
+  const { data: proficienciesData } = useCharacterProficiencies(character.id)
+  const armor = proficienciesData?.armor ?? []
+  const [busyType, setBusyType] = useState(null)
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.characters.proficiencies(Number(character.id)) })
+
+  const used = new Set(armor.map((a) => a.armor_type))
+  const addOptions = Object.entries(armorProficiencyLabels).map(([key, label]) => ({
+    key,
+    label,
+    disabled: used.has(key),
+  }))
+
+  const add = async (armorType) => {
+    setBusyType(armorType)
+    try {
+      await charactersApi.gmPanel.proficiencies.addArmor(character.id, armorType)
+      await invalidate()
+      await reload()
+    } catch (e) {
+      onError(e)
+    } finally {
+      setBusyType(null)
+    }
+  }
+
+  const remove = async (armorType) => {
+    setBusyType(armorType)
+    try {
+      await charactersApi.gmPanel.proficiencies.removeArmor(character.id, armorType)
+      await invalidate()
+      await reload()
+    } catch (e) {
+      onError(e)
+    } finally {
+      setBusyType(null)
+    }
+  }
+
+  return (
+    <Section
+      title="Владение доспехами"
+      action={
+        <PickerMenu
+          options={addOptions}
+          onPick={add}
+          disabled={addOptions.every((o) => o.disabled)}
+          addLabel={<PlusIcon />}
+        />
+      }
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        {armor.length === 0 && <p className="text-sm text-stone-500">Владений нет.</p>}
+        {armor.map((a) => {
+          const removable = (a.sources ?? []).some((s) => s.source_type === 'GM')
+          return (
+            <span
+              key={a.armor_type}
+              className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-sm ${
+                removable ? 'border-ember/70 bg-ember/10 text-orange-100' : 'border-stone-700/60 bg-stone-900/60 text-stone-200'
+              }`}
+            >
+              {armorProficiencyLabels[a.armor_type] ?? a.armor_type}
+              {removable && (
+                <button
+                  type="button"
+                  onClick={() => remove(a.armor_type)}
+                  disabled={busyType === a.armor_type}
+                  className="text-stone-500 transition hover:text-red-300 disabled:opacity-50"
+                  title="Убрать владение"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          )
+        })}
+      </div>
+    </Section>
+  )
+}
+
+function WeaponProficienciesSection({ character, onError, reload }) {
+  const queryClient = useQueryClient()
+  const { data: proficienciesData } = useCharacterProficiencies(character.id)
+  const weapons = (proficienciesData?.weapons ?? []).filter((w) => w.weapon_category != null)
+  const [busyType, setBusyType] = useState(null)
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.characters.proficiencies(Number(character.id)) })
+
+  const used = new Set(weapons.map((w) => w.weapon_category))
+  const addOptions = Object.entries(weaponProficiencyLabels).map(([key, label]) => ({
+    key,
+    label,
+    disabled: used.has(key),
+  }))
+
+  const add = async (weaponCategory) => {
+    setBusyType(weaponCategory)
+    try {
+      await charactersApi.gmPanel.proficiencies.addWeapon(character.id, { weapon_category: weaponCategory })
+      await invalidate()
+      await reload()
+    } catch (e) {
+      onError(e)
+    } finally {
+      setBusyType(null)
+    }
+  }
+
+  const remove = async (weaponCategory) => {
+    setBusyType(weaponCategory)
+    try {
+      await charactersApi.gmPanel.proficiencies.removeWeapon(character.id, { weapon_category: weaponCategory })
+      await invalidate()
+      await reload()
+    } catch (e) {
+      onError(e)
+    } finally {
+      setBusyType(null)
+    }
+  }
+
+  return (
+    <Section
+      title="Владение оружием"
+      action={
+        <PickerMenu
+          options={addOptions}
+          onPick={add}
+          disabled={addOptions.every((o) => o.disabled)}
+          addLabel={<PlusIcon />}
+        />
+      }
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        {weapons.length === 0 && <p className="text-sm text-stone-500">Владений нет.</p>}
+        {weapons.map((w) => {
+          const removable = (w.sources ?? []).some((s) => s.source_type === 'GM')
+          return (
+            <span
+              key={w.weapon_category}
+              className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-sm ${
+                removable ? 'border-ember/70 bg-ember/10 text-orange-100' : 'border-stone-700/60 bg-stone-900/60 text-stone-200'
+              }`}
+            >
+              {weaponProficiencyLabels[w.weapon_category] ?? w.weapon_category}
+              {removable && (
+                <button
+                  type="button"
+                  onClick={() => remove(w.weapon_category)}
+                  disabled={busyType === w.weapon_category}
+                  className="text-stone-500 transition hover:text-red-300 disabled:opacity-50"
+                  title="Убрать владение"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          )
+        })}
+      </div>
+    </Section>
+  )
+}
+
+const PICKER_PAGE_SIZE = 30
+const PICKER_SCROLL_THRESHOLD = 120
+
 function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }) {
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [queryInput, setQueryInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [filters, setFilters] = useState({})
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage] = useState(1)
+  const [allFeats, setAllFeats] = useState([])
   const [featId, setFeatId] = useState(null)
   const [increaseId, setIncreaseId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+  const listRef = useRef(null)
+
+  const listParams = { page, size: PICKER_PAGE_SIZE }
+  if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
+
+  const featsQ = useQuery({
+    queryKey: ['catalog', 'feat-picker-modal', appliedSearch.trim(), filters, page],
+    queryFn: () => catalogApi.feats.list(listParams),
+  })
+
+  // Смена поиска/фильтров начинает список заново, а не докидывает страницы
+  // к прежней выборке.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1)
+    setAllFeats([])
+  }, [appliedSearch, filters])
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300)
-    return () => clearTimeout(t)
-  }, [query])
+    if (!featsQ.data) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAllFeats((prev) => (page === 1 ? featsQ.data.items : [...prev, ...featsQ.data.items]))
+  }, [featsQ.data, page])
 
-  const featsQ = useAllFeats(debouncedQuery)
-  const feats = featsQ.data ?? []
+  const total = featsQ.data?.total ?? 0
+  const hasMore = allFeats.length < total
+  const feats = allFeats
+  const hasActiveFilters = Object.keys(filters).length > 0
+
+  const applySearch = () => setAppliedSearch(queryInput)
+  const onScroll = () => {
+    const el = listRef.current
+    if (!el || featsQ.isFetching || !hasMore) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < PICKER_SCROLL_THRESHOLD) {
+      setPage((p) => p + 1)
+    }
+  }
 
   const detailId = featId ?? expandedId
   const detailQ = useFeatDetail(detailId)
@@ -548,29 +830,42 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
         </div>
       }
     >
-      <Input
-        type="search"
-        placeholder="Поиск черты..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        autoFocus
-      />
-      {featsQ.isFetching && feats.length === 0 && (
-        <div className="space-y-2" aria-busy="true">
-          {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3.5 w-1/2" />
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mb-3 flex gap-2">
+        <Input
+          autoFocus
+          type="search"
+          value={queryInput}
+          onChange={(e) => setQueryInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+          placeholder="Поиск черты…"
+          className="flex-1"
+        />
+        <button
+          type="button"
+          onClick={applySearch}
+          title="Искать"
+          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 text-sm text-stone-200 transition hover:bg-stone-800"
+        >
+          ⌕
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowFilters(true)}
+          className={`shrink-0 rounded border px-3 text-sm transition ${
+            hasActiveFilters
+              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
+              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
+          }`}
+        >
+          Фильтр
+        </button>
+      </div>
       {!featsQ.isFetching && available.length === 0 && (
         <p className="py-4 text-center text-sm text-stone-400">
-          {debouncedQuery ? 'Ничего не найдено по запросу.' : 'Доступных черт нет.'}
+          {appliedSearch ? 'Ничего не найдено по запросу.' : 'Доступных черт нет.'}
         </p>
       )}
-      <div className="space-y-2">
+      <div ref={listRef} onScroll={onScroll} className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
         {available.map((f) => {
           const ok = featPrereqOk(f) && featLevelOk(f)
           const selected = String(f.id) === String(featId)
@@ -596,23 +891,23 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                     setIncreaseId(null)
                     setExpandedId(null)
                   }}
-                  className={`min-w-0 flex-1 rounded text-left font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                  className={`min-w-0 flex-1 truncate rounded text-left text-sm font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                 >
                   {sentenceCase(f.name)}
                 </button>
                 <span className="flex shrink-0 items-center gap-1.5">
-                  {(f.ability_score_increases ?? []).length > 0 && (
-                    <span className="rounded bg-emerald-900/50 px-1.5 py-0.5 text-[10px] text-emerald-200">
-                      Улучшение характеристики
-                    </span>
-                  )}
+                  {effectBadges(f).map((badge, i) => (
+                    <Badge key={i} tone={badge.tone} className="shrink-0">
+                      {badge.text}
+                    </Badge>
+                  ))}
                   {!featLevelOk(f) && (
-                    <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-[10px] text-red-200">
-                      С уровня {f.min_level}
+                    <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-xs text-red-200">
+                      С ур. {f.min_level}
                     </span>
                   )}
                   {!featPrereqOk(f) && (
-                    <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-[10px] text-red-200">
+                    <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-xs text-red-200">
                       Нужно: {abilityName(f.prerequisite_ability)} ≥ {f.prerequisite_minimum_score}
                     </span>
                   )}
@@ -644,25 +939,17 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                     </div>
                   ) : (
                     <>
-                      {(rowDetail?.ability_score_increases ?? []).length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-1.5">
-                          {rowDetail.ability_score_increases.map((ai) => (
-                            <span
-                              key={ai.id}
-                              className="rounded border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-200"
-                            >
-                              +{ai.amount} {abilityName(ai.ability)}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {rowDetail?.description ? (
-                        <p className="whitespace-pre-line text-xs text-stone-300">{rowDetail.description}</p>
+                      {rowDetail?.description || rowDetail?.effects_summary ? (
+                        <RichText
+                          value={rowDetail?.description}
+                          tail={rowDetail?.effects_summary}
+                          className="text-xs text-stone-300"
+                        />
                       ) : (
                         <p className="text-xs italic text-stone-500">Описание отсутствует.</p>
                       )}
                       {rowDetail?.prerequisite_description && (
-                        <p className="mt-1 text-xs text-stone-400">{rowDetail.prerequisite_description}</p>
+                        <RichText value={rowDetail.prerequisite_description} className="mt-1 text-xs text-stone-400" />
                       )}
                     </>
                   )}
@@ -671,45 +958,136 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
             </div>
           )
         })}
+        {featsQ.isFetching && (
+          <div className="space-y-1.5 py-1" aria-busy="true">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        )}
       </div>
+
+      {showFilters && (
+        <FilterModal
+          filters={catalog.feats.filters}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
     </Modal>
   )
 }
 
-function FeaturePickerModal({ features, grantedIds, onPick, onClose }) {
-  const [query, setQuery] = useState('')
-  const [expandedId, setExpandedId] = useState(null)
-
+function FeatureDetail({ featureId }) {
   const detailQ = useQuery({
-    // FeatureResponse уже содержит ability_effects — отдельный запрос не нужен.
-    queryKey: ['catalog', 'features', 'detail', expandedId],
-    queryFn: () => catalogApi.features.get(expandedId),
-    enabled: expandedId != null,
+    // FeatureResponse уже содержит ability_effects и effects_summary —
+    // отдельный запрос за эффектами не нужен.
+    queryKey: ['catalog', 'features', 'detail', featureId],
+    queryFn: () => catalogApi.features.get(featureId),
+    enabled: featureId != null,
   })
-  const detail = expandedId != null && detailQ.data ? detailQ.data : null
+  const f = detailQ.data
+  if (detailQ.isFetching || !f) {
+    return (
+      <div className="space-y-1.5 py-1" aria-busy="true">
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-2/3" />
+      </div>
+    )
+  }
+  // Тот же приём, что и в каталоге (FeatureDetailCard): effects_summary с
+  // бэка дорендеривается в конце описания одним блоком, под тем же
+  // заголовком, который уже виден в бейдже строки («Даёт эффекты»).
+  return f.description || f.effects_summary ? (
+    <RichText value={f.description} tail={f.effects_summary} className="text-xs text-stone-300" />
+  ) : (
+    <p className="text-xs italic text-stone-500">Описание отсутствует.</p>
+  )
+}
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return features
-    return features.filter((f) => String(f.name ?? '').toLowerCase().includes(q))
-  }, [features, query])
+function FeaturePickerModal({ grantedIds, onPick, onClose }) {
+  const [queryInput, setQueryInput] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [filters, setFilters] = useState({})
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage] = useState(1)
+  const [allFeatures, setAllFeatures] = useState([])
+  const [expandedId, setExpandedId] = useState(null)
+  const listRef = useRef(null)
 
-  const available = useMemo(() => filtered.filter((f) => !grantedIds.has(Number(f.id))), [filtered, grantedIds])
+  const listParams = { page, size: PICKER_PAGE_SIZE, source_type: 'OTHER' }
+  if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
+
+  const featuresQ = useQuery({
+    queryKey: ['catalog', 'feature-picker-modal', appliedSearch.trim(), filters, page],
+    queryFn: () => catalogApi.features.list(listParams),
+  })
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1)
+    setAllFeatures([])
+  }, [appliedSearch, filters])
+
+  useEffect(() => {
+    if (!featuresQ.data) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAllFeatures((prev) => (page === 1 ? featuresQ.data.items : [...prev, ...featuresQ.data.items]))
+  }, [featuresQ.data, page])
+
+  const total = featuresQ.data?.total ?? 0
+  const hasMore = allFeatures.length < total
+  const available = allFeatures.filter((f) => !grantedIds.has(Number(f.id)))
+  const hasActiveFilters = Object.keys(filters).length > 0
+
+  const applySearch = () => setAppliedSearch(queryInput)
+  const onScroll = () => {
+    const el = listRef.current
+    if (!el || featuresQ.isFetching || !hasMore) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < PICKER_SCROLL_THRESHOLD) {
+      setPage((p) => p + 1)
+    }
+  }
 
   return (
-    <Modal title="Выдать особенность" subtitle="Особые свойства из справочника" onClose={onClose} size="md" scroll>
-      <Input
-        type="search"
-        placeholder="Поиск особенности..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        autoFocus
-      />
-      <div className="mt-3 max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
-        {available.length === 0 && <p className="text-sm text-stone-500">Особенностей не найдено.</p>}
+    <Modal title="Выдать особенность" subtitle="Особые свойства из справочника" onClose={onClose} size="lg" scroll>
+      <div className="mb-3 flex gap-2">
+        <Input
+          autoFocus
+          type="search"
+          value={queryInput}
+          onChange={(e) => setQueryInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+          placeholder="Поиск особенности…"
+          className="flex-1"
+        />
+        <button
+          type="button"
+          onClick={applySearch}
+          title="Искать"
+          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 text-sm text-stone-200 transition hover:bg-stone-800"
+        >
+          ⌕
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowFilters(true)}
+          className={`shrink-0 rounded border px-3 text-sm transition ${
+            hasActiveFilters
+              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
+              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
+          }`}
+        >
+          Фильтр
+        </button>
+      </div>
+      <div ref={listRef} onScroll={onScroll} className="max-h-[55vh] space-y-1.5 overflow-y-auto pr-1">
+        {!featuresQ.isFetching && available.length === 0 && (
+          <p className="text-sm text-stone-500">Особенностей не найдено.</p>
+        )}
         {available.map((f) => {
-          const expanded = String(expandedId) === String(f.id)
-          const rowDetail = expanded ? detail : null
+          const expanded = expandedId === f.id
           return (
             <div
               key={f.id}
@@ -719,16 +1097,16 @@ function FeaturePickerModal({ features, grantedIds, onPick, onClose }) {
                 <button
                   type="button"
                   onClick={() => onPick(f)}
-                  className="min-w-0 flex-1 rounded text-left font-medium text-stone-100 hover:text-ember"
+                  className="min-w-0 flex-1 truncate rounded text-left text-sm font-medium text-stone-100 hover:text-ember"
                 >
                   {sentenceCase(f.name)}
                 </button>
                 <span className="flex shrink-0 items-center gap-1.5">
-                  {(f.ability_effects ?? []).length > 0 && (
-                    <span className="rounded bg-emerald-900/50 px-1.5 py-0.5 text-[10px] text-emerald-200">
-                      Улучшение характеристики
-                    </span>
-                  )}
+                  {effectBadges(f).map((badge, i) => (
+                    <Badge key={i} tone={badge.tone} className="shrink-0">
+                      {badge.text}
+                    </Badge>
+                  ))}
                   <button
                     type="button"
                     aria-label={`Посмотреть: ${f.name}`}
@@ -752,72 +1130,29 @@ function FeaturePickerModal({ features, grantedIds, onPick, onClose }) {
               </div>
               {expanded && (
                 <div className="border-t border-stone-700/50 px-3 py-2.5">
-                  {detailQ.isFetching || !rowDetail ? (
-                    <div className="space-y-1.5 py-1" aria-busy="true">
-                      <Skeleton className="h-3.5 w-full" />
-                      <Skeleton className="h-3.5 w-2/3" />
-                    </div>
-                  ) : (
-                    <>
-                      {(rowDetail.ability_effects ?? []).length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-1.5">
-                          {rowDetail.ability_effects.map((ai, i) => (
-                            <span
-                              key={i}
-                              className="rounded border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-200"
-                            >
-                              +{ai.amount} {abilityName(ai.ability)}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {rowDetail.description ? (
-                        <p className="whitespace-pre-line text-xs text-stone-300">{rowDetail.description}</p>
-                      ) : (
-                        <p className="text-xs italic text-stone-500">Описание отсутствует.</p>
-                      )}
-                    </>
-                  )}
+                  <FeatureDetail featureId={f.id} />
                 </div>
               )}
             </div>
           )
         })}
+        {featuresQ.isFetching && (
+          <div className="space-y-1.5 py-1" aria-busy="true">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        )}
       </div>
-    </Modal>
-  )
-}
 
-function FeatureNotesModal({ name, notes, onSave, onClose }) {
-  const [value, setValue] = useState(notes ?? '')
-
-  return (
-    <Modal
-      title="Заметка по особенности"
-      subtitle={name}
-      onClose={onClose}
-      size="sm"
-      footer={
-        <>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Отмена
-          </Button>
-          <Button type="button" onClick={() => onSave(value)}>
-            Сохранить
-          </Button>
-        </>
-      }
-    >
-      <Field label="Заметка для игрока">
-        <RichTextEditor
-          rows={4}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Что это и зачем дана..."
-          ariaLabel="Заметка для игрока"
-          autoFocus
+      {showFilters && (
+        <FilterModal
+          filters={catalog.features.filters}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
         />
-      </Field>
+      )}
     </Modal>
   )
 }
@@ -829,14 +1164,18 @@ function FeatsSection({ character, onError, reload }) {
   const [featPickerOpen, setFeatPickerOpen] = useState(false)
   const [openFeatId, setOpenFeatId] = useState(null)
 
-  const grantedIncreaseOf = (cf) => {
-    const explicit = cf.ability_score_increase
-    if (explicit?.ability != null) return explicit
-    const options = cf.feat?.ability_score_increases ?? []
-    const id = cf.ability_score_increase_id
-    if (id != null) return options.find((a) => String(a.id) === String(id)) ?? null
-    return options.length === 1 ? options[0] : null
+  // Эффекты выданной черты приходят так же, как у особенности: плоские
+  // списки — в cf.effects, уже отвеченные выборы — в cf.choices.
+  const hasGrantedEffects = (cf) => {
+    const flatHasAny = Object.values(cf.effects ?? {}).some((v) => Array.isArray(v) && v.length > 0)
+    const choicesHaveAny = (cf.choices ?? []).some((choice) =>
+      Object.entries(choice).some(
+        ([key, value]) => !key.startsWith('choice_') && Array.isArray(value) && value.length > 0,
+      ),
+    )
+    return flatHasAny || choicesHaveAny
   }
+  const hasGrantedChoices = (cf) => (cf.choices ?? []).length > 0
 
   // Итоги характеристик персонажа — чтобы проверять требования черт как у игрока.
   const abilityTotals = useMemo(
@@ -891,7 +1230,6 @@ function FeatsSection({ character, onError, reload }) {
         <ul className="space-y-2">
           {charFeats.map((cf) => {
             const open = openFeatId === cf.id
-            const inc = grantedIncreaseOf(cf)
             return (
               <li key={cf.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60">
                 <div className="flex items-center justify-between gap-2 p-4">
@@ -904,10 +1242,15 @@ function FeatsSection({ character, onError, reload }) {
                     <span className="truncate text-sm font-medium text-stone-100">
                       {cf.feat?.name ? sentenceCase(cf.feat.name) : `Черта #${cf.feat_id}`}
                     </span>
-                    {inc && (
-                      <span className="shrink-0 rounded border border-emerald-700/60 bg-emerald-900/30 px-1.5 py-0.5 text-[11px] text-emerald-200">
-                        +{inc.amount} к {abilityName(inc.ability)}
-                      </span>
+                    {hasGrantedEffects(cf) && (
+                      <Badge tone="good" className="shrink-0">
+                        Даёт эффекты
+                      </Badge>
+                    )}
+                    {hasGrantedChoices(cf) && (
+                      <Badge tone="violet" className="shrink-0">
+                        Выбор
+                      </Badge>
                     )}
                   </button>
                   <Button
@@ -920,8 +1263,12 @@ function FeatsSection({ character, onError, reload }) {
                     Убрать
                   </Button>
                 </div>
-                {open && cf.feat?.description && (
-                  <RichText value={cf.feat.description} className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400" />
+                {open && (cf.feat?.description || cf.feat?.effects_summary) && (
+                  <RichText
+                    value={cf.feat?.description}
+                    tail={cf.feat?.effects_summary}
+                    className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400"
+                  />
                 )}
               </li>
             )
@@ -945,9 +1292,7 @@ function FeatsSection({ character, onError, reload }) {
 function FeaturesSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: charFeatures = [] } = useCharacterFeatures(character.id)
-  const { data: catalogFeatures = [] } = useFeatures({ size: 100, source_type: 'OTHER' })
   const [featurePickerOpen, setFeaturePickerOpen] = useState(false)
-  const [notesTarget, setNotesTarget] = useState(null)
   const [removeTarget, setRemoveTarget] = useState(null)
   const [openFeatureId, setOpenFeatureId] = useState(null)
 
@@ -973,17 +1318,6 @@ function FeaturesSection({ character, onError, reload }) {
     }
   }
 
-  const saveFeatureNotes = async (notes) => {
-    const target = notesTarget
-    setNotesTarget(null)
-    try {
-      await charactersApi.gmPanel.features.update(character.id, target.id, { notes })
-      await invalidateFeatures()
-    } catch (e) {
-      onError(e)
-    }
-  }
-
   const removeFeature = async (charFeatureId) => {
     setRemoveTarget(null)
     try {
@@ -995,6 +1329,21 @@ function FeaturesSection({ character, onError, reload }) {
   }
 
   const featureName = (cf) => (cf.feature?.name ? sentenceCase(cf.feature.name) : `Особенность #${cf.feature_id}`)
+
+  // Эффекты выданной особенности приходят не в том же виде, что у каталожной
+  // FeatureResponse: плоские списки лежат в cf.effects (без единого именования
+  // ключей), плюс уже отвеченные выборы — в cf.choices.Бейдж «Даёт эффекты»
+  // просто проверяет, есть ли там хоть что-то непустое.
+  const hasGrantedEffects = (cf) => {
+    const flatHasAny = Object.values(cf.effects ?? {}).some((v) => Array.isArray(v) && v.length > 0)
+    const choicesHaveAny = (cf.choices ?? []).some((choice) =>
+      Object.entries(choice).some(
+        ([key, value]) => !key.startsWith('choice_') && Array.isArray(value) && value.length > 0,
+      ),
+    )
+    return flatHasAny || choicesHaveAny
+  }
+  const hasGrantedChoices = (cf) => (cf.choices ?? []).length > 0
 
   return (
     <Section title="Особенности">
@@ -1025,35 +1374,28 @@ function FeaturesSection({ character, onError, reload }) {
                   >
                     <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
                     <span className="truncate text-sm font-medium text-stone-100">{featureName(cf)}</span>
-                    {(cf.feature?.ability_effects ?? []).length > 0 ? (
-                      <span className="flex shrink-0 flex-wrap items-center gap-1">
-                        {(cf.feature?.ability_effects ?? []).map((ai, i) => (
-                          <span
-                            key={i}
-                            className="rounded border border-emerald-700/60 bg-emerald-900/30 px-1.5 py-0.5 text-[10px] text-emerald-200"
-                          >
-                            +{ai.amount} {abilityName(ai.ability)}
-                          </span>
-                        ))}
-                      </span>
-                    ) : (
-                      <span className="shrink-0 rounded border border-gold/40 px-1.5 py-0.5 text-[10px] text-gold-light">
-                        Особая
-                      </span>
+                    {hasGrantedEffects(cf) && (
+                      <Badge tone="good" className="shrink-0">
+                        Даёт эффекты
+                      </Badge>
+                    )}
+                    {hasGrantedChoices(cf) && (
+                      <Badge tone="violet" className="shrink-0">
+                        Выбор
+                      </Badge>
                     )}
                   </button>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Button type="button" size="xs" onClick={() => setNotesTarget(cf)}>
-                      Заметка
-                    </Button>
                     <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cf)}>
                       Убрать
                     </Button>
                   </div>
                 </div>
-                {open && (cf.feature?.description || cf.notes) && (
+                {open && (cf.feature?.description || cf.feature?.effects_summary || cf.notes) && (
                   <div className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400">
-                    {cf.feature?.description ? <RichText value={cf.feature.description} /> : null}
+                    {cf.feature?.description || cf.feature?.effects_summary ? (
+                      <RichText value={cf.feature?.description} tail={cf.feature?.effects_summary} />
+                    ) : null}
                     {cf.notes && (
                       <div className="mt-1.5 text-stone-500">
                         Заметка: <RichText value={cf.notes} className="inline" />
@@ -1069,18 +1411,9 @@ function FeaturesSection({ character, onError, reload }) {
 
       {featurePickerOpen && (
         <FeaturePickerModal
-          features={catalogFeatures}
           grantedIds={new Set(charFeatures.map((cf) => Number(cf.feature_id)))}
           onPick={grantFeature}
           onClose={() => setFeaturePickerOpen(false)}
-        />
-      )}
-      {notesTarget && (
-        <FeatureNotesModal
-          name={featureName(notesTarget)}
-          notes={notesTarget.notes}
-          onSave={saveFeatureNotes}
-          onClose={() => setNotesTarget(null)}
         />
       )}
       {removeTarget && (
@@ -1101,75 +1434,101 @@ function FeaturesSection({ character, onError, reload }) {
   )
 }
 
-function ItemEditModal({ title, subtitle, value, catalogItem, onSave, onClose }) {
-  const [edit, setEdit] = useState(() => ({
-    quantity: value?.quantity ?? 1,
-    is_equipped: Boolean(value?.is_equipped),
-    is_attuned: Boolean(value?.is_attuned),
-    notes: value?.notes ?? '',
-  }))
+// Дополнительные заклинания, выданные ГМ: выдаются/удаляются вне ячеек
+// (homebrew-бонус) через modalreuse SpellPickerModal из каталога.
+function GrantedSpellsSection({ character, onError, reload }) {
+  const queryClient = useQueryClient()
+  const { data: grantedSpells = [] } = useCharacterGrantedSpells(character.id)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState(null)
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.characters.spells(Number(character.id)) })
+    await reload()
+  }
+
+  const grantSpell = async (sp) => {
+    setPickerOpen(false)
+    try {
+      await charactersApi.gmPanel.spells.add(character.id, { spell_id: Number(sp.id) })
+      await invalidate()
+    } catch (e) {
+      onError(e)
+    }
+  }
+
+  const removeSpell = async (cs) => {
+    setRemoveTarget(null)
+    try {
+      await charactersApi.gmPanel.spells.remove(character.id, cs.id)
+      await invalidate()
+    } catch (e) {
+      onError(e)
+    }
+  }
 
   return (
-    <Modal
-      title={title}
-      subtitle={subtitle}
-      onClose={onClose}
-      size="md"
-      footer={
-        <>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Отмена
-          </Button>
-          <Button type="button" onClick={() => onSave(edit)}>
-            Сохранить
-          </Button>
-        </>
-      }
-    >
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Количество">
-          <Input
-            type="number"
-            min={0}
-            value={edit.quantity}
-            onChange={(e) => setEdit({ ...edit, quantity: Math.max(0, Number(e.target.value) || 0) })}
-            autoFocus
-          />
-        </Field>
-        <div className="flex flex-col justify-center gap-1.5">
-          <label className="flex cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-200">
-            <input
-              type="checkbox"
-              checked={edit.is_equipped}
-              onChange={(e) => setEdit({ ...edit, is_equipped: e.target.checked })}
-              className="size-4 accent-ember"
-            />
-            Экипировано
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-200">
-            <input
-              type="checkbox"
-              checked={edit.is_attuned}
-              onChange={(e) => setEdit({ ...edit, is_attuned: e.target.checked })}
-              className="size-4 accent-ember"
-            />
-            Настроено
-          </label>
-        </div>
+    <Section title="Дополнительные заклинания">
+      <div className="-mt-1 mb-3 flex items-center justify-between">
+        <p className="text-sm text-stone-400">Выдано ГМ: {grantedSpells.length}</p>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+        >
+          Добавить...
+        </button>
       </div>
-      <Field label="Заметка">
-        <RichTextEditor
-          rows={3}
-          value={edit.notes}
-          onChange={(e) => setEdit({ ...edit, notes: e.target.value })}
-          placeholder="Необязательно"
-          ariaLabel="Заметка"
-        />
-      </Field>
-      {catalogItem?.description && (
-        <RichText value={catalogItem.description} className="line-clamp-3 text-xs text-stone-500" />
+
+      {grantedSpells.length === 0 ? (
+        <p className="text-sm text-stone-500">Дополнительных заклинаний нет.</p>
+      ) : (
+        <ul className="space-y-2">
+          {grantedSpells.map((cs) => {
+            const sp = cs.spell || {}
+            return (
+              <li key={cs.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-stone-100">
+                    {sp.name ? sentenceCase(sp.name) : `Заклинание #${cs.spell_id}`}
+                  </p>
+                  {sp.school && (
+                    <span className="text-xs text-stone-500">{label(sp.school)}</span>
+                  )}
+                </div>
+                <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cs)}>
+                  Убрать
+                </Button>
+              </li>
+            )
+          })}
+        </ul>
       )}
-    </Modal>
+
+      {pickerOpen && (
+        <SpellPickerModal
+          excludeIds={grantedSpells.map((cs) => cs.spell_id)}
+          onPick={grantSpell}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+      {removeTarget && (
+        <ConfirmDialog
+          title="Убрать заклинание?"
+          message={
+            <>
+              Вы точно хотите убрать{' '}
+              <span className="font-semibold text-stone-100">
+                {removeTarget.spell?.name ? sentenceCase(removeTarget.spell.name) : `Заклинание #${removeTarget.spell_id}`}
+              </span>{' '}
+              у персонажа? Это действие необратимо.
+            </>
+          }
+          onCancel={() => setRemoveTarget(null)}
+          onConfirm={() => removeSpell(removeTarget)}
+        />
+      )}
+    </Section>
   )
 }
 
@@ -1200,46 +1559,16 @@ function ItemGrantModal({ catalogItem, onConfirm, onClose }) {
   )
 }
 
-const PICKER_PAGE_SIZE = 50
-
 function ItemsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: items = [] } = useCharacterItems(character.id)
   const [confirmTarget, setConfirmTarget] = useState(null)
-  const [editTarget, setEditTarget] = useState(null)
   const [infoItemId, setInfoItemId] = useState(null)
   const [addTarget, setAddTarget] = useState(null)
-
-  // Встроенная панель выдачи предметов: серверный поиск, фильтры и пагинация — как в справочнике.
-  const [queryInput, setQueryInput] = useState('')
-  const [appliedSearch, setAppliedSearch] = useState('')
-  const [filters, setFilters] = useState({})
-  const [showFilters, setShowFilters] = useState(false)
-  const [page, setPage] = useState(1)
-
-  const listParams = useMemo(() => {
-    const params = { page, size: PICKER_PAGE_SIZE }
-    if (appliedSearch.trim()) params.search = appliedSearch.trim()
-    if (Array.isArray(filters.item_type) && filters.item_type.length > 0) params.item_type = filters.item_type
-    if (Array.isArray(filters.rarity) && filters.rarity.length > 0) params.rarity = filters.rarity
-    return params
-  }, [page, appliedSearch, filters])
-
-  const listQ = useCatalogPage('items', listParams)
-  const pageItems = listQ.data?.items ?? []
-  const total = listQ.data?.total ?? 0
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [qtyEdits, setQtyEdits] = useState({})
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.items(Number(character.id)) })
-
-  const applySearch = () => {
-    setAppliedSearch(queryInput)
-    setPage(1)
-  }
-
-  const applyFilters = (next) => {
-    setFilters(next)
-    setPage(1)
-  }
 
   // Каждый POST создаёт новый стек — даже если такой предмет уже есть у персонажа.
   const addItem = async (catalogItem, qty) => {
@@ -1255,15 +1584,20 @@ function ItemsSection({ character, onError, reload }) {
     }
   }
 
-  const saveEdit = async (ci, form) => {
-    setEditTarget(null)
+  const quantityDraft = (ci) => qtyEdits[ci.id] ?? String(ci.quantity)
+  const setQuantityDraft = (ci, v) => setQtyEdits((m) => ({ ...m, [ci.id]: v }))
+  const commitQuantity = async (ci) => {
+    const draft = qtyEdits[ci.id]
+    if (draft == null) return
+    const next = Math.max(1, Number(draft) || 1)
+    setQtyEdits((m) => {
+      const rest = { ...m }
+      delete rest[ci.id]
+      return rest
+    })
+    if (next === ci.quantity) return
     try {
-      await charactersApi.gmPanel.items.update(character.id, ci.id, {
-        quantity: form.quantity,
-        is_equipped: form.is_equipped,
-        is_attuned: form.is_attuned,
-        notes: form.notes,
-      })
+      await charactersApi.gmPanel.items.update(character.id, ci.id, { quantity: next })
       await invalidate()
       await reload()
     } catch (e) {
@@ -1283,145 +1617,65 @@ function ItemsSection({ character, onError, reload }) {
 
   return (
     <Section title="Снаряжение персонажа">
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Левая колонка: выдача предметов */}
-        <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">Выдать предмет</p>
-          <div className="mb-2 flex gap-2">
-            <Input
-              value={queryInput}
-              onChange={(e) => setQueryInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-              placeholder="Поиск: имя, описание..."
-            />
-            <button
-              type="button"
-              onClick={applySearch}
-              className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
-              title="Искать на сервере"
-            >
-              ⌕
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowFilters(true)}
-              className={`shrink-0 rounded border px-3 py-2.5 text-sm font-medium transition ${
-                Object.keys(filters).length > 0
-                  ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
-                  : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
-              }`}
-            >
-              Фильтр
-            </button>
-          </div>
-
-          {listQ.error && <ErrorBox error={listQ.error} onRetry={() => listQ.refetch()} />}
-          {!listQ.data && !listQ.error && (
-            <div className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1" aria-busy="true">
-              {Array.from({ length: 8 }, (_, i) => (
-                <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3.5 w-1/2" />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div id="gm-item-picker-list" className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
-            {pageItems.length === 0 ? (
-              <p className="text-sm text-stone-500">Предметов не найдено.</p>
-            ) : (
-              pageItems.map((it) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  onClick={() => setAddTarget(it)}
-                  disabled={!listQ.data}
-                  className="w-full rounded-lg border border-stone-700/60 bg-stone-900/60 p-3 text-left transition hover:border-ember/50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <p className="text-sm font-medium text-stone-100">{sentenceCase(it.name)}</p>
-                  <p className="mt-0.5 text-xs text-stone-500">
-                    {[it.item_type ? label(it.item_type) : null, it.rarity && it.rarity !== 'NONE' ? label(it.rarity) : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                </button>
-              ))
-            )}
-          </div>
-          <Pagination
-            page={page}
-            total={total}
-            size={PICKER_PAGE_SIZE}
-            onPage={(p) => {
-              setPage(p)
-              document.getElementById('gm-item-picker-list')?.scrollIntoView({ block: 'start' })
-            }}
-          />
-        </section>
-
-        {/* Правая колонка: инвентарь персонажа */}
-        <section>
-          <div className="-mt-1 mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">
-              Инвентарь ({items.length})
-            </p>
-          </div>
-
-          {items.length === 0 ? (
-            <p className="text-sm text-stone-500">Снаряжения пока нет.</p>
-          ) : (
-            <ul className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
-              {items.map((ci) => {
-                return (
-                  <li key={ci.id} className="flex items-center gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setInfoItemId(ci.item_id)}
-                      className="link-ember min-w-0 flex-1 truncate text-left font-display text-sm font-bold"
-                      title="Показать предмет"
-                    >
-                      {ci.item?.name ? sentenceCase(ci.item.name) : `Предмет #${ci.item_id}`}
-                      <span className="ml-2 font-sans text-xs font-normal tabular-nums text-stone-400">× {ci.quantity}</span>
-                    </button>
-                    {(ci.is_equipped || ci.is_attuned) && (
-                      <span className="hidden shrink-0 items-center gap-1.5 sm:flex">
-                        {ci.is_equipped && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Экип.</span>}
-                        {ci.is_attuned && <span className="sheet-chip sheet-chip_on !py-0.5 text-[11px]"><span className="sheet-chip__dot" />Настр.</span>}
-                      </span>
-                    )}
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button type="button" size="xs" onClick={() => setEditTarget(ci)}>
-                        Изменить
-                      </Button>
-                      <Button type="button" variant="danger" size="xs" onClick={() => setConfirmTarget(ci)}>
-                        Убрать
-                      </Button>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </section>
+      <div className="-mt-1 mb-3 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">
+          Инвентарь ({items.length})
+        </p>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+        >
+          + Выдать предмет
+        </button>
       </div>
 
-      {showFilters && (
-        <FilterModal
-          filters={ITEM_FILTERS}
-          value={filters}
-          onChange={applyFilters}
-          onClose={() => setShowFilters(false)}
-        />
+      {items.length === 0 ? (
+        <p className="text-sm text-stone-500">Снаряжения пока нет.</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((ci) => {
+            return (
+              <li key={ci.id} className="flex items-center gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => setInfoItemId(ci.item_id)}
+                  className="link-ember min-w-0 flex-1 truncate text-left font-display text-sm font-bold"
+                  title="Показать предмет"
+                >
+                  {ci.item?.name ? sentenceCase(ci.item.name) : `Предмет #${ci.item_id}`}
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  value={quantityDraft(ci)}
+                  onChange={(e) => setQuantityDraft(ci, e.target.value)}
+                  onBlur={() => commitQuantity(ci)}
+                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                  title="Количество"
+                  className="h-[40px] w-24 shrink-0 rounded border border-stone-700 bg-stone-800/70 px-1 text-center text-sm text-stone-100 outline-none focus:border-ember"
+                />
+                <button
+                  type="button"
+                  onClick={() => setConfirmTarget(ci)}
+                  className="inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                  title="Убрать"
+                >
+                  <TrashIcon />
+                </button>
+              </li>
+            )
+          })}
+        </ul>
       )}
 
-      {editTarget && (
-        <ItemEditModal
-          title={`Изменить: ${editTarget.item?.name ? sentenceCase(editTarget.item.name) : `Предмет #${editTarget.item_id}`}`}
-          value={editTarget}
-          catalogItem={editTarget.item}
-          onSave={(form) => saveEdit(editTarget, form)}
-          onClose={() => setEditTarget(null)}
+      {pickerOpen && (
+        <ItemPickerModal
+          title="Выдать предмет"
+          subtitle="Поиск и выбор предмета"
+          excludeIds={new Set()}
+          onPick={(it) => setAddTarget(it)}
+          onClose={() => setPickerOpen(false)}
         />
       )}
 
@@ -1466,10 +1720,12 @@ function ItemsSection({ character, onError, reload }) {
 
 export default function GmCharacterPanel({ character, onError, reload }) {
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-[45fr_55fr]">
       <div className="min-w-0 space-y-4">
         <LevelSection character={character} onError={onError} reload={reload} />
         <HpSection character={character} onError={onError} reload={reload} />
+        <ArmorProficienciesSection character={character} onError={onError} reload={reload} />
+        <WeaponProficienciesSection character={character} onError={onError} reload={reload} />
       </div>
       <div className="min-w-0">
         <ExpertiseSection character={character} onError={onError} reload={reload} />
@@ -1479,6 +1735,9 @@ export default function GmCharacterPanel({ character, onError, reload }) {
       </div>
       <div className="lg:col-span-2">
         <FeaturesSection character={character} onError={onError} reload={reload} />
+      </div>
+      <div className="lg:col-span-2">
+        <GrantedSpellsSection character={character} onError={onError} reload={reload} />
       </div>
       <div className="lg:col-span-2">
         <StatsSection character={character} onError={onError} reload={reload} />

@@ -4,14 +4,20 @@ import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { Section, FeatureCards } from './detailHelpers.jsx'
 
 export default function FeatDetailCard({ item }) {
-  const prerequisite =
-    item.prerequisite_ability || item.prerequisite_minimum_score != null
-      ? `${item.prerequisite_ability ? `${abilityLabels[item.prerequisite_ability] ?? label(item.prerequisite_ability)}` : ''}${
-          item.prerequisite_minimum_score != null && item.prerequisite_minimum_score !== ''
-            ? ` ${item.prerequisite_minimum_score}`
-            : ''
-        }`.trim()
-      : null
+  // Требования собираются целиком: требуемая характеристика с её порогом и
+  // минимальный уровень черты (например: «Ловкость 1, ур. 3»).
+  const prereqParts = []
+  if (item.prerequisite_ability || item.prerequisite_minimum_score != null) {
+    prereqParts.push(
+      `${item.prerequisite_ability ? `${abilityLabels[item.prerequisite_ability] ?? label(item.prerequisite_ability)}` : ''}${
+        item.prerequisite_minimum_score != null && item.prerequisite_minimum_score !== ''
+          ? ` ${item.prerequisite_minimum_score}`
+          : ''
+      }`.trim(),
+    )
+  }
+  if (item.min_level != null && item.min_level !== '') prereqParts.push(`ур. ${item.min_level}`)
+  const prerequisite = prereqParts.length > 0 ? prereqParts.join(', ') : null
 
   const increases = item.ability_score_increases ?? []
 

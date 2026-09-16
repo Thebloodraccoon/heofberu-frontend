@@ -117,6 +117,9 @@ export function summaryBadges(item, resource) {
       tone: 'accent',
     })
   }
+  if (item.min_level != null && item.min_level !== '') {
+    badges.push({ text: `ур. ${item.min_level}`, tone: 'accent' })
+  }
   if (resource === 'features' || resource === 'feats') {
     // Ровно два бейджа у названия — «Даёт эффекты» и «Выбор» — по флагам
     // has_static_effects/has_choices, которые бэк считает для любой карточки

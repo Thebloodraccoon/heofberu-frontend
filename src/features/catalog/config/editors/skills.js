@@ -6,20 +6,18 @@ export const skillsCfg = {
   singular: 'навык',
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Акробатика', full: true },
-    { key: 'key', label: 'Ключ (key)', type: 'text', required: true, placeholder: 'Например, acrobatics' },
     { key: 'ability', label: 'Характеристика', type: 'select', options: opt(abilityLabels) },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [],
-  emptyForm: () => ({ name: '', key: '', ability: 'STR', description: '' }),
+  emptyForm: () => ({ name: '', ability: 'STR', description: '' }),
   fromRecord: (r) => ({
     name: r.name,
-    key: r.key,
     ability: r.ability,
     description: r.description ?? '',
   }),
   submitFields: async (form, rec) => {
-    const base = { name: form.name, key: form.key, ability: form.ability, description: form.description }
+    const base = { name: form.name, ability: form.ability, description: form.description }
     if (rec) await api.skills.update(rec.id, base)
     else await api.skills.create(base)
   },
