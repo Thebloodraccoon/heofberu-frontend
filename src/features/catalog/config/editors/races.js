@@ -67,16 +67,30 @@ export const racesCfg = {
       speed: toNumDefault(form.speed, 30),
       description: form.description,
     }
-    if (rec) {
-      await api.races.update(rec.id, base)
-      await api.races.abilityBonuses(rec.id, { ability_bonuses: form.ability_bonuses })
-      await api.races.skills(rec.id, { skill_ids: form.skill_ids })
-    } else {
+    if (!rec) {
       return api.races.create({
         ...base,
         ability_bonuses: form.ability_bonuses,
         granted_skills: form.skill_ids,
       })
+    }
+    // Диффим по секциям, чтобы автосейв не слал лишних запросов, когда меняется
+    // только один блок (напр., только навыки, а база и бонусы не трогались).
+    const baseChanged =
+      base.name !== rec.name ||
+      base.size !== rec.size ||
+      base.speed !== Number(rec.speed) ||
+      base.description !== (rec.description ?? '')
+    if (baseChanged) await api.races.update(rec.id, base)
+    const normBonuses = (rows = []) =>
+      rows.map((b) => ({ ability: b.ability, bonus: Number(b.bonus) })).sort((a, b) => a.ability.localeCompare(b.ability))
+    if (JSON.stringify(normBonuses(form.ability_bonuses)) !== JSON.stringify(normBonuses(rec.ability_bonuses))) {
+      await api.races.abilityBonuses(rec.id, { ability_bonuses: form.ability_bonuses })
+    }
+    const prevSkillIds = (rec.granted_skills ?? []).map((s) => Number(s.id)).sort()
+    const nextSkillIds = form.skill_ids.map(Number).sort()
+    if (JSON.stringify(prevSkillIds) !== JSON.stringify(nextSkillIds)) {
+      await api.races.skills(rec.id, { skill_ids: form.skill_ids })
     }
   },
   listBadges: (item) =>

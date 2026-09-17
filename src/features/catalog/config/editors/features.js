@@ -40,16 +40,31 @@ export const featuresCfg = {
       description: form.description,
     }
     const effects = form.effects ?? { ability_effects: [] }
-    if (rec) {
-      await api.features.update(rec.id, base)
-      await api.features.effects.set(rec.id, buildFixedEffectsPayload(effects))
-      await api.features.choiceGroups.set(rec.id, buildChoiceGroupsPayload(effects))
-      return rec
+    if (!rec) {
+      const created = await api.features.create(base)
+      await api.features.effects.set(created.id, buildFixedEffectsPayload(effects))
+      await api.features.choiceGroups.set(created.id, buildChoiceGroupsPayload(effects))
+      return created
     }
-    const created = await api.features.create(base)
-    await api.features.effects.set(created.id, buildFixedEffectsPayload(effects))
-    await api.features.choiceGroups.set(created.id, buildChoiceGroupsPayload(effects))
-    return created
+    // Диффим по секциям: PATCH базы летит только при изменении полей, а тяжёлые
+    // PUT эффектов/групп — только когда реально изменилось само дерево.
+    const prevForm = featuresCfg.fromRecord(rec)
+    const prevBase = {
+      name: prevForm.name,
+      level: toNum(prevForm.level),
+      description: prevForm.description,
+    }
+    const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+    if (!eq(base, prevBase)) {
+      await api.features.update(rec.id, base)
+    }
+    if (!eq(buildFixedEffectsPayload(effects), buildFixedEffectsPayload(prevForm.effects))) {
+      await api.features.effects.set(rec.id, buildFixedEffectsPayload(effects))
+    }
+    if (!eq(buildChoiceGroupsPayload(effects), buildChoiceGroupsPayload(prevForm.effects))) {
+      await api.features.choiceGroups.set(rec.id, buildChoiceGroupsPayload(effects))
+    }
+    return rec
   },
   listBadges: (item) => [
     item.level != null ? { text: `${item.level}-й уровень`, tone: 'accent' } : null,

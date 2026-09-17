@@ -40,6 +40,9 @@ export const backgroundsCfg = {
       groupKey: 'suggestion_type',
       textKey: 'text',
       groups: suggestionGroups,
+      // Позволяет сохранять одну правку сразу по галочке "Готово",
+      // не дожидаясь общего автосейва формы.
+      ops: api.backgrounds.suggestions,
     },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки предыстории', empty: 'Навыков в справочнике нет' },
   ],
@@ -55,6 +58,7 @@ export const backgroundsCfg = {
     starting_gold: toStr(r.starting_gold),
     description: r.description ?? '',
     suggestions: (r.suggestions ?? []).map((s) => ({
+      id: s.id,
       suggestion_type: s.suggestion_type,
       text: s.text,
     })),
@@ -67,15 +71,55 @@ export const backgroundsCfg = {
       description: form.description,
     }
     const suggestions = form.suggestions.map((s) => ({ ...s, text: s.text?.trim() ? s.text : '-' }))
-    if (rec) {
-      await api.backgrounds.update(rec.id, base)
-      await api.backgrounds.skills(rec.id, { skill_ids: form.skill_ids })
-      await api.backgrounds.suggestions.set(rec.id, { suggestions })
-    } else {
+    if (!rec) {
       const created = await api.backgrounds.create(base)
       await api.backgrounds.skills(created.id, { skill_ids: form.skill_ids })
-      await api.backgrounds.suggestions.set(created.id, { suggestions })
+      for (const s of suggestions) {
+        await api.backgrounds.suggestions.create(created.id, {
+          suggestion_type: s.suggestion_type,
+          text: s.text,
+        })
+      }
       return created
+    }
+    // Бэк теперь принимает саджесты поштучно (POST/PATCH/DELETE), а PUT-full-replace
+    // снят. Диффим каждую секцию, чтобы автосейв не слал лишних запросов, когда
+    // меняется только один блок (напр., только навыки).
+    const prevGold = rec.starting_gold == null ? null : Number(rec.starting_gold)
+    const baseChanged =
+      base.name !== rec.name ||
+      base.starting_gold !== prevGold ||
+      base.description !== (rec.description ?? '')
+    if (baseChanged) await api.backgrounds.update(rec.id, base)
+    const prevSkillIds = (rec.granted_skills ?? []).map((s) => Number(s.id)).sort()
+    const nextSkillIds = form.skill_ids.map(Number).sort()
+    if (JSON.stringify(prevSkillIds) !== JSON.stringify(nextSkillIds)) {
+      await api.backgrounds.skills(rec.id, { skill_ids: form.skill_ids })
+    }
+    const prevSugs = rec.suggestions ?? []
+    const prevById = new Map(prevSugs.map((s) => [String(s.id), s]))
+    const keepIds = new Set()
+    for (const s of suggestions) {
+      const prev = s.id != null ? prevById.get(String(s.id)) : null
+      if (prev) {
+        keepIds.add(String(s.id))
+        if (prev.suggestion_type !== s.suggestion_type || (prev.text ?? '') !== s.text) {
+          await api.backgrounds.suggestions.update(rec.id, s.id, {
+            suggestion_type: s.suggestion_type,
+            text: s.text,
+          })
+        }
+      } else {
+        await api.backgrounds.suggestions.create(rec.id, {
+          suggestion_type: s.suggestion_type,
+          text: s.text,
+        })
+      }
+    }
+    for (const prev of prevSugs) {
+      if (!keepIds.has(String(prev.id))) {
+        await api.backgrounds.suggestions.remove(rec.id, prev.id)
+      }
     }
   },
   listBadges: () => [],

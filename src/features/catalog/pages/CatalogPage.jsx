@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { catalogApi as api } from '@/features/catalog/api.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
 import { toPlainText } from '@/lib/utils/richText.js'
 import { catalog, PAGE_SIZE } from '../catalog.js'
@@ -15,38 +14,7 @@ import { summaryBadges } from '@/features/catalog/components/browse/detail/detai
 
 async function fetchDetail(resource, selectedId) {
   const cfg = catalog[resource]
-  const data = await cfg.api.get(selectedId)
-  // FeatureResponse уже содержит ability_effects — отдельный запрос не нужен.
-  let withFeatures = data
-  if (resource === 'classes') {
-    try {
-      const subs = withFeatures.subclasses ?? []
-      const withSubFeatures = await Promise.all(
-        subs.map(async (sub) => {
-          const detail = await api.classes.subclasses.get(selectedId, sub.id)
-          return { ...sub, ...detail }
-        })
-      )
-      withFeatures = { ...withFeatures, subclasses: withSubFeatures }
-    } catch {
-      /* не критично для просмотра */
-    }
-  }
-  if (resource === 'races') {
-    try {
-      const subs = withFeatures.subraces ?? []
-      const withSubFeatures = await Promise.all(
-        subs.map(async (sub) => {
-          const detail = await api.races.subraces.get(selectedId, sub.id)
-          return { ...sub, ...detail }
-        })
-      )
-      withFeatures = { ...withFeatures, subraces: withSubFeatures }
-    } catch {
-      /* не критично для просмотра */
-    }
-  }
-  return withFeatures
+  return cfg.api.get(selectedId)
 }
 
 export function CatalogListPage() {

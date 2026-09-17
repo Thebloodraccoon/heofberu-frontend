@@ -19,6 +19,46 @@ const hasDamage = (f) =>
 const hasHeal = (f) =>
   Boolean(f.healing_target || f.healing_dice_type || toNum(f.healing_dice_count) > 0)
 
+const buildSpellBase = (f) => {
+  const base = {
+    name: f.name,
+    level: f.level,
+    school: f.school,
+    cast_time: f.cast_time,
+    range_type: f.range_type,
+    range_value: toNum(f.range_value),
+    duration: f.duration,
+    is_concentration: f.is_concentration,
+    is_ritual: f.is_ritual,
+    is_material_consumed: f.is_material_consumed,
+    material: f.material,
+    attack_type: f.attack_type || null,
+    save_stat: f.save_stat || null,
+    damage_type: f.damage_type || null,
+    damage_dice_count: toNum(f.damage_dice_count),
+    damage_dice_type: f.damage_dice_type || null,
+    healing_target: f.healing_target || null,
+    healing_dice_count: toNum(f.healing_dice_count),
+    healing_dice_type: f.healing_dice_type || null,
+    description: f.description,
+    higher_levels: f.higher_levels,
+    components: f.components,
+  }
+  if (hasHeal(f)) {
+    base.attack_type = null
+    base.save_stat = null
+    base.damage_type = null
+    base.damage_dice_count = 0
+    base.damage_dice_type = null
+  }
+  if (hasDamage(f)) {
+    base.healing_target = null
+    base.healing_dice_count = 0
+    base.healing_dice_type = null
+  }
+  return base
+}
+
 export const spellsCfg = {
   singular: 'заклинание',
   fields: [
@@ -108,49 +148,8 @@ export const spellsCfg = {
     subrace_ids: (r.available_subraces ?? []).map((x) => x.id),
   }),
   submitFields: async (form, rec) => {
-    const base = {
-      name: form.name,
-      level: form.level,
-      school: form.school,
-      cast_time: form.cast_time,
-      range_type: form.range_type,
-      range_value: toNum(form.range_value),
-      duration: form.duration,
-      is_concentration: form.is_concentration,
-      is_ritual: form.is_ritual,
-      is_material_consumed: form.is_material_consumed,
-      material: form.material,
-      attack_type: form.attack_type || null,
-      save_stat: form.save_stat || null,
-      damage_type: form.damage_type || null,
-      damage_dice_count: toNum(form.damage_dice_count),
-      damage_dice_type: form.damage_dice_type || null,
-      healing_target: form.healing_target || null,
-      healing_dice_count: toNum(form.healing_dice_count),
-      healing_dice_type: form.healing_dice_type || null,
-      description: form.description,
-      higher_levels: form.higher_levels,
-      components: form.components,
-    }
-    if (hasHeal(form)) {
-      base.attack_type = null
-      base.save_stat = null
-      base.damage_type = null
-      base.damage_dice_count = 0
-      base.damage_dice_type = null
-    }
-    if (hasDamage(form)) {
-      base.healing_target = null
-      base.healing_dice_count = 0
-      base.healing_dice_type = null
-    }
-    if (rec) {
-      await api.spells.update(rec.id, base)
-      await api.spells.classes(rec.id, { class_ids: form.class_ids })
-      await api.spells.subclasses(rec.id, { subclass_ids: form.subclass_ids })
-      await api.spells.races(rec.id, { race_ids: form.race_ids })
-      await api.spells.subraces(rec.id, { subrace_ids: form.subrace_ids })
-    } else {
+    const base = buildSpellBase(form)
+    if (!rec) {
       await api.spells.create({
         ...base,
         available_classes: form.class_ids,
@@ -158,7 +157,22 @@ export const spellsCfg = {
         available_races: form.race_ids,
         available_subraces: form.subrace_ids,
       })
+      return
     }
+    // Диффим по секциям, чтобы автосейв не слал лишних запросов при правке
+    // одного блока (напр., только класса) — PATCH базы и остальные PUT улетают
+    // только если соответствующая секция реально изменилась.
+    const prevForm = spellsCfg.fromRecord(rec)
+    const normIds = (arr) => arr.map(Number).sort()
+    const idsChanged = (key) =>
+      JSON.stringify(normIds(form[key])) !== JSON.stringify(normIds(prevForm[key]))
+    if (JSON.stringify(base) !== JSON.stringify(buildSpellBase(prevForm))) {
+      await api.spells.update(rec.id, base)
+    }
+    if (idsChanged('class_ids')) await api.spells.classes(rec.id, { class_ids: form.class_ids })
+    if (idsChanged('subclass_ids')) await api.spells.subclasses(rec.id, { subclass_ids: form.subclass_ids })
+    if (idsChanged('race_ids')) await api.spells.races(rec.id, { race_ids: form.race_ids })
+    if (idsChanged('subrace_ids')) await api.spells.subraces(rec.id, { subrace_ids: form.subrace_ids })
   },
   listBadges: (item) =>
     [

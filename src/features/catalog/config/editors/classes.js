@@ -96,8 +96,25 @@ export const classesCfg = {
       weapon_proficiencies: form.weapon_proficiencies,
     }
     if (rec) {
-      await api.classes.update(rec.id, base)
-      await api.classes.availableSkills(rec.id, { skill_ids: form.skill_ids })
+      const norm = (arr) => [...(arr ?? [])].map(String).sort()
+      const baseChanged =
+        base.name !== rec.name ||
+        base.hit_dice !== rec.hit_dice ||
+        base.skill_choice_count !== Number(rec.skill_choice_count ?? 2) ||
+        base.spellcasting_ability !== (rec.spellcasting_ability || null) ||
+        base.description !== (rec.description ?? '') ||
+        JSON.stringify(norm(form.saving_throws)) !==
+          JSON.stringify(norm((rec.saving_throws ?? []).map((x) => x.ability))) ||
+        JSON.stringify(norm(form.armor_proficiencies)) !==
+          JSON.stringify(norm((rec.armor_proficiencies ?? []).map((x) => x.armor_type))) ||
+        JSON.stringify(norm(form.weapon_proficiencies)) !==
+          JSON.stringify(norm((rec.weapon_proficiencies ?? []).map((x) => x.weapon_category)))
+      if (baseChanged) await api.classes.update(rec.id, base)
+      const prevSkillIds = (rec.available_skills ?? []).map((s) => Number(s.id)).sort()
+      const nextSkillIds = form.skill_ids.map(Number).sort()
+      if (JSON.stringify(prevSkillIds) !== JSON.stringify(nextSkillIds)) {
+        await api.classes.availableSkills(rec.id, { skill_ids: form.skill_ids })
+      }
       const slotsForm = form.spellcasting_ability ? form : { ...form, spell_slots: {} }
       await saveSpellSlots(slotsForm, rec, rec.spell_slot_progression)
       return rec

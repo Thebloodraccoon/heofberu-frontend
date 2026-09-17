@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Input, RichText, RichTextEditor, RichTextField, Select, TextField } from '@/components/ui'
 
 export function PencilIcon({ className = 'h-4 w-4' }) {
@@ -22,8 +23,51 @@ export function TrashIcon({ className = 'h-4 w-4' }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M3 6h18" />
       <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      <path d="M8 6V4c0-1 1-2 2-2h2c1 0 2 1 2 2v2" />
     </svg>
+  )
+}
+
+// Числовое поле с коммитом по потере фокуса (или Enter): пока GM вводит
+// многозначное число (например «15»), значение копится только в локальном
+// черновике и в форму не уходит — иначе общий автосейв успел бы сохранить «1»
+// ещё до ввода «5». Внешние изменения формы (открытие другой записи, ответ
+// автосейва) подтягиваются, только когда поле не в фокусе, чтобы не затирать
+// черновик во время ввода.
+export function BlurNumberInput({ value, onChange, min, max, placeholder, className = '' }) {
+  const [draft, setDraft] = useState(() => String(value ?? ''))
+  const draftRef = useRef(draft)
+  const focusedRef = useRef(false)
+
+  useEffect(() => {
+    draftRef.current = draft
+  }, [draft])
+
+  useEffect(() => {
+    if (!focusedRef.current) setDraft(String(value ?? ''))
+  }, [value])
+
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      placeholder={placeholder}
+      className={className}
+      value={draft}
+      onFocus={() => {
+        focusedRef.current = true
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        focusedRef.current = false
+        const next = draftRef.current
+        if (next !== String(value ?? '')) onChange?.(next)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+      }}
+    />
   )
 }
 
@@ -123,7 +167,7 @@ export default function EditorFieldControl({ field, value, onChange, onSaveField
     )
   }
   if (field.type === 'number') {
-    return <Input type="number" min={field.min} max={field.max} value={value} onChange={onChange} />
+    return <BlurNumberInput min={field.min} max={field.max} value={value} onChange={onChange} className="input-base" />
   }
   if (field.type === 'select') {
     return (

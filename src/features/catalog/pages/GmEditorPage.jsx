@@ -6,7 +6,7 @@ import FeatureModal from '@/features/catalog/components/editor/FeaturesModal.jsx
 import FeatureEffectsEditor from '@/features/catalog/components/editor/FeatureEffectsEditor.jsx'
 import SubclassEditor from '@/features/catalog/components/editor/SubclassEditor.jsx'
 import SubraceEditor from '@/features/catalog/components/editor/SubraceEditor.jsx'
-import EditorFieldControl, { CheckIcon, PencilIcon, SectionTitle, TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
+import EditorFieldControl, { BlurNumberInput, CheckIcon, PencilIcon, SectionTitle, TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
@@ -56,7 +56,7 @@ export default function GmEditorPage() {
   const [imageBusy, setImageBusy] = useState(false)
   const [imageError, setImageError] = useState(null)
 
-  const [fieldSaving, setFieldSaving] = useState(false)
+  const [, setFieldSaving] = useState(false)
   const [fieldError, setFieldError] = useState(null)
 
   const { push: pushStatus } = useToasts()
@@ -512,6 +512,50 @@ export default function GmEditorPage() {
       else next.add(id)
       return next
     })
+  const setGroupedRowText = (key, i, colKey, v) => {
+    // Правки саджеста не должны улетать через общий автосейв формы —
+    // патч уходит явно по галочке "Готово" (finishGroupedRowEdit).
+    skipNextAutoSaveRef.current = true
+    setRow(key, i, colKey, v)
+  }
+  const finishGroupedRowEdit = async (section, i) => {
+    toggleGroupedRowEdit(section.key, i)
+    if (!editingRef.current || !section.ops) return
+    const row = (formRef.current?.[section.key] ?? [])[i]
+    if (!row) return
+    const text = row[section.textKey]?.trim() ? row[section.textKey] : '-'
+    const payload = { [section.groupKey]: row[section.groupKey], [section.textKey]: text }
+    try {
+      let newId = row.id
+      if (newId == null) {
+        const created = await section.ops.create(editingRef.current.id, payload)
+        newId = created.id
+      } else {
+        await section.ops.update(editingRef.current.id, newId, payload)
+      }
+      skipNextAutoSaveRef.current = true
+      setForm((f) => ({
+        ...f,
+        [section.key]: (f[section.key] ?? []).map((r, idx) =>
+          idx === i ? { ...r, id: newId, [section.textKey]: text } : r,
+        ),
+      }))
+      // Держим rec[section.key] в синхроне, иначе следующий общий автосейв
+      // (после правки другого поля) увидит "расхождение" и продублирует патч.
+      setEditing((rec) => {
+        if (!rec) return rec
+        const prevList = rec[section.key] ?? []
+        const exists = prevList.some((s) => String(s.id) === String(newId))
+        const nextEntry = { ...payload, id: newId }
+        const nextList = exists
+          ? prevList.map((s) => (String(s.id) === String(newId) ? nextEntry : s))
+          : [...prevList, nextEntry]
+        return { ...rec, [section.key]: nextList }
+      })
+    } catch (err) {
+      setFieldError(err)
+    }
+  }
   const setSpellSlot = (key, classLevel, spellLevel, v) =>
     setForm((f) => {
       const slots = { ...(f[key]?.[classLevel] ?? {}) }
@@ -1044,23 +1088,21 @@ export default function GmEditorPage() {
                                           {classLevel}
                                         </td>
                                         <td className="border border-stone-700 p-1">
-                                          <input
-                                            type="number"
+                                          <BlurNumberInput
                                             min={0}
                                             max={9}
                                             value={row.CANTRIP ?? ''}
-                                            onChange={(e) => setSpellSlot(section.key, classLevel, 'CANTRIP', e.target.value)}
+                                            onChange={(v) => setSpellSlot(section.key, classLevel, 'CANTRIP', v)}
                                             className="w-full rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
                                           />
                                         </td>
-                                        {SPELL_LEVEL_KEYS.slice(1).map((spellLevel) => (
+                                          {SPELL_LEVEL_KEYS.slice(1).map((spellLevel) => (
                                           <td key={spellLevel} className="border border-stone-700 p-1">
-                                            <input
-                                              type="number"
+                                            <BlurNumberInput
                                               min={0}
                                               max={9}
                                               value={row[spellLevel] ?? ''}
-                                              onChange={(e) => setSpellSlot(section.key, classLevel, spellLevel, e.target.value)}
+                                              onChange={(v) => setSpellSlot(section.key, classLevel, spellLevel, v)}
                                               className="w-full rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
                                             />
                                           </td>
@@ -1132,23 +1174,22 @@ if (section.type === 'effectsTree') {
                             const entries = rows
                               .map((row, idx) => ({ row, idx }))
                               .filter(({ row }) => row[section.groupKey] === group.value)
+                              .sort((a, b) => (a.row.id ?? Infinity) - (b.row.id ?? Infinity))
                             return (
                               <div key={group.value}>
                                 <SectionTitle
                                   button={
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        const newIdx = rows.length
-                                        setForm((f) => ({
-                                          ...f,
-                                          [section.key]: [
-                                            ...(f[section.key] ?? []),
-                                            { [section.groupKey]: group.value, [section.textKey]: '' },
-                                          ],
-                                        }))
-                                        setEditingGroupedRows((prev) => new Set(prev).add(`${section.key}:${newIdx}`))
-                                      }}
+onClick={() => {
+                                          setForm((f) => ({
+                                            ...f,
+                                            [section.key]: [
+                                              ...(f[section.key] ?? []),
+                                              { [section.groupKey]: group.value, [section.textKey]: '' },
+                                            ],
+                                          }))
+                                        }}
                                       className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
                                     >
                                       {section.addLabel}
@@ -1174,7 +1215,7 @@ if (section.type === 'effectsTree') {
                                         {editing ? (
                                           <RichTextEditor
                                             value={row[section.textKey] ?? ''}
-                                            onChange={(e) => setRow(section.key, idx, section.textKey, e.target.value)}
+                                            onChange={(e) => setGroupedRowText(section.key, idx, section.textKey, e.target.value)}
                                             rows={2}
                                             className="min-h-0 flex-1"
                                           />
@@ -1188,7 +1229,7 @@ if (section.type === 'effectsTree') {
                                           {editing ? (
                                             <button
                                               type="button"
-                                              onClick={() => toggleGroupedRowEdit(section.key, idx)}
+                                              onClick={() => finishGroupedRowEdit(section, idx)}
                                               className="my-[5px] inline-flex h-[32px] w-[32px] items-center justify-center rounded border border-ember/60 bg-ember/20 text-ember transition hover:bg-ember/30"
                                               title="Готово"
                                             >
@@ -1306,12 +1347,11 @@ if (section.type === 'effectsTree') {
                                       )
                                     }
                                     return (
-                                      <Input
-                                        type="number"
+                                      <BlurNumberInput
                                         min={col.min}
                                         max={col.max}
                                         value={row[col.key] ?? ''}
-                                        onChange={(e) => setRow(section.key, i, col.key, Number(e.target.value))}
+                                        onChange={(v) => setRow(section.key, i, col.key, Number(v))}
                                         className={section.fixedWidths ? 'w-full' : `w-24 ${col.width ?? ''}`}
                                       />
                                     )

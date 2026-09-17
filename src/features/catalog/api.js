@@ -147,7 +147,11 @@ export const catalogApi = {
     },
     suggestions: {
       list: (id) => request(`/api/backgrounds/${id}/suggestions`),
-      set: (id, body) => request(`/api/backgrounds/${id}/suggestions`, { method: 'PUT', body }),
+      create: (id, body) => request(`/api/backgrounds/${id}/suggestions`, { method: 'POST', body }),
+      update: (id, suggestionId, body) =>
+        request(`/api/backgrounds/${id}/suggestions/${suggestionId}`, { method: 'PATCH', body }),
+      remove: (id, suggestionId) =>
+        request(`/api/backgrounds/${id}/suggestions/${suggestionId}`, { method: 'DELETE' }),
     },
     features: {
       // Фичи централизованы: только список по источнику (GET-only).

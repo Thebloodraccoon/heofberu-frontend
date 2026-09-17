@@ -18,7 +18,7 @@ function AbilityBonusChips({ bonuses = [] }) {
   )
 }
 
-export default function RaceDetailCard({ race, selectedSub }) {
+export default function RaceDetailCard({ race, selectedSub, subLoading }) {
   const raceFeatures = (race.features ?? []).map((f) => ({ ...f, fromSubrace: false }))
   const subFeatures = selectedSub
     ? (selectedSub.features ?? []).map((f) => ({
@@ -89,6 +89,11 @@ export default function RaceDetailCard({ race, selectedSub }) {
       </div>
 
       <Section title="Особенности и умения">
+        {subLoading && (
+          <p className="mb-2 text-sm text-stone-500" aria-busy="true">
+            Загрузка особенностей подрасы…
+          </p>
+        )}
         <FeatureCards features={features} />
       </Section>
     </Card>

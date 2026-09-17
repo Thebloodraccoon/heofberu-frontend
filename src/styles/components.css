@@ -135,6 +135,9 @@
 .rich-text p {
   @apply mb-2 last:mb-0;
 }
+.rich-text p:empty::before {
+  content: "\00a0";
+}
 .rich-text :is(ul, ol) {
   @apply mb-2 space-y-1 pl-5;
 }
@@ -151,13 +154,15 @@
   @apply my-3 border-stone-700;
 }
 .rich-text table {
-  @apply mb-2 w-full border-collapse overflow-hidden rounded border border-stone-700/60 text-left;
+  @apply mb-2 overflow-hidden rounded border border-stone-700/60 text-left;
+  width: auto;
+  max-width: 100%;
 }
 .rich-text :is(td, th) {
   @apply border border-stone-700/60 px-2 py-1 align-top;
 }
 .rich-text th {
-  @apply bg-stone-800/70 font-semibold text-stone-100;
+  @apply bg-stone-800/70 text-stone-100;
 }
 .rich-text a {
   @apply font-medium text-ember/90 no-underline transition hover:text-ember;
@@ -174,6 +179,7 @@
 }
 .rich-editor .rich-editor__content {
   @apply px-3 py-2 outline-none;
+  cursor: text;
 }
 .rich-editor .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

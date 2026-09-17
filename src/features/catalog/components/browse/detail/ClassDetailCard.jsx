@@ -112,15 +112,16 @@ function Section({ title, children }) {
   )
 }
 
-export default function ClassDetailCard({ cls, selectedSubId }) {
+export default function ClassDetailCard({ cls, selectedSubId, subDetail, subLoading }) {
   const [collapsedIds, setCollapsedIds] = useState(() => new Set())
   const die = DICE_MAX[cls.hit_dice]
   const average = Math.floor(die / 2) + 1
   const diceRu = diceTypeLabels[cls.hit_dice] ?? cls.hit_dice
   const subclasses = cls.subclasses ?? []
-  const selectedSub = selectedSubId
+  const basicSub = selectedSubId
     ? subclasses.find((s) => String(s.id) === String(selectedSubId))
     : null
+  const selectedSub = selectedSubId ? { ...(basicSub ?? {}), ...(subDetail ?? {}) } : null
 
   const subFeatures = selectedSub
     ? (selectedSub.features ?? []).map((f) => ({
@@ -406,6 +407,11 @@ export default function ClassDetailCard({ cls, selectedSubId }) {
       </Section>
 
       <Section title="Особенности и умения">
+        {subLoading && (
+          <p className="mb-2 text-sm text-stone-500" aria-busy="true">
+            Загрузка умений подкласса…
+          </p>
+        )}
         {features.length === 0 ? (
           <p className="text-sm text-stone-500">Особенностей не указано</p>
         ) : (

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
+import { Extension } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
@@ -7,6 +8,30 @@ import { TableKit } from '@tiptap/extension-table'
 import { sanitizeHtml, toEditableHtml } from '@/lib/utils/richText.js'
 import { Indent } from './richTextIndent.js'
 import { TextArea } from './primitives.jsx'
+
+// Липкое форматирование через абзацы: шаг split в ProseMirror сбрасывает
+// storedMarks, поэтому после Enter в конце жирной строки следующий абзац
+// начинался бы обычным текстом и жирный пришлось бы включать заново. Перехват
+// Enter переносит активные marks на новый абзац (пока GM не отключит формат в
+// тулбаре), повторяя semantics команды splitBlockKeepMarks из prosemirror-commands.
+const PersistMarksOnEnter = Extension.create({
+  name: 'persistMarksOnEnter',
+  priority: 1000,
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        const { state } = editor
+        const { selection } = state
+        const marks =
+          state.storedMarks || (selection.$to.parentOffset > 0 ? selection.$from.marks() : null)
+        if (!marks || marks.length === 0) return false
+        const ok = editor.commands.splitBlock({ keepMarks: false })
+        if (ok) editor.commands.setStoredMarks(marks)
+        return ok
+      },
+    }
+  },
+})
 
 function ToolbarButton({ active, disabled, onClick, title, children }) {
   return (
@@ -51,6 +76,7 @@ export function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
+      PersistMarksOnEnter,
       StarterKit.configure({
         heading: { levels: [2, 3] },
         codeBlock: false,

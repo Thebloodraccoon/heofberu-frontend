@@ -71,16 +71,34 @@ export const featsCfg = {
       description: form.description,
     }
     const effects = form.effects ?? { ability_effects: [] }
-    if (rec) {
-      await api.feats.update(rec.id, base)
-      await api.feats.effects.set(rec.id, buildFixedEffectsPayload(effects))
-      await api.feats.choiceGroups.set(rec.id, buildChoiceGroupsPayload(effects))
-      return rec
+    if (!rec) {
+      const created = await api.feats.create(base)
+      await api.feats.effects.set(created.id, buildFixedEffectsPayload(effects))
+      await api.feats.choiceGroups.set(created.id, buildChoiceGroupsPayload(effects))
+      return created
     }
-    const created = await api.feats.create(base)
-    await api.feats.effects.set(created.id, buildFixedEffectsPayload(effects))
-    await api.feats.choiceGroups.set(created.id, buildChoiceGroupsPayload(effects))
-    return created
+    // Диффим по секциям: PATCH базы летит только при изменении полей, а тяжёлые
+    // PUT эффектов/групп — только когда реально изменилось само дерево.
+    const prevForm = featsCfg.fromRecord(rec)
+    const prevBase = {
+      name: prevForm.name,
+      prerequisite_ability: prevForm.prerequisite_ability || null,
+      prerequisite_minimum_score: toNum(prevForm.prerequisite_minimum_score),
+      prerequisite_description: prevForm.prerequisite_description,
+      min_level: toNum(prevForm.min_level),
+      description: prevForm.description,
+    }
+    const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+    if (!eq(base, prevBase)) {
+      await api.feats.update(rec.id, base)
+    }
+    if (!eq(buildFixedEffectsPayload(effects), buildFixedEffectsPayload(prevForm.effects))) {
+      await api.feats.effects.set(rec.id, buildFixedEffectsPayload(effects))
+    }
+    if (!eq(buildChoiceGroupsPayload(effects), buildChoiceGroupsPayload(prevForm.effects))) {
+      await api.feats.choiceGroups.set(rec.id, buildChoiceGroupsPayload(effects))
+    }
+    return rec
   },
   listBadges: (item) => [
     ...(item.min_level != null ? [{ text: `с ${item.min_level}-го уровня`, tone: 'accent' }] : []),
