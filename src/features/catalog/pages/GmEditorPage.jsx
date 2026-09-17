@@ -464,7 +464,8 @@ export default function GmEditorPage() {
   )
   const hasQuery = appliedSearch.trim().length > 0 || hasActiveFilters
 
-  const setField = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const setField = (key) => (e) =>
+    setForm((f) => ({ ...f, [key]: e && typeof e === 'object' && 'target' in e ? e.target.value : e }))
   const setBool = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.checked }))
   // Текстовые поля при редактировании сохраняются сами по себе (PATCH только
   // этого поля), не дожидаясь общей кнопки формы — см. EditorFieldControl.
