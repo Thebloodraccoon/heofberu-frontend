@@ -8,6 +8,7 @@ import { ASI_LEVELS, mod, rollDie } from '@/lib/utils/ability.js'
 import { Button, Modal } from '@/components/ui'
 import { useClassDetail } from '@/features/catalog/queries.js'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
+import PendingChoicesModal from '@/features/characters/components/sheet/PendingChoicesModal.jsx'
 import { OptionCard } from '@/features/characters/components/wizard/OptionCard.jsx'
 
 const asNum = (v) => Number(v) || 0
@@ -85,18 +86,38 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
     await queryClient.invalidateQueries({ queryKey: queryKeys.characters.feats(Number(character.id)) })
   }
 
+  // После выбора черты она может открыть свои группы выбора (владения,
+  // заклинания и т.п.) — доводим игрока по ним сразу же, не заставляя
+  // потом искать значок «Выборы» в шапке листа.
+  const [afterChoicesPhase, setAfterChoicesPhase] = useState(null)
+
   const submit = async (choice) => {
     setBusy(true)
     try {
+      // Имя/место поля с ответами на прочие группы выбора черты (не
+      // ABILITY_SCORE) бэком не задокументировано — шлём его и вложенным в
+      // choice (см. AsiChoiceModal), и продублированным на верхнем уровне
+      // тела запроса на случай, если бэк ждёт его именно там.
+      const choiceAnswers = choice?.answers ?? choice?.choice_answers
       await charactersApi.progression.levelUp(character.id, {
         hit_points_gained: hpGain() ?? undefined,
         ...(choice ? { choice } : {}),
+        ...(choiceAnswers ? { answers: choiceAnswers, choice_answers: choiceAnswers } : {}),
       })
       await invalidate()
-      const next = await charactersApi.progression.canLevelUp(Number(character.id))
+      const [next, pendingGrants] = await Promise.all([
+        charactersApi.progression.canLevelUp(Number(character.id)),
+        charactersApi.grants.pending(Number(character.id)),
+      ])
       if (next?.current_level != null) setLevel(asNum(next.current_level))
       setRolled(null)
-      setPhase(next?.can_level_up ? 'hp' : 'done')
+      const nextPhase = next?.can_level_up ? 'hp' : 'done'
+      if ((pendingGrants ?? []).length > 0) {
+        setAfterChoicesPhase(nextPhase)
+        setPhase('choices')
+      } else {
+        setPhase(nextPhase)
+      }
     } catch (e) {
       onError(e)
       onClose()
@@ -185,6 +206,14 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
           }}
           onCancel={() => setPhase('hp')}
           onConfirm={(choice) => submit(choice)}
+        />
+      )}
+
+      {phase === 'choices' && (
+        <PendingChoicesModal
+          character={character}
+          onClose={() => setPhase(afterChoicesPhase ?? 'done')}
+          onError={onError}
         />
       )}
     </>

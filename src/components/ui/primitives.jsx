@@ -402,7 +402,7 @@ export function AccordionItem({ open, onToggle, header, children, className = ''
 
 export function PillToggle({ options, selected, onToggle, className = '' }) {
   return (
-    <div className={`flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded border border-stone-700/60 bg-stone-900/50 p-3 ${className}`}>
+    <div className={`flex flex-wrap gap-1.5 rounded border border-stone-700/60 bg-stone-900/50 p-3 ${className}`}>
       {options.map((o) => {
         const active = selected.includes(o.value)
         return (

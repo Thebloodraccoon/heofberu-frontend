@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { abilityLabels, armorProficiencyLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { inferGroupEffectType, normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
+import { useSpellNames } from '@/features/catalog/queries.js'
 import { EFFECT_TYPES } from './effectTypeEditors.jsx'
 import { SectionTitle, GroupRow } from './editorShared.jsx'
 import EffectGroupModal from './EffectGroupModal.jsx'
@@ -55,12 +56,12 @@ export default function FeatureEffectsEditor({ value, onChange }) {
     queryKey: ['catalog', 'skills', 'all'],
     queryFn: () => api.skills.list({ size: 100 }),
   })
-  const spellsQ = useQuery({
-    queryKey: ['catalog', 'spells', 'all'],
-    queryFn: () => api.spells.list({ size: 100 }),
-  })
+  const allSpellIds = [
+    ...tree.spell_effects,
+    ...groups.flatMap((g) => (g.options ?? []).flatMap((o) => o.spell_effects ?? [])),
+  ].map((r) => r.spell_id)
   const skillNames = Object.fromEntries((skillsQ.data?.items ?? []).map((s) => [s.id, s.name]))
-  const spellNames = Object.fromEntries((spellsQ.data?.items ?? []).map((s) => [s.id, s.name]))
+  const spellNames = useSpellNames(allSpellIds)
   const names = { skillNames, spellNames }
 
   const usedStaticTypes = new Set(EFFECT_TYPES.filter((t) => tree[t.key].length > 0).map((t) => t.key))

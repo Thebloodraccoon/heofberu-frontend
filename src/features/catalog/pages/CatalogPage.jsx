@@ -1,3 +1,4 @@
+import { scrollChildToTop } from '@/lib/utils/scroll.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -73,6 +74,7 @@ export function CatalogListPage() {
   }, [resource])
 
   const sectionRef = useRef(null)
+  const listScrollRef = useRef(null)
 
   useEffect(() => {
     if (selectedId && window.innerWidth < 1024 && sectionRef.current) {
@@ -108,6 +110,14 @@ export function CatalogListPage() {
   const listQ = useCatalogPage(resource, listParams)
   const pageData = listQ.data ?? null
   const items = pageData?.items ?? null
+
+  // Активная плитка в боковом списке подтягивается к верху контейнера.
+  useEffect(() => {
+    const box = listScrollRef.current
+    const el = box?.querySelector('[data-active="true"]')
+    if (!box || !el) return undefined
+    return scrollChildToTop(box, el)
+  }, [selectedId, items?.length])
   const total = pageData?.total ?? 0
 
   const setPage = (p) => {
@@ -232,7 +242,7 @@ export function CatalogListPage() {
               >
                 ← Ко всем записям
               </Link>
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div ref={listScrollRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
               <div className="flex flex-col gap-1">
                 {items.map((it) => {
                   const isActive = Number(it.id) === selectedId
@@ -245,6 +255,7 @@ export function CatalogListPage() {
                   return (
                     <div
                       key={it.id}
+                      data-active={isActive}
                       className={`card-hover my-[3px] w-full fantasy-panel rounded-lg p-3 transition ${
                         isActive
                           ? 'border-ember/80 bg-stone-900'

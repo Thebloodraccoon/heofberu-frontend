@@ -7,6 +7,8 @@ import { useAllFeats, useFeatDetail } from '@/features/catalog/queries.js'
 vi.mock('@/features/catalog/queries.js', () => ({
   useAllFeats: vi.fn(),
   useFeatDetail: vi.fn(),
+  useSkills: vi.fn(() => ({ data: [] })),
+  useSpells: vi.fn(() => ({ data: [] })),
 }))
 
 const statRow = (label) => screen.getByText(label).closest('div')
@@ -17,6 +19,7 @@ const feats = [
   { id: 3, name: 'Недостижимый', prerequisite_ability: 'STR', prerequisite_minimum_score: 19, min_level: null },
   { id: 4, name: 'Сильный удар', min_level: null },
   { id: 5, name: 'Поздний', min_level: 12 },
+  { id: 6, name: 'Агент порядка', min_level: null, has_choices: true, has_static_effects: false },
 ]
 
 const featDetails = {
@@ -35,6 +38,35 @@ const featDetails = {
     ability_score_increases: [
       { id: 10, ability: 'CON', amount: 1 },
       { id: 11, ability: 'CON', amount: 2 },
+    ],
+  },
+  // Реальная форма бэка: варианты увеличения характеристик приходят не
+  // отдельным полем, а группой choice_groups с choice_type ABILITY_SCORE.
+  // У этой черты есть ещё и группа SPELL — бэк требует ответ на неё в том же
+  // запросе level-up/rebuild (422 GrantChoiceRequiredException иначе).
+  6: {
+    id: 6,
+    name: 'Агент порядка',
+    description: 'Вы можете направлять космические силы порядка.',
+    choice_groups: [
+      {
+        id: 1,
+        pick_count: 1,
+        choice_type: 'ABILITY_SCORE',
+        options: [
+          { id: 101, ability_effects: [{ ability: 'STR', amount: 1 }] },
+          { id: 102, ability_effects: [{ ability: 'DEX', amount: 1 }] },
+        ],
+      },
+      {
+        id: 114,
+        pick_count: 1,
+        choice_type: 'SPELL',
+        options: [
+          { id: 310, spell_effects: [{ spell_id: 205 }] },
+          { id: 311, spell_effects: [{ spell_id: 221 }] },
+        ],
+      },
     ],
   },
 }
@@ -140,7 +172,41 @@ describe('AsiChoiceModal', () => {
       expect(screen.getByRole('button', { name: /^могучий$/i })).not.toBeDisabled()
       expect(screen.getByRole('button', { name: /^недостижимый$/i })).toBeDisabled()
       expect(screen.getByRole('button', { name: /^поздний$/i })).toBeDisabled()
-      expect(screen.getByText('С уровня 12')).toBeInTheDocument()
+      expect(screen.getByText('с ур. 12')).toBeInTheDocument()
+    })
+
+    it('shows the min level tag even for feats already meeting it', async () => {
+      renderModal({ level: 12 })
+      await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
+      expect(screen.getByRole('button', { name: /^поздний$/i })).not.toBeDisabled()
+      expect(screen.getByText('с ур. 12')).toBeInTheDocument()
+    })
+
+    it('shows choice/effect labels for feats coming from has_choices/has_static_effects', async () => {
+      renderModal()
+      await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
+      expect(screen.getByText('Выбор')).toBeInTheDocument()
+    })
+
+    it('derives ability increase options from the real choice_groups shape', async () => {
+      const onConfirm = vi.fn()
+      renderModal({ onConfirm })
+      await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
+      await userEvent.click(screen.getByRole('button', { name: /^агент порядка$/i }))
+      await userEvent.click(screen.getByLabelText('+1 к Ловкость'))
+      // Черта также открывает группу SPELL — без ответа на неё бэк отклоняет
+      // level-up/rebuild с GrantChoiceRequiredException, поэтому «Применить»
+      // остаётся заблокированной, пока она не отвечена.
+      expect(screen.getByRole('button', { name: 'Применить' })).toBeDisabled()
+      await userEvent.click(screen.getByText('заклинание #221'))
+      await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
+      expect(onConfirm).toHaveBeenCalledWith({
+        type: 'FEAT',
+        feat_id: 6,
+        ability_score_increase_id: 102,
+        answers: [{ choice_group_id: 114, choice_option_id: 311 }],
+        choice_answers: [{ choice_group_id: 114, choice_option_id: 311 }],
+      })
     })
 
     it('lazily loads feat details via the view button', async () => {

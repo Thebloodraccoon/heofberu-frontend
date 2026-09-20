@@ -19,7 +19,7 @@ export const skillsCfg = {
   submitFields: async (form, rec) => {
     const base = { name: form.name, ability: form.ability, description: form.description }
     if (rec) await api.skills.update(rec.id, base)
-    else await api.skills.create(base)
+    else return api.skills.create(base)
   },
   listBadges: (item) =>
     item.ability ? [{ text: abilityLabels[item.ability] ?? item.ability, tone: 'default' }] : [],

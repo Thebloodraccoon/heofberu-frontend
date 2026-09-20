@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { catalogApi } from '@/features/catalog/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 
@@ -143,3 +143,17 @@ export const useSpellDetail = (id) =>
     queryFn: () => catalogApi.spells.get(Number(id)),
     enabled: !!id,
   })
+
+// Имена заклинаний по id: тянем карточку каждого (кэш общий с useSpellDetail),
+// а не полагаемся на первую страницу списка — иначе заклинания вне неё
+// остаются без названия.
+export const useSpellNames = (ids) => {
+  const unique = [...new Set((ids ?? []).filter((id) => id != null).map(Number))]
+  const results = useQueries({
+    queries: unique.map((id) => ({
+      queryKey: ['catalog', 'spells', id],
+      queryFn: () => catalogApi.spells.get(id),
+    })),
+  })
+  return Object.fromEntries(unique.map((id, i) => [id, results[i]?.data?.name]).filter(([, n]) => n))
+}

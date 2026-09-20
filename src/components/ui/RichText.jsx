@@ -13,7 +13,13 @@ export function RichText({ value, className = '', empty = '—', tail }) {
   const spacer = tail && bodyHtml ? '<p><br></p>' : ''
   const tailHtml = tail ? spacer + toEditableHtml(tail) : ''
   const html = sanitizeHtml(bodyHtml + tailHtml)
-  if (!html) return <p className={className}>{empty}</p>
+  if (!html) {
+    return (
+      <p className={className}>
+        <span className="text-stone-500">{empty}</span>
+      </p>
+    )
+  }
   return <div className={`rich-text ${className}`} dangerouslySetInnerHTML={{ __html: html }} />
 }
 

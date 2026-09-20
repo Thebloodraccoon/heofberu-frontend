@@ -1,3 +1,4 @@
+import { scrollChildToTop } from '@/lib/utils/scroll.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -6,11 +7,12 @@ import FeatureModal from '@/features/catalog/components/editor/FeaturesModal.jsx
 import FeatureEffectsEditor from '@/features/catalog/components/editor/FeatureEffectsEditor.jsx'
 import SubclassEditor from '@/features/catalog/components/editor/SubclassEditor.jsx'
 import SubraceEditor from '@/features/catalog/components/editor/SubraceEditor.jsx'
+import OptionsPicker from '@/features/catalog/components/editor/OptionsPicker.jsx'
 import EditorFieldControl, { BlurNumberInput, CheckIcon, PencilIcon, SectionTitle, TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
-import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, PillToggle, RichText, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
+import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, RichText, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
 import ImageUploadBlock from '@/features/catalog/components/editor/ImageUploadBlock.jsx'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
@@ -56,7 +58,7 @@ export default function GmEditorPage() {
   const [imageBusy, setImageBusy] = useState(false)
   const [imageError, setImageError] = useState(null)
 
-  const [, setFieldSaving] = useState(false)
+  const [fieldSaving, setFieldSaving] = useState(false)
   const [fieldError, setFieldError] = useState(null)
 
   const { push: pushStatus } = useToasts()
@@ -66,6 +68,7 @@ export default function GmEditorPage() {
   // нужен, чтобы системные setForm (открытие записи, обновление формы после
   // сохранения) сами себя не считали новой правкой и не зациклили сохранение.
   const skipNextAutoSaveRef = useRef(false)
+  const recordListRef = useRef(null)
   // saveFields читает форму/запись из этих рефов (не из замыкания), чтобы
   // повторный вызов после параллельной правки всегда уходил с актуальными
   // данными, а не с теми, что были на момент постановки в очередь.
@@ -398,6 +401,14 @@ export default function GmEditorPage() {
     setPage(1)
   }
 
+  // Активная запись в списке слева плавно подтягивается к верху контейнера.
+  useEffect(() => {
+    const box = recordListRef.current
+    const el = box?.querySelector('[data-active="true"]')
+    if (!box || !el) return undefined
+    return scrollChildToTop(box, el)
+  }, [selectedId, records?.length])
+
   const openCreate = () => {
     setEditing(null)
     setForm(cfg.emptyForm())
@@ -650,6 +661,10 @@ export default function GmEditorPage() {
         setForm(cfg.fromRecord(created))
         await loadNested(created.id)
         load()
+      } else if (created?.id != null) {
+        // Сразу открываем созданную запись в режиме редактирования.
+        load()
+        await openEdit(created)
       } else {
         closeForm()
         load()
@@ -908,7 +923,7 @@ export default function GmEditorPage() {
       {!error && records && (
         <div className="grid items-start gap-6 mt-[5px] lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
           <aside className="flex max-h-[calc(100vh-280px)] min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
-            <div className="editor-record-list min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div ref={recordListRef} className="editor-record-list min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {records.length === 0 ? (
                 <p className="text-sm text-stone-500">
                   {hasQuery ? 'Ничего не найдено по запросу' : 'Нет записей — создайте первую'}
@@ -979,7 +994,11 @@ export default function GmEditorPage() {
                         }
                       }
                       const renderField = (field) =>
-                        field.type === 'checkbox' ? (
+                        field.type === 'heading' ? (
+                          <div key={field.key} className="pt-2 sm:col-span-2">
+                            <SectionTitle>{field.label}</SectionTitle>
+                          </div>
+                        ) : field.type === 'checkbox' ? (
                           <div key={field.key} className="flex items-end">
                             <label className="flex w-full cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2">
                               <input
@@ -1391,21 +1410,29 @@ onClick={() => {
                     const options =
                       section.type === 'pills' ? section.options : listOptions[section.listKey]
                     return (
-                      <div key={section.key}>
-                        <SectionTitle>{section.label}</SectionTitle>
-                        {options.length === 0 ? (
-                          <p className="text-sm text-stone-500">{section.empty}</p>
-                        ) : (
-                          <PillToggle
-                            options={options}
-                            selected={form[section.key]}
-                            onToggle={toggleIn(section.key)}
-                          />
-                        )}
-                      </div>
+                      <OptionsPicker
+                        key={section.key}
+                        label={section.label}
+                        hint={section.hint}
+                        empty={section.empty}
+                        options={options}
+                        selected={form[section.key]}
+                        onToggle={toggleIn(section.key)}
+                        onClear={() => setForm((f) => ({ ...f, [section.key]: [] }))}
+                      />
                     )
                   })}
                   {fieldError && <ErrorBox error={fieldError} onRetry={() => {}} />}
+                  {!editing && (
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="ghost" onClick={closeForm}>
+                        Отмена
+                      </Button>
+                      <Button type="submit" disabled={fieldSaving}>
+                        {fieldSaving ? 'Создаём…' : `Создать ${cfg.singular}`}
+                      </Button>
+                    </div>
+                  )}
                 </form>
 
                 {editing && cfg.featuresOps && (

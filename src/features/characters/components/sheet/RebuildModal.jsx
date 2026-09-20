@@ -38,6 +38,7 @@ import { OptionCard } from '@/features/characters/components/wizard/OptionCard.j
 import { Hint, Section, StepShell, Tag } from '@/features/characters/components/wizard/StepShell.jsx'
 import RollToasts from '@/features/characters/components/wizard/RollToasts.jsx'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
+import PendingChoicesModal from '@/features/characters/components/sheet/PendingChoicesModal.jsx'
 
 const DEFAULT_FORM = (character) => ({
   race_id: String(character.race_id ?? ''),
@@ -112,6 +113,11 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
   const [form, setForm] = useState(() => DEFAULT_FORM(character))
   const [confirmed, setConfirmed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Выбранные при ребилде черты/уровни могли открыть свои группы выбора
+  // (навыки, заклинания и т.п.) сверх ability-score-варианта, отвеченного
+  // прямо в AsiChoiceModal — доводим игрока по ним сразу после применения
+  // ребилда, а не оставляем ждать значок «Выборы» в шапке листа.
+  const [pendingChoicesAfterRebuild, setPendingChoicesAfterRebuild] = useState(false)
   const [error, setError] = useState(null)
   const [asiLevelOpen, setAsiLevelOpen] = useState(null)
   const [featAsiEffects, setFeatAsiEffects] = useState({})
@@ -323,13 +329,29 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
         background_id: form.background_id ? Number(form.background_id) : null,
         max_hp: Number(form.max_hp),
         skill_ids: (form.class_skill_ids ?? []).map(Number),
-        asi_choices: requiredAsiLevels.map((l) => ({ class_level: l, choice: form.asi_choices[l] })),
+        // Как и в LevelUpModal — ответы на прочие группы выбора черты
+        // дублируем и вложенными в choice, и рядом с ним на случай другого
+        // контракта у бэка (имя/место поля не задокументировано).
+        asi_choices: requiredAsiLevels.map((l) => {
+          const choice = form.asi_choices[l]
+          const choiceAnswers = choice?.answers ?? choice?.choice_answers
+          return {
+            class_level: l,
+            choice,
+            ...(choiceAnswers ? { answers: choiceAnswers, choice_answers: choiceAnswers } : {}),
+          }
+        }),
       }
       for (const s of STATS) body[s.key] = Number(form.ability_base[s.key])
 
       await charactersApi.progression.rebuild(character.id, body)
       await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id)] })
-      onSuccess?.()
+      const pending = await charactersApi.grants.pending(Number(character.id))
+      if ((pending ?? []).length > 0) {
+        setPendingChoicesAfterRebuild(true)
+      } else {
+        onSuccess?.()
+      }
     } catch (e) {
       setError(e)
     } finally {
@@ -538,7 +560,11 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
         scroll
         footer={
           <div className="flex w-full items-center justify-between gap-3">
-            <Button variant="ghost" disabled={step === 0 || submitting} onClick={() => setStep((s) => Math.max(s - 1, 0))}>
+            <Button
+              variant="ghost"
+              disabled={step === 0 || submitting || pendingChoicesAfterRebuild}
+              onClick={() => setStep((s) => Math.max(s - 1, 0))}
+            >
               ← Назад
             </Button>
             {step < STEPS.length - 1 ? (
@@ -546,7 +572,7 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
                 Далее →
               </Button>
             ) : (
-              <Button disabled={!canContinue || submitting} onClick={submit}>
+              <Button disabled={!canContinue || submitting || pendingChoicesAfterRebuild} onClick={submit}>
                 {submitting ? 'Применяем…' : 'Применить ребилд'}
               </Button>
             )}
@@ -602,6 +628,17 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
           />
         )
       })}
+
+      {pendingChoicesAfterRebuild && (
+        <PendingChoicesModal
+          character={character}
+          onClose={() => {
+            setPendingChoicesAfterRebuild(false)
+            onSuccess?.()
+          }}
+          onError={setError}
+        />
+      )}
 
       <RollToasts toasts={rolls} onDismiss={dismissRoll} />
     </>

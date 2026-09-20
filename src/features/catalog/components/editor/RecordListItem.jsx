@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui'
 export default function RecordListItem({ item, selectedId, badges, onEdit }) {
   return (
     <div
+      data-active={selectedId === item.id}
       className={`card-hover fantasy-panel cursor-pointer rounded-lg p-3 transition ${
         selectedId === item.id
           ? 'border-ember/80 bg-stone-900'

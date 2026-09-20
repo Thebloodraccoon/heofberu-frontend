@@ -9,6 +9,7 @@ import {
 } from '@/lib/i18n/index.js'
 import { Input } from '@/components/ui'
 import { SectionTitle, TrashIcon } from './editorShared.jsx'
+import { useSpellNames } from '@/features/catalog/queries.js'
 import SpellPickerModal from './SpellPickerModal.jsx'
 
 // Редакторы по одному типу эффекта (характеристики/навыки/спасброски/доспехи/
@@ -372,12 +373,8 @@ export function WeaponEffectsEditor({ rows = [], onChange, onHide }) {
 
 export function SpellEffectsEditor({ rows = [], onChange, onHide }) {
   const [pickerOpen, setPickerOpen] = useState(false)
-  const spellsQ = useQuery({
-    queryKey: ['catalog', 'spells', 'all'],
-    queryFn: () => api.spells.list({ size: 100 }),
-  })
-  const spells = (spellsQ.data?.items ?? []).map((s) => ({ id: s.id, name: s.name }))
-  const nameOf = (id) => spells.find((s) => s.id === id)?.name ?? `заклинание #${id}`
+  const spellNames = useSpellNames(rows.map((r) => r.spell_id))
+  const nameOf = (id) => spellNames[Number(id)] ?? `заклинание #${id}`
   const add = (sp) => onChange([...rows, { spell_id: sp.id }])
 
   return (
@@ -389,7 +386,6 @@ export function SpellEffectsEditor({ rows = [], onChange, onHide }) {
         onHide={onHide}
         addControl={<AddButton onClick={() => setPickerOpen(true)} title="+ Заклинание" />}
       >
-        {spellsQ.isFetching && <p className="pb-1 text-xs text-stone-500">Загрузка списка заклинаний…</p>}
         {rows.map((row, i) => (
           <RowShell key={i} onRemove={() => onChange(rows.filter((_, j) => j !== i))}>
             <span className="min-w-0 self-center truncate text-sm text-stone-200">{nameOf(row.spell_id)}</span>

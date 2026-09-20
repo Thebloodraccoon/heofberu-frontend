@@ -63,33 +63,37 @@ export const spellsCfg = {
   singular: 'заклинание',
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Огненный шар', full: true },
-    { key: 'level', label: 'Уровень', type: 'select', options: opt(spellLevelLabels) },
-    { key: 'school', label: 'Школа', type: 'select', options: opt(spellSchoolLabels) },
-    { key: 'cast_time', label: 'Время накладывания', type: 'select', options: opt(spellCastTimeLabels) },
-    { key: 'range_type', label: 'Дистанция', type: 'select', options: opt(spellRangeLabels) },
-    { key: 'range_value', label: 'Дистанция (значение)', type: 'number', min: 0 },
-    { key: 'duration', label: 'Длительность', type: 'select', options: opt(spellDurationLabels) },
-    { key: 'is_concentration', label: 'Концентрация', type: 'checkbox' },
-    { key: 'is_ritual', label: 'Ритуал', type: 'checkbox' },
+    { key: 'level', label: 'Уровень', type: 'select', options: opt(spellLevelLabels), inline: true },
+    { key: 'school', label: 'Школа', type: 'select', options: opt(spellSchoolLabels), inline: true },
+    { key: 'h_cast', type: 'heading', label: 'Накладывание' },
+    { key: 'cast_time', label: 'Время накладывания', type: 'select', options: opt(spellCastTimeLabels), inline: true },
+    { key: 'duration', label: 'Длительность', type: 'select', options: opt(spellDurationLabels), inline: true },
+    { key: 'is_concentration', label: 'Концентрация', type: 'checkbox', inline: true },
+    { key: 'is_ritual', label: 'Ритуал', type: 'checkbox', inline: true },
+    { key: 'range_type', label: 'Дистанция', type: 'select', options: opt(spellRangeLabels), inline: true },
+    { key: 'range_value', label: 'Дистанция (футы)', type: 'number', min: 0, inline: true, showWhen: (f) => f.range_type === 'RANGED' },
+    { key: 'material', label: 'Материальные компоненты', type: 'text', placeholder: 'Например: капля драконьей крови', full: true },
     { key: 'is_material_consumed', label: 'Материал расходуется', type: 'checkbox', showWhen: (f) => f.components?.includes('MATERIAL') || Boolean(f.material) },
-    { key: 'material', label: 'Материальные компоненты', type: 'text', placeholder: 'Например: капля драконьей крови' },
-    { key: 'attack_type', label: 'Тип атаки', type: 'select', options: optOptional(attackTypeLabels), showWhen: (f) => !hasHeal(f) },
-    { key: 'save_stat', label: 'Характеристика спасброска', type: 'select', options: optOptional(abilityLabels), showWhen: (f) => !hasHeal(f) },
-    { key: 'damage_type', label: 'Тип урона', type: 'select', options: optOptional(damageTypeLabels), showWhen: (f) => !hasHeal(f) },
-    { key: 'damage_dice_count', label: 'Количество костей урона', type: 'number', min: 0, showWhen: (f) => !hasHeal(f) },
-    { key: 'damage_dice_type', label: 'Кость урона', type: 'select', options: optOptional(diceTypeLabels), showWhen: (f) => !hasHeal(f) },
-    { key: 'healing_target', label: 'Лечение', type: 'select', options: optOptional(healingTargetLabels), showWhen: (f) => hasHeal(f) || !hasDamage(f) },
-    { key: 'healing_dice_count', label: 'Количество костей лечения', type: 'number', min: 0, showWhen: (f) => hasHeal(f) || !hasDamage(f) },
-    { key: 'healing_dice_type', label: 'Кость лечения', type: 'select', options: optOptional(diceTypeLabels), showWhen: (f) => hasHeal(f) || !hasDamage(f) },
+    { key: 'h_damage', type: 'heading', label: 'Урон', showWhen: (f) => !hasHeal(f) },
+    { key: 'attack_type', label: 'Тип атаки', type: 'select', options: optOptional(attackTypeLabels), inline: true, showWhen: (f) => !hasHeal(f) },
+    { key: 'save_stat', label: 'Характеристика спасброска', type: 'select', options: optOptional(abilityLabels), inline: true, showWhen: (f) => !hasHeal(f) },
+    { key: 'damage_dice_count', label: 'Количество костей урона', type: 'number', min: 0, inline: true, showWhen: (f) => !hasHeal(f) },
+    { key: 'damage_dice_type', label: 'Кость урона', type: 'select', options: optOptional(diceTypeLabels), inline: true, showWhen: (f) => !hasHeal(f) },
+    { key: 'damage_type', label: 'Тип урона', type: 'select', options: optOptional(damageTypeLabels), full: true, showWhen: (f) => !hasHeal(f) },
+    { key: 'h_heal', type: 'heading', label: 'Лечение', showWhen: (f) => hasHeal(f) || !hasDamage(f) },
+    { key: 'healing_dice_count', label: 'Количество костей лечения', type: 'number', min: 0, inline: true, showWhen: (f) => hasHeal(f) || !hasDamage(f) },
+    { key: 'healing_dice_type', label: 'Кость лечения', type: 'select', options: optOptional(diceTypeLabels), inline: true, showWhen: (f) => hasHeal(f) || !hasDamage(f) },
+    { key: 'healing_target', label: 'Цель лечения', type: 'select', options: optOptional(healingTargetLabels), full: true, showWhen: (f) => hasHeal(f) || !hasDamage(f) },
+    { key: 'h_text', type: 'heading', label: 'Описание' },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
     { key: 'higher_levels', label: 'На более высоких уровнях', type: 'textarea', full: true },
   ],
   sections: [
     { type: 'pills', key: 'components', label: 'Компоненты', options: opt(componentLabels), empty: 'Не выбрано' },
-    { type: 'pillsFrom', listKey: 'classes', key: 'class_ids', label: 'Доступно классам (пусто — без ограничений)', empty: 'Классов в справочнике нет' },
-    { type: 'pillsFrom', listKey: 'subclasses', key: 'subclass_ids', label: 'Доступно подклассам (пусто — без ограничений)', empty: 'Подклассов в справочнике нет' },
-    { type: 'pillsFrom', listKey: 'races', key: 'race_ids', label: 'Доступно расам (пусто — без ограничений)', empty: 'Рас в справочнике нет' },
-    { type: 'pillsFrom', listKey: 'subraces', key: 'subrace_ids', label: 'Доступно подрасам (пусто — без ограничений)', empty: 'Подрас в справочнике нет' },
+    { type: 'pillsFrom', listKey: 'classes', key: 'class_ids', label: 'Доступно классам', hint: 'Без ограничений — доступно всем', empty: 'Классов в справочнике нет' },
+    { type: 'pillsFrom', listKey: 'subclasses', key: 'subclass_ids', label: 'Доступно подклассам', hint: 'Без ограничений — доступно всем', empty: 'Подклассов в справочнике нет' },
+    { type: 'pillsFrom', listKey: 'races', key: 'race_ids', label: 'Доступно расам', hint: 'Без ограничений — доступно всем', empty: 'Рас в справочнике нет' },
+    { type: 'pillsFrom', listKey: 'subraces', key: 'subrace_ids', label: 'Доступно подрасам', hint: 'Без ограничений — доступно всем', empty: 'Подрас в справочнике нет' },
   ],
   emptyForm: () => ({
     name: '',
@@ -150,14 +154,13 @@ export const spellsCfg = {
   submitFields: async (form, rec) => {
     const base = buildSpellBase(form)
     if (!rec) {
-      await api.spells.create({
+      return api.spells.create({
         ...base,
         available_classes: form.class_ids,
         available_subclasses: form.subclass_ids,
         available_races: form.race_ids,
         available_subraces: form.subrace_ids,
       })
-      return
     }
     // Диффим по секциям, чтобы автосейв не слал лишних запросов при правке
     // одного блока (напр., только класса) — PATCH базы и остальные PUT улетают

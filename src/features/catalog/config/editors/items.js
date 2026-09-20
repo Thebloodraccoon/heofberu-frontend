@@ -92,7 +92,7 @@ export const itemsCfg = {
       base.stealth_disadvantage = false
     }
     if (rec) await api.items.update(rec.id, base)
-    else await api.items.create(base)
+    else return api.items.create(base)
   },
   listBadges: (item) =>
     [
