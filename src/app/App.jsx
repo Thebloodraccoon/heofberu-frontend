@@ -20,6 +20,9 @@ const CatalogListPage = lazy(() => import('@/features/catalog/pages/CatalogPage.
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage.jsx'))
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage.jsx'))
 const GmEditorPage = lazy(() => import('@/features/catalog/pages/GmEditorPage.jsx'))
+const GmArticlesPage = lazy(() => import('@/features/articles/pages/GmArticlesPage.jsx'))
+const LorePage = lazy(() => import('@/features/articles/pages/LorePage.jsx'))
+const ArticleDetailPage = lazy(() => import('@/features/articles/pages/ArticleDetailPage.jsx'))
 const GuidePage = lazy(() => import('@/features/guide/pages/GuidePage.jsx'))
 
 function RootRedirect() {
@@ -72,6 +75,8 @@ function App() {
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>
+                    <Route path="lore" element={<LorePage />} />
+                    <Route path="lore/:id" element={<ArticleDetailPage />} />
                     <Route path="characters" element={<CharactersPage />} />
                     <Route path="characters/new" element={<CharacterCreatePage />} />
                     <Route path="characters/:id" element={<CharacterDetailPage />} />
@@ -88,6 +93,14 @@ function App() {
                       element={
                         <GMRoute>
                           <GmEditorPage />
+                        </GMRoute>
+                      }
+                    />
+                    <Route
+                      path="gm/articles"
+                      element={
+                        <GMRoute>
+                          <GmArticlesPage />
                         </GMRoute>
                       }
                     />

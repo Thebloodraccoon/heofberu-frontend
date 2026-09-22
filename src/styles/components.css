@@ -123,8 +123,17 @@
   @apply break-words text-sm leading-relaxed text-stone-300;
 }
 
-.rich-text :is(h2, h3) {
+.rich-text :is(h1, h2, h3, h4) {
   @apply font-display font-bold text-stone-100;
+}
+.rich-text h1 {
+  @apply mt-5 mb-2 text-2xl;
+}
+.rich-text h4 {
+  @apply mt-2 mb-1 text-sm;
+}
+.rich-text img {
+  @apply my-2 h-auto max-w-full rounded border border-stone-700/60;
 }
 .rich-text h2 {
   @apply mt-4 mb-1.5 text-lg;

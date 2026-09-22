@@ -40,6 +40,8 @@ vi.mock('@/features/characters/queries.js', () => ({
   useCharacterStats: vi.fn(() => ({ data: null })),
   useCharacterItems: vi.fn(() => ({ data: [] })),
   useCharacterMaxLevel: vi.fn(() => ({ data: {} })),
+  useCharacterProficiencies: vi.fn(() => ({ data: { armor: [] } })),
+  useCharacterGrantedSpells: vi.fn(() => ({ data: [] })),
 }))
 
 vi.mock('@/features/catalog/queries.js', () => ({
@@ -170,7 +172,7 @@ describe('GmCharacterPanel feature management', () => {
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
 
     await waitFor(() => {
-      expect(charactersApi.gmPanel.features.update).toHaveBeenCalledWith(7, 10, { notes: '<p>Новая заметка</p>' })
+      expect(charactersApi.gmPanel.features.update).toHaveBeenCalledWith(7, 10, { notes: 'Новая заметка' })
     })
   })
 

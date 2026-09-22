@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { looksLikeHtml, sanitizeHtml, toEditableHtml, toPlainText } from '@/lib/utils/richText.js'
+import { looksLikeHtml, renderRichHtml, sanitizeHtml, toEditorContent, toPlainText } from '@/lib/utils/richText.js'
 
 describe('looksLikeHtml', () => {
   it('detects tags', () => {
@@ -10,21 +10,61 @@ describe('looksLikeHtml', () => {
   })
 })
 
-describe('toEditableHtml', () => {
+describe('looksLikeHtml vs Markdown', () => {
+  it('does not treat Markdown autolinks or comparisons as legacy HTML', () => {
+    expect(looksLikeHtml('см. <https://example.com>')).toBe(false)
+    expect(looksLikeHtml('a < b и b > c')).toBe(false)
+  })
+})
+
+describe('renderRichHtml', () => {
   it('returns empty string for empty input', () => {
-    expect(toEditableHtml('')).toBe('')
-    expect(toEditableHtml(null)).toBe('')
+    expect(renderRichHtml('')).toBe('')
+    expect(renderRichHtml(null)).toBe('')
   })
 
-  it('passes through content that already looks like HTML', () => {
-    expect(toEditableHtml('<p>Уже HTML</p>')).toBe('<p>Уже HTML</p>')
+  it('renders Markdown formatting, lists and headings', () => {
+    const html = renderRichHtml('# Заголовок\n\n**жирный** и *курсив*\n\n- раз\n- два')
+    expect(html).toContain('<h1>Заголовок</h1>')
+    expect(html).toContain('<strong>жирный</strong>')
+    expect(html).toContain('<em>курсив</em>')
+    expect(html).toContain('<li>раз</li>')
   })
 
-  it('wraps legacy plain text into paragraphs and preserves line breaks', () => {
-    expect(toEditableHtml('Первый абзац\n\nВторой абзац')).toBe(
-      '<p>Первый абзац</p><p>Второй абзац</p>',
-    )
-    expect(toEditableHtml('строка1\nстрока2')).toBe('<p>строка1<br>строка2</p>')
+  it('keeps single line breaks as <br> (legacy plain-text look)', () => {
+    expect(renderRichHtml('строка1\nстрока2')).toBe('<p>строка1<br>строка2</p>')
+  })
+
+  it('escapes raw HTML inside Markdown instead of passing it through', () => {
+    const html = renderRichHtml('текст\n\n<div onclick="x()">блок</div>\n\n<script>alert(1)</script>')
+    expect(html).not.toContain('<script')
+    expect(html).not.toContain('<div')
+    expect(html).toContain('&lt;script&gt;')
+  })
+
+  it('blocks javascript: links and data: images', () => {
+    const html = renderRichHtml('[клик](javascript:alert(1)) ![x](data:image/svg+xml;base64,AAAA)')
+    expect(html).not.toContain('javascript:')
+    expect(html).not.toContain('data:')
+  })
+
+  it('keeps https images and forces lazy loading', () => {
+    const html = renderRichHtml('![Врата](https://cdn.example.com/a.png)')
+    expect(html).toContain('src="https://cdn.example.com/a.png"')
+    expect(html).toContain('alt="Врата"')
+    expect(html).toContain('loading="lazy"')
+  })
+
+  it('renders legacy HTML values as before', () => {
+    expect(renderRichHtml('<p><strong>Старый</strong></p>')).toBe('<p><strong>Старый</strong></p>')
+  })
+})
+
+describe('toEditorContent', () => {
+  it('loads legacy HTML as html and everything else as markdown', () => {
+    expect(toEditorContent('<p>Старый</p>')).toEqual({ content: '<p>Старый</p>', contentType: 'html' })
+    expect(toEditorContent('**новый**')).toEqual({ content: '**новый**', contentType: 'markdown' })
+    expect(toEditorContent('')).toEqual({ content: '', contentType: 'markdown' })
   })
 })
 
@@ -41,7 +81,6 @@ describe('sanitizeHtml', () => {
     expect(clean).not.toContain('script')
     expect(clean).not.toContain('onclick')
     expect(clean).not.toContain('onerror')
-    expect(clean).not.toContain('<img')
     expect(clean).toContain('Текст')
   })
 
@@ -95,6 +134,10 @@ describe('sanitizeHtml', () => {
 describe('toPlainText', () => {
   it('returns plain text unchanged', () => {
     expect(toPlainText('просто текст')).toBe('просто текст')
+  })
+
+  it('strips Markdown syntax for previews', () => {
+    expect(toPlainText('# Заголовок\n\n**жирный** текст')).toBe('Заголовок жирный текст')
   })
 
   it('strips tags and collapses whitespace for HTML content', () => {

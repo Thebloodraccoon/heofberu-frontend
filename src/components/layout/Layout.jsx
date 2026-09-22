@@ -22,6 +22,7 @@ const personalLinks = [
 
 const gmLinks = [
   { to: '/gm/editor', label: 'Редактор справочников' },
+  { to: '/gm/articles', label: 'Статьи и теги' },
   { to: '/gm/characters', label: 'Персонажи игроков' },
   { to: '/users', label: 'Пользователи' },
 ]
@@ -64,6 +65,7 @@ function SidebarContent({ onClick }) {
     <nav className="flex flex-col gap-0.5">
       <SidebarLink to="/" end label="Главная" onClick={onClick} />
       <SidebarLink to="/guide" label="Руководство" onClick={onClick} />
+      <SidebarLink to="/lore" label="Лор" onClick={onClick} />
 
       <SectionTitle>Справочники</SectionTitle>
       {catalogLinks.map((l) => (
@@ -82,6 +84,7 @@ function SidebarContent({ onClick }) {
         <>
           <SectionTitle>ГМ</SectionTitle>
           <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={onClick} />
+          <SidebarLink to="/gm/articles" label="Статьи и теги" onClick={onClick} />
           <SidebarLink to="/gm/characters" label="Персонажи игроков" onClick={onClick} />
           <SidebarLink to="/users" label="Пользователи" onClick={onClick} />
         </>
@@ -229,6 +232,7 @@ function DesktopNav() {
   const groups = [
     { label: 'Главная', to: '/' },
     { label: 'Руководство', to: '/guide' },
+    { label: 'Лор', to: '/lore' },
     { label: 'Справочники', children: catalogLinks },
     authenticated && { label: 'Личное', children: personalLinks },
     authenticated && isGM && { label: 'Для ГМ', children: gmLinks },

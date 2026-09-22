@@ -1,16 +1,17 @@
 import DOMPurify from 'dompurify'
+import { Marked } from 'marked'
 
 // Разрешённый набор тегов/атрибутов для контента, приходящего из RichTextEditor
 // (тексты предысторий, заметок, описаний в справочнике). Общий рендер и для
 // нового HTML, и для старых записей с обычным текстом — см. toEditableHtml.
 const ALLOWED_TAGS = [
-  'p', 'br', 'strong', 'em', 'u', 's',
-  'h2', 'h3',
+  'p', 'br', 'strong', 'em', 'u', 's', 'del', 'code', 'pre',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'ul', 'ol', 'li',
-  'blockquote', 'a', 'hr',
-  'table', 'tr', 'td', 'th',
+  'blockquote', 'a', 'hr', 'img',
+  'table', 'thead', 'tbody', 'tr', 'td', 'th',
 ]
-const ALLOWED_ATTR = ['href', 'target', 'rel', 'style', 'colspan', 'rowspan']
+const ALLOWED_ATTR = ['href', 'target', 'rel', 'style', 'colspan', 'rowspan', 'src', 'alt', 'title', 'start', 'loading']
 
 // style — единственный "открытый" атрибут (нужен для text-align редактора и
 // отступов), поэтому вместо ALLOWED_ATTR фильтруем его содержимое построчно:
@@ -43,29 +44,54 @@ DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
 // reverse tabnabbing (открытая страница получает доступ к window.opener и может
 // подменить исходную вкладку) — форсируем безопасный rel везде, где есть target.
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  // Картинки — только по http(s) или с корня сайта: data:/blob: и прочее не пускаем.
+  if (node.tagName === 'IMG') {
+    const src = node.getAttribute('src') ?? ''
+    if (!/^(https?:\/\/|\/(?!\/))/i.test(src)) node.removeAttribute('src')
+    node.setAttribute('loading', 'lazy')
+  }
   if (node.tagName === 'A' && node.hasAttribute('target')) {
     node.setAttribute('target', '_blank')
     node.setAttribute('rel', 'noopener noreferrer')
   }
 })
 
+// Маркеры именно нашего старого HTML-формата (редактор до перехода на Markdown).
+// Общий "есть угловые скобки" тут не годится: в Markdown легально встречаются
+// автоссылки <https://…> и просто "a < b".
+const LEGACY_HTML_RE = /<\/?(p|br|strong|em|u|s|h[1-6]|ul|ol|li|blockquote|table|tr|td|th|a|hr)(\s[^>]*)?>/i
+
 export function looksLikeHtml(value) {
-  return typeof value === 'string' && /<\/?[a-z][\s\S]*>/i.test(value)
+  return typeof value === 'string' && LEGACY_HTML_RE.test(value)
 }
 
-// Старые записи хранятся как обычный текст с переносами строк — оборачиваем их
-// в параграфы, чтобы редактор и просмотр показывали то же самое, что и раньше.
 export function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-export function toEditableHtml(value) {
+// Сырой HTML внутри Markdown не пропускаем вовсе: экранируем как текст. Санитайзер
+// остаётся вторым рубежом, а не единственной защитой.
+const markdown = new Marked({ gfm: true, breaks: true })
+markdown.use({
+  renderer: {
+    html: ({ text }) => escapeHtml(text),
+  },
+})
+
+// Единая точка превращения сохранённого значения в безопасный HTML для показа.
+// Новые записи — Markdown; старые (HTML от прежнего редактора) рендерим как раньше.
+export function renderRichHtml(value) {
   if (!value) return ''
-  if (looksLikeHtml(value)) return value
-  return String(value)
-    .split(/\n{2,}/)
-    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, '<br>')}</p>`)
-    .join('')
+  if (looksLikeHtml(value)) return sanitizeHtml(value)
+  return sanitizeHtml(markdown.parse(String(value), { async: false }))
+}
+
+// Значение для загрузки в редактор: legacy HTML редактор разбирает как HTML,
+// всё остальное — как Markdown. Возвращает { content, contentType }.
+export function toEditorContent(value) {
+  if (!value) return { content: '', contentType: 'markdown' }
+  if (looksLikeHtml(value)) return { content: sanitizeHtml(value), contentType: 'html' }
+  return { content: String(value), contentType: 'markdown' }
 }
 
 // Пустой узел на краю документа: текст без содержимого (только пробелы) или
@@ -102,8 +128,7 @@ export function sanitizeHtml(html) {
 // Для превью в одну-две строки (карточки списков, чипы) — обычный текст без разметки.
 export function toPlainText(value) {
   if (!value) return ''
-  if (!looksLikeHtml(value)) return String(value)
   const div = document.createElement('div')
-  div.innerHTML = sanitizeHtml(value)
+  div.innerHTML = renderRichHtml(value)
   return (div.textContent ?? '').replace(/\s+/g, ' ').trim()
 }

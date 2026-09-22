@@ -376,3 +376,38 @@ export function fieldLabel(key) {
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
+
+export const articleTypeLabels = {
+  lore: 'Лор',
+  region: 'Регион',
+  location: 'Локация',
+  faction: 'Фракция',
+  npc: 'НПС',
+  event: 'Событие',
+  artifact: 'Артефакт',
+}
+
+export const articleStatusLabels = {
+  draft: 'Черновик',
+  in_review: 'На проверке',
+  published: 'Опубликовано',
+  archived: 'В архиве',
+}
+
+export const articleVisibilityLabels = {
+  public: 'Публичная',
+  gm_only: 'Только для ГМ',
+}
+
+export const relationTypeLabels = {
+  LOCATED_IN: 'находится в',
+  MEMBER_OF: 'состоит в',
+  RULES: 'правит',
+  PARENT_FACTION: 'дочерняя фракция от',
+  ALLY_OF: 'союзник',
+  ENEMY_OF: 'враг',
+  RELATIVE_OF: 'родственник',
+  MENTIONS: 'упоминает',
+  SEE_ALSO: 'см. также',
+  PARTICIPATED_IN: 'участвовал в',
+}

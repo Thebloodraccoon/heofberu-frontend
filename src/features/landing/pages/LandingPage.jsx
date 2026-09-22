@@ -1,9 +1,24 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { catalog } from '@/features/catalog/catalog.js'
 import { useAuth } from '@/features/auth/useAuth.js'
+import { useLatestArticles } from '@/features/articles/queries.js'
+import { Badge, Skeleton } from '@/components/ui'
+import { articleTypeLabels } from '@/lib/i18n'
+
+const LATEST_LIMIT = 4
 
 export default function LandingPage() {
   const { authenticated } = useAuth()
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const latestQ = useLatestArticles({ limit: LATEST_LIMIT }, { enabled: authenticated })
+
+  const submitSearch = (e) => {
+    e.preventDefault()
+    const q = query.trim()
+    navigate(q ? `/lore?q=${encodeURIComponent(q)}` : '/lore')
+  }
 
   return (
     <div>
@@ -73,6 +88,56 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+
+      {/* LORE */}
+      {authenticated && (
+        <section className="mt-12 sm:mt-14">
+          <div className="text-center">
+            <h2 className="heading-section">Лор</h2>
+            <p className="subtitle mt-1">Статьи о мире Хеофберу — ищите или читайте последние записи</p>
+            <div className="ornate-rule mx-auto mt-3 max-w-[22rem]">
+              <span aria-hidden className="text-sm">✦</span>
+            </div>
+          </div>
+
+          <form onSubmit={submitSearch} className="mx-auto mt-6 flex max-w-lg gap-2">
+            <input
+              className="input-base input-search flex-1"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по статьям…"
+            />
+            <button type="submit" className="btn btn-outline-gold">
+              Искать
+            </button>
+          </form>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {latestQ.isLoading &&
+              Array.from({ length: LATEST_LIMIT }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+            {(latestQ.data ?? []).map((a) => (
+              <Link
+                key={a.id}
+                to={`/lore/${a.id}`}
+                className="block rounded-lg border border-stone-800 bg-stone-900/60 p-4 transition hover:border-ember/60 hover:bg-stone-900"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-medium text-stone-100">{a.title}</h3>
+                  <Badge>{articleTypeLabels[a.article_type] ?? a.article_type}</Badge>
+                </div>
+                {a.excerpt && <p className="mt-1.5 line-clamp-2 text-sm text-stone-400">{a.excerpt}</p>}
+              </Link>
+            ))}
+            {latestQ.data?.length === 0 && <p className="text-stone-500">Статей пока нет.</p>}
+          </div>
+
+          <div className="cta mt-6 text-center">
+            <Link to="/lore" className="btn btn-outline-gold">
+              Все статьи →
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* CATALOG */}
       <section className="mt-12 sm:mt-14">

@@ -37,4 +37,17 @@ export const queryKeys = {
     features: (params) => ['catalog', 'features', params ?? {}],
     items: (params) => ['catalog', 'items', params ?? {}],
   },
+  articles: {
+    all: ['articles'],
+    list: (params) => ['articles', 'list', params ?? {}],
+    search: (params) => ['articles', 'search', params ?? {}],
+    latest: (params) => ['articles', 'latest', params ?? {}],
+    detail: (id) => ['articles', id],
+    relations: (id) => ['articles', id, 'relations'],
+  },
+  tags: {
+    all: ['tags'],
+    list: (params) => ['tags', 'list', params ?? {}],
+    page: (params) => ['tags', 'page', params ?? {}],
+  },
 }

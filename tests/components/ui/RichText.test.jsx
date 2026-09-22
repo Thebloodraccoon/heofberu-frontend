@@ -15,6 +15,17 @@ describe('RichText', () => {
     expect(container.querySelector('[onclick]')).not.toBeInTheDocument()
   })
 
+  it('renders Markdown', () => {
+    const { container } = render(<RichText value={'## Раздел\n\n**Жирный** текст'} />)
+    expect(container.querySelector('h2')).toHaveTextContent('Раздел')
+    expect(container.querySelector('strong')).toHaveTextContent('Жирный')
+  })
+
+  it('does not render raw HTML typed into Markdown', () => {
+    const { container } = render(<RichText value={'<script>alert(1)</script>\n\nтекст'} />)
+    expect(container.querySelector('script')).not.toBeInTheDocument()
+  })
+
   it('renders legacy plain text as a paragraph', () => {
     render(<RichText value="Просто текст" />)
     expect(screen.getByText('Просто текст')).toBeInTheDocument()

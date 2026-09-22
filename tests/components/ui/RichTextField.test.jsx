@@ -28,7 +28,7 @@ describe('RichTextField', () => {
     await userEvent.keyboard('{Control>}a{/Control}')
     pasteInto(editor, 'Новый')
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
-    expect(onSave).toHaveBeenCalledWith('<p>Новый</p>')
+    expect(onSave).toHaveBeenCalledWith('Новый')
     expect((await screen.findAllByText('Сохранено')).length).toBeGreaterThan(0)
   })
 

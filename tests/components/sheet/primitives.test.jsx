@@ -158,7 +158,7 @@ describe('EditableBlock', () => {
     await userEvent.keyboard('{Control>}a{/Control}')
     pasteInto(editor, 'Новый текст')
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
-    expect(onSave).toHaveBeenCalledWith('<p>Новый текст</p>')
+    expect(onSave).toHaveBeenCalledWith('Новый текст')
   })
 
   it('cancels editing and restores the original value', async () => {

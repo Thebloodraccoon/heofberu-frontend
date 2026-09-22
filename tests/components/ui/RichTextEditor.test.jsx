@@ -11,46 +11,54 @@ const pasteInto = (el, text) =>
 
 describe('RichTextEditor', () => {
   it('renders the toolbar and existing content', () => {
-    render(<RichTextEditor value="<p>Привет</p>" onChange={vi.fn()} ariaLabel="Заметка" />)
+    render(<RichTextEditor value="Привет" onChange={vi.fn()} ariaLabel="Заметка" />)
     expect(screen.getByRole('toolbar', { name: 'Форматирование текста' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Заметка' })).toHaveTextContent('Привет')
   })
 
-  it('reports edits as HTML through onChange', async () => {
+  it('reports edits as Markdown through onChange', async () => {
     const onChange = vi.fn()
     render(<RichTextEditor value="" onChange={onChange} ariaLabel="Поле" />)
     const editor = screen.getByRole('textbox', { name: 'Поле' })
     await userEvent.click(editor)
     pasteInto(editor, 'Новый текст')
-    expect(onChange).toHaveBeenLastCalledWith({ target: { value: '<p>Новый текст</p>' } })
+    expect(onChange).toHaveBeenLastCalledWith({ target: { value: 'Новый текст' } })
   })
 
   it('toggles bold on the selected text', async () => {
     const onChange = vi.fn()
-    render(<RichTextEditor value="<p>текст</p>" onChange={onChange} ariaLabel="Поле" />)
+    render(<RichTextEditor value="текст" onChange={onChange} ariaLabel="Поле" />)
     const editor = screen.getByRole('textbox', { name: 'Поле' })
     await userEvent.click(editor)
     await userEvent.keyboard('{Control>}a{/Control}')
     await userEvent.click(screen.getByTitle('Жирный'))
-    expect(onChange).toHaveBeenLastCalledWith({ target: { value: '<p><strong>текст</strong></p>' } })
+    expect(onChange).toHaveBeenLastCalledWith({ target: { value: '**текст**' } })
   })
 
-  it('sanitizes dangerous markup entered via the source view', async () => {
+  it('loads legacy HTML values and saves them back as Markdown', async () => {
     const onChange = vi.fn()
-    render(<RichTextEditor value="<p>ок</p>" onChange={onChange} ariaLabel="Поле" />)
-    await userEvent.click(screen.getByTitle('Показать код'))
-    const source = screen.getByDisplayValue('<p>ок</p>')
-    await userEvent.clear(source)
-    await userEvent.type(source, '<img src=x onerror="alert(1)"><p>чисто</p>', { skipClick: true })
-    await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
+    render(<RichTextEditor value="<p><strong>Старый</strong></p>" onChange={onChange} ariaLabel="Поле" />)
+    expect(screen.getByRole('textbox', { name: 'Поле' })).toHaveTextContent('Старый')
+    await userEvent.click(screen.getByRole('textbox', { name: 'Поле' }))
+    await userEvent.keyboard('{Control>}a{/Control}')
+    await userEvent.click(screen.getByTitle('Курсив'))
     const [[payload]] = onChange.mock.calls.slice(-1)
-    expect(payload.target.value).not.toContain('onerror')
-    expect(payload.target.value).not.toContain('<img')
-    expect(payload.target.value).toContain('чисто')
+    expect(payload.target.value).not.toContain('<')
+  })
+
+  it('shows Markdown in the source view and applies edits from it', async () => {
+    const onChange = vi.fn()
+    render(<RichTextEditor value="**ок**" onChange={onChange} ariaLabel="Поле" />)
+    await userEvent.click(screen.getByTitle('Показать код'))
+    const source = screen.getByDisplayValue('**ок**')
+    await userEvent.clear(source)
+    await userEvent.type(source, '# Заголовок', { skipClick: true })
+    await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
+    expect(onChange).toHaveBeenLastCalledWith({ target: { value: '# Заголовок' } })
   })
 
   it('disables the editor when disabled is set', () => {
-    render(<RichTextEditor value="<p>x</p>" onChange={vi.fn()} disabled ariaLabel="Поле" />)
+    render(<RichTextEditor value="x" onChange={vi.fn()} disabled ariaLabel="Поле" />)
     expect(screen.getByRole('textbox', { name: 'Поле' })).toHaveAttribute('contenteditable', 'false')
   })
 })

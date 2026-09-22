@@ -3,10 +3,10 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import { Extension } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
-import TextAlign from '@tiptap/extension-text-align'
+import Image from '@tiptap/extension-image'
+import { Markdown } from '@tiptap/markdown'
 import { TableKit } from '@tiptap/extension-table'
-import { sanitizeHtml, toEditableHtml } from '@/lib/utils/richText.js'
-import { Indent } from './richTextIndent.js'
+import { looksLikeHtml as looksLikeLegacy, toEditorContent } from '@/lib/utils/richText.js'
 import { TextArea } from './primitives.jsx'
 
 // Липкое форматирование через абзацы: шаг split в ProseMirror сбрасывает
@@ -51,15 +51,10 @@ function ToolbarButton({ active, disabled, onClick, title, children }) {
   )
 }
 
-const ALIGN_OPTIONS = [
-  ['left', 'По левому краю', 'Л'],
-  ['center', 'По центру', 'Ц'],
-  ['right', 'По правому краю', 'П'],
-  ['justify', 'По ширине', 'Ш'],
-]
-
 // Замена обычной <textarea> для «прозных» полей (описания, предыстория, заметки):
-// панель форматирования + переключатель «Показать код» для правки сырого HTML.
+// панель форматирования + переключатель «Показать код» для правки сырого Markdown.
+// Хранит и отдаёт Markdown; старые значения-HTML при загрузке разбираются как HTML
+// и при первой правке сохраняются уже Markdown-ом.
 // Контракт совместим со старым TextArea: value/onChange({ target: { value } }).
 export function RichTextEditor({
   value = '',
@@ -70,32 +65,35 @@ export function RichTextEditor({
   disabled = false,
   autoFocus = false,
   ariaLabel,
+  onEditor,
 }) {
   const [showCode, setShowCode] = useState(false)
   const [sourceDraft, setSourceDraft] = useState('')
 
+  const initial = toEditorContent(value)
   const editor = useEditor({
     extensions: [
       PersistMarksOnEnter,
       StarterKit.configure({
-        heading: { levels: [2, 3] },
+        heading: { levels: [1, 2, 3, 4] },
         codeBlock: false,
         code: false,
+        // В Markdown нет подчёркивания и выравнивания — их не предлагаем.
+        underline: false,
         link: { openOnClick: false, autolink: true },
       }),
       Placeholder.configure({ placeholder: placeholder ?? '' }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Indent,
+      Image.configure({ inline: false }),
+      Markdown,
       TableKit.configure({ table: { resizable: false } }),
     ],
-    // Санитизируем даже начальный контент: значение может прийти из БД в обход
-    // клиента (старые записи, прямые правки, будущий баг в другом месте), а
-    // Tiptap иначе отрендерит его as-is в DOM редактора ещё до первого onUpdate.
-    content: sanitizeHtml(toEditableHtml(value)),
+    content: initial.content,
+    contentType: initial.contentType,
     editable: !disabled,
     autofocus: autoFocus ? 'end' : false,
+    onCreate: ({ editor: ed }) => onEditor?.(ed),
     onUpdate: ({ editor: ed }) => {
-      const next = sanitizeHtml(ed.getHTML())
+      const next = ed.getMarkdown().trim()
       lastReported.current = next
       onChange?.({ target: { value: next } })
     },
@@ -112,12 +110,8 @@ export function RichTextEditor({
   // Синхронизируем внешние изменения value (сброс формы, загрузка другой записи),
   // но только когда контент реально другой — иначе курсор будет прыгать при вводе.
   // Сравниваем с последним значением, которое редактор сам отдал наружу (lastReported):
-  // родитель почти всегда возвращает его как есть, а прямое сравнение с
-  // editor.getHTML() давало ложное расхождение на таблицах — санитайзер вырезает
-  // их colgroup/col, и каждый ввод символа перезагружал весь документ (курсор
-  // улетал в конец таблицы). Пропускаем самый первый прогон: на монтировании
-  // контент уже равен value, а ProseMirror нормализует пустую строку в "<p></p>",
-  // что дало бы ложное расхождение.
+  // родитель почти всегда возвращает его как есть. Пропускаем самый первый прогон:
+  // на монтировании контент уже равен value.
   const skipNextSync = useRef(true)
   const lastReported = useRef(null)
   useEffect(() => {
@@ -127,9 +121,9 @@ export function RichTextEditor({
       return
     }
     if (lastReported.current !== null && value === lastReported.current) return
-    const next = sanitizeHtml(toEditableHtml(value))
-    if (next !== editor.getHTML()) {
-      editor.commands.setContent(next, { emitUpdate: false })
+    const next = toEditorContent(value)
+    if (looksLikeLegacy(value) || next.content !== editor.getMarkdown().trim()) {
+      editor.commands.setContent(next.content, { emitUpdate: false, contentType: next.contentType })
     }
   }, [value, editor])
 
@@ -153,17 +147,22 @@ export function RichTextEditor({
   }
 
   const openSource = () => {
-    setSourceDraft(editor.getHTML())
+    setSourceDraft(editor.getMarkdown())
     setShowCode(true)
   }
 
   const applySource = () => {
-    const clean = sanitizeHtml(sourceDraft)
     // emitUpdate: true (по умолчанию) — контент проходит через onUpdate, который
     // один-единственный отвечает за lastReported/onChange, иначе синк-эффект
     // выше посчитает это внешним изменением и передёрнет курсор.
-    editor.commands.setContent(clean, { emitUpdate: true })
+    editor.commands.setContent(sourceDraft, { emitUpdate: true, contentType: 'markdown' })
     setShowCode(false)
+  }
+
+  const setImage = () => {
+    const url = window.prompt('Адрес картинки (https://…):', '')
+    if (!url?.trim()) return
+    editor.chain().focus().setImage({ src: url.trim() }).run()
   }
 
   return (
@@ -175,19 +174,20 @@ export function RichTextEditor({
         <ToolbarButton title="Курсив" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
           <i>К</i>
         </ToolbarButton>
-        <ToolbarButton title="Подчёркнутый" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
-          <u>Ч</u>
-        </ToolbarButton>
         <ToolbarButton title="Зачёркнутый" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
           <s>С</s>
         </ToolbarButton>
         <span className="rich-toolbar__sep" aria-hidden="true" />
-        <ToolbarButton title="Заголовок" active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
-          H2
-        </ToolbarButton>
-        <ToolbarButton title="Подзаголовок" active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
-          H3
-        </ToolbarButton>
+        {[1, 2, 3, 4].map((level) => (
+          <ToolbarButton
+            key={level}
+            title={`Заголовок ${level}`}
+            active={editor.isActive('heading', { level })}
+            onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
+          >
+            H{level}
+          </ToolbarButton>
+        ))}
         <span className="rich-toolbar__sep" aria-hidden="true" />
         <ToolbarButton title="Маркированный список" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
           ☰
@@ -204,23 +204,8 @@ export function RichTextEditor({
         <ToolbarButton title="Разделитель" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
           ―
         </ToolbarButton>
-        <span className="rich-toolbar__sep" aria-hidden="true" />
-        {ALIGN_OPTIONS.map(([value, title, label]) => (
-          <ToolbarButton
-            key={value}
-            title={title}
-            active={editor.isActive({ textAlign: value })}
-            onClick={() => editor.chain().focus().setTextAlign(value).run()}
-          >
-            {label}
-          </ToolbarButton>
-        ))}
-        <span className="rich-toolbar__sep" aria-hidden="true" />
-        <ToolbarButton title="Уменьшить отступ" disabled={!editor.can().outdent()} onClick={() => editor.chain().focus().outdent().run()}>
-          ⇤
-        </ToolbarButton>
-        <ToolbarButton title="Увеличить отступ" disabled={!editor.can().indent()} onClick={() => editor.chain().focus().indent().run()}>
-          ⇥
+        <ToolbarButton title="Картинка" onClick={setImage}>
+          🖼
         </ToolbarButton>
         <span className="rich-toolbar__sep" aria-hidden="true" />
         <ToolbarButton
