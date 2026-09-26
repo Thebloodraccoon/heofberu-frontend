@@ -342,10 +342,10 @@ export function Badge({ children, tone = 'default', className = '' }) {
   )
 }
 
-export function PageHeader({ title, subtitle, actions, centered = false }) {
+export function PageHeader({ title, subtitle, actions, centered = false, className = '' }) {
   return (
     <div
-      className={`mb-8 flex flex-wrap items-center gap-4 ${
+      className={`${className || 'mb-8'} flex flex-wrap items-center gap-4 ${
         centered ? 'flex-col items-center text-center' : 'justify-between'
       }`}
     >

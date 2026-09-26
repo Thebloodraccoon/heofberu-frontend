@@ -5,13 +5,15 @@ import { abilityLabels } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
-import { ErrorBox, Input, RichTextField, Select, TextField } from '@/components/ui'
+import TagInput from '@/features/articles/components/TagInput.jsx'
+import { ErrorBox, RichTextField, Select, TextField } from '@/components/ui'
 import { useToasts } from '@/components/ToastProvider.jsx'
-import { SectionTitle, TrashIcon } from './editorShared.jsx'
+import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
 
 export default function SubraceEditor({ raceId, detail, features, busy = false, error = null, onRefresh }) {
   const { push: pushStatus } = useToasts()
   const [bonuses, setBonuses] = useState(() => detail?.ability_bonuses ?? [])
+  const [tags, setTags] = useState(() => (detail?.tags ?? []).map((t) => ({ id: t.id, name: t.name })))
   const [imageUrl, setImageUrl] = useState(detail?.image_url ?? null)
   const [imageBusy, setImageBusy] = useState(false)
   const [imageError, setImageError] = useState(null)
@@ -70,6 +72,49 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bonuses])
+
+  const savingTagsRef = useRef(false)
+  const pendingTagsSaveRef = useRef(false)
+  const tagsRef = useRef(tags)
+  useEffect(() => {
+    tagsRef.current = tags
+  }, [tags])
+
+  const saveTags = async () => {
+    if (savingTagsRef.current) {
+      pendingTagsSaveRef.current = true
+      return
+    }
+    savingTagsRef.current = true
+    setSaveError(null)
+    pushStatus('Сохраняем…', 'Теги', 'saving')
+    try {
+      await api.races.subraces.tags(raceId, detail.id, { tag_ids: tagsRef.current.map((t) => t.id) })
+      pushStatus('Сохранено', 'Теги')
+      await onRefresh()
+    } catch (err) {
+      setSaveError(err)
+    } finally {
+      savingTagsRef.current = false
+      if (pendingTagsSaveRef.current) {
+        pendingTagsSaveRef.current = false
+        saveTags()
+      }
+    }
+  }
+
+  const isFirstTagsRender = useRef(true)
+  useEffect(() => {
+    if (isFirstTagsRender.current) {
+      isFirstTagsRender.current = false
+      return
+    }
+    const id = setTimeout(() => {
+      saveTags()
+    }, 700)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tags])
 
   const setBonus = (i, key, val) =>
     setBonuses((rows) => rows.map((row, j) => (j === i ? { ...row, [key]: val } : row)))
@@ -216,15 +261,13 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
                             ))}
                           </Select>
                         </div>
-                        <div className="w-20">
-                          <Input
-                            type="number"
-                            min={-5}
-                            max={5}
-                            value={row.bonus}
-                            onChange={(e) => setBonus(i, 'bonus', Number(e.target.value))}
-                          />
-                        </div>
+                        <BlurNumberInput
+                          min={-5}
+                          max={5}
+                          value={row.bonus}
+                          onChange={(next) => setBonus(i, 'bonus', Number(next) || 0)}
+                          className="input-narrow"
+                        />
                         <button
                           type="button"
                           onClick={() => removeBonus(i)}
@@ -240,6 +283,8 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
               </>
             )}
           </div>
+
+          <TagInput value={tags} onChange={setTags} />
 
           <div className=" pt-3">
             <FeaturesEditorBlock

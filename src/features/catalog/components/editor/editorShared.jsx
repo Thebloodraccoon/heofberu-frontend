@@ -34,7 +34,7 @@ export function TrashIcon({ className = 'h-4 w-4' }) {
 // ещё до ввода «5». Внешние изменения формы (открытие другой записи, ответ
 // автосейва) подтягиваются, только когда поле не в фокусе, чтобы не затирать
 // черновик во время ввода.
-export function BlurNumberInput({ value, onChange, min, max, placeholder, className = '' }) {
+export function BlurNumberInput({ value, onChange, min, max, placeholder, className = '', ...rest }) {
   const [draft, setDraft] = useState(() => String(value ?? ''))
   const draftRef = useRef(draft)
   const focusedRef = useRef(false)
@@ -67,6 +67,7 @@ export function BlurNumberInput({ value, onChange, min, max, placeholder, classN
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()
       }}
+      {...rest}
     />
   )
 }

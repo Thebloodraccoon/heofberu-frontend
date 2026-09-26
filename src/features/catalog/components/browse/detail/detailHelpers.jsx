@@ -24,6 +24,25 @@ export function FeatureDescription({ feature, className = 'description-secondary
   return <RichText value={feature.description} tail={feature.effects_summary} className={className} />
 }
 
+// Теги расы/подрасы/предыстории под их названием — клик по тегу ведёт в лор
+// с фильтром по этому одному тегу.
+export function TagChips({ tags = [], className = '' }) {
+  if (!tags || tags.length === 0) return null
+  return (
+    <span className={`flex flex-wrap items-center gap-1.5 ${className}`}>
+      {tags.map((t) => (
+        <Link
+          key={t.id}
+          to={`/lore?tags=${t.id}`}
+          className="rounded-full border border-stone-700 px-2 py-0.5 text-xs text-stone-400 transition hover:border-ember hover:text-ember"
+        >
+          #{t.name}
+        </Link>
+      ))}
+    </span>
+  )
+}
+
 export function SkillChips({ names = [] }) {
   if (names.length === 0) return null
   return (

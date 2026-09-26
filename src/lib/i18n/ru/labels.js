@@ -385,6 +385,15 @@ export const articleTypeLabels = {
   npc: 'НПС',
   event: 'Событие',
   artifact: 'Артефакт',
+  deity: 'Божество',
+  religion: 'Религия',
+  creature: 'Существо',
+  culture: 'Культура',
+  language: 'Язык',
+  document: 'Документ',
+  condition: 'Состояние',
+  quest: 'Квест',
+  session: 'Сессия',
 }
 
 export const articleStatusLabels = {

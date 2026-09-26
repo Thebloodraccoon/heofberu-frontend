@@ -35,6 +35,14 @@ describe('renderRichHtml', () => {
     expect(renderRichHtml('строка1\nстрока2')).toBe('<p>строка1<br>строка2</p>')
   })
 
+  it('renders inline code', () => {
+    expect(renderRichHtml('это `код`')).toBe('<p>это <code>код</code></p>')
+  })
+
+  it('renders ++underline++ (RichTextEditor markdown syntax) as <u>', () => {
+    expect(renderRichHtml('это ++подчёркнутый++ текст')).toBe('<p>это <u>подчёркнутый</u> текст</p>')
+  })
+
   it('escapes raw HTML inside Markdown instead of passing it through', () => {
     const html = renderRichHtml('текст\n\n<div onclick="x()">блок</div>\n\n<script>alert(1)</script>')
     expect(html).not.toContain('<script')

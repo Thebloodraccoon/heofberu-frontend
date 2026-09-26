@@ -1,27 +1,31 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { articlesApi, RELATION_TYPES } from '@/features/articles/api.js'
+import { articlesApi } from '@/features/articles/api.js'
+import RelationModal from '@/features/articles/components/RelationModal.jsx'
 import { useArticleRelations } from '@/features/articles/queries.js'
+import { relationParts } from '@/features/articles/relationText.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { Button, ErrorBox, Input, Select } from '@/components/ui'
-import { articleTypeLabels, relationTypeLabels } from '@/lib/i18n'
+import { Button, ConfirmDialog, ErrorBox } from '@/components/ui'
+import { articleTypeLabels } from '@/lib/i18n'
 
-// Граф связей статьи (всё, что не укладывается в дерево parent_id): исходящие и входящие.
-export default function ArticleRelations({ articleId, candidates }) {
+// Граф связей статьи (всё, что не укладывается в дерево parent_id): входящие и исходящие.
+// Добавление и правка — в модалке RelationModal, удаление — с подтверждением.
+export default function ArticleRelations({ articleId, articleTitle }) {
   const qc = useQueryClient()
   const relQ = useArticleRelations(articleId)
-  const [target, setTarget] = useState('')
-  const [type, setType] = useState('SEE_ALSO')
-  const [note, setNote] = useState('')
+  const [modal, setModal] = useState(null) // null | 'new' | relation
+  const [toDelete, setToDelete] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
-  const run = async (fn) => {
+  const remove = async () => {
     setBusy(true)
     setError(null)
     try {
-      await fn()
+      await articlesApi.relations.remove(articleId, toDelete.id)
       await qc.invalidateQueries({ queryKey: queryKeys.articles.relations(articleId) })
+      await qc.invalidateQueries({ queryKey: queryKeys.articles.relations(toDelete.article.id) })
+      setToDelete(null)
     } catch (e) {
       setError(e)
     } finally {
@@ -29,67 +33,78 @@ export default function ArticleRelations({ articleId, candidates }) {
     }
   }
 
-  const add = () =>
-    run(async () => {
-      await articlesApi.relations.create(articleId, {
-        to_article_id: Number(target),
-        relation_type: type,
-        note: note.trim() || null,
-      })
-      setTarget('')
-      setNote('')
-    })
+  const relations = relQ.data ?? []
 
   return (
     <div className="space-y-3">
-      <h3 className="heading-sub">Связи</h3>
-      {relQ.error && <ErrorBox error={relQ.error} onRetry={relQ.refetch} />}
-      <ul className="space-y-1 text-sm">
-        {(relQ.data ?? []).map((r) => (
-          <li key={r.id} className="flex items-center justify-between gap-2 rounded border border-stone-700/60 px-2 py-1">
-            <span>
-              {r.direction === 'outgoing' ? 'Эта статья ' : ''}
-              <span className="text-stone-400">{relationTypeLabels[r.relation_type] ?? r.relation_type}</span>
-              {r.direction === 'incoming' ? ' → эту статью: ' : ' '}
-              <b className="text-stone-100">{r.article.title}</b>{' '}
-              <span className="text-xs text-stone-500">
-                ({articleTypeLabels[r.article.article_type] ?? r.article.article_type})
-              </span>
-              {r.note && <span className="text-stone-500"> — {r.note}</span>}
-            </span>
-            <Button
-              size="xs"
-              variant="danger"
-              disabled={busy}
-              onClick={() => run(() => articlesApi.relations.remove(articleId, r.id))}
-            >
-              ✕
-            </Button>
-          </li>
-        ))}
-        {relQ.data?.length === 0 && <li className="text-stone-500">Связей нет.</li>}
-      </ul>
-      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
-        <Select value={type} onChange={(e) => setType(e.target.value)}>
-          {RELATION_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {relationTypeLabels[t]}
-            </option>
-          ))}
-        </Select>
-        <Select value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Статья…">
-          {candidates.map((c) => (
-            <option key={c.id} value={String(c.id)}>
-              {c.title}
-            </option>
-          ))}
-        </Select>
-        <Input value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder="Заметка" />
-        <Button variant="ghost" disabled={busy || !target} onClick={add}>
-          Связать
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="heading-sub">Связи</h3>
+        <Button size="sm" variant="ghost" onClick={() => setModal('new')}>
+          Добавить связь
         </Button>
       </div>
-      {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
+      {relQ.error && <ErrorBox error={relQ.error} onRetry={relQ.refetch} />}
+
+      {relations.length === 0 && relQ.data && <p className="text-sm text-stone-500">Связей пока нет.</p>}
+      <ul className="space-y-1.5">
+        {relations.map((r) => {
+          const [subject, verb, object] = relationParts(r.direction, r.relation_type, r.article.title)
+          const isOther = (part) => part === r.article.title
+          return (
+            <li
+              key={r.id}
+              className={`flex flex-wrap items-center justify-between gap-2 rounded border px-3 py-2 ${
+                r.visibility === 'gm_only' ? 'border-violet-800/70 bg-violet-950/20' : 'border-stone-700/60'
+              }`}
+            >
+              <div className="min-w-0 text-sm text-stone-300">
+                {r.visibility === 'gm_only' && (
+                  <span className="mr-1" title="Секретная связь — игроки её не видят">
+                    🔒
+                  </span>
+                )}
+                <span className={isOther(subject) ? 'font-medium text-stone-100' : 'text-stone-400'}>{subject}</span>{' '}
+                <span className="text-ember">{verb}</span>{' '}
+                <span className={isOther(object) ? 'font-medium text-stone-100' : 'text-stone-400'}>{object}</span>{' '}
+                <span className="text-xs text-stone-500">
+                  ({articleTypeLabels[r.article.article_type] ?? r.article.article_type})
+                </span>
+                {r.note && <p className="mt-0.5 text-xs text-stone-400">{r.note}</p>}
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <Button size="xs" variant="ghost" onClick={() => setModal(r)}>
+                  Изменить
+                </Button>
+                <Button size="xs" variant="danger" onClick={() => setToDelete(r)}>
+                  Удалить
+                </Button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+
+      {modal && (
+        <RelationModal
+          articleId={articleId}
+          articleTitle={articleTitle}
+          relation={modal === 'new' ? null : modal}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {toDelete && (
+        <ConfirmDialog
+          title="Удалить связь?"
+          message={relationParts(toDelete.direction, toDelete.relation_type, `«${toDelete.article.title}»`).join(' ')}
+          busy={busy}
+          error={error}
+          onCancel={() => {
+            setToDelete(null)
+            setError(null)
+          }}
+          onConfirm={remove}
+        />
+      )}
     </div>
   )
 }

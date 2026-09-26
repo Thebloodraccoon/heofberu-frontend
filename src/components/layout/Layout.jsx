@@ -21,8 +21,8 @@ const personalLinks = [
 ]
 
 const gmLinks = [
+    { to: '/gm/articles', label: 'Редактор статей и тегов' },
   { to: '/gm/editor', label: 'Редактор справочников' },
-  { to: '/gm/articles', label: 'Статьи и теги' },
   { to: '/gm/characters', label: 'Персонажи игроков' },
   { to: '/users', label: 'Пользователи' },
 ]
@@ -76,15 +76,15 @@ function SidebarContent({ onClick }) {
         <>
           <SectionTitle>Личное</SectionTitle>
           <SidebarLink to="/profile" label="Профиль" onClick={onClick} />
-          <SidebarLink to="/characters" label="Мои персонажи" onClick={onClick} />
+          <SidebarLink to="/characters" label="Персонажи" onClick={onClick} />
         </>
       )}
 
       {authenticated && isGM && (
         <>
           <SectionTitle>ГМ</SectionTitle>
+          <SidebarLink to="/gm/articles" label="Редактор статей и тегов" onClick={onClick} />
           <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={onClick} />
-          <SidebarLink to="/gm/articles" label="Статьи и теги" onClick={onClick} />
           <SidebarLink to="/gm/characters" label="Персонажи игроков" onClick={onClick} />
           <SidebarLink to="/users" label="Пользователи" onClick={onClick} />
         </>

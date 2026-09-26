@@ -12,6 +12,7 @@ import EditorFieldControl, { BlurNumberInput, CheckIcon, PencilIcon, SectionTitl
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
+import TagInput from '@/features/articles/components/TagInput.jsx'
 import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, RichText, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
 import ImageUploadBlock from '@/features/catalog/components/editor/ImageUploadBlock.jsx'
 import { useToasts } from '@/components/ToastProvider.jsx'
@@ -1284,6 +1285,15 @@ onClick={() => {
                         </div>
                       )
                     }
+                    if (section.type === 'tags') {
+                      return (
+                        <TagInput
+                          key={section.key}
+                          value={form[section.key] ?? []}
+                          onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
+                        />
+                      )
+                    }
                     if (section.type === 'rows') {
                       const selCol = section.columns?.find((c) => c.type === 'select')
                       const selOptions = selCol ? selCol.options ?? listOptions[selCol.listKey] ?? [] : []
@@ -1372,7 +1382,11 @@ onClick={() => {
                                         max={col.max}
                                         value={row[col.key] ?? ''}
                                         onChange={(v) => setRow(section.key, i, col.key, Number(v))}
-                                        className={section.fixedWidths ? 'w-full' : `w-24 ${col.width ?? ''}`}
+                                        className={
+                                          section.fixedWidths
+                                            ? 'input-narrow w-full sm:h-10'
+                                            : `input-narrow w-24 sm:h-10 ${col.width ?? ''}`
+                                        }
                                       />
                                     )
                                   })()

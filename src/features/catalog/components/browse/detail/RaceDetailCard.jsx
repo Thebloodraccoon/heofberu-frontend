@@ -1,6 +1,6 @@
 import { abilityLabels, raceSizeLabels, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Badge, Card, RichText } from '@/components/ui'
-import { Section, FeatureCards, SkillChips, formatBonus, itemName } from './detailHelpers.jsx'
+import { Section, FeatureCards, SkillChips, TagChips, formatBonus, itemName } from './detailHelpers.jsx'
 import CatalogImage from '../CatalogImage.jsx'
 
 function AbilityBonusChips({ bonuses = [] }) {
@@ -19,6 +19,13 @@ function AbilityBonusChips({ bonuses = [] }) {
 }
 
 export default function RaceDetailCard({ race, selectedSub, subLoading }) {
+  const activeTags = (() => {
+    if (!selectedSub) return race.tags ?? []
+    const byId = new Map()
+    for (const t of race.tags ?? []) byId.set(t.id, t)
+    for (const t of selectedSub.tags ?? []) byId.set(t.id, t)
+    return Array.from(byId.values())
+  })()
   const raceFeatures = (race.features ?? []).map((f) => ({ ...f, fromSubrace: false }))
   const subFeatures = selectedSub
     ? (selectedSub.features ?? []).map((f) => ({
@@ -40,6 +47,7 @@ export default function RaceDetailCard({ race, selectedSub, subLoading }) {
             {selectedSub && (
               <p className="mt-1 font-display text-lg font-semibold text-ember">{sentenceCase(selectedSub.name)}</p>
             )}
+            <TagChips tags={activeTags} className="mt-1.5" />
           </div>
 
           <div className="mb-4 flex flex-wrap gap-1.5">

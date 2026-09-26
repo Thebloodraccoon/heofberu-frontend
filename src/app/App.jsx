@@ -21,6 +21,7 @@ const UsersPage = lazy(() => import('@/features/users/pages/UsersPage.jsx'))
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage.jsx'))
 const GmEditorPage = lazy(() => import('@/features/catalog/pages/GmEditorPage.jsx'))
 const GmArticlesPage = lazy(() => import('@/features/articles/pages/GmArticlesPage.jsx'))
+const LoreLayout = lazy(() => import('@/features/articles/pages/LoreLayout.jsx'))
 const LorePage = lazy(() => import('@/features/articles/pages/LorePage.jsx'))
 const ArticleDetailPage = lazy(() => import('@/features/articles/pages/ArticleDetailPage.jsx'))
 const GuidePage = lazy(() => import('@/features/guide/pages/GuidePage.jsx'))
@@ -75,8 +76,10 @@ function App() {
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>
-                    <Route path="lore" element={<LorePage />} />
-                    <Route path="lore/:id" element={<ArticleDetailPage />} />
+                    <Route path="lore" element={<LoreLayout />}>
+                      <Route index element={<LorePage />} />
+                      <Route path=":idSlug" element={<ArticleDetailPage />} />
+                    </Route>
                     <Route path="characters" element={<CharactersPage />} />
                     <Route path="characters/new" element={<CharacterCreatePage />} />
                     <Route path="characters/:id" element={<CharacterDetailPage />} />

@@ -76,6 +76,30 @@ markdown.use({
   renderer: {
     html: ({ text }) => escapeHtml(text),
   },
+  // Подчёркивание — не стандартный Markdown: RichTextEditor (@tiptap/extension-underline)
+  // хранит его как ++текст++, поэтому здесь нужен тот же токенайзер, иначе разметка
+  // осядет в тексте буквально вместо <u>.
+  extensions: [
+    {
+      name: 'underline',
+      level: 'inline',
+      start: (src) => src.indexOf('++'),
+      tokenizer(src) {
+        const match = /^\+\+([\s\S]+?)\+\+/.exec(src)
+        if (!match) return undefined
+        const text = match[1].trim()
+        return {
+          type: 'underline',
+          raw: match[0],
+          text,
+          tokens: this.lexer.inlineTokens(text),
+        }
+      },
+      renderer(token) {
+        return `<u>${this.parser.parseInline(token.tokens)}</u>`
+      },
+    },
+  ],
 })
 
 // Единая точка превращения сохранённого значения в безопасный HTML для показа.

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { catalog } from '@/features/catalog/catalog.js'
 import { useAuth } from '@/features/auth/useAuth.js'
+import { articlePath } from '@/features/articles/api.js'
 import { useLatestArticles } from '@/features/articles/queries.js'
 import { Badge, Skeleton } from '@/components/ui'
 import { articleTypeLabels } from '@/lib/i18n'
@@ -118,7 +119,7 @@ export default function LandingPage() {
             {(latestQ.data ?? []).map((a) => (
               <Link
                 key={a.id}
-                to={`/lore/${a.id}`}
+                to={articlePath(a)}
                 className="block rounded-lg border border-stone-800 bg-stone-900/60 p-4 transition hover:border-ember/60 hover:bg-stone-900"
               >
                 <div className="flex items-center justify-between gap-2">

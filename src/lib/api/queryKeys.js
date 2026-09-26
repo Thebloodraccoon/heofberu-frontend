@@ -44,10 +44,13 @@ export const queryKeys = {
     latest: (params) => ['articles', 'latest', params ?? {}],
     detail: (id) => ['articles', id],
     relations: (id) => ['articles', id, 'relations'],
+    children: (id) => ['articles', id, 'children'],
+    ancestors: (id) => ['articles', id, 'ancestors'],
   },
   tags: {
     all: ['tags'],
     list: (params) => ['tags', 'list', params ?? {}],
+    detail: (id) => ['tags', 'detail', id],
     page: (params) => ['tags', 'page', params ?? {}],
   },
 }

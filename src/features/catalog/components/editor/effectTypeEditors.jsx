@@ -8,7 +8,7 @@ import {
   weaponProficiencyLabels,
 } from '@/lib/i18n/index.js'
 import { Input } from '@/components/ui'
-import { SectionTitle, TrashIcon } from './editorShared.jsx'
+import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
 import { useSpellNames } from '@/features/catalog/queries.js'
 import SpellPickerModal from './SpellPickerModal.jsx'
 
@@ -198,12 +198,12 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide }) {
           <span className="min-w-0 self-center truncate text-sm text-stone-200">
             {abilityLabels[row.ability] ?? row.ability}
           </span>
-          <Input
-            type="number"
+          <BlurNumberInput
             min={-5}
             max={5}
             value={row.amount}
-            onChange={(e) => onChange(rows.map((r, j) => (j === i ? { ...r, amount: Number(e.target.value) || 0 } : r)))}
+            onChange={(next) => onChange(rows.map((r, j) => (j === i ? { ...r, amount: Number(next) || 0 } : r)))}
+            className="input-base"
             title="Величина бонуса"
           />
           <Input

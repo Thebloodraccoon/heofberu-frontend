@@ -10,6 +10,7 @@ export const catalogApi = {
     abilityBonuses: (id, body) =>
       request(`/api/races/${id}/ability-bonuses`, { method: 'PUT', body }),
     skills: (id, body) => request(`/api/races/${id}/skills`, { method: 'PUT', body }),
+    tags: (id, body) => request(`/api/races/${id}/tags`, { method: 'PUT', body }),
     image: {
       upload: (id, file) => {
         const form = new FormData()
@@ -33,6 +34,8 @@ export const catalogApi = {
       remove: (_raceId, subraceId) => request(`/api/subraces/${subraceId}`, { method: 'DELETE' }),
       abilityBonuses: (_raceId, subraceId, body) =>
         request(`/api/subraces/${subraceId}/ability-bonuses`, { method: 'PUT', body }),
+      tags: (_raceId, subraceId, body) =>
+        request(`/api/subraces/${subraceId}/tags`, { method: 'PUT', body }),
       features: {
         // Фичи централизованы: только список по источнику (GET-only).
         list: (_raceId, subraceId) => request(`/api/subraces/${subraceId}/features`),
@@ -141,6 +144,7 @@ export const catalogApi = {
     update: (id, body) => request(`/api/backgrounds/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/api/backgrounds/${id}`, { method: 'DELETE' }),
     skills: (id, body) => request(`/api/backgrounds/${id}/skills`, { method: 'PUT', body }),
+    tags: (id, body) => request(`/api/backgrounds/${id}/tags`, { method: 'PUT', body }),
     items: {
       list: (id) => request(`/api/backgrounds/${id}/items`),
       set: (id, body) => request(`/api/backgrounds/${id}/items`, { method: 'PUT', body }),

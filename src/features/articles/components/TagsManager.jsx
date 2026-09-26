@@ -7,7 +7,7 @@ import { useToasts } from '@/components/ToastProvider.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { Button, Card, ConfirmDialog, ErrorBox, Input, Skeleton } from '@/components/ui'
 
-const PAGE_SIZE = 30
+const PAGE_SIZE = 100
 
 // Словарь тегов: общий для рас, подрас, предысторий и статей. Переименование
 // глобально; удалять можно только неиспользуемые теги и только основателю.
@@ -26,6 +26,7 @@ export default function TagsManager() {
 
   const q = useTagsPage({ page, size: PAGE_SIZE, ...(applied ? { search: applied } : {}) })
   const totalPages = Math.max(1, Math.ceil((q.data?.total ?? 0) / PAGE_SIZE))
+  const tags = q.data?.items ?? []
 
   const run = async (fn, okTitle) => {
     setBusy(true)
@@ -60,81 +61,136 @@ export default function TagsManager() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="w-full">
       <p className="mb-4 text-sm text-stone-400">Общий словарь тегов: расы, подрасы, предыстории, статьи.</p>
-      <Card className="space-y-4">
-        <div className="flex gap-2">
-          <Input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && create()}
-            placeholder="Новый тег"
-          />
-          <Button disabled={busy || !newName.trim()} onClick={create}>
-            Создать
-          </Button>
-        </div>
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            setPage(1)
-            setApplied(search.trim())
-          }}
-        >
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск" />
-          <Button variant="ghost" type="submit">
-            Найти
-          </Button>
-        </form>
-        {error && !toDelete && <ErrorBox error={error} onRetry={() => setError(null)} />}
-        {q.isLoading && <Skeleton className="h-24 w-full" />}
-        {q.error && <ErrorBox error={q.error} onRetry={q.refetch} />}
-        <ul className="space-y-1">
-          {(q.data?.items ?? []).map((t) => (
-            <li key={t.id} className="flex items-center gap-2 rounded border border-stone-700/60 px-2 py-1.5">
-              {editing?.id === t.id ? (
-                <>
-                  <Input
-                    autoFocus
-                    value={editing.name}
-                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && rename()}
-                  />
-                  <Button size="sm" disabled={busy} onClick={rename}>
-                    Сохранить
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
-                    Отмена
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <span className="flex-1 text-sm text-stone-200">{t.name}</span>
-                  <Button size="xs" variant="ghost" onClick={() => setEditing({ id: t.id, name: t.name })}>
-                    Переименовать
-                  </Button>
-                  {isFounder && (
-                    <Button size="xs" variant="danger" onClick={() => setToDelete(t)}>
-                      Удалить
-                    </Button>
-                  )}
-                </>
-              )}
-            </li>
-          ))}
-          {q.data?.items.length === 0 && <li className="text-sm text-stone-500">Тегов нет.</li>}
-        </ul>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between text-xs text-stone-400">
-            <Button size="xs" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              Назад
-            </Button>
-            {page} / {totalPages}
-            <Button size="xs" variant="ghost" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              Вперёд
+      <Card className="space-y-5 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-1 gap-2">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && create()}
+              placeholder="Новый тег…"
+              className="flex-1"
+            />
+            <Button disabled={busy || !newName.trim()} onClick={create}>
+              Создать
             </Button>
           </div>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              setPage(1)
+              setApplied(search.trim())
+            }}
+          >
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск по тегам…"
+              className="sm:w-56"
+            />
+            <Button variant="ghost" type="submit">
+              Найти
+            </Button>
+          </form>
+        </div>
+
+        {error && !toDelete && <ErrorBox error={error} onRetry={() => setError(null)} />}
+
+        <div className="border-t border-stone-700/60" />
+
+        {q.isLoading && <Skeleton className="h-24 w-full" />}
+        {q.error && <ErrorBox error={q.error} onRetry={q.refetch} />}
+
+        {!q.isLoading && !q.error && (
+          <>
+            {tags.length === 0 ? (
+              <p className="py-6 text-center text-sm text-stone-500">
+                {applied ? `Ничего не найдено по «${applied}».` : 'Тегов пока нет — создайте первый.'}
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {tags.map((t) =>
+                  editing?.id === t.id ? (
+                    <li key={t.id} className="flex items-center gap-1.5 rounded-full border border-ember bg-stone-800/80 py-1 pl-3 pr-1.5">
+                      <input
+                        autoFocus
+                        value={editing.name}
+                        onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') rename()
+                          if (e.key === 'Escape') setEditing(null)
+                        }}
+                        className="w-28 bg-transparent text-sm text-stone-100 outline-none placeholder:text-stone-500"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Сохранить"
+                        title="Сохранить"
+                        disabled={busy}
+                        onClick={rename}
+                        className="rounded-full px-1.5 text-emerald-300 transition hover:bg-emerald-900/40 disabled:opacity-50"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Отмена"
+                        title="Отмена"
+                        onClick={() => setEditing(null)}
+                        className="rounded-full px-1.5 text-stone-400 transition hover:bg-stone-700 hover:text-stone-100"
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ) : (
+                    <li
+                      key={t.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-stone-600 bg-stone-800/60 py-1 pl-3 pr-1 text-sm text-stone-100 transition hover:border-stone-500"
+                    >
+                      #{t.name}
+                      <button
+                        type="button"
+                        aria-label={`Переименовать тег ${t.name}`}
+                        title="Переименовать"
+                        onClick={() => setEditing({ id: t.id, name: t.name })}
+                        className="rounded-full px-1.5 text-stone-400 transition hover:bg-stone-700 hover:text-stone-100"
+                      >
+                        ✎
+                      </button>
+                      {isFounder && (
+                        <button
+                          type="button"
+                          aria-label={`Удалить тег ${t.name}`}
+                          title="Удалить"
+                          onClick={() => setToDelete(t)}
+                          className="rounded-full px-1.5 text-stone-400 transition hover:bg-red-950/50 hover:text-red-300"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </li>
+                  ),
+                )}
+              </ul>
+            )}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-stone-700/60 pt-3 text-xs text-stone-400">
+                <Button size="xs" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                  ← Назад
+                </Button>
+                <span>
+                  Страница {page} из {totalPages} · {q.data?.total ?? 0} тегов
+                </span>
+                <Button size="xs" variant="ghost" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                  Вперёд →
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </Card>
       {toDelete && (

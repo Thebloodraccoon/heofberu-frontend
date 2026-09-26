@@ -43,6 +43,7 @@ export const racesCfg = {
       ],
     },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки расы', empty: 'Навыков в справочнике нет' },
+    { type: 'tags', key: 'tags', label: 'Теги' },
   ],
   emptyForm: () => ({
     name: '',
@@ -51,6 +52,7 @@ export const racesCfg = {
     description: '',
     ability_bonuses: [],
     skill_ids: [],
+    tags: [],
   }),
   fromRecord: (r) => ({
     name: r.name,
@@ -59,6 +61,7 @@ export const racesCfg = {
     description: r.description ?? '',
     ability_bonuses: (r.ability_bonuses ?? []).map((b) => ({ ability: b.ability, bonus: b.bonus })),
     skill_ids: (r.granted_skills ?? []).map((s) => s.id),
+    tags: (r.tags ?? []).map((t) => ({ id: t.id, name: t.name })),
   }),
   submitFields: async (form, rec) => {
     const base = {
@@ -68,11 +71,15 @@ export const racesCfg = {
       description: form.description,
     }
     if (!rec) {
-      return api.races.create({
+      const created = await api.races.create({
         ...base,
         ability_bonuses: form.ability_bonuses,
         granted_skills: form.skill_ids,
       })
+      if (form.tags.length) {
+        await api.races.tags(created.id, { tag_ids: form.tags.map((t) => t.id) })
+      }
+      return created
     }
     // Диффим по секциям, чтобы автосейв не слал лишних запросов, когда меняется
     // только один блок (напр., только навыки, а база и бонусы не трогались).
@@ -91,6 +98,11 @@ export const racesCfg = {
     const nextSkillIds = form.skill_ids.map(Number).sort()
     if (JSON.stringify(prevSkillIds) !== JSON.stringify(nextSkillIds)) {
       await api.races.skills(rec.id, { skill_ids: form.skill_ids })
+    }
+    const prevTagIds = (rec.tags ?? []).map((t) => Number(t.id)).sort()
+    const nextTagIds = form.tags.map((t) => Number(t.id)).sort()
+    if (JSON.stringify(prevTagIds) !== JSON.stringify(nextTagIds)) {
+      await api.races.tags(rec.id, { tag_ids: form.tags.map((t) => t.id) })
     }
   },
   listBadges: (item) =>
