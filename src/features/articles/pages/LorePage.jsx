@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigationType, useOutletContext, useSearchParams } from 'react-router-dom'
 import { articlePath } from '@/features/articles/api.js'
-import { parseTagIds, parseTypes } from '@/features/articles/filters.js'
+import { parseSubtypeIds, parseTagIds, parseTypes } from '@/features/articles/filters.js'
 import { ARTICLE_SORTS } from '@/features/articles/sorts.js'
 import { useArticlesPage, useArticlesSearch } from '@/features/articles/queries.js'
 import { Badge, ErrorBox, Skeleton } from '@/components/ui'
@@ -26,7 +26,7 @@ function ArticleRow({ article, gmView, showSnippet, search }) {
           <Badge tone="default">{articleStatusLabels[article.status] ?? article.status}</Badge>
         )}
         {gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
-        {article.subtype && <span className="text-xs text-stone-500">{article.subtype}</span>}
+        {article.subtype && <span className="text-xs text-stone-500">{article.subtype.name}</span>}
       </div>
       <div className="lore-article-heading"><h2>{article.title}</h2><LoreIcon name="arrow" /></div>
       {article.excerpt && !(showSnippet && article.snippet) && <p className="lore-article-excerpt">{article.excerpt}</p>}
@@ -55,12 +55,14 @@ export default function LorePage() {
   const q = params.get('q') ?? ''
   const types = parseTypes(params)
   const tagIds = parseTagIds(params)
+  const subtypeIds = parseSubtypeIds(params)
   const tagMatchAll = params.get('match') === 'all'
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
   const sort = ARTICLE_SORTS.some(([key]) => key === params.get('sort')) ? params.get('sort') : 'newest'
 
   const filters = {
     article_type: types.length ? types : undefined,
+    subtype_id: subtypeIds.length ? subtypeIds : undefined,
     tag_id: tagIds.length ? tagIds : undefined,
     tag_match: tagIds.length ? (tagMatchAll ? 'all' : 'any') : undefined,
     page,

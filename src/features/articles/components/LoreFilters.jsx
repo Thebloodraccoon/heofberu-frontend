@@ -1,13 +1,27 @@
 import { useState } from 'react'
-import { ARTICLE_TYPES } from '@/features/articles/api.js'
-import { useTagSearch } from '@/features/articles/queries.js'
+import { ARTICLE_STATUSES, ARTICLE_TYPES } from '@/features/articles/api.js'
+import { useArticleSubtypes, useTagSearch } from '@/features/articles/queries.js'
 import useDebouncedValue from '@/features/articles/useDebouncedValue.js'
 import Drawer from '@/components/ui/Drawer.jsx'
 import { Button, ErrorBox, Input, Skeleton } from '@/components/ui'
-import { articleTypeLabels } from '@/lib/i18n'
+import { articleStatusLabels, articleTypeLabels } from '@/lib/i18n'
 
-export default function LoreFilters({ types, tags, match, onApply, onClose }) {
+// subtypes — выбранные подтипы ({ id, name, article_type }[]); каждый уточняет только свой тип.
+// statuses — только в списке ГМ: передан (массив, [] = все) → первым разделом идёт фильтр статусов.
+// onApply(types, tags, match, subtypes, statuses).
+export default function LoreFilters({ types, tags, match, subtypes = [], statuses, onApply, onClose }) {
+  const withStatus = statuses !== undefined
+  const [draftStatuses, setDraftStatuses] = useState(statuses ?? [])
+  const toggleStatus = (s) => setDraftStatuses((current) => current.includes(s) ? current.filter((x) => x !== s) : [...current, s])
   const [draftTypes, setDraftTypes] = useState(types)
+  const [draftSubtypes, setDraftSubtypes] = useState(subtypes)
+  const toggleSubtype = (s) => setDraftSubtypes((current) => current.some((x) => x.id === s.id) ? current.filter((x) => x.id !== s.id) : [...current, s])
+  const [subtypeSearch, setSubtypeSearch] = useState('')
+  const subtypesQ = useArticleSubtypes()
+  const subtypeTerm = subtypeSearch.trim().toLowerCase()
+  const subtypeOptions = (subtypesQ.data ?? []).filter(
+    (s) => draftTypes.includes(s.article_type) && s.name.toLowerCase().includes(subtypeTerm),
+  )
   const [draftTags, setDraftTags] = useState(tags)
   const [draftMatch, setDraftMatch] = useState(match)
   const [search, setSearch] = useState('')
@@ -15,18 +29,26 @@ export default function LoreFilters({ types, tags, match, onApply, onClose }) {
   const tagsQ = useTagSearch({ search: debounced, sort: 'popular' })
   const toggleType = (type) => setDraftTypes((current) => current.includes(type) ? current.filter((t) => t !== type) : [...current, type])
   const toggleTag = (tag) => setDraftTags((current) => current.some((t) => t.id === tag.id) ? current.filter((t) => t.id !== tag.id) : [...current, tag])
-  const apply = (nextTypes, nextTags, nextMatch) => {
-    onApply(nextTypes, nextTags, nextMatch)
+  // Подтип имеет смысл только вместе со своим типом: сняли тип — его подтипы тоже уходят.
+  const apply = (nextTypes, nextTags, nextMatch, nextSubtypes, nextStatus) => {
+    onApply(nextTypes, nextTags, nextMatch, nextSubtypes.filter((s) => nextTypes.includes(s.article_type)), nextStatus)
     onClose()
   }
 
   return (
     <Drawer title="Фильтры лора" subtitle="Выберите типы статей и интересующие темы." onClose={onClose} footer={
       <div className="article-filter-actions">
-        <Button variant="ghost" onClick={() => apply([], [], 'any')}>Сбросить</Button>
-        <Button onClick={() => apply(draftTypes, draftTags, draftMatch)}>Применить</Button>
+        <Button variant="ghost" onClick={() => apply([], [], 'any', [], [])}>Сбросить</Button>
+        <Button onClick={() => apply(draftTypes, draftTags, draftMatch, draftSubtypes, draftStatuses)}>Применить</Button>
       </div>
     }>
+      {withStatus && <fieldset className="lore-filter-section">
+        <legend>Статус</legend>
+        <p className="lore-filter-hint">Будут показаны статьи любого выбранного статуса. «На проверке» — очередь статей, ждущих основателя.</p>
+        <div className="lore-filter-options">
+          {ARTICLE_STATUSES.map((s) => <button key={s} type="button" className="lore-chip" aria-pressed={draftStatuses.includes(s)} onClick={() => toggleStatus(s)}>{articleStatusLabels[s]}</button>)}
+        </div>
+      </fieldset>}
       <fieldset className="lore-filter-section">
         <legend>Типы статей</legend>
         <p className="lore-filter-hint">Будут показаны статьи любого выбранного типа.</p>
@@ -34,6 +56,16 @@ export default function LoreFilters({ types, tags, match, onApply, onClose }) {
           {ARTICLE_TYPES.map((type) => <button key={type} type="button" className="lore-chip" aria-pressed={draftTypes.includes(type)} onClick={() => toggleType(type)}>{articleTypeLabels[type]}</button>)}
         </div>
       </fieldset>
+      {draftTypes.length > 0 && <fieldset className="lore-filter-section">
+        <legend>Подтип</legend>
+        <p className="lore-filter-hint">Подтип уточняет только свой тип: «таверна» у локаций оставит из локаций таверны, остальные выбранные типы — целиком.</p>
+        <Input className="w-full" placeholder="Найти подтип…" aria-label="Поиск подтипов" value={subtypeSearch} onChange={(event) => setSubtypeSearch(event.target.value)} />
+        {subtypesQ.error && <ErrorBox error={subtypesQ.error} onRetry={subtypesQ.refetch} />}
+        <div className="lore-filter-options mt-3">
+          {subtypeOptions.map((s) => <button key={s.id} type="button" className="lore-chip" aria-pressed={draftSubtypes.some((x) => x.id === s.id)} onClick={() => toggleSubtype(s)}>{s.name}{draftTypes.length > 1 && <span className="text-stone-500">{articleTypeLabels[s.article_type]}</span>}</button>)}
+        </div>
+        {subtypesQ.data && subtypeOptions.length === 0 && <p className="lore-filter-hint">{subtypeTerm ? 'Таких подтипов нет.' : 'У выбранных типов подтипов пока нет.'}</p>}
+      </fieldset>}
       <fieldset className="lore-filter-section">
         <legend>Теги</legend>
         {draftTags.length > 0 && <div className="lore-filter-options mb-4" aria-label="Выбранные теги">

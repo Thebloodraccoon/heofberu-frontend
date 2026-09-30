@@ -3,12 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   articlePath,
   articlesApi,
-  ARTICLE_STATUSES,
   ARTICLE_TYPES,
   ARTICLE_VISIBILITY,
   validateImageFile,
 } from '@/features/articles/api.js'
-import { useArticleDetail, useArticlesPage, useInvalidateArticles } from '@/features/articles/queries.js'
+import { useArticleDetail, useArticleFinder, useInvalidateArticles } from '@/features/articles/queries.js'
+import { useAuth } from '@/features/auth/useAuth.js'
 import { insertGmBlock } from '@/features/articles/insertGmBlock.js'
 import ArticleImages from '@/features/articles/components/ArticleImages.jsx'
 import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
@@ -17,6 +17,7 @@ import ArticleRelations from '@/features/articles/components/ArticleRelations.js
 import TagsManager from '@/features/articles/components/TagsManager.jsx'
 import TagInput from '@/features/articles/components/TagInput.jsx'
 import ParentArticlePicker from '@/features/articles/components/ParentArticlePicker.jsx'
+import SubtypeSelect from '@/features/articles/components/SubtypeSelect.jsx'
 import LoreFilters from '@/features/articles/components/LoreFilters.jsx'
 import {
   Badge,
@@ -38,14 +39,13 @@ import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import SaveStatus from '@/components/ui/SaveStatus.jsx'
 import useSaveStatus from '@/components/ui/useSaveStatus.js'
 import { useToasts } from '@/components/ToastProvider.jsx'
-import { articleStatusLabels, articleTypeLabels, articleVisibilityLabels } from '@/lib/i18n'
+import { articleActionLabels, articleStatusLabels, articleTypeLabels, articleVisibilityLabels } from '@/lib/i18n'
 
 const PAGE_SIZE = 20
 const EMPTY = {
   title: '',
   article_type: 'lore',
-  subtype: '',
-  status: 'draft',
+  subtype_id: null,
   visibility: 'public',
   parent_id: null,
   excerpt: '',
@@ -56,7 +56,7 @@ const EMPTY = {
 const fromArticle = (a) => ({
   title: a.title,
   article_type: a.article_type,
-  subtype: a.subtype ?? '',
+  subtype_id: a.subtype?.id ?? null,
   status: a.status,
   visibility: a.visibility,
   parent_id: a.parent_id ?? null,
@@ -76,12 +76,17 @@ export default function GmArticlesPage() {
   const [tagFilter, setTagFilter] = useState([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [tagMatch, setTagMatch] = useState('any')
+  const [statusFilter, setStatusFilter] = useState([])
+  const [subtypeFilter, setSubtypeFilter] = useState([])
   const [page, setPage] = useState(1)
-  const listQ = useArticlesPage({
+  // Поиск (от 2 символов) идёт через /articles/search — фильтр статуса он не знает, работает без текста.
+  const listQ = useArticleFinder({
     page,
     size: PAGE_SIZE,
-    ...(applied ? { search: applied } : {}),
+    text: applied,
+    ...(statusFilter.length ? { status: statusFilter } : {}),
     ...(typeFilter.length ? { article_type: typeFilter } : {}),
+    ...(subtypeFilter.length ? { subtype_id: subtypeFilter.map((s) => s.id) } : {}),
     ...(tagFilter.length ? { tag_id: tagFilter.map((t) => t.id), tag_match: tagMatch } : {}),
   })
 
@@ -125,15 +130,17 @@ export default function GmArticlesPage() {
         {selected === null && <section className="article-library">
         <div>
           <div className="lore-search-panel">
-            <SearchToolbar query={search} onQueryChange={setSearch} onSearch={() => { setPage(1); setApplied(search.trim()) }} onFilters={() => setFiltersOpen(true)} filterCount={typeFilter.length + tagFilter.length} filtersOpen={filtersOpen} label="Поиск по статьям" placeholder="Поиск по статьям…" submitLabel="Найти статьи" />
-            {(typeFilter.length > 0 || tagFilter.length > 0) && <div className="lore-active-filters" aria-label="Активные фильтры">
-              {typeFilter.map((type) => <button key={type} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать тип ${articleTypeLabels[type]}`} onClick={() => { setTypeFilter(typeFilter.filter((item) => item !== type)); setPage(1) }}><span>{articleTypeLabels[type]}</span><LoreIcon name="close" /></button>)}
+            <SearchToolbar query={search} onQueryChange={setSearch} onSearch={() => { setPage(1); setApplied(search.trim()) }} onFilters={() => setFiltersOpen(true)} filterCount={typeFilter.length + tagFilter.length + subtypeFilter.length + statusFilter.length} filtersOpen={filtersOpen} label="Поиск по статьям" placeholder="Поиск по статьям…" submitLabel="Найти статьи" />
+            {(typeFilter.length > 0 || tagFilter.length > 0 || subtypeFilter.length > 0 || statusFilter.length > 0) && <div className="lore-active-filters" aria-label="Активные фильтры">
+              {statusFilter.map((s) => <button key={s} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать статус ${articleStatusLabels[s]}`} onClick={() => { setStatusFilter(statusFilter.filter((x) => x !== s)); setPage(1) }}><span>{articleStatusLabels[s]}</span><LoreIcon name="close" /></button>)}
+              {typeFilter.map((type) => <button key={type} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать тип ${articleTypeLabels[type]}`} onClick={() => { setTypeFilter(typeFilter.filter((item) => item !== type)); setSubtypeFilter(subtypeFilter.filter((s) => s.article_type !== type)); setPage(1) }}><span>{articleTypeLabels[type]}</span><LoreIcon name="close" /></button>)}
+              {subtypeFilter.map((s) => <button key={s.id} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать подтип ${s.name}`} onClick={() => { setSubtypeFilter(subtypeFilter.filter((x) => x.id !== s.id)); setPage(1) }}><span>{s.name}</span><LoreIcon name="close" /></button>)}
               {tagFilter.map((tag) => <button key={tag.id} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать тег ${tag.name}`} onClick={() => { const next = tagFilter.filter((item) => item.id !== tag.id); setTagFilter(next); if (next.length < 2) setTagMatch('any'); setPage(1) }}><span>#{tag.name}</span><LoreIcon name="close" /></button>)}
               {tagMatch === 'all' && tagFilter.length > 1 && <span className="text-xs text-stone-500">Все выбранные теги</span>}
-              <button type="button" className="lore-reset" onClick={() => { setTypeFilter([]); setTagFilter([]); setTagMatch('any'); setPage(1) }}>Сбросить фильтры</button>
+              <button type="button" className="lore-reset" onClick={() => { setStatusFilter([]); setTypeFilter([]); setSubtypeFilter([]); setTagFilter([]); setTagMatch('any'); setPage(1) }}>Сбросить фильтры</button>
             </div>}
           </div>
-          {filtersOpen && <LoreFilters types={typeFilter} tags={tagFilter} match={tagMatch} onClose={() => setFiltersOpen(false)} onApply={(types, tags, match) => { setTypeFilter(types); setTagFilter(tags); setTagMatch(match); setPage(1) }} />}
+          {filtersOpen && <LoreFilters types={typeFilter} tags={tagFilter} match={tagMatch} subtypes={subtypeFilter} statuses={statusFilter} onClose={() => setFiltersOpen(false)} onApply={(types, tags, match, subtypes, statuses) => { setStatusFilter(statuses); setTypeFilter(types); setTagFilter(tags); setTagMatch(match); setSubtypeFilter(subtypes); setPage(1) }} />}
           {listQ.isLoading && <Skeleton className="h-24 w-full" />}
           {listQ.error && <ErrorBox error={listQ.error} onRetry={listQ.refetch} />}
           <ul>
@@ -148,7 +155,7 @@ export default function GmArticlesPage() {
                     <span className="lore-article-type">{articleTypeLabels[a.article_type] ?? a.article_type}</span>
                     <Badge tone={a.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>
                     {a.visibility === 'gm_only' && <GmOnlyBadge />}
-                    {a.subtype && <span className="text-xs text-stone-500">{a.subtype}</span>}
+                    {a.subtype && <span className="text-xs text-stone-500">{a.subtype.name}</span>}
                   </span>
                   <span className="lore-article-heading"><span className="article-library-title">{a.title}</span><LoreIcon name="arrow" /></span>
                   {a.excerpt && <span className="lore-article-excerpt">{a.excerpt}</span>}
@@ -217,6 +224,33 @@ function ArticleActions({ article, onDelete }) {
   </div>
 }
 
+// Какие переходы доступны из статуса: отправить на проверку может любой ГМ,
+// опубликовать/вернуть/архивировать/восстановить — только основатель.
+const WORKFLOW = {
+  draft: { gm: ['submit'], founder: ['submit', 'archive'] },
+  in_review: { gm: [], founder: ['publish', 'reject', 'archive'] },
+  published: { gm: [], founder: ['archive'] },
+  archived: { gm: [], founder: ['restore'] },
+}
+
+function ArticleWorkflow({ status, busy, onAction }) {
+  const { isFounder } = useAuth()
+  const actions = WORKFLOW[status]?.[isFounder ? 'founder' : 'gm'] ?? []
+  return (
+    <div className="space-y-2" aria-label="Статус статьи">
+      <p className="text-label">Статус: {articleStatusLabels[status]}</p>
+      <div className="flex flex-wrap items-center gap-2">
+      {actions.map((action) => (
+        <Button key={action} size="sm" variant={action === 'archive' || action === 'reject' ? 'ghost' : 'primary'} disabled={busy} onClick={() => onAction(action)}>
+          {articleActionLabels[action]}
+        </Button>
+      ))}
+      </div>
+      {!isFounder && status === 'in_review' && <p className="text-xs text-stone-500">Ждёт проверки основателем.</p>}
+    </div>
+  )
+}
+
 function EditorSettings({ children }) {
   const [mobile, setMobile] = useState(() => window.matchMedia?.('(max-width: 900px)').matches ?? false)
   const [open, setOpen] = useState(false)
@@ -240,12 +274,12 @@ function EditorSettings({ children }) {
   )
 }
 
-// Поля статьи в том виде, в каком они уходят на бэк (пустые подтип/описание — null).
+// Поля статьи в том виде, в каком они уходят на бэк (пустое описание — null). Статус не
+// отправляется: новая статья всегда черновик, дальше — только переходы (ArticleWorkflow).
 const toBody = (f) => ({
   title: f.title.trim(),
   article_type: f.article_type,
-  subtype: f.subtype.trim() || null,
-  status: f.status,
+  subtype_id: f.subtype_id,
   visibility: f.visibility,
   parent_id: f.parent_id,
   excerpt: f.excerpt.trim() || null,
@@ -274,7 +308,7 @@ function ArticleSelects({ values, articleId, onChange, disabled = false, statuse
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Тип">
-        <Select value={values.article_type} disabled={disabled || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value }, 'Тип')}>
+        <Select value={values.article_type} disabled={disabled || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value, ...(values.subtype_id ? { subtype_id: null } : {}) }, 'Тип')}>
           {ARTICLE_TYPES.map((t) => (
             <option key={t} value={t}>
               {articleTypeLabels[t]}
@@ -282,16 +316,6 @@ function ArticleSelects({ values, articleId, onChange, disabled = false, statuse
           ))}
         </Select>
         {statuses && <SaveStatus status={statuses.article_type} />}
-      </Field>
-      <Field label="Статус">
-        <Select value={values.status} disabled={disabled || statuses?.status?.state === 'saving'} onChange={(e) => onChange({ status: e.target.value }, 'Статус')}>
-          {ARTICLE_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {articleStatusLabels[s]}
-            </option>
-          ))}
-        </Select>
-        {statuses && <SaveStatus status={statuses.status} />}
       </Field>
       <Field label="Видимость">
         <Select
@@ -371,15 +395,8 @@ function ArticleCreateForm({ onSaved, toasts }) {
       </div>
       <EditorSettings>
         <div className="space-y-5">
-        <Field label="Подтип">
-          <Input
-            value={form.subtype}
-            maxLength={50}
-            onChange={(e) => set({ subtype: e.target.value })}
-            placeholder="таверна, город, данж…"
-          />
-        </Field>
       <ArticleSelects values={form} onChange={(patch) => set(patch)} />
+      <SubtypeSelect articleType={form.article_type} value={form.subtype_id} onChange={(id) => set({ subtype_id: id })} />
       <TagInput value={form.tags} onChange={(tags) => set({ tags })} />
         </div>
       </EditorSettings>
@@ -475,6 +492,16 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       })
     })
   }
+
+  const transition = (action) =>
+    run('status', () =>
+      enqueue(async () => {
+        const saved = await articlesApi.transition(article.id, action)
+        setValues((v) => ({ ...v, status: saved.status }))
+        onSaved?.(saved)
+        toasts.push(articleStatusLabels[saved.status], saved.title, 'success')
+      }),
+    )
 
   const startBodyEdit = () => {
     clear('body')
@@ -635,8 +662,13 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       </div>
       <EditorSettings>
         <div className="space-y-5">
+          <ArticleWorkflow status={values.status} busy={statuses.status?.state === 'saving'} onAction={transition} />
+          <SaveStatus status={statuses.status} />
           <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} />
-          <TextField label="Подтип" value={values.subtype} onSave={(draft) => saveText('subtype', draft)} placeholder="таверна, город, данж…" />
+          <div>
+            <SubtypeSelect articleType={values.article_type} value={values.subtype_id} disabled={statuses.subtype_id?.state === 'saving'} onChange={(id) => saveNow({ subtype_id: id })} />
+            <SaveStatus status={statuses.subtype_id} />
+          </div>
           <TagInput value={values.tags} onChange={saveTags} />
           <SaveStatus status={statuses.tags} />
           <p className="text-xs text-stone-500">Параметры и теги сохраняются сразу. Для текста используйте кнопку «Сохранить».</p>

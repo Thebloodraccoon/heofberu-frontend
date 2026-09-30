@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { articlesApi, RELATION_TYPES } from '@/features/articles/api.js'
-import { useArticlesPage } from '@/features/articles/queries.js'
+import { useArticleFinder } from '@/features/articles/queries.js'
 import { relationLabel } from '@/features/articles/relationText.js'
 import useDebouncedValue from '@/features/articles/useDebouncedValue.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
@@ -24,8 +24,8 @@ export default function RelationModal({ articleId, articleTitle, relation, onClo
   const [error, setError] = useState(null)
 
   const debounced = useDebouncedValue(search.trim())
-  const candidatesQ = useArticlesPage(
-    { page: 1, size: 20, sort: 'title', ...(debounced ? { search: debounced } : {}) },
+  const candidatesQ = useArticleFinder(
+    { page: 1, size: 20, sort: 'title', text: debounced },
     { enabled: !editing && !target },
   )
   const candidates = (candidatesQ.data?.items ?? []).filter((a) => a.id !== articleId)

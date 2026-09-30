@@ -78,7 +78,7 @@ function App() {
                   <Route element={<Layout />}>
                     <Route path="lore" element={<LoreLayout />}>
                       <Route index element={<LorePage />} />
-                      <Route path=":idSlug" element={<ArticleDetailPage />} />
+                      <Route path=":slug" element={<ArticleDetailPage />} />
                     </Route>
                     <Route path="characters" element={<CharactersPage />} />
                     <Route path="characters/new" element={<CharacterCreatePage />} />

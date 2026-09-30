@@ -43,9 +43,11 @@ export const queryKeys = {
     search: (params) => ['articles', 'search', params ?? {}],
     latest: (params) => ['articles', 'latest', params ?? {}],
     detail: (id) => ['articles', id],
+    bySlug: (slug) => ['articles', 'slug', slug],
     relations: (id) => ['articles', id, 'relations'],
     children: (id) => ['articles', id, 'children'],
     ancestors: (id) => ['articles', id, 'ancestors'],
+    subtypes: (articleType) => ['articles', 'subtypes', articleType ?? 'all'],
   },
   tags: {
     all: ['tags'],

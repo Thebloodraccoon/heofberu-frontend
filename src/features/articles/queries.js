@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { articlesApi, tagsApi } from '@/features/articles/api.js'
+import { articlesApi, legacyArticleId, subtypesApi, tagsApi } from '@/features/articles/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 
 // placeholderData: пока грузится новая страница/запрос, показываем прошлые результаты,
@@ -20,11 +20,59 @@ export const useArticlesSearch = (params, { publicView = false } = {}) =>
     placeholderData: (previousData, previousQuery) => previousQuery?.queryKey.at(-1) === publicView ? previousData : undefined,
   })
 
-export const useLatestArticles = (params, { enabled = true } = {}) =>
+// Отдельного /latest на бэке нет: это список опубликованных, новые первыми.
+export const useLatestArticles = ({ limit = 10 } = {}, { enabled = true } = {}) =>
   useQuery({
-    queryKey: queryKeys.articles.latest(params),
-    queryFn: () => articlesApi.latest(params),
+    queryKey: queryKeys.articles.latest({ limit }),
+    queryFn: () => articlesApi.list({ status: 'published', sort: 'newest', size: limit }),
+    select: (page) => page.items,
     enabled,
+  })
+
+// Выбор статьи (родитель, связь, список ГМ): от 2 символов — полнотекстовый /articles/search
+// (он же ищет по опечаткам в названии), иначе обычный список. Ответы совместимы: {items, total}.
+export const useArticleFinder = ({ text = '', sort, ...params } = {}, { enabled = true } = {}) => {
+  const q = text.trim()
+  const searching = q.length >= 2
+  const listParams = { ...params, ...(sort ? { sort } : {}) }
+  return useQuery({
+    queryKey: searching ? queryKeys.articles.search({ ...params, q }) : queryKeys.articles.list(listParams),
+    queryFn: () => (searching ? articlesApi.search({ ...params, q }) : articlesApi.list(listParams)),
+    enabled,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export const useArticleSubtypes = (articleType) =>
+  useQuery({
+    queryKey: queryKeys.articles.subtypes(articleType),
+    queryFn: () => subtypesApi.list(articleType),
+    staleTime: 10 * 60 * 1000,
+  })
+
+export const useCreateSubtype = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ articleType, name }) => subtypesApi.create(articleType, name),
+    onSuccess: (subtype) => qc.invalidateQueries({ queryKey: queryKeys.articles.subtypes(subtype.article_type) }),
+  })
+}
+
+// Чтение в лоре — по slug; старая ссылка «id-slug» (404 по slug) дочитывается по id,
+// а страница затем заменяет адрес на канонический.
+export const useArticleBySlug = (slug) =>
+  useQuery({
+    queryKey: queryKeys.articles.bySlug(slug),
+    queryFn: async () => {
+      try {
+        return await articlesApi.getBySlug(slug)
+      } catch (error) {
+        const legacyId = legacyArticleId(slug)
+        if (error?.status === 404 && legacyId) return articlesApi.get(legacyId)
+        throw error
+      }
+    },
+    enabled: !!slug,
   })
 
 export const useArticleDetail = (id) =>
@@ -78,6 +126,7 @@ export const useInvalidateArticles = () => {
   const qc = useQueryClient()
   return (id) => {
     qc.invalidateQueries({ queryKey: ['articles', 'list'] })
+    qc.invalidateQueries({ queryKey: ['articles', 'slug'] })
     if (id) qc.invalidateQueries({ queryKey: queryKeys.articles.detail(id) })
   }
 }

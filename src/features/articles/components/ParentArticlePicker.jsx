@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { articlesApi } from '@/features/articles/api.js'
-import { useArticleDetail, useArticlesPage } from '@/features/articles/queries.js'
+import { useArticleDetail, useArticleFinder } from '@/features/articles/queries.js'
 import { articleStatusLabels, articleTypeLabels } from '@/lib/i18n'
 import { Badge, Button, ErrorBox, Input, RichText, Skeleton } from '@/components/ui'
 import Drawer from '@/components/ui/Drawer.jsx'
@@ -32,7 +32,7 @@ function Picker({ articleId, value, parent, onSelect, onClose }) {
   const [applied, setApplied] = useState('')
   const [page, setPage] = useState(1)
   const [preview, setPreview] = useState(null)
-  const list = useArticlesPage({ page, size: 12, ...(applied ? { search: applied } : {}) })
+  const list = useArticleFinder({ page, size: 12, text: applied })
   const tree = useQuery({ queryKey: ['articles', 'parent-exclusions', articleId], queryFn: () => descendantIds(articleId), enabled: !!articleId, staleTime: 0 })
   const ready = !articleId || (tree.isSuccess && !tree.isFetching)
   const items = (list.data?.items ?? []).filter((item) => item.id !== articleId && !tree.data?.has(item.id))

@@ -13,7 +13,7 @@ const data = [
 ]
 vi.mock('@/features/articles/api.js', () => ({ articlesApi: { children: vi.fn(async (id) => id === 1 ? [{ id: 2 }] : id === 2 ? [{ id: 3 }] : []) } }))
 vi.mock('@/features/articles/queries.js', () => ({
-  useArticlesPage: () => ({ data: { items: data, total: 4 } }),
+  useArticleFinder: () => ({ data: { items: data, total: 4 } }),
   useArticleDetail: (id) => ({ data: id ? { ...data.find((a) => a.id === id), body_markdown: 'Подробная история региона' } : undefined }),
 }))
 function Example() {

@@ -44,6 +44,12 @@ export const spellCastTimeLabels = {
   ACTION: 'Действие',
   BONUS_ACTION: 'Бонусное действие',
   REACTION: 'Реакция',
+  ONE_MINUTE: '1 минута',
+  TEN_MINUTES: '10 минут',
+  ONE_HOUR: '1 час',
+  EIGHT_HOURS: '8 часов',
+  TWELVE_HOURS: '12 часов',
+  TWENTY_FOUR_HOURS: '24 часа',
   SPECIAL: 'Особое',
 }
 
@@ -401,6 +407,15 @@ export const articleStatusLabels = {
   in_review: 'На проверке',
   published: 'Опубликовано',
   archived: 'В архиве',
+}
+
+// Переходы статуса статьи (кнопки редактора).
+export const articleActionLabels = {
+  submit: 'Отправить на проверку',
+  publish: 'Опубликовать',
+  reject: 'Вернуть в черновик',
+  archive: 'В архив',
+  restore: 'Восстановить из архива',
 }
 
 export const articleVisibilityLabels = {

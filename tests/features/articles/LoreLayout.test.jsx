@@ -16,10 +16,11 @@ vi.mock('@/features/auth/useAuth.js', () => ({ useAuth: () => ({ isGM: true }) }
 vi.mock('@/features/articles/queries.js', () => ({
   useTagsByIds: (ids) => ids.map((id) => ({ id, name: `Тег ${id}` })),
   useRememberTags: () => vi.fn(),
+  useArticleSubtypes: () => ({ data: [{ id: 5, article_type: 'location', name: 'Таверна' }, { id: 6, article_type: 'faction', name: 'Гильдия' }] }),
   useTagSearch: () => ({ data: { items: [{ id: 1, name: 'История', usage_count: 4 }, { id: 2, name: 'Магия', usage_count: 3 }], total: 2 } }),
   useArticlesPage: (_params, { publicView } = {}) => ({ data: { items: publicView ? articleItems.current.filter((a) => a.status === 'published' && a.visibility === 'public') : articleItems.current, total: publicView ? articleItems.current.filter((a) => a.status === 'published' && a.visibility === 'public').length : 36 } }),
   useArticlesSearch: (_params, { publicView } = {}) => ({ data: { items: publicView ? articleItems.current.filter((a) => a.status === 'published' && a.visibility === 'public') : articleItems.current, total: publicView ? articleItems.current.filter((a) => a.status === 'published' && a.visibility === 'public').length : 36 } }),
-  useArticleDetail: () => ({ data: { id: 1, title: 'Летопись', article_type: 'lore', status: articleStatus.current, visibility: articleVisibility.current, body_markdown: '## История\nТекст\n\n## География\nТекст\n\n:::gm\n## Тайна\nСекрет\n:::' } }),
+  useArticleBySlug: (slug) => ({ data: slug ? { id: 1, slug: slug.replace(/^\d+-/, ''), title: 'Летопись', article_type: 'lore', subtype: { id: 7, name: 'Хроника' }, tags: [{ id: 2, name: 'Магия' }], status: articleStatus.current, visibility: articleVisibility.current, body_markdown: '## История\nТекст\n\n## География\nТекст\n\n:::gm\n## Тайна\nСекрет\n:::' } : undefined }),
   useArticleRelations: (_id, publicView) => ({ data: publicView ? [
     { id: 3, direction: 'outgoing', relation_type: 'SEE_ALSO', visibility: 'public', article: { id: 3, slug: 'public', title: 'Открытая статья', article_type: 'lore' } },
   ] : [
@@ -42,7 +43,7 @@ function Location() {
 
 function setup(url = '/lore') {
   const user = userEvent.setup()
-  render(<MemoryRouter initialEntries={[url]}><Location /><Routes><Route path="/lore" element={<LoreLayout />}><Route index element={<LorePage />} /><Route path=":idSlug" element={<ArticleDetailPage />} /></Route></Routes></MemoryRouter>)
+  render(<MemoryRouter initialEntries={[url]}><Location /><Routes><Route path="/lore" element={<LoreLayout />}><Route index element={<LorePage />} /><Route path=":slug" element={<ArticleDetailPage />} /></Route></Routes></MemoryRouter>)
   return user
 }
 
@@ -106,7 +107,7 @@ describe('Lore navigation and filters', () => {
   })
 
   it('shows detail navigation without search and places editing beside player view', () => {
-    setup('/lore/1-history?tags=1')
+    setup('/lore/history?tags=1')
     expect(screen.queryByRole('searchbox', { name: 'Поиск по статьям' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Поиск' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ко всем статьям' })).toHaveAttribute('href', '/lore?tags=1')
@@ -123,7 +124,7 @@ describe('Lore navigation and filters', () => {
   })
 
   it('removes secret headings from the table of contents in player view', async () => {
-    const user = setup('/lore/1-history')
+    const user = setup('/lore/history')
     expect(within(screen.getByRole('navigation', { name: 'Оглавление статьи' })).getByRole('link', { name: 'Тайна' })).toBeInTheDocument()
     await user.click(screen.getByRole('switch', { name: 'Глазами игрока' }))
     const toc = screen.getByRole('navigation', { name: 'Оглавление статьи' })
@@ -158,7 +159,7 @@ describe('Lore navigation and filters', () => {
 
   it('hides an unpublished article in player view', async () => {
     articleStatus.current = 'in_review'
-    const user = setup('/lore/1-history')
+    const user = setup('/lore/history')
     await user.click(screen.getByRole('switch', { name: 'Глазами игрока' }))
     expect(screen.queryByRole('heading', { name: 'Летопись' })).not.toBeInTheDocument()
     expect(screen.getByText(/Игроки эту статью не видят/)).toBeInTheDocument()
@@ -166,7 +167,7 @@ describe('Lore navigation and filters', () => {
 
   it('shows the GM badge in article details and on GM-only related articles', () => {
     articleVisibility.current = 'gm_only'
-    setup('/lore/1-history')
+    setup('/lore/history')
     const article = screen.getByRole('article')
     expect(within(article).getAllByText('ГМ')).toHaveLength(4)
     expect(screen.getByRole('heading', { name: 'Летопись' }).nextElementSibling.firstElementChild).toHaveTextContent('ГМ')
@@ -178,7 +179,7 @@ describe('Lore navigation and filters', () => {
   })
 
   it('shows an inline GM badge instead of a lock for a secret relation', () => {
-    setup('/lore/1-history')
+    setup('/lore/history')
     const card = screen.getByRole('link', { name: /Тайная связь/ })
     expect(within(card).getByText('ГМ')).toHaveAttribute('data-tone', 'violet')
     expect(card).toHaveTextContent('Правит этой статьёй')
@@ -187,18 +188,65 @@ describe('Lore navigation and filters', () => {
   })
 
   it('returns to the top when opening a related article', async () => {
-    const user = setup('/lore/1-history')
+    const user = setup('/lore/history')
     window.scrollTo.mockClear()
     await user.click(screen.getByRole('link', { name: /Открытая статья/ }))
-    expect(screen.getByTestId('location')).toHaveTextContent('/lore/3-public')
+    expect(screen.getByTestId('location')).toHaveTextContent('/lore/public')
     expect(window.scrollTo).toHaveBeenCalledWith(0, 0)
   })
 
   it('shows player view and editing in the same navigation row', () => {
-    setup('/lore/1-history')
+    setup('/lore/history')
     const navigation = screen.getByRole('link', { name: 'Ко всем статьям' }).parentElement
     expect(within(navigation).getByRole('switch', { name: 'Глазами игрока' })).toBeInTheDocument()
     expect(within(navigation).getByRole('link', { name: 'Редактировать' })).toBeInTheDocument()
     expect(within(navigation).queryByRole('button', { name: 'Поиск' })).not.toBeInTheDocument()
+  })
+
+  it('offers subtypes of the selected types in the filters and keeps them in the URL', async () => {
+    const user = setup('/lore')
+    await user.click(screen.getByRole('button', { name: 'Фильтры' }))
+    const dialog = screen.getByRole('dialog', { name: 'Фильтры лора' })
+    expect(within(dialog).queryByText('Подтип')).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: articleTypeLabels.location }))
+    expect(within(dialog).queryByRole('button', { name: 'Гильдия' })).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: articleTypeLabels.faction }))
+    await user.click(within(dialog).getByRole('button', { name: /Гильдия/ }))
+    await user.type(within(dialog).getByRole('textbox', { name: 'Поиск подтипов' }), 'тав')
+    await user.click(within(dialog).getByRole('button', { name: /Таверна/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Применить' }))
+    const params = new URLSearchParams(screen.getByTestId('location').textContent.split('?')[1])
+    expect(params.get('type')).toBe('location,faction')
+    expect(params.get('subtype')).toBe('6,5')
+    await user.click(screen.getByRole('button', { name: `Убрать тип ${articleTypeLabels.location}` }))
+    const after = new URLSearchParams(screen.getByTestId('location').textContent.split('?')[1])
+    expect(after.get('type')).toBe('faction')
+    expect(after.get('subtype')).toBe('6')
+  })
+
+  it('links the type, subtype and tags of an article to the filtered lore', async () => {
+    const user = setup('/lore/letopis')
+    await user.click(screen.getByRole('link', { name: 'Хроника' }))
+    expect(screen.getByTestId('location').textContent).toBe('/lore?type=lore&subtype=7')
+    await user.click(screen.getByRole('button', { name: /Фильтры/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Фильтры лора' })
+    expect(within(dialog).getByRole('button', { name: articleTypeLabels.lore })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('links the article type badge to the lore filtered by that type', async () => {
+    const user = setup('/lore/letopis')
+    await user.click(screen.getByTitle('Все статьи этого типа'))
+    expect(screen.getByTestId('location').textContent).toBe('/lore?type=lore')
+  })
+
+  it('links a tag to the lore filtered by that tag', async () => {
+    const user = setup('/lore/letopis')
+    await user.click(screen.getByRole('link', { name: '#Магия' }))
+    expect(screen.getByTestId('location').textContent).toBe('/lore?tags=2')
+  })
+
+  it('redirects an old id-slug link to the canonical slug address', () => {
+    setup('/lore/1-history?tags=1')
+    expect(screen.getByTestId('location').textContent).toBe('/lore/history?tags=1')
   })
 })

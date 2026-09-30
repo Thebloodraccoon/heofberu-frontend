@@ -3,12 +3,14 @@ import request from '@/lib/api/httpClient.js'
 export const articlesApi = {
   list: (params, { auth = true } = {}) => request('/api/articles', { params, auth }),
   search: (params, { auth = true } = {}) => request('/api/articles/search', { params, auth }),
-  latest: (params) => request('/api/articles/latest', { params }),
   get: (id) => request(`/api/articles/${id}`),
+  getBySlug: (slug) => request(`/api/articles/by-slug/${encodeURIComponent(slug)}`),
   children: (id, { auth = true } = {}) => request(`/api/articles/${id}/children`, { auth }),
   ancestors: (id, { auth = true } = {}) => request(`/api/articles/${id}/ancestors`, { auth }),
   create: (body) => request('/api/articles', { method: 'POST', body }),
   update: (id, body) => request(`/api/articles/${id}`, { method: 'PATCH', body }),
+  // Статус меняется только переходами: submit (ГМ), publish/reject/archive/restore (основатель).
+  transition: (id, action) => request(`/api/articles/${id}/${action}`, { method: 'POST' }),
   remove: (id) => request(`/api/articles/${id}`, { method: 'DELETE' }),
   setTags: (id, tagIds) => request(`/api/articles/${id}/tags`, { method: 'PUT', body: { tag_ids: tagIds } }),
   relations: {
@@ -28,6 +30,12 @@ export const articlesApi = {
     },
     remove: (id, imageId) => request(`/api/articles/${id}/images/${imageId}`, { method: 'DELETE' }),
   },
+}
+
+// Подтипы — словарь ГМ: у каждого ровно один article_type, статья берёт подтип только своего типа.
+export const subtypesApi = {
+  list: (articleType) => request('/api/articles/subtypes', { params: articleType ? { article_type: articleType } : {} }),
+  create: (articleType, name) => request('/api/articles/subtypes', { method: 'POST', body: { article_type: articleType, name } }),
 }
 
 export const tagsApi = {
@@ -50,13 +58,14 @@ export const RELATION_TYPES = [
   'ALLY_OF', 'ENEMY_OF', 'RELATIVE_OF', 'MENTIONS', 'SEE_ALSO', 'PARTICIPATED_IN',
 ]
 
-// Бек не отдаёт статью по slug, только по id — поэтому в URL кладём
-// «id-slug»: адрес читаемый, а роутинг по-прежнему работает через id.
-export const articlePath = (article) => `/lore/${article.id}-${article.slug}`
+// Публичный адрес статьи — её slug (GET /articles/by-slug/{slug}). Slug меняется при
+// переименовании, только пока статья ни разу не публиковалась, дальше он постоянный.
+export const articlePath = (article) => `/lore/${encodeURIComponent(article.slug)}`
 
-export const parseArticleParam = (param) => {
-  const match = /^\d+/.exec(param ?? '')
-  return match ? Number(match[0]) : NaN
+// Старые ссылки были вида /lore/{id}-{slug}. Если такой «slug» не нашёлся — пробуем id.
+export const legacyArticleId = (param) => {
+  const match = /^(\d+)-/.exec(param ?? '')
+  return match ? Number(match[1]) : null
 }
 
 // Игрок видит только опубликованные публичные статьи; краткие карточки не содержат этих полей.

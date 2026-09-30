@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Link, useLocation, useOutletContext, useParams } from 'react-router-dom'
-import { articlePath, isPublicArticle, parseArticleParam } from '@/features/articles/api.js'
+import { Link, Navigate, useLocation, useOutletContext, useParams } from 'react-router-dom'
+import { articlePath, isPublicArticle } from '@/features/articles/api.js'
 import {
   useArticleAncestors,
   useArticleChildren,
-  useArticleDetail,
+  useArticleBySlug,
   useArticleRelations,
 } from '@/features/articles/queries.js'
 import { relationLabel, THIS_ARTICLE_CASE } from '@/features/articles/relationText.js'
@@ -87,7 +87,7 @@ function RelatedCard({ article, caption, note, secret = false, gmView = false })
           </span>
         ) : gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
         <Badge>{articleTypeLabels[article.article_type] ?? article.article_type}</Badge>
-        {article.subtype && <span>{article.subtype}</span>}
+        {article.subtype && <span>{article.subtype.name}</span>}
       </span>
       {note && <span className="text-sm text-stone-400">{note}</span>}
     </Link>
@@ -96,10 +96,10 @@ function RelatedCard({ article, caption, note, secret = false, gmView = false })
 
 export default function ArticleDetailPage() {
   const { gmView, playerView } = useOutletContext()
-  const { idSlug } = useParams()
+  const { slug } = useParams()
   const location = useLocation()
-  const id = parseArticleParam(idSlug)
-  const articleQ = useArticleDetail(id)
+  const articleQ = useArticleBySlug(slug)
+  const id = articleQ.data?.id
   const relQ = useArticleRelations(id, playerView)
   const ancestorsQ = useArticleAncestors(id, playerView)
   const childrenQ = useArticleChildren(id, playerView)
@@ -122,6 +122,11 @@ export default function ArticleDetailPage() {
   }
 
   const article = articleQ.data
+
+  // Старая ссылка «id-slug» или slug черновика до переименования — ведём на канонический адрес.
+  if (article.slug !== slug) {
+    return <Navigate replace to={{ pathname: articlePath(article), search: location.search }} />
+  }
 
   if (playerView && !isPublicArticle(article)) {
     return (
@@ -189,8 +194,19 @@ export default function ArticleDetailPage() {
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
-          <Badge>{articleTypeLabels[article.article_type] ?? article.article_type}</Badge>
-          {article.subtype && <span className="text-sm text-stone-400">{article.subtype}</span>}
+          {/* Тип, подтип и теги — ссылки на лор с этим фильтром. */}
+          <Link to={`/lore?type=${article.article_type}`} className="hover:opacity-80" title="Все статьи этого типа">
+            <Badge>{articleTypeLabels[article.article_type] ?? article.article_type}</Badge>
+          </Link>
+          {article.subtype && (
+            <Link
+              to={`/lore?type=${article.article_type}&subtype=${article.subtype.id}`}
+              className="text-sm text-stone-400 hover:text-ember"
+              title="Все статьи этого подтипа"
+            >
+              {article.subtype.name}
+            </Link>
+          )}
           {gmView && article.status !== 'published' && (
             <Badge>{articleStatusLabels[article.status] ?? article.status}</Badge>
           )}
