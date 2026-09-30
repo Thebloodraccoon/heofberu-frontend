@@ -1,6 +1,53 @@
-import { relationTypeLabels } from '@/lib/i18n'
+import { relationCaptionLabels, relationTypeLabels } from '@/lib/i18n'
 
 export const relationLabel = (type) => relationTypeLabels[type] ?? type
+
+// Порядок связанных статей на странице: сначала «кто/где» (факты о статье), потом что в ней
+// находится, потом отношения, в конце — упоминания. '*' — любое направление.
+const SECTION_ORDER = [
+  ['RULES', 'incoming'],
+  ['LOCATED_IN', 'outgoing'],
+  ['MEMBER_OF', 'outgoing'],
+  ['PARENT_FACTION', 'outgoing'],
+  ['RULES', 'outgoing'],
+  ['PARTICIPATED_IN', 'outgoing'],
+  ['LOCATED_IN', 'incoming'],
+  ['MEMBER_OF', 'incoming'],
+  ['PARENT_FACTION', 'incoming'],
+  ['PARTICIPATED_IN', 'incoming'],
+  ['ALLY_OF', '*'],
+  ['ENEMY_OF', '*'],
+  ['RELATIVE_OF', '*'],
+  ['MENTIONS', 'outgoing'],
+  ['MENTIONS', 'incoming'],
+  ['SEE_ALSO', '*'],
+]
+
+// Короткие факты о самой статье — показываются строкой под заголовком, а не карточками.
+const FACT_SECTIONS = new Set(['RULES:incoming', 'LOCATED_IN:outgoing', 'MEMBER_OF:outgoing', 'PARENT_FACTION:outgoing'])
+
+export const relationCaption = (type, direction) =>
+  relationCaptionLabels[type]?.[direction] ?? relationLabel(type)
+
+// Связи статьи → группы [{ title, fact, rank, items }] по подписи, в порядке SECTION_ORDER.
+// Связи с одинаковой подписью (обе стороны симметричной связи) попадают в одну группу.
+export function groupRelations(relations) {
+  const sections = new Map()
+  for (const r of relations) {
+    const title = relationCaption(r.relation_type, r.direction)
+    if (!sections.has(title)) {
+      const rank = SECTION_ORDER.findIndex(([type, dir]) => type === r.relation_type && (dir === '*' || dir === r.direction))
+      sections.set(title, {
+        title,
+        rank: rank === -1 ? SECTION_ORDER.length : rank,
+        fact: FACT_SECTIONS.has(`${r.relation_type}:${r.direction}`),
+        items: [],
+      })
+    }
+    sections.get(title).items.push(r)
+  }
+  return [...sections.values()].sort((a, b) => a.rank - b.rank)
+}
 
 // «Эта статья» как дополнение (incoming — другая статья её «находится в»/«правит»/…)
 // должна стоять в падеже, который требует конкретный тип связи, а не всегда в

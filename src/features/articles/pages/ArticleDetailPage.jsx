@@ -7,10 +7,10 @@ import {
   useArticleBySlug,
   useArticleRelations,
 } from '@/features/articles/queries.js'
-import { relationLabel, THIS_ARTICLE_CASE } from '@/features/articles/relationText.js'
+import { groupRelations } from '@/features/articles/relationText.js'
 import { splitGmBlocks, stripGmBlocks } from '@/features/articles/secrets.js'
 import { Badge, ErrorBox, Modal, RichText, Skeleton } from '@/components/ui'
-import { articleStatusLabels, articleTypeLabels } from '@/lib/i18n'
+import { articleChildCaption, articleStatusLabels, articleTypeLabels, relatedArticlesLabel } from '@/lib/i18n'
 import { renderRichHtml } from '@/lib/utils/richText.js'
 import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
@@ -60,16 +60,63 @@ function ArticleBody({ body, showSecrets }) {
   )
 }
 
-// Подпись карточки связи — чем связанная статья приходится этой. outgoing: «Эта статья
-// находится в» → карточка; incoming: карточка «находится в» → «этой статье» (падеж
-// зависит от типа связи — THIS_ARTICLE_CASE, а не всегда «эту статью», см. relationText.js).
-function relationCaption(r) {
-  const label = relationLabel(r.relation_type)
-  if (r.direction === 'outgoing') return `Эта статья ${label}`
-  const capitalized = `${label[0].toUpperCase()}${label.slice(1)}`
-  return `${capitalized} ${THIS_ARTICLE_CASE[r.relation_type] ?? 'эту статью'}`
+// Длинный путь сворачиваем как в Notion: корень, «…» (по клику раскрывается), два последних.
+const TRAIL_EDGE = 2
+
+function Breadcrumbs({ ancestors, search }) {
+  const [expanded, setExpanded] = useState(false)
+  const collapsed = !expanded && ancestors.length > TRAIL_EDGE + 1
+  const shown = collapsed ? [ancestors[0], null, ...ancestors.slice(-TRAIL_EDGE)] : ancestors
+  return (
+    <nav className="flex flex-wrap items-center gap-1 text-sm text-stone-400" aria-label="Хлебные крошки">
+      <Link to={{ pathname: '/lore', search }} className="hover:text-stone-200">
+        Лор
+      </Link>
+      {shown.map((a) => (
+        <span key={a?.id ?? 'more'} className="flex items-center gap-1">
+          <span aria-hidden="true">›</span>
+          {a ? (
+            <Link to={articlePath(a)} className="hover:text-stone-200">
+              {a.title}
+            </Link>
+          ) : (
+            <button type="button" onClick={() => setExpanded(true)} className="hover:text-stone-200" title="Показать весь путь">
+              …
+            </button>
+          )}
+        </span>
+      ))}
+    </nav>
+  )
 }
 
+// Короткие факты о статье («Правитель», «Находится в») — строкой под заголовком, как инфобокс.
+// ГМ видит бейдж у секретной связи и у закрытой статьи — как на карточках ниже.
+function RelationFacts({ sections, gmView }) {
+  if (sections.length === 0) return null
+  return (
+    <dl className="mt-3 space-y-1 text-sm">
+      {sections.map((section) => (
+        <div key={section.title} className="flex flex-wrap gap-x-2">
+          <dt className="text-stone-500">{section.title}:</dt>
+          <dd className="flex flex-wrap gap-x-1">
+            {section.items.map((r, i) => (
+              <span key={r.id}>
+                <Link to={articlePath(r.article)} className="inline-flex items-center gap-1 text-stone-200 hover:text-ember">
+                  {gmView && (r.visibility === 'gm_only' || r.article.visibility === 'gm_only') && <GmOnlyBadge />}
+                  {r.article.title}
+                </Link>
+                {i < section.items.length - 1 && ','}
+              </span>
+            ))}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+// Подпись карточки — кем связанная статья приходится этой («Упоминается в», «Союзник»…).
 function RelatedCard({ article, caption, note, secret = false, gmView = false }) {
   return (
     <Link
@@ -148,17 +195,25 @@ export default function ArticleDetailPage() {
   const body = article.body_markdown ?? ''
   const relations = relQ.data ?? []
 
-  // Дочерние статьи и связи показываем вместе. В предпросмотре сервер возвращает
-  // только доступные игроку краткие карточки (без полей статуса и видимости).
-  const related = [
-    ...(childrenQ.data ?? []).map((c) => ({ key: `child-${c.id}`, article: c, caption: 'Входит в эту статью' })),
-    ...relations.map((r) => ({
-      key: `rel-${r.id}`,
-      article: r.article,
-      caption: relationCaption(r),
-      note: r.note,
-      secret: gmView && r.visibility === 'gm_only',
-    })),
+  // Короткие факты («Правитель», «Находится в») уходят под заголовок, остальное — одной
+  // сеткой карточек, где подпись карточки говорит, кем статья приходится этой; порядок —
+  // по смыслу (groupRelations). Вложенные статьи дерева — первыми, со своей подписью.
+  // В предпросмотре сервер возвращает только доступные игроку краткие карточки (без
+  // полей статуса и видимости).
+  const relationGroups = groupRelations(relations)
+  const cards = [
+    ...(childrenQ.data ?? []).map((c) => ({ key: `child-${c.id}`, article: c, caption: articleChildCaption })),
+    ...relationGroups
+      .filter((group) => !group.fact)
+      .flatMap((group) =>
+        group.items.map((r) => ({
+          key: `rel-${r.id}`,
+          article: r.article,
+          caption: group.title,
+          note: r.note,
+          secret: gmView && r.visibility === 'gm_only',
+        })),
+      ),
   ]
 
   // Картинки живут только в тексте (![подпись](url)). Клик по любой из них открывает её
@@ -176,19 +231,7 @@ export default function ArticleDetailPage() {
       {/* Шапка и текст — колонкой для чтения (~70 символов в строке, как в GitHub/Notion);
           карточки ниже — на всю ширину контейнера. */}
       <div className="mx-auto max-w-3xl">
-        <nav className="flex flex-wrap items-center gap-1 text-sm text-stone-400" aria-label="Хлебные крошки">
-          <Link to={{ pathname: '/lore', search: location.search }} className="hover:text-stone-200">
-            Лор
-          </Link>
-          {(ancestorsQ.data ?? []).map((a) => (
-            <span key={a.id} className="flex items-center gap-1">
-              <span aria-hidden="true">›</span>
-              <Link to={articlePath(a)} className="hover:text-stone-200">
-                {a.title}
-              </Link>
-            </span>
-          ))}
-        </nav>
+        <Breadcrumbs ancestors={ancestorsQ.data ?? []} search={location.search} />
 
         <h1 className="heading-section mt-2 text-left">{article.title}</h1>
 
@@ -226,6 +269,8 @@ export default function ArticleDetailPage() {
           </div>
         )}
 
+        <RelationFacts sections={relationGroups.filter((group) => group.fact)} gmView={gmView} />
+
         {article.excerpt && <p className="subtitle mt-2 text-left">{article.excerpt}</p>}
 
         <div onClick={openInlineImage} className="[&_img]:cursor-zoom-in">
@@ -233,11 +278,11 @@ export default function ArticleDetailPage() {
         </div>
       </div>
 
-      {related.length > 0 && (
+      {cards.length > 0 && (
         <section className="mt-10 space-y-3 border-t border-stone-800 pt-6">
-          <h3 className="heading-sub">Смотрите также</h3>
+          <h3 className="heading-sub">{relatedArticlesLabel}</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {related.map(({ key, ...card }) => (
+            {cards.map(({ key, ...card }) => (
               <RelatedCard key={key} {...card} gmView={gmView} />
             ))}
           </div>

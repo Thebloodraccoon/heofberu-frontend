@@ -435,3 +435,23 @@ export const relationTypeLabels = {
   SEE_ALSO: 'см. также',
   PARTICIPATED_IN: 'участвовал в',
 }
+
+// Подпись связанной статьи на странице статьи — кем она приходится текущей:
+// outgoing — эта статья «находится в» X, incoming — X «находится в» этой статье.
+// Подпись стоит на одной карточке, поэтому в единственном числе. У симметричных связей
+// подпись одна для обеих сторон.
+export const relationCaptionLabels = {
+  LOCATED_IN: { outgoing: 'Находится в', incoming: 'Находится здесь' },
+  MEMBER_OF: { outgoing: 'Состоит в', incoming: 'Член' },
+  RULES: { outgoing: 'Правит', incoming: 'Правитель' },
+  PARENT_FACTION: { outgoing: 'Родительская фракция', incoming: 'Дочерняя фракция' },
+  PARTICIPATED_IN: { outgoing: 'Участвовал в', incoming: 'Участник' },
+  ALLY_OF: { outgoing: 'Союзник', incoming: 'Союзник' },
+  ENEMY_OF: { outgoing: 'Враг', incoming: 'Враг' },
+  RELATIVE_OF: { outgoing: 'Родственник', incoming: 'Родственник' },
+  MENTIONS: { outgoing: 'Упоминает', incoming: 'Упоминается в' },
+  SEE_ALSO: { outgoing: 'Смотрите также', incoming: 'Смотрите также' },
+}
+
+export const articleChildCaption = 'Вложенная статья'
+export const relatedArticlesLabel = 'Связанные статьи'

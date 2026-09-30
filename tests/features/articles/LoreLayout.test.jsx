@@ -180,11 +180,19 @@ describe('Lore navigation and filters', () => {
 
   it('shows an inline GM badge instead of a lock for a secret relation', () => {
     setup('/lore/history')
-    const card = screen.getByRole('link', { name: /Тайная связь/ })
-    expect(within(card).getByText('ГМ')).toHaveAttribute('data-tone', 'violet')
-    expect(card).toHaveTextContent('Правит этой статьёй')
-    expect(within(card).getByText('ГМ').compareDocumentPosition(within(card).getByText(articleTypeLabels.lore)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(card).not.toHaveTextContent('🔒')
+    // Входящая RULES — факт под заголовком («Правитель: …»), а не карточка.
+    const link = screen.getByRole('link', { name: /Тайная связь/ })
+    expect(within(link).getByText('ГМ')).toHaveAttribute('data-tone', 'violet')
+    expect(link.closest('div')).toHaveTextContent('Правитель:')
+    expect(link).not.toHaveTextContent('🔒')
+  })
+
+  it('shows related articles in one grid, each card captioned with its relation', () => {
+    setup('/lore/history')
+    expect(screen.getByRole('heading', { name: 'Связанные статьи' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Закрытый дочерний раздел/ })).toHaveTextContent('Вложенная статья')
+    expect(screen.getByRole('link', { name: /Открытая статья/ })).toHaveTextContent('Смотрите также')
+    expect(screen.queryByText('Входит в эту статью')).not.toBeInTheDocument()
   })
 
   it('returns to the top when opening a related article', async () => {
