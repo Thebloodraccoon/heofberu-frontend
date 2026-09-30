@@ -5,7 +5,10 @@ import { useTagsPage } from '@/features/articles/queries.js'
 import { useAuth } from '@/features/auth/useAuth.js'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { Button, Card, ConfirmDialog, ErrorBox, Input, Skeleton } from '@/components/ui'
+import { Button, ConfirmDialog, ErrorBox, Input, Skeleton } from '@/components/ui'
+
+import LoreIcon from './LoreIcon.jsx'
+import Pagination from '@/components/ui/Pagination.jsx'
 
 const PAGE_SIZE = 100
 
@@ -25,7 +28,6 @@ export default function TagsManager() {
   const [error, setError] = useState(null)
 
   const q = useTagsPage({ page, size: PAGE_SIZE, ...(applied ? { search: applied } : {}) })
-  const totalPages = Math.max(1, Math.ceil((q.data?.total ?? 0) / PAGE_SIZE))
   const tags = q.data?.items ?? []
 
   const run = async (fn, okTitle) => {
@@ -61,45 +63,26 @@ export default function TagsManager() {
   }
 
   return (
-    <div className="w-full">
-      <p className="mb-4 text-sm text-stone-400">Общий словарь тегов: расы, подрасы, предыстории, статьи.</p>
-      <Card className="space-y-5 p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 gap-2">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && create()}
-              placeholder="Новый тег…"
-              className="flex-1"
-            />
-            <Button disabled={busy || !newName.trim()} onClick={create}>
-              Создать
-            </Button>
+    <div className="tags-manager">
+      <p className="lore-intro">Общий словарь для статей и справочника. Переименование изменит тег во всех записях.</p>
+      <div className="space-y-5">
+        <form role="search" className="ui-search-form" onSubmit={(e) => { e.preventDefault(); setPage(1); setApplied(search.trim()) }}>
+          <div className="ui-search-field">
+            <LoreIcon name="search" />
+            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по тегам…" aria-label="Поиск по тегам" />
+            <button type="submit" className="ui-search-submit" aria-label="Найти теги"><LoreIcon name="arrow" /></button>
           </div>
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              setPage(1)
-              setApplied(search.trim())
-            }}
-          >
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по тегам…"
-              className="sm:w-56"
-            />
-            <Button variant="ghost" type="submit">
-              Найти
-            </Button>
+        </form>
+        <section className="tags-manager-create">
+          <label htmlFor="new-tag-name" className="text-label">Новый тег</label>
+          <form className="flex gap-2 mt-2" onSubmit={(e) => { e.preventDefault(); if (!busy) create() }}>
+            <Input id="new-tag-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Название тега" className="min-w-0 flex-1" />
+            <Button type="submit" disabled={busy || !newName.trim()}><LoreIcon name="plus" />Создать</Button>
           </form>
-        </div>
-
+        </section>
+        <div className="lore-results-toolbar"><span>Тегов: {q.data?.total ?? 0}</span><span>Общий словарь</span></div>
         {error && !toDelete && <ErrorBox error={error} onRetry={() => setError(null)} />}
 
-        <div className="border-t border-stone-700/60" />
 
         {q.isLoading && <Skeleton className="h-24 w-full" />}
         {q.error && <ErrorBox error={q.error} onRetry={q.refetch} />}
@@ -111,11 +94,12 @@ export default function TagsManager() {
                 {applied ? `Ничего не найдено по «${applied}».` : 'Тегов пока нет — создайте первый.'}
               </p>
             ) : (
-              <ul className="flex flex-wrap gap-2">
+              <ul className="tags-manager-list">
                 {tags.map((t) =>
                   editing?.id === t.id ? (
-                    <li key={t.id} className="flex items-center gap-1.5 rounded-full border border-ember bg-stone-800/80 py-1 pl-3 pr-1.5">
+                    <li key={t.id} className="tags-manager-row tags-manager-row--editing">
                       <input
+                        aria-label="Новое название тега"
                         autoFocus
                         value={editing.name}
                         onChange={(e) => setEditing({ ...editing, name: e.target.value })}
@@ -123,7 +107,7 @@ export default function TagsManager() {
                           if (e.key === 'Enter') rename()
                           if (e.key === 'Escape') setEditing(null)
                         }}
-                        className="w-28 bg-transparent text-sm text-stone-100 outline-none placeholder:text-stone-500"
+                        className="min-w-0 flex-1 bg-transparent text-sm text-stone-100 outline-none placeholder:text-stone-500"
                       />
                       <button
                         type="button"
@@ -133,7 +117,7 @@ export default function TagsManager() {
                         onClick={rename}
                         className="rounded-full px-1.5 text-emerald-300 transition hover:bg-emerald-900/40 disabled:opacity-50"
                       >
-                        ✓
+                        <LoreIcon name="check" />
                       </button>
                       <button
                         type="button"
@@ -142,15 +126,15 @@ export default function TagsManager() {
                         onClick={() => setEditing(null)}
                         className="rounded-full px-1.5 text-stone-400 transition hover:bg-stone-700 hover:text-stone-100"
                       >
-                        ✕
+                        <LoreIcon name="close" />
                       </button>
                     </li>
                   ) : (
                     <li
                       key={t.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-stone-600 bg-stone-800/60 py-1 pl-3 pr-1 text-sm text-stone-100 transition hover:border-stone-500"
+                      className="tags-manager-row"
                     >
-                      #{t.name}
+                      <span className="tags-manager-name">#{t.name}</span>
                       <button
                         type="button"
                         aria-label={`Переименовать тег ${t.name}`}
@@ -158,7 +142,7 @@ export default function TagsManager() {
                         onClick={() => setEditing({ id: t.id, name: t.name })}
                         className="rounded-full px-1.5 text-stone-400 transition hover:bg-stone-700 hover:text-stone-100"
                       >
-                        ✎
+                        <LoreIcon name="edit" />
                       </button>
                       {isFounder && (
                         <button
@@ -168,7 +152,7 @@ export default function TagsManager() {
                           onClick={() => setToDelete(t)}
                           className="rounded-full px-1.5 text-stone-400 transition hover:bg-red-950/50 hover:text-red-300"
                         >
-                          ✕
+                          <LoreIcon name="close" />
                         </button>
                       )}
                     </li>
@@ -177,22 +161,10 @@ export default function TagsManager() {
               </ul>
             )}
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-stone-700/60 pt-3 text-xs text-stone-400">
-                <Button size="xs" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  ← Назад
-                </Button>
-                <span>
-                  Страница {page} из {totalPages} · {q.data?.total ?? 0} тегов
-                </span>
-                <Button size="xs" variant="ghost" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Вперёд →
-                </Button>
-              </div>
-            )}
+            <Pagination page={page} total={q.data?.total ?? 0} size={PAGE_SIZE} onPage={setPage} />
           </>
         )}
-      </Card>
+      </div>
       {toDelete && (
         <ConfirmDialog
           title="Удалить тег?"

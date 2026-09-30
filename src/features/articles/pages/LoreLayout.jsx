@@ -1,11 +1,13 @@
-import { useState } from 'react'
-import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import TagSelectModal from '@/features/articles/components/TagSelectModal.jsx'
-import TypeSelectModal from '@/features/articles/components/TypeSelectModal.jsx'
+import { useLayoutEffect, useState } from 'react'
+import { Link, Outlet, useLocation, useSearchParams } from 'react-router-dom'
+import LoreFilters from '@/features/articles/components/LoreFilters.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import { parseArticleParam } from '@/features/articles/api.js'
 import { parseTagIds, parseTypes } from '@/features/articles/filters.js'
+import { ARTICLE_SORTS } from '@/features/articles/sorts.js'
 import { useRememberTags, useTagsByIds } from '@/features/articles/queries.js'
 import { useAuth } from '@/features/auth/useAuth.js'
-import { Button, Input, PageHeader } from '@/components/ui'
+import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
 import { articleTypeLabels } from '@/lib/i18n'
 
 const PLAYER_VIEW_KEY = 'lore:player-view'
@@ -18,19 +20,15 @@ const readPlayerView = () => {
   }
 }
 
-const activeChip =
-  'inline-flex shrink-0 items-center gap-1 rounded-full border border-ember bg-ember/20 px-2.5 py-1 text-xs font-medium text-ember transition hover:bg-ember/30'
+const activeChip = 'lore-chip lore-chip--active'
 
-// Owns the search/filters bar as a layout around <Outlet/> (list + article detail), so
-// navigating to read an article never unmounts the search — only the outlet content swaps.
-// Типы и теги выбираются в модалках (кнопки в строке поиска), под поиском — только
-// активные фильтры. Also owns the GM «глазами игрока» toggle, handed to the outlet
-// as { gmView, playerView }.
+// Поиск и фильтры показываются в списке; переключатель режима игрока доступен
+// и в списке, и в деталях. Режим передаётся дочерним страницам через Outlet.
 export default function LoreLayout() {
   const [params, setParams] = useSearchParams()
   const { isGM } = useAuth()
 
-  // ГМ может посмотреть лор так, как его видит игрок: без черновиков, секретных
+  // ГМ может посмотреть лор так, как его видит игрок: без неопубликованных и секретных
   // статей/связей и блоков :::gm. Флаг живёт в layout (не сбрасывается при переходе
   // к статье) и в sessionStorage (переживает перезагрузку вкладки).
   const [playerViewRaw, setPlayerViewRaw] = useState(readPlayerView)
@@ -51,7 +49,7 @@ export default function LoreLayout() {
   const matchAll = params.get('match') === 'all'
   const selectedTags = useTagsByIds(tagIds)
   const rememberTags = useRememberTags()
-  const [modal, setModal] = useState(null) // null | 'types' | 'tags'
+  const [showFilters, setShowFilters] = useState(false)
 
   const [input, setInput] = useState(q)
   const [syncedQ, setSyncedQ] = useState(q)
@@ -61,11 +59,13 @@ export default function LoreLayout() {
   }
 
   const location = useLocation()
-  const navigate = useNavigate()
   const onList = location.pathname.replace(/\/+$/, '') === '/lore'
 
-  // На списке фильтры меняют URL на месте. На открытой статье — переходим к списку
-  // результатов (новая запись в истории: «назад» вернёт к статье).
+  useLayoutEffect(() => {
+    if (!onList) window.scrollTo(0, 0)
+  }, [location.pathname, onList])
+
+  // Фильтры меняют параметры URL списка.
   const updateParams = (patch) => {
     const next = new URLSearchParams(params)
     for (const [key, value] of Object.entries(patch)) {
@@ -73,14 +73,10 @@ export default function LoreLayout() {
       else next.delete(key)
     }
     if (!('page' in patch)) next.delete('page')
-    if (onList) setParams(next)
-    else navigate({ pathname: '/lore', search: next.toString() ? `?${next}` : '' })
+    setParams(next)
   }
 
-  const submit = (e) => {
-    e.preventDefault()
-    updateParams({ q: input.trim() })
-  }
+  const submit = () => updateParams({ q: input.trim() })
 
   const setTypes = (next) => updateParams({ type: next.join(',') })
   const setTags = (ids) => updateParams({ tags: ids.join(','), match: ids.length > 1 && matchAll ? 'all' : '' })
@@ -88,118 +84,66 @@ export default function LoreLayout() {
   // Текст поиска и так виден в поле — в строке активных фильтров только типы и теги.
   const hasFilters = types.length > 0 || tagIds.length > 0
 
+  const filterCount = types.length + tagIds.length
+  const sort = ARTICLE_SORTS.some(([key]) => key === params.get('sort')) ? params.get('sort') : 'newest'
+  const sortLabel = ARTICLE_SORTS.find(([key]) => key === sort)[1]
+  const setSort = (value) => updateParams({ sort: value === 'newest' ? '' : value })
+  const playerToggle = isGM && <button type="button" className="lore-player-switch" role="switch" aria-checked={playerView} onClick={togglePlayerView}>
+    <LoreIcon name="eye" /> Глазами игрока <span className="lore-switch-track" aria-hidden="true" />
+  </button>
+
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeader
-        className="mb-3"
-        title="Лор"
-        subtitle="Своды знаний о мире Хеофберу — расы, регионы, фракции, события."
-        actions={
-          isGM && (
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant={playerView ? 'primary' : 'ghost'}
-                size="sm"
-                aria-pressed={playerView}
-                title="Показать лор так, как его видят игроки"
-                onClick={togglePlayerView}
-              >
-                👁 {playerView ? 'Глазами игрока: вкл' : 'Глазами игрока'}
-              </Button>
-              <Link to="/gm/articles" className="text-sm text-stone-400 hover:text-ember">
-                Редактор статей →
-              </Link>
+    <div className={`lore-page ${onList ? 'lore-page--list' : 'lore-page--reading'}`}>
+      {onList ? (
+        <header className="lore-header lore-list-header">
+          <div>
+            <p className="lore-eyebrow">Библиотека мира</p>
+            <h1 className="heading-section">Лор</h1>
+            <div className="lore-intro-row">
+              <p className="lore-intro">Народы, земли и истории Хеофберу.</p>
+              {isGM && <div className="lore-list-actions">{playerToggle}<Link to="/gm/articles" className="lore-editor-link">Редактор статей <LoreIcon name="arrow" /></Link></div>}
             </div>
-          )
-        }
-      />
-      {playerView && (
-        <p className="mb-2 rounded border border-violet-800/60 bg-violet-950/40 px-3 py-2 text-xs text-violet-200">
-          Режим «глазами игрока»: скрыты черновики, статьи и связи «только для ГМ» и блоки-секреты.
-        </p>
-      )}
-
-      <div className="sticky top-0 z-10 -mx-5 space-y-2 bg-stone-950/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
-        <form className="flex flex-wrap gap-2" onSubmit={submit}>
-          <Input
-            className="input-search min-w-56 flex-1"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Поиск по статьям…"
-            aria-label="Поиск по статьям"
-          />
-          <Button type="button" variant={types.length ? 'primary' : 'ghost'} onClick={() => setModal('types')}>
-            Типы
-          </Button>
-          <Button type="button" variant={tagIds.length ? 'primary' : 'ghost'} onClick={() => setModal('tags')}>
-            Теги
-          </Button>
-          <Button type="submit">Найти</Button>
-        </form>
-
-        {hasFilters && (
-          <div className="flex flex-wrap items-center gap-1.5" aria-label="Активные фильтры">
-            {types.map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={activeChip}
-                title="Убрать тип из фильтра"
-                onClick={() => setTypes(types.filter((x) => x !== t))}
-              >
-                {articleTypeLabels[t]} <span aria-hidden="true">✕</span>
-              </button>
-            ))}
-            {selectedTags.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={activeChip}
-                title="Убрать тег из фильтра"
-                onClick={() => setTags(tagIds.filter((x) => x !== t.id))}
-              >
-                #{t.name} <span aria-hidden="true">✕</span>
-              </button>
-            ))}
-            <button
-              type="button"
-              className="ml-1 text-xs text-stone-500 underline-offset-2 hover:text-stone-300 hover:underline"
-              onClick={() => updateParams({ type: '', tags: '', match: '' })}
-            >
-              Сбросить фильтры
-            </button>
           </div>
-        )}
-      </div>
-
-      {modal === 'types' && (
-        <TypeSelectModal
-          selected={types}
-          onClose={() => setModal(null)}
-          onApply={(next) => {
-            setTypes(next)
-            setModal(null)
-          }}
-        />
+        </header>
+      ) : (
+        <div className="lore-reading-toolbar">
+          <Link to={{ pathname: '/lore', search: location.search }}><LoreIcon name="back" /> Ко всем статьям</Link>
+          <div className="lore-reading-actions">
+            {playerToggle}
+            {isGM && <Link to={`/gm/articles?id=${parseArticleParam(location.pathname.split('/').at(-1))}`} className="lore-editor-link">Редактировать <LoreIcon name="arrow" /></Link>}
+          </div>
+        </div>
       )}
-      {modal === 'tags' && (
-        <TagSelectModal
-          title="Фильтр по тегам"
-          subtitle="Отметьте теги — покажем статьи с любым из них (или со всеми сразу)."
-          selected={selectedTags}
-          match={matchAll ? 'all' : 'any'}
-          onClose={() => setModal(null)}
-          onApply={(tags, match) => {
-            rememberTags(tags)
-            updateParams({
-              tags: tags.map((t) => t.id).join(','),
-              match: tags.length > 1 && match === 'all' ? 'all' : '',
-            })
-            setModal(null)
-          }}
-        />
-      )}
+      {!onList && playerView && <p className="lore-preview-notice">Глазами игрока: неопубликованные статьи и секреты скрыты.</p>}
 
+      {onList && playerView && <p className="lore-preview-notice">Глазами игрока: неопубликованные статьи и секреты скрыты.</p>}
+      {onList && <div id="lore-search-panel" className="lore-search-panel">
+        <SearchToolbar
+          className="lore-search-toolbar"
+          query={input} onQueryChange={setInput} onSearch={submit}
+          onFilters={() => setShowFilters(true)} filterCount={filterCount} filtersOpen={showFilters}
+          label="Поиск по статьям" placeholder="Поиск по статьям…" submitLabel="Найти статьи"
+          extraAction={q.trim().length < 2 ? (
+            <label className="lore-sort-control" title={`Сортировка: ${sortLabel}`}>
+              <LoreIcon name="sort" /><span aria-hidden="true">{sortLabel}</span>
+              <select aria-label="Сортировка" value={sort} onChange={(event) => setSort(event.target.value)}>
+                {ARTICLE_SORTS.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+              </select>
+            </label>
+          ) : <span className="lore-sort-relevance"><LoreIcon name="sort" />По релевантности</span>}
+        />
+        {hasFilters && <div className="lore-active-filters" aria-label="Активные фильтры">
+          {types.map((type) => <button key={type} type="button" className={activeChip} aria-label={`Убрать тип ${articleTypeLabels[type]}`} onClick={() => setTypes(types.filter((t) => t !== type))}><span>{articleTypeLabels[type]}</span><LoreIcon name="close" /></button>)}
+          {selectedTags.map((tag) => <button key={tag.id} type="button" className={activeChip} aria-label={`Убрать тег ${tag.name}`} onClick={() => setTags(tagIds.filter((id) => id !== tag.id))}><span>#{tag.name}</span><LoreIcon name="close" /></button>)}
+          {matchAll && tagIds.length > 1 && <span className="text-xs text-stone-500">Все выбранные теги</span>}
+          <button type="button" className="lore-reset" onClick={() => updateParams({ type: '', tags: '', match: '' })}>Сбросить фильтры</button>
+        </div>}
+      </div>}
+
+      {showFilters && <LoreFilters types={types} tags={selectedTags} match={matchAll ? 'all' : 'any'} onClose={() => setShowFilters(false)} onApply={(nextTypes, tags, match) => {
+        rememberTags(tags)
+        updateParams({ type: nextTypes.join(','), tags: tags.map((tag) => tag.id).join(','), match: tags.length > 1 && match === 'all' ? 'all' : '' })
+      }} />}
       <Outlet context={{ gmView: isGM && !playerView, playerView }} />
     </div>
   )

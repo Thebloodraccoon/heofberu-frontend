@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { articlePath, isPublicArticle, parseArticleParam } from '@/features/articles/api.js'
 import {
@@ -11,26 +11,51 @@ import { relationLabel, THIS_ARTICLE_CASE } from '@/features/articles/relationTe
 import { splitGmBlocks, stripGmBlocks } from '@/features/articles/secrets.js'
 import { Badge, ErrorBox, Modal, RichText, Skeleton } from '@/components/ui'
 import { articleStatusLabels, articleTypeLabels } from '@/lib/i18n'
+import { renderRichHtml } from '@/lib/utils/richText.js'
+import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 
-// Текст статьи: публичные куски — обычным RichText, блоки :::gm (видны только ГМ —
-// бэк вырезает их для игроков) — в отдельной рамке с пометкой.
+// Используем тот же безопасный рендер, что и RichText; якоря добавляем после очистки HTML.
+// Оглавление строится только по разделам, видимым в текущем режиме.
 function ArticleBody({ body, showSecrets }) {
-  const segments = splitGmBlocks(showSecrets ? body : stripGmBlocks(body))
+  const { segments, headings } = useMemo(() => {
+    const headings = []
+    const segments = splitGmBlocks(showSecrets ? body : stripGmBlocks(body)).map((segment) => {
+      const fragment = document.createElement('template')
+      fragment.innerHTML = renderRichHtml(segment.text)
+      fragment.content.querySelectorAll('h2, h3').forEach((heading) => {
+        heading.id = `article-section-${headings.length + 1}`
+        headings.push({ id: heading.id, title: heading.textContent, nested: heading.tagName === 'H3' })
+      })
+      return { ...segment, html: fragment.innerHTML }
+    })
+    return { segments, headings }
+  }, [body, showSecrets])
   if (segments.length === 0) {
     return <RichText value="" className="mt-6" empty="Текст статьи пока не написан." />
   }
   return (
-    <div className="mt-6 space-y-4">
+    <div className="lore-body-layout">
+      {headings.length > 0 && <aside className="lore-toc">
+        <details open>
+          <summary>В этой статье</summary>
+          <nav aria-label="Оглавление статьи">
+            {headings.map((heading) => <a key={heading.id} href={`#${heading.id}`} className={heading.nested ? 'lore-toc-nested' : ''}>{heading.title}</a>)}
+          </nav>
+        </details>
+      </aside>}
+      <div className="mt-6 space-y-4">
       {segments.map((seg, i) =>
         seg.secret ? (
-          <aside key={i} className="rounded-lg border border-violet-800/70 bg-violet-950/30 px-4 py-3">
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-violet-300">🔒 Только для мастера</p>
-            <RichText value={seg.text} empty="Пустой секрет." />
+          <aside key={i} className="lore-secret">
+            <p className="lore-secret-label"><LoreIcon name="eye" /> Только для мастера</p>
+            {seg.html ? <div className="rich-text" dangerouslySetInnerHTML={{ __html: seg.html }} /> : <p className="text-stone-500">Пустой секрет.</p>}
           </aside>
         ) : (
-          <RichText key={i} value={seg.text} />
+          <div key={i} className="rich-text" dangerouslySetInnerHTML={{ __html: seg.html }} />
         ),
       )}
+      </div>
     </div>
   )
 }
@@ -45,7 +70,7 @@ function relationCaption(r) {
   return `${capitalized} ${THIS_ARTICLE_CASE[r.relation_type] ?? 'эту статью'}`
 }
 
-function RelatedCard({ article, caption, note, secret = false }) {
+function RelatedCard({ article, caption, note, secret = false, gmView = false }) {
   return (
     <Link
       to={articlePath(article)}
@@ -53,16 +78,14 @@ function RelatedCard({ article, caption, note, secret = false }) {
         secret ? 'border-violet-800/70' : 'border-stone-800'
       }`}
     >
-      <span className="text-xs uppercase tracking-wide text-stone-500">
-        {secret && (
-          <span className="mr-1" title="Секретная связь — игроки её не видят">
-            🔒
-          </span>
-        )}
-        {caption}
-      </span>
+      <span className="text-xs uppercase tracking-wide text-stone-500">{caption}</span>
       <span className="font-medium text-stone-100 group-hover:text-ember">{article.title}</span>
       <span className="flex flex-wrap items-center gap-1.5 text-xs text-stone-500">
+        {secret ? (
+          <span className="inline-block" title="Секретная связь — игроки её не видят">
+            <GmOnlyBadge />
+          </span>
+        ) : gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
         <Badge>{articleTypeLabels[article.article_type] ?? article.article_type}</Badge>
         {article.subtype && <span>{article.subtype}</span>}
       </span>
@@ -77,9 +100,9 @@ export default function ArticleDetailPage() {
   const location = useLocation()
   const id = parseArticleParam(idSlug)
   const articleQ = useArticleDetail(id)
-  const relQ = useArticleRelations(id)
-  const ancestorsQ = useArticleAncestors(id)
-  const childrenQ = useArticleChildren(id)
+  const relQ = useArticleRelations(id, playerView)
+  const ancestorsQ = useArticleAncestors(id, playerView)
+  const childrenQ = useArticleChildren(id, playerView)
   const [lightbox, setLightbox] = useState(null)
 
   if (articleQ.isLoading) {
@@ -118,11 +141,10 @@ export default function ArticleDetailPage() {
   }
 
   const body = article.body_markdown ?? ''
-  const relations = (relQ.data ?? []).filter((r) => !playerView || r.visibility !== 'gm_only')
+  const relations = relQ.data ?? []
 
-  // «Внутри» и связи — одна и та же по смыслу штука (другая статья, как-то относящаяся
-  // к этой), поэтому в одну секцию: дети идут первыми (они и заведомо публичные —
-  // фильтр видимости уже прошёл на бэке), затем связи.
+  // Дочерние статьи и связи показываем вместе. В предпросмотре сервер возвращает
+  // только доступные игроку краткие карточки (без полей статуса и видимости).
   const related = [
     ...(childrenQ.data ?? []).map((c) => ({ key: `child-${c.id}`, article: c, caption: 'Входит в эту статью' })),
     ...relations.map((r) => ({
@@ -166,16 +188,11 @@ export default function ArticleDetailPage() {
         <h1 className="heading-section mt-2 text-left">{article.title}</h1>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
           <Badge>{articleTypeLabels[article.article_type] ?? article.article_type}</Badge>
           {article.subtype && <span className="text-sm text-stone-400">{article.subtype}</span>}
           {gmView && article.status !== 'published' && (
             <Badge>{articleStatusLabels[article.status] ?? article.status}</Badge>
-          )}
-          {gmView && article.visibility === 'gm_only' && <Badge tone="violet">🔒 Только для ГМ</Badge>}
-          {gmView && (
-            <Link to={`/gm/articles?id=${article.id}`} className="ml-auto text-sm text-stone-400 hover:text-ember">
-              ✎ Редактировать
-            </Link>
           )}
         </div>
 
@@ -205,7 +222,7 @@ export default function ArticleDetailPage() {
           <h3 className="heading-sub">Смотрите также</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {related.map(({ key, ...card }) => (
-              <RelatedCard key={key} {...card} />
+              <RelatedCard key={key} {...card} gmView={gmView} />
             ))}
           </div>
         </section>

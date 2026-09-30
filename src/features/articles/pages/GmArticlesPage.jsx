@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   articlePath,
@@ -9,28 +9,34 @@ import {
   validateImageFile,
 } from '@/features/articles/api.js'
 import { useArticleDetail, useArticlesPage, useInvalidateArticles } from '@/features/articles/queries.js'
-import { GM_BLOCK_CLOSE, GM_BLOCK_OPEN } from '@/features/articles/secrets.js'
+import { insertGmBlock } from '@/features/articles/insertGmBlock.js'
 import ArticleImages from '@/features/articles/components/ArticleImages.jsx'
+import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
 import ImagePickerModal from '@/features/articles/components/ImagePickerModal.jsx'
 import ArticleRelations from '@/features/articles/components/ArticleRelations.jsx'
 import TagsManager from '@/features/articles/components/TagsManager.jsx'
 import TagInput from '@/features/articles/components/TagInput.jsx'
-import TagSelectModal from '@/features/articles/components/TagSelectModal.jsx'
+import ParentArticlePicker from '@/features/articles/components/ParentArticlePicker.jsx'
+import LoreFilters from '@/features/articles/components/LoreFilters.jsx'
 import {
   Badge,
   Button,
-  Card,
   ConfirmDialog,
   ErrorBox,
   Field,
   Input,
-  PageHeader,
   RichText,
   RichTextEditor,
   Select,
   Skeleton,
   TextField,
 } from '@/components/ui'
+import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
+import Drawer from '@/components/ui/Drawer.jsx'
+import Pagination from '@/components/ui/Pagination.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import SaveStatus from '@/components/ui/SaveStatus.jsx'
+import useSaveStatus from '@/components/ui/useSaveStatus.js'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import { articleStatusLabels, articleTypeLabels, articleVisibilityLabels } from '@/lib/i18n'
 
@@ -63,21 +69,21 @@ export default function GmArticlesPage() {
   const toasts = useToasts()
   const invalidate = useInvalidateArticles()
 
-  const [tab, setTab] = useState('articles')
+  const [tagManagerOpen, setTagManagerOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [applied, setApplied] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState([])
   const [tagFilter, setTagFilter] = useState([])
-  const [tagModal, setTagModal] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [tagMatch, setTagMatch] = useState('any')
   const [page, setPage] = useState(1)
   const listQ = useArticlesPage({
     page,
     size: PAGE_SIZE,
     ...(applied ? { search: applied } : {}),
-    ...(typeFilter ? { article_type: typeFilter } : {}),
-    ...(tagFilter.length ? { tag_id: tagFilter.map((t) => t.id) } : {}),
+    ...(typeFilter.length ? { article_type: typeFilter } : {}),
+    ...(tagFilter.length ? { tag_id: tagFilter.map((t) => t.id), tag_match: tagMatch } : {}),
   })
-  const parentsQ = useArticlesPage({ page: 1, size: 100 })
 
   // Выбранная статья живёт в URL (?id=12 / ?id=new): ссылка «Редактировать» из лора
   // открывает её сразу, а «назад» в браузере возвращает к предыдущей.
@@ -94,148 +100,71 @@ export default function GmArticlesPage() {
     })
   const detailQ = useArticleDetail(typeof selected === 'number' ? selected : null)
 
-  const totalPages = Math.max(1, Math.ceil((listQ.data?.total ?? 0) / PAGE_SIZE))
+  const chooseArticle = (id) => {
+    setSelected(id)
+  }
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeader
-        title="Статьи и теги"
-        subtitle="Лор мира, локации, фракции и НПС. Текст статей — Markdown."
-        actions={
-          tab === 'articles' && (
-            <Button
-              onClick={() => setSelected('new')}
-            >
-              Новая статья
-            </Button>
-          )
-        }
-      />
-      <div className="mb-6 flex gap-2" role="tablist">
-        {[
-          ['articles', 'Статьи'],
-          ['tags', 'Теги'],
-        ].map(([key, label]) => (
-          <Button
-            key={key}
-            role="tab"
-            aria-selected={tab === key}
-            variant={tab === key ? 'primary' : 'ghost'}
-            onClick={() => setTab(key)}
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-      {tab === 'tags' ? (
-        <TagsManager />
-      ) : (
-      <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
-        <Card className="space-y-3 self-start">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              setPage(1)
-              setApplied(search.trim())
-            }}
-          >
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по названию" />
-            <Button variant="ghost" type="submit">
-              Найти
-            </Button>
-          </form>
-          <Select
-            value={typeFilter}
-            onChange={(e) => {
-              setPage(1)
-              setTypeFilter(e.target.value)
-            }}
-          >
-            <option value="">Все типы</option>
-            {ARTICLE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {articleTypeLabels[t]}
-              </option>
-            ))}
-          </Select>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button size="xs" variant="ghost" onClick={() => setTagModal(true)}>
-              🏷 Теги{tagFilter.length ? ` (${tagFilter.length})` : ''}…
-            </Button>
-            {tagFilter.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                title="Убрать из фильтра"
-                onClick={() => {
-                  setPage(1)
-                  setTagFilter((f) => f.filter((x) => x.id !== t.id))
-                }}
-                className="rounded-full border border-ember/60 bg-ember/15 px-2 py-0.5 text-xs text-stone-100"
-              >
-                #{t.name} ✕
-              </button>
-            ))}
+    <div className="article-workspace lore-page">
+      {selected === null && <header className="lore-header article-workspace-header">
+        <div>
+          <p className="lore-eyebrow">Мастерская мира</p>
+          <h1 className="heading-section">Статьи и теги</h1>
+          <p className="lore-intro">Истории, места и герои вашего мира.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setTagManagerOpen(true)}>Теги</Button>
+          <Button onClick={() => chooseArticle('new')}><LoreIcon name="plus" />Новая статья</Button>
+        </div>
+      </header>}
+      {selected !== null && <div className="article-workspace-nav lore-reading-toolbar">
+        <button type="button" className="article-back" onClick={() => setSelected(null)} aria-label="Вернуться к статьям"><LoreIcon name="back" />Ко всем статьям</button>
+      </div>}
+      {tagManagerOpen && <Drawer title="Теги" closeLabel="Закрыть теги" onClose={() => setTagManagerOpen(false)}><TagsManager /></Drawer>}
+      <div>
+        {selected === null && <section className="article-library">
+        <div>
+          <div className="lore-search-panel">
+            <SearchToolbar query={search} onQueryChange={setSearch} onSearch={() => { setPage(1); setApplied(search.trim()) }} onFilters={() => setFiltersOpen(true)} filterCount={typeFilter.length + tagFilter.length} filtersOpen={filtersOpen} label="Поиск по статьям" placeholder="Поиск по статьям…" submitLabel="Найти статьи" />
+            {(typeFilter.length > 0 || tagFilter.length > 0) && <div className="lore-active-filters" aria-label="Активные фильтры">
+              {typeFilter.map((type) => <button key={type} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать тип ${articleTypeLabels[type]}`} onClick={() => { setTypeFilter(typeFilter.filter((item) => item !== type)); setPage(1) }}><span>{articleTypeLabels[type]}</span><LoreIcon name="close" /></button>)}
+              {tagFilter.map((tag) => <button key={tag.id} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать тег ${tag.name}`} onClick={() => { const next = tagFilter.filter((item) => item.id !== tag.id); setTagFilter(next); if (next.length < 2) setTagMatch('any'); setPage(1) }}><span>#{tag.name}</span><LoreIcon name="close" /></button>)}
+              {tagMatch === 'all' && tagFilter.length > 1 && <span className="text-xs text-stone-500">Все выбранные теги</span>}
+              <button type="button" className="lore-reset" onClick={() => { setTypeFilter([]); setTagFilter([]); setTagMatch('any'); setPage(1) }}>Сбросить фильтры</button>
+            </div>}
           </div>
-          {tagModal && (
-            <TagSelectModal
-              title="Фильтр по тегам"
-              subtitle="Статьи хотя бы с одним из выбранных тегов."
-              selected={tagFilter}
-              onClose={() => setTagModal(false)}
-              onApply={(tags) => {
-                setPage(1)
-                setTagFilter(tags)
-                setTagModal(false)
-              }}
-            />
-          )}
+          {filtersOpen && <LoreFilters types={typeFilter} tags={tagFilter} match={tagMatch} onClose={() => setFiltersOpen(false)} onApply={(types, tags, match) => { setTypeFilter(types); setTagFilter(tags); setTagMatch(match); setPage(1) }} />}
           {listQ.isLoading && <Skeleton className="h-24 w-full" />}
           {listQ.error && <ErrorBox error={listQ.error} onRetry={listQ.refetch} />}
-          <ul className="space-y-1">
+          <ul>
             {(listQ.data?.items ?? []).map((a) => (
               <li key={a.id}>
                 <button
                   type="button"
-                  onClick={() => setSelected(a.id)}
-                  className={`w-full rounded px-2 py-1.5 text-left text-sm transition hover:bg-stone-800 ${
-                    selected === a.id ? 'bg-stone-800 text-stone-100' : 'text-stone-300'
-                  }`}
+                  onClick={() => chooseArticle(a.id)}
+                  className={`lore-article-row article-library-row ${selected === a.id ? 'article-library-row--selected' : ''}`}
                 >
-                  <span className="block truncate">{a.title}</span>
-                  <span className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
-                    {articleTypeLabels[a.article_type] ?? a.article_type}
-                    {a.subtype && <span>· {a.subtype}</span>}
-                    <Badge tone={a.status === 'published' ? 'good' : 'default'}>
-                      {articleStatusLabels[a.status] ?? a.status}
-                    </Badge>
-                    {a.visibility === 'gm_only' && <Badge tone="violet">🔒 ГМ</Badge>}
+                  <span className="lore-article-meta">
+                    <span className="lore-article-type">{articleTypeLabels[a.article_type] ?? a.article_type}</span>
+                    <Badge tone={a.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>
+                    {a.visibility === 'gm_only' && <GmOnlyBadge />}
+                    {a.subtype && <span className="text-xs text-stone-500">{a.subtype}</span>}
                   </span>
+                  <span className="lore-article-heading"><span className="article-library-title">{a.title}</span><LoreIcon name="arrow" /></span>
+                  {a.excerpt && <span className="lore-article-excerpt">{a.excerpt}</span>}
                 </button>
               </li>
             ))}
-            {listQ.data && listQ.data.items.length === 0 && <li className="text-sm text-stone-500">Статей нет.</li>}
+            {listQ.data && listQ.data.items.length === 0 && <li className="lore-empty">Статей пока нет.</li>}
           </ul>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between text-xs text-stone-400">
-              <Button size="xs" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                Назад
-              </Button>
-              {page} / {totalPages}
-              <Button size="xs" variant="ghost" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Вперёд
-              </Button>
-            </div>
-          )}
-        </Card>
+          <Pagination page={page} total={listQ.data?.total ?? 0} size={PAGE_SIZE} onPage={setPage} />
+        </div>
+        </section>}
 
         <div>
-          {selected === null && <p className="text-stone-500">Выберите статью или создайте новую.</p>}
           {selected === 'new' && (
             <ArticleForm
               key="new"
-              parents={parentsQ.data?.items ?? []}
               onSaved={(a) => {
                 invalidate(a.id)
                 setSelected(a.id)
@@ -249,7 +178,6 @@ export default function GmArticlesPage() {
             <ArticleForm
               key={detailQ.data.id}
               article={detailQ.data}
-              parents={(parentsQ.data?.items ?? []).filter((p) => p.id !== selected)}
               onSaved={(a) => invalidate(a.id)}
               onImagesChanged={() => invalidate(selected)}
               onDeleted={() => {
@@ -261,8 +189,54 @@ export default function GmArticlesPage() {
           )}
         </div>
       </div>
-      )}
     </div>
+  )
+}
+
+function ArticleActions({ article, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  const buttonRef = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const outside = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false) }
+    const escape = (event) => { if (event.key === 'Escape') { setOpen(false); buttonRef.current?.focus() } }
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('keydown', escape)
+    }
+  }, [open])
+  return <div className="article-editor-menu" ref={rootRef}>
+    <button ref={buttonRef} type="button" aria-label="Действия со статьёй" aria-expanded={open} onClick={() => setOpen(!open)}>⋯</button>
+    {open && <div className="lore-tools-content article-actions-dropdown">
+      <Link to={articlePath(article)}><LoreIcon name="arrow" />Открыть в лоре</Link>
+      <button type="button" onClick={() => { setOpen(false); onDelete() }}>Удалить статью</button>
+    </div>}
+  </div>
+}
+
+function EditorSettings({ children }) {
+  const [mobile, setMobile] = useState(() => window.matchMedia?.('(max-width: 900px)').matches ?? false)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia?.('(max-width: 900px)')
+    if (!media) return
+    const change = () => setMobile(media.matches)
+    media.addEventListener('change', change)
+    return () => media.removeEventListener('change', change)
+  }, [])
+  return mobile ? (
+    <div className="article-editor-settings-toggle">
+      <Button variant="ghost" onClick={() => setOpen(true)}>Параметры статьи</Button>
+      {open && <Drawer title="Параметры статьи" closeLabel="Закрыть параметры" onClose={() => setOpen(false)}>{children}</Drawer>}
+    </div>
+  ) : (
+    <aside className="article-editor-settings" aria-label="Параметры статьи">
+      <h3 className="mb-5 font-semibold">Параметры статьи</h3>
+      {children}
+    </aside>
   )
 }
 
@@ -280,22 +254,14 @@ const toBody = (f) => ({
 
 const SECRET_TOOL = {
   title: 'Секрет мастера: блок, скрытый от игроков',
-  label: '🔒',
-  onClick: (editor) =>
-    editor
-      .chain()
-      .focus()
-      .insertContent([
-        { type: 'paragraph', content: [{ type: 'text', text: GM_BLOCK_OPEN }] },
-        { type: 'paragraph', content: [{ type: 'text', text: 'Тайна для мастера…' }] },
-        { type: 'paragraph', content: [{ type: 'text', text: GM_BLOCK_CLOSE }] },
-      ])
-      .run(),
+  label: <LoreIcon name="eye" />,
+  onClick: insertGmBlock,
 }
 
 const SecretHint = () => (
-  <p className="text-xs text-stone-500">
-    🔒 — блок <code>:::gm … :::</code>: игроки его не видят и не находят поиском.
+  <p className="flex items-center gap-1.5 text-xs text-stone-500">
+    <LoreIcon name="eye" className="shrink-0" />
+    <span>— блок <code>:::gm Текст :::</code> игроки его не видят и не находят поиском.</span>
   </p>
 )
 
@@ -304,31 +270,33 @@ function ArticleForm({ article, ...props }) {
 }
 
 // Выпадающие списки общие для создания и правки; onChange(patch) решает, что с ними делать.
-function ArticleSelects({ values, parents, onChange, disabled = false }) {
+function ArticleSelects({ values, articleId, onChange, disabled = false, statuses }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Тип">
-        <Select value={values.article_type} disabled={disabled} onChange={(e) => onChange({ article_type: e.target.value }, 'Тип')}>
+        <Select value={values.article_type} disabled={disabled || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value }, 'Тип')}>
           {ARTICLE_TYPES.map((t) => (
             <option key={t} value={t}>
               {articleTypeLabels[t]}
             </option>
           ))}
         </Select>
+        {statuses && <SaveStatus status={statuses.article_type} />}
       </Field>
       <Field label="Статус">
-        <Select value={values.status} disabled={disabled} onChange={(e) => onChange({ status: e.target.value }, 'Статус')}>
+        <Select value={values.status} disabled={disabled || statuses?.status?.state === 'saving'} onChange={(e) => onChange({ status: e.target.value }, 'Статус')}>
           {ARTICLE_STATUSES.map((s) => (
             <option key={s} value={s}>
               {articleStatusLabels[s]}
             </option>
           ))}
         </Select>
+        {statuses && <SaveStatus status={statuses.status} />}
       </Field>
       <Field label="Видимость">
         <Select
           value={values.visibility}
-          disabled={disabled}
+          disabled={disabled || statuses?.visibility?.state === 'saving'}
           onChange={(e) => onChange({ visibility: e.target.value }, 'Видимость')}
         >
           {ARTICLE_VISIBILITY.map((v) => (
@@ -337,30 +305,19 @@ function ArticleSelects({ values, parents, onChange, disabled = false }) {
             </option>
           ))}
         </Select>
+        {statuses && <SaveStatus status={statuses.visibility} />}
       </Field>
-      <Field label="Родительская статья">
-        <Select
-          value={values.parent_id === null ? '' : String(values.parent_id)}
-          disabled={disabled}
-          onChange={(e) =>
-            onChange({ parent_id: e.target.value === '' ? null : Number(e.target.value) }, 'Родительская статья')
-          }
-        >
-          <option value="">— нет (корень) —</option>
-          {parents.map((p) => (
-            <option key={p.id} value={String(p.id)}>
-              {p.title}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      <div>
+        <ParentArticlePicker articleId={articleId} value={values.parent_id} disabled={disabled || statuses?.parent_id?.state === 'saving'} onChange={(id) => onChange({ parent_id: id }, 'Родительская статья')} />
+        {statuses && <SaveStatus status={statuses.parent_id} />}
+      </div>
     </div>
   )
 }
 
 // Новая статья — обычная форма и одна кнопка «Создать статью»; дальше она открывается
 // в режиме правки (ArticleEditForm), где каждое поле сохраняется само.
-function ArticleCreateForm({ parents, onSaved, toasts }) {
+function ArticleCreateForm({ onSaved, toasts }) {
   const [form, setForm] = useState(EMPTY)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState(null)
@@ -388,22 +345,13 @@ function ArticleCreateForm({ parents, onSaved, toasts }) {
   }
 
   return (
-    <Card className="space-y-5">
+    <section className="article-editor">
       <h2 className="font-display text-xl font-bold text-stone-100">Новая статья</h2>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="article-editor-layout">
+      <div className="article-editor-main space-y-5">
         <Field label="Название">
           <Input value={form.title} maxLength={200} onChange={(e) => set({ title: e.target.value })} />
         </Field>
-        <Field label="Подтип">
-          <Input
-            value={form.subtype}
-            maxLength={50}
-            onChange={(e) => set({ subtype: e.target.value })}
-            placeholder="таверна, город, данж…"
-          />
-        </Field>
-      </div>
-      <ArticleSelects values={form} parents={parents} onChange={(patch) => set(patch)} />
       <Field label="Краткое описание">
         <Input value={form.excerpt} maxLength={500} onChange={(e) => set({ excerpt: e.target.value })} />
       </Field>
@@ -420,15 +368,30 @@ function ArticleCreateForm({ parents, onSaved, toasts }) {
         <SecretHint />
         <p className="text-xs text-stone-500">Загружать картинки можно после создания статьи.</p>
       </div>
+      </div>
+      <EditorSettings>
+        <div className="space-y-5">
+        <Field label="Подтип">
+          <Input
+            value={form.subtype}
+            maxLength={50}
+            onChange={(e) => set({ subtype: e.target.value })}
+            placeholder="таверна, город, данж…"
+          />
+        </Field>
+      <ArticleSelects values={form} onChange={(patch) => set(patch)} />
       <TagInput value={form.tags} onChange={(tags) => set({ tags })} />
+        </div>
+      </EditorSettings>
+      </div>
       {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="article-editor-save flex flex-wrap items-center gap-3">
         <Button disabled={creating || !titleOk} onClick={create}>
           {creating ? 'Создаём…' : 'Создать статью'}
         </Button>
         {!titleOk && <span className="text-xs text-stone-500">Сначала введите название.</span>}
       </div>
-    </Card>
+    </section>
   )
 }
 
@@ -436,15 +399,36 @@ function ArticleCreateForm({ parents, onSaved, toasts }) {
 // Текстовые поля — «Изменить» → «Сохранить» (PATCH только этого поля); списки и теги
 // сохраняются сразу при изменении. Все запросы идут по очереди (queueRef), чтобы
 // ответы не приходили вперемешку, а на экране — последнее выбранное значение.
-function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted, toasts }) {
+function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts }) {
+  const { statuses, run, clear } = useSaveStatus()
   const [values, setValues] = useState(() => fromArticle(article))
   const [error, setError] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [activePanel, setActivePanel] = useState('text')
+  const tabsRef = useRef(null)
+  useLayoutEffect(() => {
+    const tabs = tabsRef.current
+    if (!tabs) return
+    const updateIndicator = () => {
+      const selected = tabs.querySelector('[aria-pressed="true"]')
+      if (!selected) return
+      tabs.style.setProperty('--tab-left', `${selected.offsetLeft}px`)
+      tabs.style.setProperty('--tab-width', `${selected.offsetWidth}px`)
+    }
+    updateIndicator()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateIndicator)
+      return () => window.removeEventListener('resize', updateIndicator)
+    }
+    const observer = new ResizeObserver(updateIndicator)
+    observer.observe(tabs)
+    tabs.querySelectorAll('button').forEach((button) => observer.observe(button))
+    return () => observer.disconnect()
+  }, [activePanel])
   const [bodyEdit, setBodyEdit] = useState(false)
   const [bodyDraft, setBodyDraft] = useState('')
   const [bodySaving, setBodySaving] = useState(false)
-  const [bodyError, setBodyError] = useState(null)
   const [imagePicker, setImagePicker] = useState(false)
   const editorRef = useRef(null)
   const pendingInsertRef = useRef(null)
@@ -474,26 +458,14 @@ function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted
   }
 
   // Списки: сразу показываем выбор, при ошибке — откатываем.
-  const saveNow = async (patch, label) => {
-    const prev = values
+  const saveNow = async (patch) => {
     setValues((v) => ({ ...v, ...patch }))
-    setError(null)
-    toasts.push('Сохраняем…', label, 'saving')
-    try {
-      await patchFields(patch)
-      toasts.push('Сохранено', label)
-    } catch (e) {
-      setValues((v) => ({ ...v, ...Object.fromEntries(Object.keys(patch).map((k) => [k, prev[k]])) }))
-      setError(e)
-    }
+    await run(Object.keys(patch)[0], () => patchFields(patch))
   }
 
   const saveTags = async (tags) => {
-    const prev = values.tags
     setValues((v) => ({ ...v, tags }))
-    setError(null)
-    toasts.push('Сохраняем…', 'Теги', 'saving')
-    try {
+    await run('tags', async () => {
       await enqueue(async () => {
         const saved = await articlesApi.setTags(
           article.id,
@@ -501,37 +473,29 @@ function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted
         )
         onSaved?.(saved)
       })
-      toasts.push('Сохранено', 'Теги')
-    } catch (e) {
-      setValues((v) => ({ ...v, tags: prev }))
-      setError(e)
-    }
+    })
   }
 
   const startBodyEdit = () => {
+    clear('body')
     setBodyDraft(values.body_markdown)
-    setBodyError(null)
     setBodyEdit(true)
   }
 
   const saveBody = async () => {
+    if (bodySaving || statuses.body?.state === 'saving') return
     setBodySaving(true)
-    setBodyError(null)
-    toasts.push('Сохраняем…', 'Текст статьи', 'saving')
-    try {
+    await run('body', async () => {
       await patchFields({ body_markdown: bodyDraft })
       setBodyEdit(false)
-      toasts.push('Сохранено', 'Текст статьи')
-    } catch (e) {
-      setBodyError(e)
-    } finally {
-      setBodySaving(false)
-    }
+    })
+    setBodySaving(false)
   }
 
   // Вставка на место курсора. Если текст не в режиме правки — открываем его и
   // вставляем, как только редактор появится (см. onEditor).
   const insertImages = (urls) => {
+    setActivePanel('text')
     const editor = editorRef.current
     if (!bodyEdit || !editor || editor.isDestroyed) {
       pendingInsertRef.current = urls
@@ -587,36 +551,35 @@ function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted
   }
 
   return (
-    <Card className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="min-w-0 truncate font-display text-xl font-bold text-stone-100">
-          Редактирование: {values.title}
+    <section className="article-editor">
+      <div className="article-editor-heading">
+        <h2 className="min-w-0 font-display text-xl font-bold text-stone-100">
+          {values.title}
         </h2>
         <div className="flex items-center gap-3">
-          <Link to={articlePath(article)} className="text-sm text-stone-400 hover:text-ember">
-            Открыть в лоре →
-          </Link>
-          <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
-            Удалить...
-          </Button>
+          <Badge tone={values.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[values.status]}</Badge>
+          <ArticleActions article={article} onDelete={() => setConfirmDelete(true)} />
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TextField label="Название" value={values.title} onSave={(draft) => saveText('title', draft)} />
-        <TextField label="Подтип" value={values.subtype} onSave={(draft) => saveText('subtype', draft)} placeholder="таверна, город, данж…" />
-      </div>
-
-      <ArticleSelects values={values} parents={parents} onChange={saveNow} />
       {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
-
+      <div className="article-editor-layout">
+      <div className="article-editor-main">
+      <div ref={tabsRef} className="article-editor-tabs" aria-label="Разделы редактора">
+        {[['text', 'Текст'], ['images', 'Изображения'], ['relations', 'Связи']].map(([key, label]) => (
+          <button key={key} type="button" aria-pressed={activePanel === key} onClick={() => setActivePanel(key)}>{label}</button>
+        ))}
+        <span className="article-editor-tab-indicator" aria-hidden="true" />
+      </div>
+      <div hidden={activePanel !== 'text'} className="article-editor-panel space-y-5">
+      <TextField label="Название" value={values.title} onSave={(draft) => saveText('title', draft)} />
       <TextField label="Краткое описание" value={values.excerpt} onSave={(draft) => saveText('excerpt', draft)} />
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <span className="text-label">Текст (Markdown)</span>
           {!bodyEdit && (
-            <button type="button" onClick={startBodyEdit} className="btn-edit-inline">
+            <button type="button" onClick={startBodyEdit} aria-label="Изменить текст статьи" className="btn-edit-inline">
               Изменить
             </button>
           )}
@@ -625,7 +588,8 @@ function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted
           <>
             <RichTextEditor
               value={bodyDraft}
-              onChange={(e) => setBodyDraft(e.target.value)}
+              disabled={bodySaving || statuses.body?.state === 'saving'}
+              onChange={(e) => { clear('body'); setBodyDraft(e.target.value) }}
               onEditor={onEditor}
               allowImages
               onUploadImage={uploadImage}
@@ -637,12 +601,11 @@ function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted
               placeholder="Пишите статью…"
             />
             <SecretHint />
-            {bodyError && <ErrorBox error={bodyError} className="mt-2" />}
             <div className="mt-2 flex items-center gap-2">
-              <Button type="button" size="sm" onClick={saveBody} disabled={bodySaving}>
-                {bodySaving ? 'Сохраняем…' : 'Сохранить'}
+              <Button type="button" size="sm" onClick={saveBody} disabled={bodySaving || statuses.body?.state === 'saving'}>
+                {bodySaving || statuses.body?.state === 'saving' ? <SaveStatus compact status={{ state: 'saving' }} /> : 'Сохранить'}
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setBodyEdit(false)} disabled={bodySaving}>
+              <Button type="button" size="sm" variant="ghost" onClick={() => { clear('body'); setBodyEdit(false) }} disabled={bodySaving || statuses.body?.state === 'saving'}>
                 Отмена
               </Button>
             </div>
@@ -654,8 +617,9 @@ function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted
         )}
       </div>
 
-      <TagInput value={values.tags} onChange={saveTags} />
-
+      <SaveStatus status={statuses.body} />
+      </div>
+      <div hidden={activePanel !== 'images'} className="article-editor-panel">
       <ArticleImages
         articleId={article.id}
         images={article.images ?? []}
@@ -664,7 +628,21 @@ function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted
         onInsert={(img) => insertImages([img.image_url])}
       />
 
+      </div>
+      <div hidden={activePanel !== 'relations'} className="article-editor-panel">
       <ArticleRelations articleId={article.id} articleTitle={values.title} />
+      </div>
+      </div>
+      <EditorSettings>
+        <div className="space-y-5">
+          <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} />
+          <TextField label="Подтип" value={values.subtype} onSave={(draft) => saveText('subtype', draft)} placeholder="таверна, город, данж…" />
+          <TagInput value={values.tags} onChange={saveTags} />
+          <SaveStatus status={statuses.tags} />
+          <p className="text-xs text-stone-500">Параметры и теги сохраняются сразу. Для текста используйте кнопку «Сохранить».</p>
+        </div>
+      </EditorSettings>
+      </div>
 
       {imagePicker && (
         <ImagePickerModal
@@ -688,6 +666,6 @@ function ArticleEditForm({ article, parents, onSaved, onImagesChanged, onDeleted
           onConfirm={remove}
         />
       )}
-    </Card>
+    </section>
   )
 }

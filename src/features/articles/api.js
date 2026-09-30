@@ -1,18 +1,18 @@
 import request from '@/lib/api/httpClient.js'
 
 export const articlesApi = {
-  list: (params) => request('/api/articles', { params }),
-  search: (params) => request('/api/articles/search', { params }),
+  list: (params, { auth = true } = {}) => request('/api/articles', { params, auth }),
+  search: (params, { auth = true } = {}) => request('/api/articles/search', { params, auth }),
   latest: (params) => request('/api/articles/latest', { params }),
   get: (id) => request(`/api/articles/${id}`),
-  children: (id) => request(`/api/articles/${id}/children`),
-  ancestors: (id) => request(`/api/articles/${id}/ancestors`),
+  children: (id, { auth = true } = {}) => request(`/api/articles/${id}/children`, { auth }),
+  ancestors: (id, { auth = true } = {}) => request(`/api/articles/${id}/ancestors`, { auth }),
   create: (body) => request('/api/articles', { method: 'POST', body }),
   update: (id, body) => request(`/api/articles/${id}`, { method: 'PATCH', body }),
   remove: (id) => request(`/api/articles/${id}`, { method: 'DELETE' }),
   setTags: (id, tagIds) => request(`/api/articles/${id}/tags`, { method: 'PUT', body: { tag_ids: tagIds } }),
   relations: {
-    list: (id) => request(`/api/articles/${id}/relations`),
+    list: (id, { auth = true } = {}) => request(`/api/articles/${id}/relations`, { auth }),
     create: (id, body) => request(`/api/articles/${id}/relations`, { method: 'POST', body }),
     update: (id, relationId, body) =>
       request(`/api/articles/${id}/relations/${relationId}`, { method: 'PATCH', body }),
@@ -59,7 +59,7 @@ export const parseArticleParam = (param) => {
   return match ? Number(match[0]) : NaN
 }
 
-// Что видит игрок: опубликованная публичная статья (тот же предикат, что на бэке).
+// Игрок видит только опубликованные публичные статьи; краткие карточки не содержат этих полей.
 export const isPublicArticle = (a) => a?.status === 'published' && a?.visibility === 'public'
 
 // Те же ограничения, что проверяет бэк (ImageStorageService) — проверяем до загрузки,

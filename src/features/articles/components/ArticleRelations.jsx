@@ -7,6 +7,7 @@ import { relationParts } from '@/features/articles/relationText.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { Button, ConfirmDialog, ErrorBox } from '@/components/ui'
 import { articleTypeLabels } from '@/lib/i18n'
+import LoreIcon from './LoreIcon.jsx'
 
 // Граф связей статьи (всё, что не укладывается в дерево parent_id): входящие и исходящие.
 // Добавление и правка — в модалке RelationModal, удаление — с подтверждением.
@@ -60,7 +61,7 @@ export default function ArticleRelations({ articleId, articleTitle }) {
               <div className="min-w-0 text-sm text-stone-300">
                 {r.visibility === 'gm_only' && (
                   <span className="mr-1" title="Секретная связь — игроки её не видят">
-                    🔒
+                    <LoreIcon name="eye" className="inline-block align-middle" />
                   </span>
                 )}
                 <span className={isOther(subject) ? 'font-medium text-stone-100' : 'text-stone-400'}>{subject}</span>{' '}

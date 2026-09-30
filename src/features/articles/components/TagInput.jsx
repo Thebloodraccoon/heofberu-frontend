@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import TagSelectModal from '@/features/articles/components/TagSelectModal.jsx'
 import { Button } from '@/components/ui'
+import LoreIcon from './LoreIcon.jsx'
 
 // Теги статьи в конструкторе ГМ — как связи: список чипов с «✕» и кнопка
-// «Добавить теги», открывающая модалку со словарём (поиск, создание нового тега).
+// «Добавить теги», открывающая боковую панель со словарём (поиск, создание нового тега).
 // value/onChange — массив { id, name }.
 export default function TagInput({ value, onChange }) {
   const [modal, setModal] = useState(false)
@@ -34,7 +35,7 @@ export default function TagInput({ value, onChange }) {
                 onClick={() => onChange(value.filter((x) => x.id !== t.id))}
                 className="rounded-full px-1.5 text-stone-400 transition hover:bg-stone-700 hover:text-stone-100"
               >
-                ✕
+                <LoreIcon name="close" />
               </button>
             </span>
           ))}

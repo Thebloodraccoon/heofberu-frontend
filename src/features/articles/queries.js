@@ -4,20 +4,20 @@ import { queryKeys } from '@/lib/api/queryKeys.js'
 
 // placeholderData: пока грузится новая страница/запрос, показываем прошлые результаты,
 // а не пустой скелетон — список не «мигает» при смене фильтров.
-export const useArticlesPage = (params, { enabled = true } = {}) =>
+export const useArticlesPage = (params, { enabled = true, publicView = false } = {}) =>
   useQuery({
-    queryKey: queryKeys.articles.list(params),
-    queryFn: () => articlesApi.list(params),
+    queryKey: [...queryKeys.articles.list(params), publicView],
+    queryFn: () => articlesApi.list(params, { auth: !publicView }),
     enabled,
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData, previousQuery) => previousQuery?.queryKey.at(-1) === publicView ? previousData : undefined,
   })
 
-export const useArticlesSearch = (params) =>
+export const useArticlesSearch = (params, { publicView = false } = {}) =>
   useQuery({
-    queryKey: queryKeys.articles.search(params),
-    queryFn: () => articlesApi.search(params),
+    queryKey: [...queryKeys.articles.search(params), publicView],
+    queryFn: () => articlesApi.search(params, { auth: !publicView }),
     enabled: !!params?.q && params.q.trim().length >= 2,
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData, previousQuery) => previousQuery?.queryKey.at(-1) === publicView ? previousData : undefined,
   })
 
 export const useLatestArticles = (params, { enabled = true } = {}) =>
@@ -82,24 +82,24 @@ export const useInvalidateArticles = () => {
   }
 }
 
-export const useArticleRelations = (id) =>
+export const useArticleRelations = (id, publicView = false) =>
   useQuery({
-    queryKey: queryKeys.articles.relations(id),
-    queryFn: () => articlesApi.relations.list(Number(id)),
+    queryKey: [...queryKeys.articles.relations(id), publicView],
+    queryFn: () => articlesApi.relations.list(Number(id), { auth: !publicView }),
     enabled: !!id,
   })
 
-export const useArticleChildren = (id) =>
+export const useArticleChildren = (id, publicView = false) =>
   useQuery({
-    queryKey: queryKeys.articles.children(id),
-    queryFn: () => articlesApi.children(Number(id)),
+    queryKey: [...queryKeys.articles.children(id), publicView],
+    queryFn: () => articlesApi.children(Number(id), { auth: !publicView }),
     enabled: !!id,
   })
 
-export const useArticleAncestors = (id) =>
+export const useArticleAncestors = (id, publicView = false) =>
   useQuery({
-    queryKey: queryKeys.articles.ancestors(id),
-    queryFn: () => articlesApi.ancestors(Number(id)),
+    queryKey: [...queryKeys.articles.ancestors(id), publicView],
+    queryFn: () => articlesApi.ancestors(Number(id), { auth: !publicView }),
     enabled: !!id,
   })
 

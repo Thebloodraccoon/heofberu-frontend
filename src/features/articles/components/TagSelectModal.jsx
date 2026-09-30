@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useCreateTag, useTagSearch } from '@/features/articles/queries.js'
 import useDebouncedValue from '@/features/articles/useDebouncedValue.js'
-import { Button, ErrorBox, Input, Modal, Skeleton } from '@/components/ui'
+import { Button, ErrorBox, Input, Skeleton } from '@/components/ui'
 
-const chip = (active) =>
-  `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition ${
-    active
-      ? 'border-ember bg-ember/20 text-stone-100'
-      : 'border-stone-700 text-stone-300 hover:border-stone-500 hover:bg-stone-800'
-  }`
+import Drawer from '@/components/ui/Drawer.jsx'
+import LoreIcon from './LoreIcon.jsx'
 
-// Выбор тегов в модалке: серверный поиск по всему словарю (тегов много),
+const chip = (active) => `lore-chip ${active ? 'lore-chip--active' : ''}`
+
+// Выбор тегов в боковой панели: серверный поиск по всему словарю (тегов много),
 // популярные сверху или А–Я, счётчик использований, блок «Выбрано».
 // Выбор копится в черновике и применяется кнопкой — «Отмена»/Esc ничего не меняют.
 // allowCreate (ГМ): Enter или «Создать тег» добавляет новый тег в словарь и сразу выбирает его.
@@ -33,12 +31,6 @@ export default function TagSelectModal({
   const debounced = useDebouncedValue(search.trim())
   const tagsQ = useTagSearch({ search: debounced, sort })
   const createTag = useCreateTag()
-
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const items = tagsQ.data?.items ?? []
   const total = tagsQ.data?.total ?? 0
@@ -68,23 +60,22 @@ export default function TagSelectModal({
   }
 
   return (
-    <Modal
+    <Drawer
       title={title}
       subtitle={subtitle}
-      size="2xl"
-      scroll
-      maxH="88vh"
+      closeLabel="Закрыть теги"
       onClose={onClose}
       footer={
-        <>
+        <div className="flex w-full flex-wrap items-center justify-end gap-3">
           <span className="mr-auto text-sm text-stone-400 max-sm:mr-0">Выбрано: {draft.length}</span>
           <Button variant="ghost" onClick={onClose}>
             Отмена
           </Button>
           <Button onClick={() => onApply(draft, matchDraft)}>{applyText}</Button>
-        </>
+        </div>
       }
     >
+      <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
         <Input
           autoFocus
@@ -124,7 +115,7 @@ export default function TagSelectModal({
           <div className="flex flex-wrap gap-1.5">
             {draft.map((t) => (
               <button key={t.id} type="button" className={chip(true)} onClick={() => toggle(t)} title="Убрать">
-                #{t.name} <span aria-hidden="true">✕</span>
+                #{t.name} <LoreIcon name="close" />
               </button>
             ))}
           </div>
@@ -184,6 +175,7 @@ export default function TagSelectModal({
           Показаны {items.length} из {total} — уточните поиск.
         </p>
       )}
-    </Modal>
+      </div>
+    </Drawer>
   )
 }
