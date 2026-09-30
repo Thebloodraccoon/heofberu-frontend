@@ -4,6 +4,7 @@
 @import "./guide.css";
 @import "./sheet.css";
 @import "./catalog.css";
+@import "./lore.css";
 @import "./editor.css";
 @import "./wizard.css";
 
@@ -28,6 +29,8 @@
   --color-ink: #241709;
   --color-ember: #d4552a;
   --color-ember-dark: #9a3a16;
+  --color-action-primary: #356859;
+  --color-action-primary-hover: #2b574a;
   --color-gold: #a8853d;
   --color-gold-light: #cdb58b;
 }
@@ -38,9 +41,14 @@ body,
   height: 100%;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family: var(--font-display);
+  color: var(--color-stone-100);
   -webkit-font-smoothing: antialiased;
   background-color: #0d0905;
   background-image:
@@ -108,6 +116,7 @@ h4 {
     var(--color-stone-900);
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
 }
+.fantasy-panel.popup-panel { box-shadow: 0 8px 22px -12px rgb(0 0 0 / 25%); }
 @media (max-width: 639px) {
   .fantasy-panel {
     padding: 15px;
@@ -117,57 +126,78 @@ h4 {
 .fantasy-panel::after {
   content: "";
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   pointer-events: none;
   opacity: 0.6;
 }
 .fantasy-panel::before {
   top: -1px;
   left: -1px;
-  border-top: 2px solid var(--color-gold);
-  border-left: 2px solid var(--color-gold);
+  border-top: 4px solid var(--color-gold);
+  border-left: 4px solid var(--color-gold);
 }
 .fantasy-panel::after {
   bottom: -1px;
   right: -1px;
-  border-bottom: 2px solid var(--color-gold);
-  border-right: 2px solid var(--color-gold);
+  border-bottom: 4px solid var(--color-gold);
+  border-right: 4px solid var(--color-gold);
 }
 
 /* ===== Темы оформления ===== */
 /* Каждая тема переопределяет палитру Tailwind (stone/ember/gold) на <html data-theme="...">,
    поэтому все существующие утилиты text-stone-*, bg-stone-*, border-ember и т.д. перекрашиваются автоматически. */
 
-/* Светлая тема — тот же пергамент, но заметно светлее (не белая бумага):
-   вся тёплая палитра поднята на пару тонов вверх */
+/* Светлая тема: светлая бумага, тёмные чернила и тёплые акценты. */
 [data-theme="light"] {
-  --color-stone-50: #fdf8ec;
-  --color-stone-100: #f9f0da;
-  --color-stone-200: #efe2c2;
-  --color-stone-300: #dcc79c;
-  --color-stone-400: #bfa87e;
-  --color-stone-500: #a08a63;
-  --color-stone-600: #7f6a48;
-  --color-stone-700: #63502f;
-  --color-stone-800: #4a361e;
-  --color-stone-900: #3a2915;
-  --color-stone-950: #2c1e10;
-  --color-parchment: #f9f0da;
-  --color-ink: #2c1e10;
-  --color-ember: #d4552a;
-  --color-ember-dark: #9a3a16;
-  --color-gold: #b9954c;
-  --color-gold-light: #ddc08a;
+  --color-stone-50: #191c1e;
+  --color-stone-100: #252a2c;
+  --color-stone-200: #343b3d;
+  --color-stone-300: #475153;
+  --color-stone-400: #596366;
+  --color-stone-500: #657073;
+  --color-stone-600: #a79f92;
+  --color-stone-700: #c8bdad;
+  --color-stone-800: #e8ddcc;
+  --color-stone-900: #f7f0e5;
+  --color-stone-950: #fffaf2;
+  --color-parchment: #fffaf2;
+  --color-ink: #252a2c;
+  --color-ember: #ae431e;
+  --color-ember-dark: #862d10;
+  --color-gold: #88601e;
+  --color-gold-light: #75551f;
+  --color-red-100: #7f1d1d;
+  --color-red-200: #8f2626;
+  --color-red-300: #a12e2e;
+  --color-red-400: #ad3535;
+  --color-red-700: #c77e78;
+  --color-red-800: #d8a3a0;
+  --color-red-900: #f2d6d2;
+  --color-red-950: #f9e6e2;
 }
 
 [data-theme="light"] body {
-  background-color: #241709;
+  background-color: #f1e9da;
   background-image:
-    radial-gradient(1100px 520px at 50% -5%, #3d2b17 0%, rgba(61, 43, 23, 0) 60%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(122, 78, 32, 0.4) 0%, rgba(122, 78, 32, 0) 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(96, 64, 28, 0.35) 0%, rgba(96, 64, 28, 0) 55%);
+    radial-gradient(1100px 520px at 50% -5%, #fffdf8 0%, transparent 65%),
+    radial-gradient(1400px 900px at 100% 110%, rgba(198, 171, 119, 0.15) 0%, transparent 55%);
 }
+
+[data-theme="light"] .fantasy-panel {
+  border-color: #d7c8b1;
+  background: linear-gradient(180deg, #fffaf2, #f7f0e5);
+  box-shadow: 0 8px 24px -16px rgba(73, 54, 29, 0.25);
+}
+
+[data-theme="light"] .fantasy-panel.card-hover:hover {
+  box-shadow: 0 12px 28px -18px rgba(73, 54, 29, 0.3);
+}
+
+[data-theme="light"] [data-tone="accent"] { color: #823612; background: #f4dcc6; }
+[data-theme="light"] [data-tone="good"] { color: #20623f; background: #dceee0; }
+[data-theme="light"] [data-tone="bad"] { color: #9a3030; background: #f6dddd; }
+[data-theme="light"] [data-tone="violet"] { color: #663e85; background: #eee1f5; }
 
 /* ===== Кликабельный курсор ===== */
 :where(button, [role="button"], a[href], label, summary, select, input[type="checkbox"], input[type="radio"], input[type="range"]) {

@@ -8,10 +8,104 @@
   @apply grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)];
 }
 
-/* Первый элемент списка записей не поднимается при наведении */
-.editor-record-list > .card-hover:first-child:hover {
-  transform: none;
+.editor-resource-tabs {
+  overflow-x: auto;
+  padding: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 24%, var(--color-stone-800));
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--color-stone-900) 78%, transparent);
 }
+.editor-resource-tabs-inner {
+  display: flex;
+  width: max-content;
+  gap: 0.4rem;
+  margin-inline: auto;
+}
+
+.editor-resource-tab {
+  flex: none;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--color-stone-300);
+  font: 600 0.85rem var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.editor-resource-tab:hover { background: var(--color-stone-800); color: var(--color-stone-100); }
+.editor-resource-tab.is-active {
+  border-color: color-mix(in srgb, var(--color-gold) 55%, transparent);
+  background: color-mix(in srgb, var(--color-ember) 18%, var(--color-stone-800));
+  color: var(--color-stone-100);
+  box-shadow: inset 0 -2px var(--color-ember);
+}
+
+.editor-list-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-inline: 0.2rem;
+  color: var(--color-stone-300);
+  font: 600 0.7rem var(--font-sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.editor-list-label span { color: var(--color-gold); letter-spacing: 0; }
+
+.editor-record-card {
+  display: block;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 25%, var(--color-stone-800));
+  border-radius: 0.65rem;
+  background: var(--color-stone-900);
+  color: var(--color-stone-100);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.editor-record-card:hover { border-color: var(--color-gold); background: var(--color-stone-800); }
+.editor-record-card.is-active {
+  border-color: var(--color-ember);
+  background: color-mix(in srgb, var(--color-ember) 10%, var(--color-stone-900));
+  box-shadow: inset 3px 0 var(--color-ember);
+}
+.editor-record-card:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+.editor-record-heading { display: flex; align-items: start; justify-content: space-between; gap: 0.5rem; }
+.editor-record-title { font: 700 1rem var(--font-display); overflow-wrap: anywhere; }
+.editor-record-arrow { color: var(--color-gold); font: 1.1rem var(--font-sans); }
+
+.editor-detail > .fantasy-panel {
+  border-color: color-mix(in srgb, var(--color-gold) 35%, var(--color-stone-800));
+  border-radius: 0.95rem;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--color-stone-800) 30%, var(--color-stone-900)), var(--color-stone-900) 38%);
+  box-shadow: 0 22px 50px -30px #000;
+}
+.editor-detail > .fantasy-panel::before,
+.editor-detail > .fantasy-panel::after { display: none; }
+[data-theme="light"] .editor-detail > .fantasy-panel {
+  background: linear-gradient(180deg, #fffaf2, #f7f0e5);
+  box-shadow: 0 12px 30px -20px rgba(73, 54, 29, 0.3);
+}
+
+.editor-detail > .editor-welcome {
+  display: flex;
+  min-height: 20rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+.editor-welcome-eyebrow { color: var(--color-gold-light); font: 600 0.7rem var(--font-sans); text-transform: uppercase; letter-spacing: 0.15em; }
+.editor-welcome h2 { max-width: 28rem; color: var(--color-stone-100); font-size: clamp(1.3rem, 2vw, 1.75rem); font-weight: 700; }
+.editor-welcome p { max-width: 28rem; color: var(--color-stone-300); font: 0.9rem/1.7 var(--font-sans); }
 
 /* --- Заголовок записи в редакторе --- */
 

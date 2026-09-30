@@ -1,43 +1,39 @@
 import { useState } from 'react'
-import { Button, ErrorBox, Input } from './primitives.jsx'
-import { useToasts } from '@/components/ToastProvider.jsx'
+import { Button, Input } from './primitives.jsx'
+import SaveStatus from './SaveStatus.jsx'
+import useSaveStatus from './useSaveStatus.js'
 
 // Однострочное текстовое поле с собственным сохранением: «Изменить» → правка →
 // «Сохранить» шлёт PATCH только этого поля (onSave), не трогая остальную форму.
-// Подтверждение сохранения показывается всплывашкой (см. StatusToasts), а не
-// инлайн-бейджем. Простой (не rich-text) аналог RichTextField — для названий и т.п.
+// Статус сохранения показывается рядом с полем.
 export function TextField({ label, value, onSave, placeholder, type = 'text' }) {
-  const { push } = useToasts()
+  const { statuses, run, clear } = useSaveStatus()
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const busy = saving || statuses.field?.state === 'saving'
 
   const startEdit = () => {
+    clear('field')
     setDraft(value ?? '')
-    setError(null)
     setEdit(true)
   }
 
   const cancel = () => {
+    if (busy) return
+    clear('field')
     setDraft(value ?? '')
-    setError(null)
     setEdit(false)
   }
 
   const save = async () => {
+    if (busy) return
     setSaving(true)
-    setError(null)
-    push('Сохраняем…', label, 'saving')
-    try {
+    await run('field', async () => {
       await onSave(draft)
       setEdit(false)
-      push('Сохранено', label)
-    } catch (err) {
-      setError(err)
-    } finally {
-      setSaving(false)
-    }
+    })
+    setSaving(false)
   }
 
   return (
@@ -55,8 +51,9 @@ export function TextField({ label, value, onSave, placeholder, type = 'text' }) 
           <Input
             type={type}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => { clear('field'); setDraft(e.target.value) }}
             placeholder={placeholder}
+            disabled={busy}
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -66,12 +63,11 @@ export function TextField({ label, value, onSave, placeholder, type = 'text' }) 
               if (e.key === 'Escape') cancel()
             }}
           />
-          {error && <ErrorBox error={error} className="mt-2" />}
           <div className="mt-2 flex items-center gap-2">
-            <Button type="button" size="sm" onClick={save} disabled={saving}>
-              {saving ? 'Сохраняем…' : 'Сохранить'}
+            <Button type="button" size="sm" onClick={save} disabled={busy}>
+              {busy ? <SaveStatus compact status={{ state: 'saving' }} /> : 'Сохранить'}
             </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={cancel} disabled={saving}>
+            <Button type="button" size="sm" variant="ghost" onClick={cancel} disabled={busy}>
               Отмена
             </Button>
           </div>
@@ -81,6 +77,7 @@ export function TextField({ label, value, onSave, placeholder, type = 'text' }) 
           {value || <span className="text-stone-500">—</span>}
         </div>
       )}
+      <SaveStatus status={statuses.field} />
     </div>
   )
 }

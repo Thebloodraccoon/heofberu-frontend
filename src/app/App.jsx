@@ -50,7 +50,7 @@ function PageFallback() {
 function RouteBoundary({ children }) {
   const location = useLocation()
   return (
-    <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+    <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>
   )
 }
 

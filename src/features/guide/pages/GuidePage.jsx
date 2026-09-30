@@ -30,7 +30,7 @@ export default function GuidePage() {
         <img
           src="/two-planets.jpg"
           alt="Две планеты, символизирующие союз Неба и Земли"
-          className="w-full h-48 sm:h-64 object-cover rounded-md mt-6 mb-6 border border-[#a8853d]/30 opacity-80 hover:opacity-100 grayscale hover:grayscale-0 transition-all duration-500 shadow-lg"
+          className="w-full h-48 sm:h-64 object-cover rounded-md mt-6 mb-6 border border-[#a8853d]/30 shadow-lg"
         />
 
         <p className="guide-text">
@@ -127,7 +127,7 @@ export default function GuidePage() {
         <img
           src="/old-stone-ruins.jpg"
           alt="Древние каменные руины и статуи"
-          className="w-full h-56 sm:h-72 object-cover rounded-md mt-8 mb-6 border border-[#a8853d]/30 opacity-80 hover:opacity-100 grayscale hover:grayscale-0 transition-all duration-500 shadow-lg"
+          className="w-full h-56 sm:h-72 object-cover rounded-md mt-8 mb-6 border border-[#a8853d]/30 shadow-lg"
         />
 
         {/* Блок 2: Традиции */}
@@ -304,7 +304,7 @@ export default function GuidePage() {
         <img
           src="/size-of-history.jpg"
           alt="Одинокий путник на фоне величественного пейзажа"
-          className="w-full h-48 sm:h-64 object-cover rounded-md mt-6 mb-6 border border-[#a8853d]/30 opacity-80 hover:opacity-100 grayscale hover:grayscale-0 transition-all duration-500 shadow-lg"
+          className="w-full h-48 sm:h-64 object-cover rounded-md mt-6 mb-6 border border-[#a8853d]/30 shadow-lg"
         />
 
         <p className="guide-text mb-6">

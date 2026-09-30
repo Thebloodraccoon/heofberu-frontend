@@ -24,10 +24,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 pt-2 pb-10">
+    <div className="flex flex-1 items-center justify-center">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 text-center">
-          <span className="avatar-md mx-auto mb-3">H</span>
+          <img alt="Heofberu" className="mx-auto mb-0 size-10 h-auto object-contain" draggable={false} src="/logo.svg" />
           <h1 className="heading-section">Вход в Heofberu</h1>
         </div>
         {error && <div className="mb-4"><ErrorBox error={error} /></div>}

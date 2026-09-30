@@ -10,10 +10,7 @@
   @apply rounded-lg p-5 sm:p-8 space-y-6;
   position: relative;
   border: 1px solid rgba(168, 133, 61, 0.26);
-  background:
-    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
-    var(--color-stone-900);
-  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  background: var(--color-stone-900);
 }
 
 .guide-title {

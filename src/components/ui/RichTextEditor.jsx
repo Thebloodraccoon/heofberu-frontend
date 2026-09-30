@@ -51,6 +51,15 @@ function ToolbarButton({ active, disabled, onClick, title, children }) {
   )
 }
 
+function EditorIcon({ name, className = '' }) {
+  const paths = {
+    link: <><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" /><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1" /></>,
+    image: <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></>,
+    loading: <path d="M12 3a9 9 0 1 0 9 9" />,
+  }
+  return <svg className={`size-4 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
+}
+
 const imageFilesOf = (dataTransfer) =>
   Array.from(dataTransfer?.files ?? []).filter((f) => f.type.startsWith('image/'))
 
@@ -284,7 +293,7 @@ export function RichTextEditor({
           &ldquo;&rdquo;
         </ToolbarButton>
         <ToolbarButton title="Ссылка" active={editor.isActive('link')} onClick={setLink}>
-          🔗
+          <EditorIcon name="link" />
         </ToolbarButton>
         <ToolbarButton title="Разделитель" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
           ―
@@ -301,7 +310,7 @@ export function RichTextEditor({
             disabled={uploading > 0}
             onClick={setImage}
           >
-            {uploading > 0 ? '⏳' : '🖼'}
+            {uploading > 0 ? <EditorIcon name="loading" className="animate-spin" /> : <EditorIcon name="image" />}
           </ToolbarButton>
         )}
         {allowImages && onUploadImage && (

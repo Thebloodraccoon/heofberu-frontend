@@ -1,5 +1,5 @@
 export const THEMES = [
-  { id: 'light', name: 'Светлая', accent: '#d4552a', bg: '#3a2915', text: '#f9f0da' },
+  { id: 'light', name: 'Светлая', accent: '#ae431e', bg: '#fffaf2', text: '#252a2c' },
   { id: 'parchment', name: 'Тёмная тема', accent: '#d4552a', bg: '#241709', text: '#f3e7c6' },
 ]
 

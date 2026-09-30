@@ -12,6 +12,12 @@ export class ErrorBoundary extends Component {
     console.error('Необработанная ошибка рендера:', error, info)
   }
 
+  componentDidUpdate(previousProps) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.error) {
+      this.reset()
+    }
+  }
+
   reset = () => this.setState({ error: null })
 
   render() {

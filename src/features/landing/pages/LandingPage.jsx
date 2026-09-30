@@ -67,7 +67,7 @@ export default function LandingPage() {
 
       {/* WORLD TEASER */}
       <section className="world-panel mt-12 sm:mt-14">
-        <div>
+        <div className="world-panel-copy">
           <p className="kicker">Историогенетическое фэнтези</p>
           <h3>Мир, порождённый собственной историей</h3>
           <p>
@@ -76,17 +76,17 @@ export default function LandingPage() {
             внутренних причин на протяжении многих эпох. Прошлое здесь не фон, а активная сила,
             определяющая устройство настоящего.
           </p>
-          <div className="cta">
-            <Link to="/guide" className="btn btn-outline-gold">
-              Читать руководство →
-            </Link>
-          </div>
         </div>
-        <div>
+        <div className="world-panel-quote">
           <p className="quote">
             «Чем древнее традиция, тем менее она должна быть цельной и однозначной.»
             <small>Из руководства по миру</small>
           </p>
+        </div>
+        <div className="cta">
+          <Link to="/guide" className="btn btn-outline-gold">
+            Читать руководство →
+          </Link>
         </div>
       </section>
 

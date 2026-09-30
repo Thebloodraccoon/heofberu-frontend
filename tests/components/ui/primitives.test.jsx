@@ -133,7 +133,7 @@ describe('Select', () => {
 
 describe('Modal', () => {
   it('renders title, subtitle and children', () => {
-    render(
+    const { container } = render(
       <Modal title="Удалить" subtitle="Действие необратимо" onClose={vi.fn()}>
         <p>Содержимое</p>
       </Modal>,
@@ -141,19 +141,21 @@ describe('Modal', () => {
     expect(screen.getByText('Удалить')).toBeInTheDocument()
     expect(screen.getByText('Действие необратимо')).toBeInTheDocument()
     expect(screen.getByText('Содержимое')).toBeInTheDocument()
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    expect(screen.getByRole('dialog')).toHaveClass('inset-0', 'z-[300]')
   })
 
   it('falls back to the md size for unknown sizes', () => {
-    const { container } = render(<Modal title="T" size="weird">x</Modal>)
-    expect(container.querySelector('.max-w-md')).toBeInTheDocument()
+    render(<Modal title="T" size="weird">x</Modal>)
+    expect(screen.getByRole('dialog').querySelector('.max-w-md')).toBeInTheDocument()
   })
 
   it('closes on overlay click but not on panel click', async () => {
     const onClose = vi.fn()
-    const { container } = render(<Modal title="T" onClose={onClose}>x</Modal>)
+    render(<Modal title="T" onClose={onClose}>x</Modal>)
     await userEvent.click(screen.getByText('T'))
     expect(onClose).not.toHaveBeenCalled()
-    await userEvent.click(container.firstChild)
+    await userEvent.click(screen.getByRole('dialog'))
     expect(onClose).toHaveBeenCalled()
   })
 

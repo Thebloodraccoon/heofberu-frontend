@@ -66,7 +66,7 @@ function StatusToast({ toast, onDismiss }) {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       style={{ opacity, transition: reduceMotion ? 'none' : 'opacity 120ms linear' }}
-      className={`pointer-events-auto rounded-lg border bg-stone-900/95 p-3 shadow-lg shadow-black/40 transition hover:bg-stone-900 ${
+      className={`pointer-events-auto rounded-lg border bg-stone-900/95 p-3 shadow-sm shadow-black/20 transition hover:bg-stone-900 ${
         cardBorder[tone]
       }`}
     >
