@@ -1,3 +1,5 @@
+import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
+import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -6,6 +8,8 @@ import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Button, Input, Modal, RichText, Skeleton } from '@/components/ui'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import { ITEM_FILTERS } from './itemFilters.js'
+import Drawer from '@/components/ui/Drawer.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 
 const PAGE_SIZE = 30
 const SCROLL_THRESHOLD = 120
@@ -86,10 +90,15 @@ function ItemDetail({ itemId }) {
 export default function ItemPickerModal({
   title = 'Предметы',
   subtitle = 'Поиск и выбор предмета',
-  excludeIds,
+  excludeIds = new Set(),
   onPick,
   onClose,
+  drawer = false,
 }) {
+  const [selected, setSelected] = useState(null)
+  const [quantity, setQuantity] = useState('1')
+  const quantityValid = Number.isInteger(Number(quantity)) && Number(quantity) >= 1
+  const Container = drawer ? Drawer : Modal
   const [queryInput, setQueryInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState({})
@@ -126,7 +135,6 @@ export default function ItemPickerModal({
   const total = listQ.data?.total ?? 0
   const hasMore = allItems.length < total
   const items = allItems.filter((it) => !excludeIds.has(it.id))
-  const hasActiveFilters = Object.keys(filters).length > 0
 
   const applySearch = () => setAppliedSearch(queryInput)
 
@@ -147,39 +155,10 @@ export default function ItemPickerModal({
     })
 
   return (
-    <Modal title={title} subtitle={subtitle} onClose={onClose} size="lg" scroll>
-      <div className="mb-3 flex gap-2">
-        <Input
-          autoFocus
-          type="search"
-          value={queryInput}
-          onChange={(e) => setQueryInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-          placeholder="Поиск предмета…"
-          className="flex-1"
-        />
-        <button
-          type="button"
-          onClick={applySearch}
-          title="Искать"
-          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 text-sm text-stone-200 transition hover:bg-stone-800"
-        >
-          ⌕
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowFilters(true)}
-          className={`shrink-0 rounded border px-3 text-sm transition ${
-            hasActiveFilters
-              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
-              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
-          }`}
-        >
-          Фильтр
-        </button>
-      </div>
+    <Container {...(drawer ? { bodyClassName: 'grant-picker-body' } : {})} title={title} subtitle={subtitle} onClose={onClose} size="lg" scroll footer={drawer && <div className="w-full space-y-3">{selected && <label className="block text-sm text-stone-300">Количество<Input className="mt-1 w-full" type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label>}<div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected || !quantityValid} onClick={() => { onPick(selected, Number(quantity)); onClose() }}>Выдать предмет</Button></div></div>}>
+      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={() => setShowFilters(true)} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={ITEM_FILTERS} value={filters} onChange={setFilters} />
 
-      <div ref={listRef} onScroll={onScroll} className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
+      <div ref={listRef} onScroll={onScroll} className={drawer ? 'grant-picker-list space-y-1 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
         {!listQ.isFetching && items.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
         <ul className="space-y-1">
           {items.map((item) => {
@@ -187,18 +166,22 @@ export default function ItemPickerModal({
             return (
               <li
                 key={item.id}
-                className={`rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${isOpen ? 'bg-stone-900' : ''}`}
+                className={drawer ? 'catalog-record-card grant-picker-card' : `rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${isOpen ? 'bg-stone-900' : ''}`}
+                data-active={drawer && selected?.id === item.id}
               >
                 <div className="flex items-center gap-2 px-3 py-1.5">
                   <button
                     type="button"
                     onClick={() => {
+                      if (drawer) { setSelected(item); return }
                       onPick(item)
                       onClose()
                     }}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    aria-pressed={drawer ? selected?.id === item.id : undefined}
                   >
                     <span className="truncate text-sm text-stone-100 hover:text-ember">{sentenceCase(item.name)}</span>
+                    {drawer && selected?.id === item.id && <LoreIcon name="check" />}
                     {item.item_type && (
                       <Badge tone="accent" className="shrink-0">
                         {label(item.item_type)}
@@ -246,11 +229,11 @@ export default function ItemPickerModal({
         )}
       </div>
 
-      <div className="modal-actions pt-3 mt-4">
+      {!drawer && <div className="modal-actions pt-3 mt-4">
         <Button type="button" variant="ghost" onClick={onClose}>
           Закрыть
         </Button>
-      </div>
+      </div>}
 
       {showFilters && (
         <FilterModal
@@ -260,6 +243,6 @@ export default function ItemPickerModal({
           onClose={() => setShowFilters(false)}
         />
       )}
-    </Modal>
+    </Container>
   )
 }

@@ -1,3 +1,6 @@
+import EditorTabs from '@/components/ui/EditorTabs.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import { catalogEditorTabs, catalogFieldTab, catalogSectionTab } from '@/features/catalog/config/editors/tabs.js'
 import { scrollChildToTop } from '@/lib/utils/scroll.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -13,17 +16,23 @@ import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEd
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
 import TagInput from '@/features/articles/components/TagInput.jsx'
-import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, PageHeader, RichText, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
+import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, RichText, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
 import ImageUploadBlock from '@/features/catalog/components/editor/ImageUploadBlock.jsx'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
-import Pagination from '@/features/catalog/components/browse/Pagination.jsx'
+import CatalogToolbar from '@/features/catalog/components/CatalogToolbar.jsx'
+import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
+import CatalogEmptyState from '@/features/catalog/components/CatalogEmptyState.jsx'
+import Pagination from '@/components/ui/Pagination.jsx'
 import { useCatalogPage } from '@/features/catalog/queries.js'
 import { PAGE_SIZE } from '@/features/catalog/catalog.js'
 
 export default function GmEditorPage() {
   const [resource, setResource] = useState('races')
   const cfg = editorConfig[resource]
+  const [editorTab, setEditorTab] = useState('main')
+  const editorTabs = catalogEditorTabs[resource]
+  const tabHidden = (key) => Boolean(editorTabs && editorTab !== key)
   const queryClient = useQueryClient()
 
   const [queryInput, setQueryInput] = useState('')
@@ -411,6 +420,7 @@ export default function GmEditorPage() {
   }, [selectedId, records?.length])
 
   const openCreate = () => {
+    setEditorTab('main')
     setEditing(null)
     setForm(cfg.emptyForm())
     setFeatureModal(null)
@@ -418,6 +428,7 @@ export default function GmEditorPage() {
   }
 
   const openEdit = async (rec) => {
+    setEditorTab('main')
     setError(null)
     setFeatureModal(null)
     setEditLoading(true)
@@ -848,42 +859,22 @@ export default function GmEditorPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Редактор справочников"
-        subtitle="Создание, изменение и удаление записей всех справочников"
-        actions={<Button onClick={openCreate}>+ Новая запись</Button>}
-      />
+      <header className="lore-header article-workspace-header">
+        <div>
+          <p className="lore-eyebrow">Мастерская мира</p>
+          <h1 className="heading-section">Редактор справочников</h1>
+          <p className="lore-intro">Создавайте и изменяйте записи справочников мира.</p>
+        </div>
+        <Button onClick={openCreate}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className="size-4"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
+          Новая запись
+        </Button>
+      </header>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <input
-          value={queryInput}
-          onChange={(e) => setQueryInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-          placeholder="Поиск: имя, описание..."
-          className="input-search w-full sm:w-80"
-        />
-        <button
-          type="button"
-          onClick={applySearch}
-          title="Искать на сервере"
-          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 py-2.5 text-sm font-medium text-stone-200 transition hover:bg-stone-800"
-        >
-          ⌕
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowFilters(true)}
-          className={`shrink-0 rounded border px-3 py-2.5 text-sm font-medium transition ${
-            hasActiveFilters
-              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
-              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
-          }`}
-        >
-          Фильтр
-        </button>
-      </div>
+      <CatalogToolbar className="mb-4" query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={() => setShowFilters(true)} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} filtersOpen={showFilters} />
 
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+      <div className="editor-resource-tabs mb-6" aria-label="Тип справочника">
+        <div className="editor-resource-tabs-inner">
         {Object.entries(editorConfig).map(([key, c]) => {
           const active = key === resource
           return (
@@ -891,21 +882,21 @@ export default function GmEditorPage() {
               key={key}
               type="button"
               onClick={() => selectResource(key)}
-              className={`flex shrink-0 items-center gap-2 rounded px-3.5 py-2 text-sm font-medium transition ${
-                active
-                  ? 'bg-ember text-white shadow-sm'
-                  : 'border border-stone-700 text-stone-300 hover:bg-stone-800'
-              }`}
+              aria-pressed={active}
+              className={`editor-resource-tab ${active ? 'is-active' : ''}`}
             >
               {c.label}
             </button>
           )
         })}
+        </div>
       </div>
+
+      <CatalogFilterSummary definitions={cfg.filters ?? []} value={filters} onChange={applyFilters} />
 
       {(findQ.error || error) && <ErrorBox error={findQ.error ?? error} onRetry={load} />}
       {!error && !records && (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] " aria-busy="true">
+        <div className="editor-layout" aria-busy="true">
           <aside className="space-y-2">
             <Skeleton className="h-10 w-full" />
             {Array.from({ length: 6 }, (_, i) => (
@@ -922,13 +913,21 @@ export default function GmEditorPage() {
       )}
 
       {!error && records && (
-        <div className="grid items-start gap-6 mt-[5px] lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-          <aside className="flex max-h-[calc(100vh-280px)] min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
+        <div className="editor-layout mt-[5px]">
+          <aside className="flex min-h-0 flex-col lg:sticky lg:top-24 lg:max-h-[calc(100vh-220px)] lg:overflow-hidden">
+            <h2 className="editor-list-label">{cfg.label} <span>{total}</span></h2>
             <div ref={recordListRef} className="editor-record-list min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {records.length === 0 ? (
-                <p className="text-sm text-stone-500">
-                  {hasQuery ? 'Ничего не найдено по запросу' : 'Нет записей — создайте первую'}
-                </p>
+                <CatalogEmptyState
+                  filtered={hasQuery}
+                  onCreate={openCreate}
+                  onReset={() => {
+                    setQueryInput('')
+                    setAppliedSearch('')
+                    setFilters({})
+                    setPage(1)
+                  }}
+                />
               ) : (
                 records.map((it) => (
                   <RecordListItem
@@ -946,7 +945,7 @@ export default function GmEditorPage() {
             </div>
           </aside>
 
-          <section className="min-w-0">
+          <section className="editor-detail min-w-0" aria-label="Форма записи">
             {showForm && form ? (
               <Card className="detail-padded">
                 <div className="mb-5">
@@ -969,20 +968,23 @@ export default function GmEditorPage() {
                   </div>
                 </div>
 
+                {editorTabs && <EditorTabs tabs={editorTabs} value={editorTab} onChange={setEditorTab} label="Разделы записи справочника" />}
                 <form onSubmit={editing ? saveFields : createSubmit} className="flex flex-col gap-5">
+                  {!editing && editorTabs && ['features', 'subraces', 'subclasses'].includes(editorTab) && <p className="text-sm text-stone-500">Сначала создайте запись, чтобы добавить {editorTab === 'subraces' ? 'подрасы' : editorTab === 'subclasses' ? 'подклассы' : 'умения и особенности'}.</p>}
                   {editing && cfg.imageOps && (
-                    <ImageUploadBlock
+                    <div hidden={tabHidden('main')}><ImageUploadBlock
                       imageUrl={imageUrl}
                       onUpload={uploadImage}
                       onRemove={removeImage}
                       busy={imageBusy}
                       error={imageError}
-                    />
+                    /></div>
                   )}
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  {(editorTabs ?? [['main', 'Основное']]).map(([tab, title]) => <div key={tab} hidden={tabHidden(tab)} role="tabpanel" aria-label={title}>
+                  <div className="grid gap-4 sm:grid-cols-2" onInvalid={() => setEditorTab(tab)}>
                     {(() => {
                       const visibleFields = cfg.fields.filter(
-                        (field) => !(field.showWhen && !field.showWhen(form))
+                        (field) => catalogFieldTab(resource, field.key) === tab && !(field.showWhen && !field.showWhen(form))
                       )
                       const groups = []
                       for (let i = 0; i < visibleFields.length; i++) {
@@ -1043,6 +1045,8 @@ export default function GmEditorPage() {
                       )
                     })()}
                   </div>
+
+                  </div>)}
 
                   {cfg.sections
                     .filter((section) => {
@@ -1435,7 +1439,7 @@ onClick={() => {
                         onClear={() => setForm((f) => ({ ...f, [section.key]: [] }))}
                       />
                     )
-                  })}
+                  }).map((node) => node && <div key={node.key} hidden={tabHidden(catalogSectionTab(resource, node.key))}>{node}</div>)}
                   {fieldError && <ErrorBox error={fieldError} onRetry={() => {}} />}
                   {!editing && (
                     <div className="flex justify-end gap-2">
@@ -1450,7 +1454,7 @@ onClick={() => {
                 </form>
 
                 {editing && cfg.featuresOps && (
-                  <FeaturesEditorBlock
+                  <div hidden={tabHidden('features')}><FeaturesEditorBlock
                     block={cfg.featuresBlock}
                     items={features}
                     loading={featuresLoading}
@@ -1460,11 +1464,11 @@ onClick={() => {
                     onEdit={(i) => openFeatureModal(null, i)}
                     onRemove={removeFeature}
                     onRetry={reloadFeatures}
-                  />
+                  /></div>
                 )}
 
                 {editing && cfg.itemsOps && (
-                  <ItemsEditorBlock
+                  <div hidden={tabHidden('items')}><ItemsEditorBlock
                     block={cfg.itemsBlock}
                     items={startingItems}
                     loading={startingItemsLoading}
@@ -1477,11 +1481,11 @@ onClick={() => {
                     onChoiceGroupsRetry={reloadChoiceGroups}
                     onSaveChoiceGroup={saveChoiceGroup}
                     onRemoveChoiceGroup={removeChoiceGroup}
-                  />
+                  /></div>
                 )}
 
                 {editing && cfg.hasSubclasses && (
-                  <div className="mt-6">
+                  <div hidden={tabHidden('subclasses')} className="mt-6">
                     <SectionTitle
                       button={
                         <button
@@ -1534,15 +1538,10 @@ onClick={() => {
                                 <button
                                   type="button"
                                   onClick={() => toggleSub(sub.id)}
+                                  aria-expanded={open}
                                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                                 >
-                                  <span
-                                    className={`text-xs text-stone-500 transition-transform ${
-                                      open ? 'rotate-90' : ''
-                                    }`}
-                                  >
-                                    ▸
-                                  </span>
+                                  <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
                                   <span className="truncate text-base font-medium text-stone-100">
                                     {info.detail?.name ?? sub.name}
                                   </span>
@@ -1589,7 +1588,7 @@ onClick={() => {
                 )}
 
                 {editing && cfg.hasSubraces && (
-                  <div className="mt-6">
+                  <div hidden={tabHidden('subraces')} className="mt-6">
                     <SectionTitle
                       button={
                         <button
@@ -1648,15 +1647,10 @@ onClick={() => {
                                 <button
                                   type="button"
                                   onClick={() => toggleSubrace(sub.id)}
+                                  aria-expanded={open}
                                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                                 >
-                                  <span
-                                    className={`text-xs text-stone-500 transition-transform ${
-                                      open ? 'rotate-90' : ''
-                                    }`}
-                                  >
-                                    ▸
-                                  </span>
+                                  <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
                                   <span className="truncate text-base font-medium text-stone-100">
                                     {info.detail?.name ?? sub.name}
                                   </span>
@@ -1724,13 +1718,11 @@ onClick={() => {
                 </div>
               </Card>
             ) : (
-              <Card className="p-6 text-center">
-                <p className="font-display text-lg font-bold text-stone-300">
-                  Редактор {cfg.label.toLowerCase()}
-                </p>
-                <p className="mt-2 text-sm text-stone-500">
-                  Выберите запись в списке слева, чтобы изменить её, или нажмите «+ Новая запись».
-                </p>
+              <Card className="editor-welcome">
+                <span className="editor-welcome-eyebrow">{cfg.label}</span>
+                <h2>Выберите запись для редактирования</h2>
+                <p>Откройте запись из списка или создайте новую. Поиск и фильтры помогут найти нужную запись.</p>
+                <Button onClick={openCreate}>+ Создать запись</Button>
               </Card>
             )}
           </section>

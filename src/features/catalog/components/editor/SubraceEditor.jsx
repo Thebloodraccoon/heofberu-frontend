@@ -60,13 +60,12 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
 
   // Автосохранение бонусов: правки копятся 700мс, затем уходят без отдельной
   // кнопки. Первый рендер (значения из detail) не считается правкой.
-  const isFirstRender = useRef(true)
+  const previousBonuses = useRef(JSON.stringify(bonuses))
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
+    const next = JSON.stringify(bonuses)
+    if (previousBonuses.current === next) return
     const id = setTimeout(() => {
+      previousBonuses.current = next
       saveBonuses()
     }, 700)
     return () => clearTimeout(id)
@@ -103,13 +102,12 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
     }
   }
 
-  const isFirstTagsRender = useRef(true)
+  const previousTags = useRef(JSON.stringify(tags))
   useEffect(() => {
-    if (isFirstTagsRender.current) {
-      isFirstTagsRender.current = false
-      return
-    }
+    const next = JSON.stringify(tags)
+    if (previousTags.current === next) return
     const id = setTimeout(() => {
+      previousTags.current = next
       saveTags()
     }, 700)
     return () => clearTimeout(id)
@@ -261,13 +259,15 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
                             ))}
                           </Select>
                         </div>
-                        <BlurNumberInput
-                          min={-5}
-                          max={5}
-                          value={row.bonus}
-                          onChange={(next) => setBonus(i, 'bonus', Number(next) || 0)}
-                          className="input-narrow"
-                        />
+                        <div className="w-20">
+                          <BlurNumberInput
+                            min={-5}
+                            max={5}
+                            value={row.bonus}
+                            onChange={(next) => setBonus(i, 'bonus', Number(next) || 0)}
+                            className="input-narrow w-full sm:h-10"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => removeBonus(i)}
