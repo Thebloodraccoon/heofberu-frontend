@@ -116,14 +116,11 @@ export default function SpellPickerModal({ character, onClose, onError }) {
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState(() => new Set())
 
-  const knownIds = useMemo(() => new Set(known.map((cs) => cs.spell_id)), [known])
+  const knownIds = useMemo(() => new Set(known.map((sp) => sp.id)), [known])
 
   const knownCountByLevel = useMemo(() => {
     const counts = {}
-    for (const cs of known) {
-      const lv = cs.spell?.level ?? cs.level
-      counts[lv] = (counts[lv] ?? 0) + 1
-    }
+    for (const sp of known) counts[sp.level] = (counts[sp.level] ?? 0) + 1
     return counts
   }, [known])
 
@@ -135,7 +132,7 @@ export default function SpellPickerModal({ character, onClose, onError }) {
 
   const capacityByLevel = useMemo(() => {
     const knownCount = {}
-    for (const cs of known) knownCount[cs.spell?.level ?? cs.level] = (knownCount[cs.spell?.level ?? cs.level] ?? 0) + 1
+    for (const sp of known) knownCount[sp.level] = (knownCount[sp.level] ?? 0) + 1
     return Object.fromEntries(
       slots.map((s) => [s.spell_level, Math.max(0, (s.total ?? 0) - (knownCount[s.spell_level] ?? 0))]),
     )

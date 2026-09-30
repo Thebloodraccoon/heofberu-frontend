@@ -64,14 +64,26 @@ export const useCharacterSpellSlots = (id) =>
     select: (d) => d?.spell_slots ?? [],
   })
 
-// Заклинания, выданные вне ячеек (расой/чертой/особенностью) — не занимают
-// слоты и доступны независимо от того, умеет ли класс колдовать.
+// Заклинания вне ячеек — выданные ГМ (gm_spells) и полученные от особенностей/черт
+// (feature_spells). Не занимают слоты и доступны, даже если класс не колдует. Одно и
+// то же заклинание из обоих источников показываем один раз.
 export const useCharacterGrantedSpells = (id) =>
   useQuery({
     queryKey: queryKeys.characters.spells(Number(id)),
     queryFn: () => charactersApi.spells.list(Number(id)),
     enabled: !!id,
-    select: (d) => d?.granted_spells ?? [],
+    select: (d) => [
+      ...new Map([...(d?.gm_spells ?? []), ...(d?.feature_spells ?? [])].map((sp) => [sp.id, sp])).values(),
+    ],
+  })
+
+// Только заклинания, выданные ГМ напрямую — их ГМ может забрать (от особенностей — нет).
+export const useCharacterGmSpells = (id) =>
+  useQuery({
+    queryKey: queryKeys.characters.spells(Number(id)),
+    queryFn: () => charactersApi.spells.list(Number(id)),
+    enabled: !!id,
+    select: (d) => d?.gm_spells ?? [],
   })
 export const useCharacterAttacks = subResource(queryKeys.characters.attacks, charactersApi.attacks.list)
 export const useCharacterFeats = subResource(queryKeys.characters.feats, charactersApi.feats.list)

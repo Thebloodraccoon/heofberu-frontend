@@ -9,7 +9,7 @@ import {
   useCharacterAsiAdjustments,
   useCharacterFeats,
   useCharacterFeatures,
-  useCharacterGrantedSpells,
+  useCharacterGmSpells,
   useCharacterItems,
   useCharacterMaxLevel,
   useCharacterProficiencies,
@@ -1336,10 +1336,11 @@ function FeaturesSection({ character, onError, reload }) {
 }
 
 // Дополнительные заклинания, выданные ГМ: выдаются/удаляются вне ячеек
-// (homebrew-бонус) через modalreuse SpellPickerModal из каталога.
+// (homebrew-бонус) через modalreuse SpellPickerModal из каталога. Заклинания от
+// особенностей/черт здесь не показываются — они уходят только вместе с особенностью.
 function GrantedSpellsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
-  const { data: grantedSpells = [] } = useCharacterGrantedSpells(character.id)
+  const { data: grantedSpells = [] } = useCharacterGmSpells(character.id)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
 
@@ -1358,10 +1359,10 @@ function GrantedSpellsSection({ character, onError, reload }) {
     }
   }
 
-  const removeSpell = async (cs) => {
+  const removeSpell = async (sp) => {
     setRemoveTarget(null)
     try {
-      await charactersApi.gmPanel.spells.remove(character.id, cs.id)
+      await charactersApi.gmPanel.spells.remove(character.id, sp.id)
       await invalidate()
     } catch (e) {
       onError(e)
@@ -1382,31 +1383,28 @@ function GrantedSpellsSection({ character, onError, reload }) {
         <p className="text-sm text-stone-500">Дополнительных заклинаний нет.</p>
       ) : (
         <ul className="space-y-2">
-          {grantedSpells.map((cs) => {
-            const sp = cs.spell || {}
-            return (
-              <li key={cs.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-stone-100">
-                    {sp.name ? sentenceCase(sp.name) : `Заклинание #${cs.spell_id}`}
-                  </p>
-                  {sp.school && (
-                    <span className="text-xs text-stone-500">{label(sp.school)}</span>
-                  )}
-                </div>
-                <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cs)}>
-                  Убрать
-                </Button>
-              </li>
-            )
-          })}
+          {grantedSpells.map((sp) => (
+            <li key={sp.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-stone-100">
+                  {sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}
+                </p>
+                {sp.school && (
+                  <span className="text-xs text-stone-500">{label(sp.school)}</span>
+                )}
+              </div>
+              <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(sp)}>
+                Убрать
+              </Button>
+            </li>
+          ))}
         </ul>
       )}
 
       {pickerOpen && (
         <SpellPickerModal
           drawer
-          excludeIds={grantedSpells.map((cs) => cs.spell_id)}
+          excludeIds={grantedSpells.map((sp) => sp.id)}
           onPick={grantSpell}
           onClose={() => setPickerOpen(false)}
         />
@@ -1418,7 +1416,7 @@ function GrantedSpellsSection({ character, onError, reload }) {
             <>
               Вы точно хотите убрать{' '}
               <span className="font-semibold text-stone-100">
-                {removeTarget.spell?.name ? sentenceCase(removeTarget.spell.name) : `Заклинание #${removeTarget.spell_id}`}
+                {removeTarget.name ? sentenceCase(removeTarget.name) : `Заклинание #${removeTarget.id}`}
               </span>{' '}
               у персонажа? Это действие необратимо.
             </>

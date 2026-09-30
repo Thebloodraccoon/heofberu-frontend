@@ -52,8 +52,7 @@ function ItemAttackOption({ ci, onPick }) {
   )
 }
 
-function SpellAttackOption({ cs, onPick }) {
-  const sp = cs.spell || {}
+function SpellAttackOption({ sp, onPick }) {
   const dmg = damageText(sp.damage_dice_count, sp.damage_dice_type, sp.damage_type)
   return (
     <li>
@@ -62,7 +61,7 @@ function SpellAttackOption({ cs, onPick }) {
         onClick={() => onPick(sp)}
         className="flex w-full items-center gap-2 rounded border border-stone-800 bg-stone-900/40 px-3 py-2 text-left transition hover:border-ember/60 hover:bg-stone-900"
       >
-        <span className="min-w-0 flex-1 truncate text-sm text-stone-100">{sp.name ? sentenceCase(sp.name) : `Заклинание #${cs.spell_id}`}</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-stone-100">{sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}</span>
         <span className="shrink-0 text-xs text-stone-400">
           {[dmg, sp.level ? label(sp.level) : ''].filter(Boolean).join(' · ') || label(sp.school)}
         </span>
@@ -197,7 +196,7 @@ export default function AttackModal({ characterId, attack = null, onClose, onSav
             {(spells ?? []).length === 0 ? (
               <li className="px-1 py-1 text-xs text-stone-500">Заклинаний пока нет</li>
             ) : (
-              spells.map((cs) => <SpellAttackOption key={cs.spell_id} cs={cs} onPick={applySpell} />)
+              spells.map((sp) => <SpellAttackOption key={sp.id} sp={sp} onPick={applySpell} />)
             )}
           </ul>
         )}

@@ -42,7 +42,7 @@ vi.mock('@/features/characters/queries.js', () => ({
   useCharacterItems: vi.fn(() => ({ data: [] })),
   useCharacterMaxLevel: vi.fn(() => ({ data: {} })),
   useCharacterProficiencies: vi.fn(() => ({ data: { armor: [] } })),
-  useCharacterGrantedSpells: vi.fn(() => ({ data: [] })),
+  useCharacterGmSpells: vi.fn(() => ({ data: [] })),
 }))
 
 vi.mock('@/features/catalog/queries.js', () => ({

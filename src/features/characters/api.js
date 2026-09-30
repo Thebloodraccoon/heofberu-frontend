@@ -82,10 +82,10 @@ export const charactersApi = {
     },
     spells: {
       add: (id, body) => request(`/api/characters/${id}/gm-panel/spells`, { method: 'POST', body }),
-      remove: (id, grantedSpellId) =>
+      remove: (id, spellId) =>
         request(`/api/characters/${id}/gm-panel/spells`, {
           method: 'DELETE',
-          params: { granted_spell_id: grantedSpellId },
+          params: { spell_id: spellId },
         }),
     },
     feats: {
