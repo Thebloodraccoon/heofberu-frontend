@@ -80,7 +80,7 @@ describe('request', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
 
-    const data = await request('/api/spells', { params: { name: 'fire', limit: 10, skip: undefined, tag: null, q: '' } })
+    const data = await request('/spells', { params: { name: 'fire', limit: 10, skip: undefined, tag: null, q: '' } })
 
     expect(data).toEqual({ ok: true })
     const [url, init] = fetchMock.mock.calls[0]
@@ -90,6 +90,7 @@ describe('request', () => {
     expect(url.searchParams.has('tag')).toBe(false)
     expect(url.searchParams.has('q')).toBe(false)
     expect(init.method).toBe('GET')
+    expect(url.pathname).toBe('/api/v1/spells')
   })
 
   it('sends the bearer token when auth is enabled', async () => {
@@ -97,7 +98,7 @@ describe('request', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
     vi.stubGlobal('fetch', fetchMock)
 
-    await request('/api/users/me')
+    await request('/users/me')
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers.Authorization).toBe('Bearer secret')
@@ -108,7 +109,7 @@ describe('request', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
     vi.stubGlobal('fetch', fetchMock)
 
-    await request('/api/auth/login', { method: 'POST', body: { email: 'a', password: 'b' }, auth: false })
+    await request('/auth/login', { method: 'POST', body: { email: 'a', password: 'b' }, auth: false })
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers.Authorization).toBeUndefined()
@@ -120,7 +121,7 @@ describe('request', () => {
     const fetchMock = vi.fn().mockResolvedValue(emptyResponse(204))
     vi.stubGlobal('fetch', fetchMock)
 
-    expect(await request('/api/auth/logout', { method: 'POST' })).toBeNull()
+    expect(await request('/auth/logout', { method: 'POST' })).toBeNull()
   })
 
   it('uses the backend {error:{message}} envelope', async () => {
@@ -131,7 +132,7 @@ describe('request', () => {
       )
     vi.stubGlobal('fetch', fetchMock)
 
-    const err = await request('/api/x').catch((e) => e)
+    const err = await request('/x').catch((e) => e)
     expect(err.message).toBe('Заклинание не найдено')
     expect(err.status).toBe(404)
     expect(err.data.error.type).toBe('SpellNotFoundException')
@@ -141,7 +142,7 @@ describe('request', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: 'Неверные данные' }, 400))
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(request('/api/x')).rejects.toThrow('Неверные данные')
+    await expect(request('/x')).rejects.toThrow('Неверные данные')
   })
 
   it('joins array detail messages', async () => {
@@ -150,14 +151,14 @@ describe('request', () => {
       .mockResolvedValue(jsonResponse({ detail: [{ msg: 'First' }, { msg: 'Second' }] }, 422))
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(request('/api/x')).rejects.toThrow('First; Second')
+    await expect(request('/x')).rejects.toThrow('First; Second')
   })
 
   it('throws a generic status message for unknown errors', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}, 500))
     vi.stubGlobal('fetch', fetchMock)
 
-    const err = await request('/api/x').catch((e) => e)
+    const err = await request('/x').catch((e) => e)
     expect(err.message).toBe('Ошибка 500')
     expect(err.status).toBe(500)
   })
@@ -171,13 +172,13 @@ describe('request', () => {
       .mockResolvedValueOnce(jsonResponse({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
 
-    const data = await request('/api/me')
+    const data = await request('/me')
 
     expect(data).toEqual({ ok: true })
     expect(fetchMock).toHaveBeenCalledTimes(3)
 
     const refreshCall = fetchMock.mock.calls[1]
-    expect(refreshCall[0]).toContain('/api/auth/refresh')
+    expect(refreshCall[0]).toContain('/api/v1/auth/refresh')
     expect(refreshCall[1].method).toBe('POST')
     expect(refreshCall[1].credentials).toBe('include')
     expect(getToken()).toBe('new-token')
@@ -192,7 +193,7 @@ describe('request', () => {
       .mockResolvedValueOnce(jsonResponse({ detail: 'bad credentials' }, 401))
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(request('/api/auth/login', { method: 'POST', body: {}, auth: false })).rejects.toThrow(
+    await expect(request('/auth/login', { method: 'POST', body: {}, auth: false })).rejects.toThrow(
       'bad credentials',
     )
     expect(fetchMock).toHaveBeenCalledTimes(1)

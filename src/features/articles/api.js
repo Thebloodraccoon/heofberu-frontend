@@ -1,24 +1,24 @@
 import request from '@/lib/api/httpClient.js'
 
 export const articlesApi = {
-  list: (params, { auth = true } = {}) => request('/api/articles', { params, auth }),
-  search: (params, { auth = true } = {}) => request('/api/articles/search', { params, auth }),
-  get: (id) => request(`/api/articles/${id}`),
-  getBySlug: (slug) => request(`/api/articles/by-slug/${encodeURIComponent(slug)}`),
-  children: (id, { auth = true } = {}) => request(`/api/articles/${id}/children`, { auth }),
-  ancestors: (id, { auth = true } = {}) => request(`/api/articles/${id}/ancestors`, { auth }),
-  create: (body) => request('/api/articles', { method: 'POST', body }),
-  update: (id, body) => request(`/api/articles/${id}`, { method: 'PATCH', body }),
+  list: (params, { auth = true } = {}) => request('/articles', { params, auth }),
+  search: (params, { auth = true } = {}) => request('/articles/search', { params, auth }),
+  get: (id) => request(`/articles/${id}`),
+  getBySlug: (slug) => request(`/articles/by-slug/${encodeURIComponent(slug)}`),
+  children: (id, { auth = true } = {}) => request(`/articles/${id}/children`, { auth }),
+  ancestors: (id, { auth = true } = {}) => request(`/articles/${id}/ancestors`, { auth }),
+  create: (body) => request('/articles', { method: 'POST', body }),
+  update: (id, body) => request(`/articles/${id}`, { method: 'PATCH', body }),
   // Статус меняется только переходами: submit (ГМ), publish/reject/archive/restore (основатель).
-  transition: (id, action) => request(`/api/articles/${id}/${action}`, { method: 'POST' }),
-  remove: (id) => request(`/api/articles/${id}`, { method: 'DELETE' }),
-  setTags: (id, tagIds) => request(`/api/articles/${id}/tags`, { method: 'PUT', body: { tag_ids: tagIds } }),
+  transition: (id, action) => request(`/articles/${id}/${action}`, { method: 'POST' }),
+  remove: (id) => request(`/articles/${id}`, { method: 'DELETE' }),
+  setTags: (id, tagIds) => request(`/articles/${id}/tags`, { method: 'PUT', body: { tag_ids: tagIds } }),
   relations: {
-    list: (id, { auth = true } = {}) => request(`/api/articles/${id}/relations`, { auth }),
-    create: (id, body) => request(`/api/articles/${id}/relations`, { method: 'POST', body }),
+    list: (id, { auth = true } = {}) => request(`/articles/${id}/relations`, { auth }),
+    create: (id, body) => request(`/articles/${id}/relations`, { method: 'POST', body }),
     update: (id, relationId, body) =>
-      request(`/api/articles/${id}/relations/${relationId}`, { method: 'PATCH', body }),
-    remove: (id, relationId) => request(`/api/articles/${id}/relations/${relationId}`, { method: 'DELETE' }),
+      request(`/articles/${id}/relations/${relationId}`, { method: 'PATCH', body }),
+    remove: (id, relationId) => request(`/articles/${id}/relations/${relationId}`, { method: 'DELETE' }),
   },
   // Картинки статьи — просто загруженные файлы: где и с какой подписью они показаны,
   // решает Markdown (![alt](url)). Список приходит ГМ в самой статье (article.images).
@@ -26,24 +26,24 @@ export const articlesApi = {
     upload: (id, file) => {
       const form = new FormData()
       form.append('image', file)
-      return request(`/api/articles/${id}/images`, { method: 'POST', body: form })
+      return request(`/articles/${id}/images`, { method: 'POST', body: form })
     },
-    remove: (id, imageId) => request(`/api/articles/${id}/images/${imageId}`, { method: 'DELETE' }),
+    remove: (id, imageId) => request(`/articles/${id}/images/${imageId}`, { method: 'DELETE' }),
   },
 }
 
 // Подтипы — словарь ГМ: у каждого ровно один article_type, статья берёт подтип только своего типа.
 export const subtypesApi = {
-  list: (articleType) => request('/api/articles/subtypes', { params: articleType ? { article_type: articleType } : {} }),
-  create: (articleType, name) => request('/api/articles/subtypes', { method: 'POST', body: { article_type: articleType, name } }),
+  list: (articleType) => request('/articles/subtypes', { params: articleType ? { article_type: articleType } : {} }),
+  create: (articleType, name) => request('/articles/subtypes', { method: 'POST', body: { article_type: articleType, name } }),
 }
 
 export const tagsApi = {
-  list: (params) => request('/api/tags', { params }),
-  get: (id) => request(`/api/tags/${id}`),
-  create: (name) => request('/api/tags', { method: 'POST', body: { name } }),
-  rename: (id, name) => request(`/api/tags/${id}`, { method: 'PATCH', body: { name } }),
-  remove: (id) => request(`/api/tags/${id}`, { method: 'DELETE' }),
+  list: (params) => request('/tags', { params }),
+  get: (id) => request(`/tags/${id}`),
+  create: (name) => request('/tags', { method: 'POST', body: { name } }),
+  rename: (id, name) => request(`/tags/${id}`, { method: 'PATCH', body: { name } }),
+  remove: (id) => request(`/tags/${id}`, { method: 'DELETE' }),
 }
 
 export const ARTICLE_TYPES = [

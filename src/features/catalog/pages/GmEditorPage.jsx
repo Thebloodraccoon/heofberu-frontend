@@ -712,7 +712,7 @@ export default function GmEditorPage() {
     }
   }
 
-  // Общие операции централизованы на /api/features (+ /effects и /choice-groups):
+  // Общие операции централизованы на /features (+ /effects и /choice-groups):
   // фиксированные эффекты и группы выбора сохраняются полной заменой дерева.
   const upsertFeature = async (next, index, source) => {
     const effects = next.effects ?? { ...(next.ability_effects ? { ability_effects: next.ability_effects } : {}) }

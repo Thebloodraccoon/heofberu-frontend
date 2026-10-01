@@ -45,7 +45,7 @@ export const featurePayload = (f, source) => {
     level: f.level ?? null,
   }
   // Фичи теперь централизованы: при создании источник задаётся через
-  // source_type + внешний ключ прямо в теле POST /api/features.
+  // source_type + внешний ключ прямо в теле POST /features.
   if (source) {
     body.source_type = source.type
     body[source.fk] = source.sourceId

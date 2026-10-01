@@ -3,7 +3,7 @@ import { API } from '@/config/api.js'
 const TOKEN_KEY = 'heofberu.access_token'
 const TOKEN_EVENT = 'heofberu:token'
 
-const API_BASE = API.baseURL.replace(/\/+$/, '')
+const API_BASE = API.baseURL.replace(/\/+$/, '') + API.prefix
 
 let refreshPromise = null
 
@@ -73,7 +73,7 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
     credentials: 'omit',
   })
 
-  if (res.status === 401 && auth && !path.startsWith('/api/auth/')) {
+  if (res.status === 401 && auth && !path.startsWith('/auth/')) {
     const refreshed = await refreshAccessToken()
     if (refreshed) return request(path, { method, body, params, auth })
   }
@@ -126,7 +126,7 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
 
 async function refreshAccessToken() {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
+    refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
     })
