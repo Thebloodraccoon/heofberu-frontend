@@ -70,16 +70,16 @@ function App() {
 
                   <Route index element={<LandingPage />} />
                   <Route path="guide" element={<GuidePage />} />
+                  <Route path="lore" element={<LoreLayout />}>
+                    <Route index element={<LorePage />} />
+                    <Route path=":slug" element={<ArticleDetailPage />} />
+                  </Route>
                   <Route path="catalog/:resource" element={<CatalogListPage />} />
                   <Route path="catalog/:resource/:id" element={<CatalogListPage />} />
                 </Route>
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>
-                    <Route path="lore" element={<LoreLayout />}>
-                      <Route index element={<LorePage />} />
-                      <Route path=":slug" element={<ArticleDetailPage />} />
-                    </Route>
                     <Route path="characters" element={<CharactersPage />} />
                     <Route path="characters/new" element={<CharacterCreatePage />} />
                     <Route path="characters/:id" element={<CharacterDetailPage />} />
