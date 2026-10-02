@@ -23,3 +23,16 @@ export function GMRoute({ children }) {
   }
   return children
 }
+
+export function FounderRoute({ children }) {
+  const { authenticated, isFounder } = useAuth()
+  const location = useLocation()
+
+  if (!authenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+  if (!isFounder) {
+    return <Navigate to="/profile" replace />
+  }
+  return children
+}

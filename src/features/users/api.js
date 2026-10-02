@@ -8,4 +8,5 @@ export const usersApi = {
   get: (id) => request(`/users/${id}`),
   update: (id, body) => request(`/users/${id}`, { method: 'PUT', body }),
   remove: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  flushCache: () => request('/admin/cache', { method: 'DELETE' }),
 }
