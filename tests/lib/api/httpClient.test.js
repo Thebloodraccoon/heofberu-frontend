@@ -198,4 +198,48 @@ describe('request', () => {
     )
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it('sends credentials on auth endpoints so the refresh cookie is stored', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ access_token: 't' }))
+    vi.stubGlobal('fetch', fetchMock)
+    await request('/auth/login', { method: 'POST', body: {}, auth: false })
+    expect(fetchMock.mock.calls[0][1].credentials).toBe('include')
+    await request('/users')
+    expect(fetchMock.mock.calls[1][1].credentials).toBe('omit')
+  })
+
+  it('reuses a token another tab already refreshed instead of burning the cookie again', async () => {
+    setToken('old-token')
+    const fetchMock = vi.fn().mockImplementationOnce(async () => {
+      localStorage.setItem(TOKEN_KEY, 'from-other-tab')
+      return jsonResponse({ detail: 'expired' }, 401)
+    }).mockResolvedValueOnce(jsonResponse({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await request('/me')).toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer from-other-tab')
+  })
+
+  it('keeps the session when refresh fails for a network or server reason', async () => {
+    setToken('old-token')
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ detail: 'expired' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ detail: 'boom' }, 503))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(request('/me')).rejects.toThrow('expired')
+    expect(getToken()).toBe('old-token')
+  })
+
+  it('logs out when the backend rejects the refresh cookie', async () => {
+    setToken('old-token')
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ detail: 'expired' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ detail: 'invalid' }, 401))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(request('/me')).rejects.toThrow('expired')
+    expect(getToken()).toBeNull()
+  })
 })

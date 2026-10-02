@@ -70,11 +70,14 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
         : isFormData
           ? body
           : JSON.stringify(body),
-    credentials: 'omit',
+    // /auth/* — единственные запросы, где нужна httpOnly refresh-кука (path=/api/v1/auth):
+    // login/register её ставят, logout отзывает. При 'omit' браузер игнорирует Set-Cookie,
+    // кука не сохранялась, и через 30 минут (срок access-токена) приходилось логиниться заново.
+    credentials: path.startsWith('/auth/') ? 'include' : 'omit',
   })
 
   if (res.status === 401 && auth && !path.startsWith('/auth/')) {
-    const refreshed = await refreshAccessToken()
+    const refreshed = await refreshAccessToken(token)
     if (refreshed) return request(path, { method, body, params, auth })
   }
 
@@ -124,25 +127,34 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
   return data
 }
 
-async function refreshAccessToken() {
+// Refresh-кука одноразовая (ротация): второй запрос с той же кукой бэк отвергает.
+// Поэтому обновление сериализуется и между вкладками (Web Locks): если пока мы ждали,
+// другая вкладка уже положила новый токен — берём его, а не жжём куку повторно.
+// Разлогиниваем только когда бэк явно отказал (401/403), а не при сетевой ошибке или 5xx.
+async function doRefresh(staleToken) {
+  const current = getToken()
+  if (current && current !== staleToken) return true
+  let res
+  try {
+    res = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' })
+  } catch {
+    return false
+  }
+  if (res.ok) {
+    const data = await res.json()
+    setToken(data.access_token)
+    return true
+  }
+  if (res.status === 401 || res.status === 403) setToken(null)
+  return false
+}
+
+function refreshAccessToken(staleToken) {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
+    const run = () => doRefresh(staleToken)
+    refreshPromise = (navigator.locks ? navigator.locks.request('heofberu:refresh', run) : run()).finally(() => {
+      refreshPromise = null
     })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('refresh failed')
-        const data = await res.json()
-        setToken(data.access_token)
-        return true
-      })
-      .catch(() => {
-        setToken(null)
-        return false
-      })
-      .finally(() => {
-        refreshPromise = null
-      })
   }
   return refreshPromise
 }
