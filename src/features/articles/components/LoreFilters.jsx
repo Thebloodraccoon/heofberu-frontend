@@ -2,15 +2,23 @@ import { useState } from 'react'
 import { ARTICLE_STATUSES, ARTICLE_TYPES } from '@/features/articles/api.js'
 import { useArticleSubtypes, useTagSearch } from '@/features/articles/queries.js'
 import useDebouncedValue from '@/features/articles/useDebouncedValue.js'
+import { useAuth } from '@/features/auth/useAuth.js'
+import { useUsers } from '@/features/users/queries.js'
 import Drawer from '@/components/ui/Drawer.jsx'
 import { Button, ErrorBox, Input, Skeleton } from '@/components/ui'
 import { articleStatusLabels, articleTypeLabels } from '@/lib/i18n'
 
 // subtypes — выбранные подтипы ({ id, name, article_type }[]); каждый уточняет только свой тип.
 // statuses — только в списке ГМ: передан (массив, [] = все) → первым разделом идёт фильтр статусов.
-// onApply(types, tags, match, subtypes, statuses).
-export default function LoreFilters({ types, tags, match, subtypes = [], statuses, onApply, onClose }) {
+// gm — тоже только в списке ГМ: { author: '' | id, pendingOnly } → раздел «Автор и правки».
+// onApply(types, tags, match, subtypes, statuses, gm).
+export default function LoreFilters({ types, tags, match, subtypes = [], statuses, gm, onApply, onClose }) {
   const withStatus = statuses !== undefined
+  const { user } = useAuth()
+  const usersQ = useUsers({ enabled: !!gm })
+  const me = user?.id != null ? String(user.id) : ''
+  const authors = (usersQ.data ?? []).filter((u) => u.role !== 'player' && String(u.id) !== me)
+  const [draftGm, setDraftGm] = useState(gm ?? { author: '', pendingOnly: false })
   const [draftStatuses, setDraftStatuses] = useState(statuses ?? [])
   const toggleStatus = (s) => setDraftStatuses((current) => current.includes(s) ? current.filter((x) => x !== s) : [...current, s])
   const [draftTypes, setDraftTypes] = useState(types)
@@ -30,16 +38,16 @@ export default function LoreFilters({ types, tags, match, subtypes = [], statuse
   const toggleType = (type) => setDraftTypes((current) => current.includes(type) ? current.filter((t) => t !== type) : [...current, type])
   const toggleTag = (tag) => setDraftTags((current) => current.some((t) => t.id === tag.id) ? current.filter((t) => t.id !== tag.id) : [...current, tag])
   // Подтип имеет смысл только вместе со своим типом: сняли тип — его подтипы тоже уходят.
-  const apply = (nextTypes, nextTags, nextMatch, nextSubtypes, nextStatus) => {
-    onApply(nextTypes, nextTags, nextMatch, nextSubtypes.filter((s) => nextTypes.includes(s.article_type)), nextStatus)
+  const apply = (nextTypes, nextTags, nextMatch, nextSubtypes, nextStatus, nextGm) => {
+    onApply(nextTypes, nextTags, nextMatch, nextSubtypes.filter((s) => nextTypes.includes(s.article_type)), nextStatus, nextGm)
     onClose()
   }
 
   return (
     <Drawer title="Фильтры лора" subtitle="Выберите типы статей и интересующие темы." onClose={onClose} footer={
       <div className="article-filter-actions">
-        <Button variant="ghost" onClick={() => apply([], [], 'any', [], [])}>Сбросить</Button>
-        <Button onClick={() => apply(draftTypes, draftTags, draftMatch, draftSubtypes, draftStatuses)}>Применить</Button>
+        <Button variant="ghost" onClick={() => apply([], [], 'any', [], [], { author: '', pendingOnly: false })}>Сбросить</Button>
+        <Button onClick={() => apply(draftTypes, draftTags, draftMatch, draftSubtypes, draftStatuses, draftGm)}>Применить</Button>
       </div>
     }>
       {withStatus && <fieldset className="lore-filter-section">
@@ -47,6 +55,18 @@ export default function LoreFilters({ types, tags, match, subtypes = [], statuse
         <p className="lore-filter-hint">Будут показаны статьи любого выбранного статуса. «На проверке» — очередь статей, ждущих основателя.</p>
         <div className="lore-filter-options">
           {ARTICLE_STATUSES.map((s) => <button key={s} type="button" className="lore-chip" aria-pressed={draftStatuses.includes(s)} onClick={() => toggleStatus(s)}>{articleStatusLabels[s]}</button>)}
+        </div>
+      </fieldset>}
+      {gm && <fieldset className="lore-filter-section">
+        <legend>Автор и правки</legend>
+        <p className="lore-filter-hint">«Ждут решения» — статьи с предложениями правок, которые ещё не приняли и не отклонили.</p>
+        <div className="lore-filter-options">
+          <button type="button" className="lore-chip" aria-pressed={draftGm.pendingOnly} onClick={() => setDraftGm((g) => ({ ...g, pendingOnly: !g.pendingOnly }))}>Ждут решения</button>
+        </div>
+        <div className="lore-filter-options mt-3" role="group" aria-label="Автор">
+          {[['', 'Все авторы'], ...(me ? [[me, 'Мои статьи']] : []), ...authors.map((u) => [String(u.id), u.username])].map(([id, label]) => (
+            <button key={id || 'all'} type="button" className="lore-chip" aria-pressed={draftGm.author === id} onClick={() => setDraftGm((g) => ({ ...g, author: id }))}>{label}</button>
+          ))}
         </div>
       </fieldset>}
       <fieldset className="lore-filter-section">

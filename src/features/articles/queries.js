@@ -1,4 +1,5 @@
-import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { articlesApi, legacyArticleId, subtypesApi, tagsApi } from '@/features/articles/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 
@@ -152,14 +153,32 @@ export const useArticleAncestors = (id, publicView = false) =>
     enabled: !!id,
   })
 
-// История версий для ГМ. Лежит под ключом статьи, поэтому её сбрасывает и общая инвалидация detail(id).
-export const useArticleRevisions = (id, params, { enabled = true } = {}) =>
-  useQuery({
-    queryKey: queryKeys.articles.revisions(id, params),
-    queryFn: () => articlesApi.revisions.list(Number(id), params),
-    enabled: !!id && enabled,
-    placeholderData: keepPreviousData,
+// Лента «Показать ещё» (история, предложения, очередь): курсорная пагинация бэка — сначала
+// FEED_SIZE последних, дальше по next_cursor. Новые записи сверху не сдвигают уже загруженное.
+const FEED_SIZE = 10
+const useFeed = (queryKey, fetchPage, enabled = true) => {
+  const q = useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam }) => fetchPage({ pagination: 'cursor', size: FEED_SIZE, ...(pageParam ? { cursor: pageParam } : {}) }),
+    initialPageParam: null,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    enabled,
   })
+  const items = useMemo(() => (q.data?.pages ?? []).flatMap((p) => p.items), [q.data])
+  return { ...q, items }
+}
+
+// История версий для ГМ. Лежит под ключом статьи, поэтому её сбрасывает и общая инвалидация detail(id).
+export const useRevisionFeed = (id) =>
+  useFeed(queryKeys.articles.revisions(id, { feed: true }), (params) => articlesApi.revisions.list(Number(id), params), !!id)
+
+// statuses — массив (бэк принимает несколько ?status=), пустой/null — все.
+export const useProposalFeed = (id, statuses, { enabled = true } = {}) =>
+  useFeed(
+    queryKeys.articles.proposals(id, { feed: true, status: statuses ?? null }),
+    (params) => articlesApi.proposals.list(Number(id), { ...params, ...(statuses?.length ? { status: statuses } : {}) }),
+    !!id && enabled,
+  )
 
 export const useRevisionDiff = (id, version, against, { enabled = true } = {}) =>
   useQuery({
@@ -167,6 +186,74 @@ export const useRevisionDiff = (id, version, against, { enabled = true } = {}) =
     queryFn: () => articlesApi.revisions.diff(Number(id), version, against),
     enabled: !!id && !!version && enabled,
   })
+
+export const useArticleProposals = (id, params, { enabled = true } = {}) =>
+  useQuery({
+    queryKey: queryKeys.articles.proposals(id, params),
+    queryFn: () => articlesApi.proposals.list(Number(id), params),
+    enabled: !!id && enabled,
+    placeholderData: keepPreviousData,
+  })
+
+export const useProposal = (id, pid) =>
+  useQuery({
+    queryKey: queryKeys.articles.proposal(id, pid),
+    queryFn: () => articlesApi.proposals.get(Number(id), pid),
+    enabled: !!id && !!pid,
+  })
+
+export const useProposalDiff = (id, pid) =>
+  useQuery({
+    queryKey: queryKeys.articles.proposalDiff(id, pid),
+    queryFn: () => articlesApi.proposals.diff(Number(id), pid),
+    enabled: !!id && !!pid,
+  })
+
+// Создание/разбор предложения меняют и список предложений, и (при accept) версию с историей —
+// всё это лежит под ключом статьи, поэтому сбрасываем его целиком.
+export const useCreateProposal = (id) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body) => articlesApi.proposals.create(Number(id), body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.articles.detail(id) })
+      qc.invalidateQueries({ queryKey: ['articles', 'list'] })
+    },
+  })
+}
+
+// Разрешённый конфликт: тот, кто предложил, заменяет содержимое предложения целиком.
+export const useReplaceProposal = (id) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ pid, body }) => articlesApi.proposals.replace(Number(id), pid, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.articles.detail(id) }),
+  })
+}
+
+export const useReviewProposal = (id) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ pid, action, body, params }) => articlesApi.proposals.review(Number(id), pid, action, body, params),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.articles.detail(id) })
+      qc.invalidateQueries({ queryKey: ['articles', 'list'] })
+    },
+  })
+}
+
+const invalidateSubtypes = (qc) => qc.invalidateQueries({ queryKey: ['articles', 'subtypes'] })
+
+export const useRenameSubtype = () => {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: ({ id, name }) => subtypesApi.rename(id, name), onSuccess: () => invalidateSubtypes(qc) })
+}
+
+export const useDeleteSubtype = () => {
+  const qc = useQueryClient()
+  // Статьи с этим подтипом остались без него — сбрасываем и их.
+  return useMutation({ mutationFn: (id) => subtypesApi.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.articles.all }) })
+}
 
 export const useTagsPage = (params) =>
   useQuery({ queryKey: queryKeys.tags.page(params), queryFn: () => tagsApi.list(params) })

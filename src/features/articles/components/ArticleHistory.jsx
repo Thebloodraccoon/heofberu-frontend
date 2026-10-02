@@ -1,28 +1,8 @@
 import { useState } from 'react'
 import { articlesApi } from '@/features/articles/api.js'
-import { useArticleRevisions, useRevisionDiff } from '@/features/articles/queries.js'
-import { useAuth } from '@/features/auth/useAuth.js'
-import { articleTypeLabels, articleVisibilityLabels } from '@/lib/i18n'
+import { useRevisionDiff, useRevisionFeed } from '@/features/articles/queries.js'
+import { FIELD_LABELS, fieldValue, formatDate, useWho } from '@/features/articles/history.js'
 import { Badge, Button, ConfirmDialog, ErrorBox, Skeleton } from '@/components/ui'
-import Pagination from '@/components/ui/Pagination.jsx'
-
-const PAGE_SIZE = 20
-const FIELD_LABELS = {
-  title: 'Название',
-  excerpt: 'Краткое описание',
-  article_type: 'Тип',
-  subtype_id: 'Подтип',
-  visibility: 'Видимость',
-}
-
-const formatDate = (iso) => new Date(iso).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })
-
-function fieldValue(field, value) {
-  if (value === null || value === undefined || value === '') return '—'
-  if (field === 'article_type') return articleTypeLabels[value] ?? value
-  if (field === 'visibility') return articleVisibilityLabels[value] ?? value
-  return String(value)
-}
 
 // unified-diff тела: подсветка добавленных/удалённых строк, служебные ---/+++/@@ приглушены.
 function BodyDiff({ text }) {
@@ -39,14 +19,14 @@ function BodyDiff({ text }) {
   )
 }
 
-function RevisionDiff({ articleId, version }) {
-  const diffQ = useRevisionDiff(articleId, version)
+// Diff версии или предложения: одинаковая форма ответа { fields, body_diff, against }.
+export function DiffView({ diffQ, label }) {
   if (diffQ.isLoading) return <Skeleton className="h-16 w-full" />
   if (diffQ.error) return <ErrorBox error={diffQ.error} onRetry={diffQ.refetch} />
   const { fields, body_diff: bodyDiff, against } = diffQ.data
   const changed = Object.entries(fields)
   return (
-    <div className="mt-2 space-y-2" aria-label={`Изменения версии ${version}`}>
+    <div className="mt-2 space-y-2" aria-label={label}>
       <p className="text-xs text-stone-500">{against ? `Сравнение с версией ${against}` : 'Первая версия статьи'}</p>
       {changed.length > 0 && (
         <ul className="space-y-1 text-sm">
@@ -67,14 +47,29 @@ function RevisionDiff({ articleId, version }) {
 
 // История изменений статьи (только ГМ): кто и когда сохранил версию, что в ней изменилось
 // и — для автора и основателя — возврат к старой версии (он создаёт НОВУЮ версию, история не стирается).
+function RevisionDiff({ articleId, version }) {
+  return <DiffView diffQ={useRevisionDiff(articleId, version)} label={`Изменения версии ${version}`} />
+}
+
+// «Показать ещё» для лент истории и предложений.
+export function FeedMore({ feed, label = 'Показать ещё' }) {
+  if (!feed.hasNextPage) return null
+  return (
+    <div className="flex justify-center">
+      <Button size="sm" variant="ghost" disabled={feed.isFetchingNextPage} onClick={() => feed.fetchNextPage()}>
+        {feed.isFetchingNextPage ? 'Загружаем...' : label}
+      </Button>
+    </div>
+  )
+}
+
 export default function ArticleHistory({ articleId, currentVersion, canRestore, onRestored }) {
-  const { user } = useAuth()
-  const [page, setPage] = useState(1)
+  const who = useWho()
   const [openVersion, setOpenVersion] = useState(null)
   const [restoring, setRestoring] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const historyQ = useArticleRevisions(articleId, { page, size: PAGE_SIZE })
+  const historyQ = useRevisionFeed(articleId)
 
   const restore = async () => {
     setBusy(true)
@@ -83,7 +78,6 @@ export default function ArticleHistory({ articleId, currentVersion, canRestore, 
       const saved = await articlesApi.revisions.restore(articleId, restoring)
       setRestoring(null)
       setOpenVersion(null)
-      setPage(1)
       onRestored?.(saved)
     } catch (e) {
       setError(e)
@@ -95,7 +89,7 @@ export default function ArticleHistory({ articleId, currentVersion, canRestore, 
   if (historyQ.isLoading) return <Skeleton className="h-32 w-full" />
   if (historyQ.error) return <ErrorBox error={historyQ.error} onRetry={historyQ.refetch} />
 
-  const { items, total } = historyQ.data
+  const { items } = historyQ
   return (
     <div className="space-y-3">
       <h3 className="heading-sub">История изменений</h3>
@@ -115,11 +109,19 @@ export default function ArticleHistory({ articleId, currentVersion, canRestore, 
                     {isCurrent && <Badge tone="good">текущая</Badge>}
                     <span className="truncate text-stone-300">{revision.title}</span>
                   </p>
-                  <p className="text-xs text-stone-500">
-                    {formatDate(revision.created_at)} ·{' '}
-                    {revision.editor_id == null ? 'автор неизвестен' : String(revision.editor_id) === String(user?.id) ? 'вы' : `пользователь #${revision.editor_id}`}
-                    {revision.change_note ? ` · ${revision.change_note}` : ''}
-                  </p>
+                  <div className="mt-1 space-y-0.5 text-xs text-stone-500">
+                    <p>
+                      {revision.content_hash && (
+                        <code className="mr-1.5 text-stone-400" title={revision.content_hash}>{revision.content_hash.slice(0, 7)}</code>
+                      )}
+                      {formatDate(revision.created_at)}
+                    </p>
+                    <p>Правил: <span className="text-stone-300">{who(revision.editor_id)}</span></p>
+                    {revision.reviewer_id != null && revision.reviewer_id !== revision.editor_id && (
+                      <p>Принял: <span className="text-stone-300">{who(revision.reviewer_id)}</span></p>
+                    )}
+                  </div>
+                  {revision.change_note && <p className="mt-0.5 text-xs text-stone-300">{revision.change_note}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="ghost" aria-expanded={isOpen} onClick={() => setOpenVersion(isOpen ? null : revision.version)}>
@@ -137,7 +139,7 @@ export default function ArticleHistory({ articleId, currentVersion, canRestore, 
           )
         })}
       </ul>
-      <Pagination page={page} total={total} size={PAGE_SIZE} onPage={setPage} />
+      <FeedMore feed={historyQ} label="Более ранние версии" />
 
       {restoring && (
         <ConfirmDialog

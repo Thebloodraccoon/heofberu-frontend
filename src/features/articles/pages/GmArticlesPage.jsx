@@ -8,10 +8,14 @@ import {
   canEditArticle,
   validateImageFile,
 } from '@/features/articles/api.js'
-import { useArticleDetail, useArticleFinder, useInvalidateArticles } from '@/features/articles/queries.js'
+import { useArticleDetail, useArticleFinder, useArticleProposals, useInvalidateArticles } from '@/features/articles/queries.js'
 import { useAuth } from '@/features/auth/useAuth.js'
 import { insertGmBlock } from '@/features/articles/insertGmBlock.js'
+import { useUserNames } from '@/features/users/queries.js'
 import ArticleHistory from '@/features/articles/components/ArticleHistory.jsx'
+import ArticleText from '@/features/articles/components/ArticleText.jsx'
+import ArticleProposals, { ProposalForm } from '@/features/articles/components/ArticleProposals.jsx'
+import UnsavedGuard from '@/features/articles/components/UnsavedGuard.jsx'
 import ArticleImages from '@/features/articles/components/ArticleImages.jsx'
 import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
 import ImagePickerModal from '@/features/articles/components/ImagePickerModal.jsx'
@@ -21,14 +25,16 @@ import TagInput from '@/features/articles/components/TagInput.jsx'
 import ParentArticlePicker from '@/features/articles/components/ParentArticlePicker.jsx'
 import SubtypeSelect from '@/features/articles/components/SubtypeSelect.jsx'
 import LoreFilters from '@/features/articles/components/LoreFilters.jsx'
+import SortControl from '@/features/articles/components/SortControl.jsx'
 import {
   Badge,
   Button,
   ConfirmDialog,
   ErrorBox,
+  FactList,
+  FactRow,
   Field,
   Input,
-  RichText,
   RichTextEditor,
   Select,
   Skeleton,
@@ -81,15 +87,23 @@ export default function GmArticlesPage() {
   const [statusFilter, setStatusFilter] = useState([])
   const [subtypeFilter, setSubtypeFilter] = useState([])
   const [page, setPage] = useState(1)
-  // Поиск (от 2 символов) идёт через /articles/search — фильтр статуса он не знает, работает без текста.
+  const [sort, setSort] = useState('newest')
+  const authorNames = useUserNames()
+  const { user: me } = useAuth()
+  const [authorFilter, setAuthorFilter] = useState('')
+  const [pendingOnly, setPendingOnly] = useState(false)
+  // Поиск (от 2 символов) идёт через /articles/search — фильтры (статус, автор, «ждут решения») работают и там.
   const listQ = useArticleFinder({
     page,
     size: PAGE_SIZE,
+    sort,
     text: applied,
     ...(statusFilter.length ? { status: statusFilter } : {}),
     ...(typeFilter.length ? { article_type: typeFilter } : {}),
     ...(subtypeFilter.length ? { subtype_id: subtypeFilter.map((s) => s.id) } : {}),
     ...(tagFilter.length ? { tag_id: tagFilter.map((t) => t.id), tag_match: tagMatch } : {}),
+    ...(authorFilter ? { author_id: authorFilter } : {}),
+    ...(pendingOnly ? { has_pending_proposals: true } : {}),
   })
 
   // Выбранная статья живёт в URL (?id=12 / ?id=new): ссылка «Редактировать» из лора
@@ -132,17 +146,20 @@ export default function GmArticlesPage() {
         {selected === null && <section className="article-library">
         <div>
           <div className="lore-search-panel">
-            <SearchToolbar query={search} onQueryChange={setSearch} onSearch={() => { setPage(1); setApplied(search.trim()) }} onFilters={() => setFiltersOpen(true)} filterCount={typeFilter.length + tagFilter.length + subtypeFilter.length + statusFilter.length} filtersOpen={filtersOpen} label="Поиск по статьям" placeholder="Поиск по статьям…" submitLabel="Найти статьи" />
-            {(typeFilter.length > 0 || tagFilter.length > 0 || subtypeFilter.length > 0 || statusFilter.length > 0) && <div className="lore-active-filters" aria-label="Активные фильтры">
+            <SearchToolbar query={search} onQueryChange={setSearch} onSearch={() => { setPage(1); setApplied(search.trim()) }} onFilters={() => setFiltersOpen(true)} filterCount={typeFilter.length + tagFilter.length + subtypeFilter.length + statusFilter.length + (authorFilter ? 1 : 0) + (pendingOnly ? 1 : 0)} filtersOpen={filtersOpen} label="Поиск по статьям" placeholder="Поиск по статьям…" submitLabel="Найти статьи"
+              extraAction={<SortControl value={sort} onChange={(value) => { setSort(value); setPage(1) }} searching={applied.length >= 2} />} />
+            {(typeFilter.length > 0 || tagFilter.length > 0 || subtypeFilter.length > 0 || statusFilter.length > 0 || authorFilter || pendingOnly) && <div className="lore-active-filters" aria-label="Активные фильтры">
+              {pendingOnly && <button type="button" className="lore-chip lore-chip--active" aria-label="Убрать фильтр Ждут решения" onClick={() => { setPendingOnly(false); setPage(1) }}><span>Ждут решения</span><LoreIcon name="close" /></button>}
+              {authorFilter && <button type="button" className="lore-chip lore-chip--active" aria-label="Убрать фильтр автора" onClick={() => { setAuthorFilter(''); setPage(1) }}><span>{String(me?.id) === authorFilter ? 'Мои статьи' : `Автор: ${authorNames.get(Number(authorFilter)) ?? `#${authorFilter}`}`}</span><LoreIcon name="close" /></button>}
               {statusFilter.map((s) => <button key={s} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать статус ${articleStatusLabels[s]}`} onClick={() => { setStatusFilter(statusFilter.filter((x) => x !== s)); setPage(1) }}><span>{articleStatusLabels[s]}</span><LoreIcon name="close" /></button>)}
               {typeFilter.map((type) => <button key={type} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать тип ${articleTypeLabels[type]}`} onClick={() => { setTypeFilter(typeFilter.filter((item) => item !== type)); setSubtypeFilter(subtypeFilter.filter((s) => s.article_type !== type)); setPage(1) }}><span>{articleTypeLabels[type]}</span><LoreIcon name="close" /></button>)}
               {subtypeFilter.map((s) => <button key={s.id} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать подтип ${s.name}`} onClick={() => { setSubtypeFilter(subtypeFilter.filter((x) => x.id !== s.id)); setPage(1) }}><span>{s.name}</span><LoreIcon name="close" /></button>)}
               {tagFilter.map((tag) => <button key={tag.id} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать тег ${tag.name}`} onClick={() => { const next = tagFilter.filter((item) => item.id !== tag.id); setTagFilter(next); if (next.length < 2) setTagMatch('any'); setPage(1) }}><span>#{tag.name}</span><LoreIcon name="close" /></button>)}
               {tagMatch === 'all' && tagFilter.length > 1 && <span className="text-xs text-stone-500">Все выбранные теги</span>}
-              <button type="button" className="lore-reset" onClick={() => { setStatusFilter([]); setTypeFilter([]); setSubtypeFilter([]); setTagFilter([]); setTagMatch('any'); setPage(1) }}>Сбросить фильтры</button>
+              <button type="button" className="lore-reset" onClick={() => { setStatusFilter([]); setTypeFilter([]); setSubtypeFilter([]); setTagFilter([]); setTagMatch('any'); setAuthorFilter(''); setPendingOnly(false); setPage(1) }}>Сбросить фильтры</button>
             </div>}
           </div>
-          {filtersOpen && <LoreFilters types={typeFilter} tags={tagFilter} match={tagMatch} subtypes={subtypeFilter} statuses={statusFilter} onClose={() => setFiltersOpen(false)} onApply={(types, tags, match, subtypes, statuses) => { setStatusFilter(statuses); setTypeFilter(types); setTagFilter(tags); setTagMatch(match); setSubtypeFilter(subtypes); setPage(1) }} />}
+          {filtersOpen && <LoreFilters types={typeFilter} tags={tagFilter} match={tagMatch} subtypes={subtypeFilter} statuses={statusFilter} gm={{ author: authorFilter, pendingOnly }} onClose={() => setFiltersOpen(false)} onApply={(types, tags, match, subtypes, statuses, gm) => { setAuthorFilter(gm.author); setPendingOnly(gm.pendingOnly); setStatusFilter(statuses); setTypeFilter(types); setTagFilter(tags); setTagMatch(match); setSubtypeFilter(subtypes); setPage(1) }} />}
           {listQ.isLoading && <Skeleton className="h-24 w-full" />}
           {listQ.error && <ErrorBox error={listQ.error} onRetry={listQ.refetch} />}
           <ul>
@@ -151,13 +168,19 @@ export default function GmArticlesPage() {
                 <button
                   type="button"
                   onClick={() => chooseArticle(a.id)}
-                  className={`lore-article-row article-library-row ${selected === a.id ? 'article-library-row--selected' : ''}`}
+                  className={`lore-article-row article-library-row ${selected === a.id ? 'article-library-row--selected' : ''} ${a.pending_proposals > 0 ? 'article-library-row--pending' : ''}`}
                 >
                   <span className="lore-article-meta">
+                    {a.pending_proposals > 0 && <Badge tone="accent">Ждёт решения{a.pending_proposals > 1 ? `: ${a.pending_proposals}` : ''}</Badge>}
                     <span className="lore-article-type">{articleTypeLabels[a.article_type] ?? a.article_type}</span>
                     <Badge tone={a.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>
                     {a.visibility === 'gm_only' && <GmOnlyBadge />}
                     {a.subtype && <span className="text-xs text-stone-500">{a.subtype.name}</span>}
+                    {a.author && (
+                      <span className="text-xs text-stone-500">
+                        автор: {String(a.author.id) === String(me?.id) ? 'вы' : a.author.username}
+                      </span>
+                    )}
                   </span>
                   <span className="lore-article-heading"><span className="article-library-title">{a.title}</span><LoreIcon name="arrow" /></span>
                   {a.excerpt && <span className="lore-article-excerpt">{a.excerpt}</span>}
@@ -279,6 +302,45 @@ function EditorSettings({ children }) {
   )
 }
 
+// author — { id, username } или null, если автора удалили.
+// Поле чужой статьи в той же раскладке, что у автора (подпись + рамка), но без «Изменить».
+function ReadOnlyField({ label, children }) {
+  return (
+    <div>
+      <span className="text-label mb-1.5 block">{label}</span>
+      <div className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm text-stone-200">
+        {children || <span className="text-stone-500">—</span>}
+      </div>
+    </div>
+  )
+}
+
+function AuthorRow({ article }) {
+  const { user } = useAuth()
+  const { author } = article
+  return <FactRow label="Автор" value={!author ? 'неизвестен' : String(author.id) === String(user?.id) ? 'вы' : author.username} />
+}
+
+function ParentTitle({ id }) {
+  const q = useArticleDetail(id)
+  return <Link to={`/gm/articles?id=${id}`} className="text-ember hover:underline">{q.data?.title ?? `#${id}`}</Link>
+}
+
+// Параметры чужой статьи для ГМ-не-автора: то же, что в панели автора, но без правки.
+function ArticleFacts({ article, values }) {
+  return (
+    <FactList>
+      <AuthorRow article={article} />
+      <FactRow label="Статус" value={articleStatusLabels[values.status] ?? values.status} />
+      <FactRow label="Тип" value={articleTypeLabels[values.article_type] ?? values.article_type} />
+      <FactRow label="Подтип" value={article.subtype?.name ?? '—'} />
+      <FactRow label="Видимость" value={articleVisibilityLabels[values.visibility] ?? values.visibility} />
+      <FactRow label="Родительская статья" value={values.parent_id ? <ParentTitle id={values.parent_id} /> : '—'} />
+      <FactRow label="Теги" value={values.tags.length ? values.tags.map((t) => t.name).join(', ') : '—'} />
+    </FactList>
+  )
+}
+
 // Поля статьи в том виде, в каком они уходят на бэк (пустое описание — null). Статус не
 // отправляется: новая статья всегда черновик, дальше — только переходы (ArticleWorkflow).
 const toBody = (f) => ({
@@ -375,6 +437,8 @@ function ArticleCreateForm({ onSaved, toasts }) {
 
   return (
     <section className="article-editor">
+      {/* creating: после «Создать» форма сама уходит на новую статью — это не потеря правки */}
+      <UnsavedGuard when={!creating && Boolean(form.title.trim() || form.excerpt.trim() || form.body_markdown.trim())} />
       <h2 className="font-display text-xl font-bold text-stone-100">Новая статья</h2>
       <div className="article-editor-layout">
       <div className="article-editor-main space-y-5">
@@ -424,6 +488,9 @@ function ArticleCreateForm({ onSaved, toasts }) {
 function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts }) {
   const { user, isFounder } = useAuth()
   const canEdit = canEditArticle(article, user, isFounder)
+  // Основатель правит любую статью напрямую, но к чужой может и предложить правку — пусть решает автор.
+  const isAuthor = article.author?.id != null && String(article.author.id) === String(user?.id)
+  const founderMayPropose = isFounder && !isAuthor
   const { statuses, run, clear } = useSaveStatus()
   const [values, setValues] = useState(() => fromArticle(article))
   // Версия содержимого, которую сейчас показывает форма: уходит в publish (проверка «основатель читал именно её»)
@@ -462,6 +529,9 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
   const [bodyEdit, setBodyEdit] = useState(false)
   const [bodyDraft, setBodyDraft] = useState('')
   const [bodySaving, setBodySaving] = useState(false)
+  const [bodyNote, setBodyNote] = useState('')
+  const [proposing, setProposing] = useState(false)
+  const pendingCount = useArticleProposals(article.id, { status: 'pending', size: 1 }).data?.total ?? 0
   const [imagePicker, setImagePicker] = useState(false)
   const editorRef = useRef(null)
   const pendingInsertRef = useRef(null)
@@ -474,9 +544,10 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
   }
 
   // PATCH только переданных полей; на экран — значения этих же полей из ответа сервера.
-  const patchFields = (patch) =>
+  // extra — то, что уходит в запрос, но не поле формы (change_note для истории).
+  const patchFields = (patch, extra) =>
     enqueue(async () => {
-      const saved = await articlesApi.update(article.id, patch)
+      const saved = await articlesApi.update(article.id, { ...patch, ...extra })
       syncVersion(saved.version)
       const fresh = fromArticle(saved)
       setValues((v) => ({ ...v, ...Object.fromEntries(Object.keys(patch).map((k) => [k, fresh[k]])) }))
@@ -538,16 +609,17 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
     )
 
   // Возврат к старой версии: сервер создаёт новую версию с тем содержимым, форма показывает его.
-  const onRestored = (saved) => {
+  const onRestored = (saved, title = 'Версия восстановлена') => {
     syncVersion(saved.version)
     setValues(fromArticle(saved))
     onSaved?.(saved)
-    toasts.push('Версия восстановлена', saved.title, 'success')
+    toasts.push(title, saved.title, 'success')
   }
 
   const startBodyEdit = () => {
     clear('body')
     setBodyDraft(values.body_markdown)
+    setBodyNote('')
     setBodyEdit(true)
   }
 
@@ -555,7 +627,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
     if (bodySaving || statuses.body?.state === 'saving') return
     setBodySaving(true)
     await run('body', async () => {
-      await patchFields({ body_markdown: bodyDraft })
+      await patchFields({ body_markdown: bodyDraft }, bodyNote.trim() ? { change_note: bodyNote.trim() } : undefined)
       setBodyEdit(false)
     })
     setBodySaving(false)
@@ -605,6 +677,19 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
     [article.images, shownBody],
   )
 
+  const proposalForm = (
+    <ProposalForm
+      articleId={article.id}
+      values={values}
+      onCancel={() => setProposing(false)}
+      onDone={() => {
+        setProposing(false)
+        setActivePanel('proposals')
+        toasts.push('Предложение отправлено', values.title, 'success')
+      }}
+    />
+  )
+
   const remove = async () => {
     setDeleting(true)
     try {
@@ -621,6 +706,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
 
   return (
     <section className="article-editor">
+      <UnsavedGuard when={bodyEdit && bodyDraft !== values.body_markdown} />
       <div className="article-editor-heading">
         <h2 className="min-w-0 font-display text-xl font-bold text-stone-100">
           {values.title}
@@ -632,30 +718,68 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       </div>
 
       {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
+      {pendingCount > 0 && activePanel !== 'proposals' && (
+        <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ember/60 bg-ember/10 px-4 py-3 text-sm text-stone-200">
+          <p>
+            <b className="text-ember">Ждут решения: {pendingCount}</b>{' '}
+            {canEdit ? '— другие ГМ предложили правки к этой статье.' : '— предложения правок ещё рассматриваются.'}
+          </p>
+          <Button size="sm" onClick={() => setActivePanel('proposals')}>{canEdit ? 'Рассмотреть' : 'Посмотреть'}</Button>
+        </div>
+      )}
       <div className="article-editor-layout">
       <div className="article-editor-main">
       <div ref={tabsRef} className="article-editor-tabs" aria-label="Разделы редактора">
-        {(canEdit
-          ? [['text', 'Текст'], ['images', 'Изображения'], ['relations', 'Связи'], ['history', 'История']]
-          : [['text', 'Текст'], ['history', 'История']]
-        ).map(([key, label]) => (
-          <button key={key} type="button" aria-pressed={activePanel === key} onClick={() => setActivePanel(key)}>{label}</button>
+        {[
+          ['text', 'Текст'],
+          ['images', 'Изображения'],
+          ['relations', 'Связи'],
+          ['proposals', pendingCount ? `Предложения (${pendingCount})` : 'Предложения'],
+          ['history', 'История'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={activePanel === key}
+            className={key === 'proposals' && pendingCount > 0 ? 'article-editor-tab--attention' : undefined}
+            onClick={() => setActivePanel(key)}
+          >
+            {label}
+          </button>
         ))}
         <span className="article-editor-tab-indicator" aria-hidden="true" />
       </div>
       {!canEdit && (
-      <div hidden={activePanel !== 'text'} className="article-editor-panel space-y-3">
-        <p className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm text-stone-300">
-          Эту статью написал другой ГМ: править её может только автор или основатель. Вы можете читать её и смотреть историю изменений.
-        </p>
-        {values.excerpt && <p className="text-stone-300">{values.excerpt}</p>}
-        <div className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
-          <RichText value={values.body_markdown} empty="Текст статьи пока не написан." />
+      <div hidden={activePanel !== 'text'} className="article-editor-panel space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm text-stone-300">
+          <p>Эту статью написал другой ГМ: напрямую её правят только автор и основатель. Вы можете предложить изменение — автор или основатель его рассмотрит.</p>
+          {!proposing && <Button size="sm" onClick={() => setProposing(true)}>Предложить изменение</Button>}
         </div>
+        {proposing ? proposalForm : (
+          <>
+            <ReadOnlyField label="Название">{values.title}</ReadOnlyField>
+            <ReadOnlyField label="Краткое описание">{values.excerpt}</ReadOnlyField>
+            <ReadOnlyField label="Текст">{values.body_markdown && <ArticleText value={values.body_markdown} />}</ReadOnlyField>
+          </>
+        )}
       </div>
       )}
-      {canEdit && (
+      {canEdit && proposing && (
+      <div hidden={activePanel !== 'text'} className="article-editor-panel space-y-3">
+        <p className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm text-stone-300">
+          Предложение правки: изменения попадут в статью, только если автор их примет.
+        </p>
+        {proposalForm}
+      </div>
+      )}
+      {canEdit && !proposing && (
       <div hidden={activePanel !== 'text'} className="article-editor-panel space-y-5">
+      {founderMayPropose && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm text-stone-300">
+          <p>Статью написал {article.author?.username ?? 'другой ГМ'}. Вы можете править её напрямую или, если не уверены, предложить правку автору.</p>
+          <Button size="sm" variant="ghost" disabled={bodyEdit} onClick={() => setProposing(true)}>Предложить автору</Button>
+        </div>
+      )}
       <TextField label="Название" value={values.title} onSave={(draft) => saveText('title', draft)} />
       <TextField label="Краткое описание" value={values.excerpt} onSave={(draft) => saveText('excerpt', draft)} />
 
@@ -685,6 +809,9 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
               placeholder="Пишите статью…"
             />
             <SecretHint />
+            <Field label="Что изменено (для истории, необязательно)" className="mt-2">
+              <Input value={bodyNote} maxLength={300} onChange={(e) => setBodyNote(e.target.value)} placeholder="Например: дописал раздел о войне" />
+            </Field>
             <div className="mt-2 flex items-center gap-2">
               <Button type="button" size="sm" onClick={saveBody} disabled={bodySaving || statuses.body?.state === 'saving'}>
                 {bodySaving || statuses.body?.state === 'saving' ? <SaveStatus compact status={{ state: 'saving' }} /> : 'Сохранить'}
@@ -696,7 +823,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
           </>
         ) : (
           <div className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
-            <RichText value={values.body_markdown} empty="Текст статьи пока не написан." />
+            <ArticleText value={values.body_markdown} />
           </div>
         )}
       </div>
@@ -711,11 +838,17 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
         usedUrls={usedUrls}
         onChanged={onImagesChanged}
         onInsert={(img) => insertImages([img.image_url])}
+        readOnly={!canEdit}
       />
 
       </div>
       <div hidden={activePanel !== 'relations'} className="article-editor-panel">
-      <ArticleRelations articleId={article.id} articleTitle={values.title} />
+      <ArticleRelations articleId={article.id} articleTitle={values.title} readOnly={!canEdit} />
+      </div>
+      <div hidden={activePanel !== 'proposals'} className="article-editor-panel">
+        {activePanel === 'proposals' && (
+          <ArticleProposals articleId={article.id} canReview={canEdit} onAccepted={(saved) => onRestored(saved, 'Предложение принято')} />
+        )}
       </div>
       <div hidden={activePanel !== 'history'} className="article-editor-panel">
         {activePanel === 'history' && (
@@ -725,6 +858,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       </div>
       {canEdit && <EditorSettings>
         <div className="space-y-5">
+          <ul><AuthorRow article={article} /></ul>
           <ArticleWorkflow status={values.status} busy={statuses.status?.state === 'saving'} onAction={transition} />
           <SaveStatus status={statuses.status} />
           <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} />
@@ -737,6 +871,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
           <p className="text-xs text-stone-500">Параметры и теги сохраняются сразу. Для текста используйте кнопку «Сохранить».</p>
         </div>
       </EditorSettings>}
+      {!canEdit && <EditorSettings><ArticleFacts article={article} values={values} /></EditorSettings>}
       </div>
 
       {imagePicker && (

@@ -108,6 +108,9 @@
 .article-editor-settings .grid { grid-template-columns: minmax(0, 1fr); }
 .article-editor-tabs { position: relative; display: flex; gap: 1rem; border-bottom: 1px solid var(--color-stone-800); margin-bottom: 1.5rem; overflow-x: auto; }
 .article-editor-tabs button { padding: 0.65rem 0; color: var(--color-stone-400); border-bottom: 2px solid transparent; white-space: nowrap; transition: color 180ms ease; }
+/* Вкладка «Предложения», когда есть ждущие решения: акцентный цвет и точка — видно с любой вкладки. */
+.article-editor-tabs button.article-editor-tab--attention { color: var(--color-ember); font-weight: 600; }
+.article-editor-tabs button.article-editor-tab--attention::after { content: ''; display: inline-block; width: 0.45rem; height: 0.45rem; margin-left: 0.35rem; border-radius: 9999px; background: var(--color-ember); vertical-align: middle; }
 .article-editor-tabs button[aria-pressed="true"], .article-editor-tabs button[aria-selected="true"] { color: var(--color-gold-light); }
 .article-editor-tab-indicator { position: absolute; bottom: 0; left: 0; width: var(--tab-width, 0px); height: 2px; background: var(--color-gold); transform: translateX(var(--tab-left, 0px)); transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), width 240ms cubic-bezier(0.22, 1, 0.36, 1); pointer-events: none; }
 .article-editor-panel:not([hidden]) { animation: article-editor-panel-enter 220ms ease-out; }
@@ -147,6 +150,7 @@
 .article-editor-heading h2 { font-size: clamp(1.75rem, 3vw, 2.5rem); line-height: 1.35; }
 .article-library-row { width: 100%; text-align: left; }
 .article-library-title { display: block; margin-bottom: 0.5rem; font: 1.3rem/1.4 var(--font-display); color: var(--color-stone-100); overflow-wrap: anywhere; }
+.article-library-row--pending { border-left-color: var(--color-ember); background: color-mix(in srgb, var(--color-ember) 6%, transparent); }
 .article-library-row--selected { border-left-color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 7%, transparent); }
 .article-editor-settings { background: color-mix(in srgb, var(--color-gold) 4%, transparent); padding: 1.25rem; }
 

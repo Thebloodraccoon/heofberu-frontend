@@ -23,6 +23,21 @@ export const articlesApi = {
       request(`/articles/${id}/revisions/${version}/diff`, { params: against ? { against } : {} }),
     restore: (id, version) => request(`/articles/${id}/revisions/${version}/restore`, { method: 'POST' }),
   },
+  // Предложения правок: ГМ-не-автор предлагает новое содержимое, автор или основатель принимает
+  // (становится новой версией) или отклоняет. Принять нельзя, если статью правили после base_version (409).
+  proposals: {
+    list: (id, params) => request(`/articles/${id}/proposals`, { params }),
+    get: (id, pid) => request(`/articles/${id}/proposals/${pid}`),
+    create: (id, body) => request(`/articles/${id}/proposals`, { method: 'POST', body }),
+    diff: (id, pid) => request(`/articles/${id}/proposals/${pid}/diff`),
+    // action: accept (params { rebase: true } — сначала слить устаревшее с текущей версией) |
+    // reject (body { reason }) | withdraw (только тот, кто предложил) | rebase (перенести на текущую версию).
+    // Конфликт слияния — 409 с error.details { conflicts, body_conflicts, merged_body }.
+    review: (id, pid, action, body, params) =>
+      request(`/articles/${id}/proposals/${pid}/${action}`, { method: 'POST', body, ...(params ? { params } : {}) }),
+    // Полная замена содержимого ждущего предложения (только тот, кто предложил); base_version — текущая версия статьи.
+    replace: (id, pid, body) => request(`/articles/${id}/proposals/${pid}`, { method: 'PUT', body }),
+  },
   setTags: (id, tagIds) => request(`/articles/${id}/tags`, { method: 'PUT', body: { tag_ids: tagIds } }),
   relations: {
     list: (id, { auth = true } = {}) => request(`/articles/${id}/relations`, { auth }),
@@ -47,6 +62,8 @@ export const articlesApi = {
 export const subtypesApi = {
   list: (articleType) => request('/articles/subtypes', { params: articleType ? { article_type: articleType } : {} }),
   create: (articleType, name) => request('/articles/subtypes', { method: 'POST', body: { article_type: articleType, name } }),
+  rename: (id, name) => request(`/articles/subtypes/${id}`, { method: 'PATCH', body: { name } }),
+  remove: (id) => request(`/articles/subtypes/${id}`, { method: 'DELETE' }),
 }
 
 export const tagsApi = {
@@ -81,7 +98,7 @@ export const legacyArticleId = (param) => {
 
 // Править статью может её автор или основатель; чужую ГМ только читает (и смотрит историю).
 export const canEditArticle = (article, user, isFounder) =>
-  !!isFounder || (article?.author_id != null && user?.id != null && String(article.author_id) === String(user.id))
+  !!isFounder || (article?.author?.id != null && user?.id != null && String(article.author.id) === String(user.id))
 
 // Игрок видит только опубликованные публичные статьи; краткие карточки не содержат этих полей.
 export const isPublicArticle = (a) => a?.status === 'published' && a?.visibility === 'public'

@@ -23,8 +23,9 @@ const gmLinks = [
   { to: '/gm/articles', label: 'Редактор статей и тегов' },
   { to: '/gm/editor', label: 'Редактор справочников' },
   { to: '/gm/characters', label: 'Персонажи игроков' },
-  { to: '/users', label: 'Пользователи' },
 ]
+
+const founderLinks = [{ to: '/users', label: 'Админ-панель' }]
 
 function Crest({ size = 'size-9' }) {
   return <img src="/logo.svg" alt="Heofberu" className={`${size} h-auto object-contain`} draggable="false" />
@@ -59,7 +60,7 @@ function SectionTitle({ children }) {
 }
 
 function SidebarContent({ onClick }) {
-  const { authenticated, isGM } = useAuth()
+  const { authenticated, isGM, isFounder } = useAuth()
   return (
     <nav className="flex flex-col gap-0.5">
       <SidebarLink to="/" end label="Главная" onClick={onClick} />
@@ -82,6 +83,13 @@ function SidebarContent({ onClick }) {
         <>
           <SectionTitle>ГМ</SectionTitle>
           {gmLinks.map((link) => <SidebarLink key={link.to} {...link} onClick={onClick} />)}
+        </>
+      )}
+
+      {authenticated && isFounder && (
+        <>
+          <SectionTitle>Админ</SectionTitle>
+          {founderLinks.map((link) => <SidebarLink key={link.to} {...link} onClick={onClick} />)}
         </>
       )}
     </nav>
@@ -170,7 +178,7 @@ function DesktopNavItem({ label, to, children }) {
 }
 
 function DesktopNav() {
-  const { authenticated, isGM } = useAuth()
+  const { authenticated, isGM, isFounder } = useAuth()
 
   const groups = [
     { label: 'Главная', to: '/' },
@@ -179,6 +187,7 @@ function DesktopNav() {
     { label: 'Справочники', children: catalogLinks },
     authenticated && { label: 'Личное', children: personalLinks },
     authenticated && isGM && { label: 'Для ГМ', children: gmLinks },
+    authenticated && isFounder && { label: 'Админ', children: founderLinks },
   ].filter(Boolean)
 
   return (

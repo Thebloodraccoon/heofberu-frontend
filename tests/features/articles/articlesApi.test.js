@@ -59,11 +59,14 @@ describe('articlesApi', () => {
 
 describe('canEditArticle', () => {
   it('allows the author and the founder, nobody else', () => {
-    expect(canEditArticle({ author_id: 5 }, { id: 5 }, false)).toBe(true)
-    expect(canEditArticle({ author_id: 5 }, { id: '5' }, false)).toBe(true)
-    expect(canEditArticle({ author_id: 5 }, { id: 6 }, false)).toBe(false)
-    expect(canEditArticle({ author_id: 5 }, { id: 6 }, true)).toBe(true)
-    expect(canEditArticle({ author_id: null }, { id: 6 }, false)).toBe(false)
-    expect(canEditArticle({ author_id: 5 }, null, false)).toBe(false)
+    const by5 = { author: { id: 5, username: 'Астра' } }
+    expect(canEditArticle(by5, { id: 5 }, false)).toBe(true)
+    expect(canEditArticle(by5, { id: '5' }, false)).toBe(true)
+    expect(canEditArticle(by5, { id: 6 }, false)).toBe(false)
+    expect(canEditArticle(by5, { id: 6 }, true)).toBe(true)
+    // удалённый автор — author: null, править может только основатель
+    expect(canEditArticle({ author: null }, { id: 6 }, false)).toBe(false)
+    expect(canEditArticle({ author: null }, { id: 6 }, true)).toBe(true)
+    expect(canEditArticle(by5, null, false)).toBe(false)
   })
 })

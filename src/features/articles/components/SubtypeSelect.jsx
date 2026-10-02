@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useArticleSubtypes, useCreateSubtype } from '@/features/articles/queries.js'
-import { Button, ErrorBox, Input, Skeleton } from '@/components/ui'
+import { useArticleSubtypes, useCreateSubtype, useDeleteSubtype, useRenameSubtype } from '@/features/articles/queries.js'
+import { useAuth } from '@/features/auth/useAuth.js'
+import { Button, ConfirmDialog, ErrorBox, Input, Skeleton } from '@/components/ui'
 import Drawer from '@/components/ui/Drawer.jsx'
 import { articleTypeLabels } from '@/lib/i18n'
 import LoreIcon from './LoreIcon.jsx'
@@ -12,16 +13,18 @@ export default function SubtypeSelect({ articleType, value, onChange, disabled =
   const subtypesQ = useArticleSubtypes(articleType)
   const [open, setOpen] = useState(false)
   const current = (subtypesQ.data ?? []).find((s) => s.id === value)
+  // Удалённый подтип бэк сам снимает со статей — показываем «без подтипа», не отправляя PATCH.
+  const gone = value != null && subtypesQ.data && !current
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="heading-sub">Подтип</h3>
         <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setOpen(true)}>
-          {value ? 'Изменить подтип' : 'Выбрать подтип'}
+          {value && !gone ? 'Изменить подтип' : 'Выбрать подтип'}
         </Button>
       </div>
-      {value == null ? (
+      {value == null || gone ? (
         <p className="text-sm text-stone-500">Без подтипа.</p>
       ) : (
         <span className="inline-flex items-center gap-1 rounded-full border border-stone-600 bg-stone-800/60 py-1 pl-3 pr-1 text-sm text-stone-100">
@@ -54,7 +57,46 @@ export default function SubtypeSelect({ articleType, value, onChange, disabled =
   )
 }
 
+// Правка словаря: переименовать может любой ГМ, удалить — только основатель
+// (статьи с удалённым подтипом остаются без подтипа).
+function SubtypeRow({ subtype, canDelete }) {
+  const rename = useRenameSubtype()
+  const remove = useDeleteSubtype()
+  const [name, setName] = useState(subtype.name)
+  const [confirm, setConfirm] = useState(false)
+  const next = name.trim()
+  const changed = next && next !== subtype.name
+
+  const save = (e) => {
+    e.preventDefault()
+    if (changed) rename.mutate({ id: subtype.id, name: next })
+  }
+
+  return (
+    <li>
+      <form onSubmit={save} className="flex items-center gap-2">
+        <Input value={name} maxLength={50} onChange={(e) => { rename.reset(); setName(e.target.value) }} aria-label={`Название подтипа ${subtype.name}`} className="flex-1" />
+        {changed && <Button type="submit" size="sm" disabled={rename.isPending}>{rename.isPending ? '...' : 'Сохранить'}</Button>}
+        {canDelete && <Button type="button" size="sm" variant="danger" onClick={() => setConfirm(true)}>Удалить</Button>}
+      </form>
+      {rename.error && <ErrorBox className="mt-1" error={rename.error} />}
+      {confirm && (
+        <ConfirmDialog
+          title={`Удалить подтип «${subtype.name}»?`}
+          message="Статьи с этим подтипом останутся без подтипа."
+          busy={remove.isPending}
+          error={remove.error}
+          onCancel={() => { remove.reset(); setConfirm(false) }}
+          onConfirm={() => remove.mutate(subtype.id, { onSuccess: () => setConfirm(false) })}
+        />
+      )}
+    </li>
+  )
+}
+
 function SubtypePicker({ articleType, subtypesQ, value, onPick, onClose }) {
+  const { isFounder } = useAuth()
+  const [manage, setManage] = useState(false)
   const [search, setSearch] = useState('')
   const createSubtype = useCreateSubtype()
   const term = search.trim()
@@ -104,6 +146,16 @@ function SubtypePicker({ articleType, subtypesQ, value, onPick, onClose }) {
         {createSubtype.error && <ErrorBox error={createSubtype.error} onRetry={() => createSubtype.reset()} />}
         {subtypesQ.isLoading && <Skeleton className="h-24 w-full" />}
         {subtypesQ.error && <ErrorBox error={subtypesQ.error} onRetry={subtypesQ.refetch} />}
+        {subtypesQ.data?.length > 0 && (
+          <Button size="sm" variant="ghost" aria-pressed={manage} onClick={() => setManage((v) => !v)}>
+            {manage ? 'Готово' : 'Править словарь'}
+          </Button>
+        )}
+        {manage ? (
+          <ul className="space-y-2">
+            {items.map((s) => <SubtypeRow key={s.id} subtype={s} canDelete={isFounder} />)}
+          </ul>
+        ) : (
         <div className="flex flex-wrap gap-1.5">
           {items.map((s) => (
             <button
@@ -117,6 +169,7 @@ function SubtypePicker({ articleType, subtypesQ, value, onPick, onClose }) {
             </button>
           ))}
         </div>
+        )}
         {subtypesQ.data && items.length === 0 && (
           <p className="text-sm text-stone-500">{term ? 'Таких подтипов нет.' : 'Подтипов пока нет.'}</p>
         )}

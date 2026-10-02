@@ -4,6 +4,7 @@ import LoreFilters from '@/features/articles/components/LoreFilters.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { parseSubtypeIds, parseTagIds, parseTypes } from '@/features/articles/filters.js'
 import { ARTICLE_SORTS } from '@/features/articles/sorts.js'
+import SortControl from '@/features/articles/components/SortControl.jsx'
 import { useArticleBySlug, useArticleSubtypes, useRememberTags, useTagsByIds } from '@/features/articles/queries.js'
 import { useAuth } from '@/features/auth/useAuth.js'
 import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
@@ -95,7 +96,6 @@ export default function LoreLayout() {
 
   const filterCount = types.length + tagIds.length + subtypeIds.length
   const sort = ARTICLE_SORTS.some(([key]) => key === params.get('sort')) ? params.get('sort') : 'newest'
-  const sortLabel = ARTICLE_SORTS.find(([key]) => key === sort)[1]
   const setSort = (value) => updateParams({ sort: value === 'newest' ? '' : value })
   const playerToggle = isGM && <button type="button" className="lore-player-switch" role="switch" aria-checked={playerView} onClick={togglePlayerView}>
     <LoreIcon name="eye" /> Глазами игрока <span className="lore-switch-track" aria-hidden="true" />
@@ -132,14 +132,7 @@ export default function LoreLayout() {
           query={input} onQueryChange={setInput} onSearch={submit}
           onFilters={() => setShowFilters(true)} filterCount={filterCount} filtersOpen={showFilters}
           label="Поиск по статьям" placeholder="Поиск по статьям…" submitLabel="Найти статьи"
-          extraAction={q.trim().length < 2 ? (
-            <label className="lore-sort-control" title={`Сортировка: ${sortLabel}`}>
-              <LoreIcon name="sort" /><span aria-hidden="true">{sortLabel}</span>
-              <select aria-label="Сортировка" value={sort} onChange={(event) => setSort(event.target.value)}>
-                {ARTICLE_SORTS.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
-              </select>
-            </label>
-          ) : <span className="lore-sort-relevance"><LoreIcon name="sort" />По релевантности</span>}
+          extraAction={<SortControl value={sort} onChange={setSort} searching={q.trim().length >= 2} />}
         />
         {hasFilters && <div className="lore-active-filters" aria-label="Активные фильтры">
           {types.map((type) => <button key={type} type="button" className={activeChip} aria-label={`Убрать тип ${articleTypeLabels[type]}`} onClick={() => setTypes(types.filter((t) => t !== type))}><span>{articleTypeLabels[type]}</span><LoreIcon name="close" /></button>)}

@@ -253,6 +253,7 @@ export default function ArticleDetailPage() {
           {gmView && article.status !== 'published' && (
             <Badge>{articleStatusLabels[article.status] ?? article.status}</Badge>
           )}
+          {article.author && <span className="text-sm text-stone-400">Автор: <span className="text-stone-200">{article.author.username}</span></span>}
         </div>
 
         {(article.tags ?? []).length > 0 && (

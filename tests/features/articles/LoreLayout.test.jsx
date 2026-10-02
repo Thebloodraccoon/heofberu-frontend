@@ -13,6 +13,7 @@ const articleStatus = vi.hoisted(() => ({ current: 'published' }))
 const articleItems = vi.hoisted(() => ({ current: [] }))
 
 vi.mock('@/features/auth/useAuth.js', () => ({ useAuth: () => ({ isGM: true }) }))
+vi.mock('@/features/users/queries.js', () => ({ useUsers: () => ({ data: undefined }) }))
 vi.mock('@/features/articles/queries.js', () => ({
   useTagsByIds: (ids) => ids.map((id) => ({ id, name: `Тег ${id}` })),
   useRememberTags: () => vi.fn(),
@@ -20,7 +21,7 @@ vi.mock('@/features/articles/queries.js', () => ({
   useTagSearch: () => ({ data: { items: [{ id: 1, name: 'История', usage_count: 4 }, { id: 2, name: 'Магия', usage_count: 3 }], total: 2 } }),
   useArticlesPage: (_params, { publicView } = {}) => ({ data: { items: publicView ? articleItems.current.filter((a) => a.status === 'published' && a.visibility === 'public') : articleItems.current, total: publicView ? articleItems.current.filter((a) => a.status === 'published' && a.visibility === 'public').length : 36 } }),
   useArticlesSearch: (_params, { publicView } = {}) => ({ data: { items: publicView ? articleItems.current.filter((a) => a.status === 'published' && a.visibility === 'public') : articleItems.current, total: publicView ? articleItems.current.filter((a) => a.status === 'published' && a.visibility === 'public').length : 36 } }),
-  useArticleBySlug: (slug) => ({ data: slug ? { id: 1, slug: slug.replace(/^\d+-/, ''), title: 'Летопись', article_type: 'lore', subtype: { id: 7, name: 'Хроника' }, tags: [{ id: 2, name: 'Магия' }], status: articleStatus.current, visibility: articleVisibility.current, body_markdown: '## История\nТекст\n\n## География\nТекст\n\n:::gm\n## Тайна\nСекрет\n:::' } : undefined }),
+  useArticleBySlug: (slug) => ({ data: slug ? { id: 1, slug: slug.replace(/^\d+-/, ''), title: 'Летопись', article_type: 'lore', author: { id: 4, username: 'Элронд' }, subtype: { id: 7, name: 'Хроника' }, tags: [{ id: 2, name: 'Магия' }], status: articleStatus.current, visibility: articleVisibility.current, body_markdown: '## История\nТекст\n\n## География\nТекст\n\n:::gm\n## Тайна\nСекрет\n:::' } : undefined }),
   useArticleRelations: (_id, publicView) => ({ data: publicView ? [
     { id: 3, direction: 'outgoing', relation_type: 'SEE_ALSO', visibility: 'public', article: { id: 3, slug: 'public', title: 'Открытая статья', article_type: 'lore' } },
   ] : [
@@ -234,6 +235,7 @@ describe('Lore navigation and filters', () => {
 
   it('links the type, subtype and tags of an article to the filtered lore', async () => {
     const user = setup('/lore/letopis')
+    expect(screen.getByText('Элронд')).toBeVisible()
     await user.click(screen.getByRole('link', { name: 'Хроника' }))
     expect(screen.getByTestId('location').textContent).toBe('/lore?type=lore&subtype=7')
     await user.click(screen.getByRole('button', { name: /Фильтры/ }))

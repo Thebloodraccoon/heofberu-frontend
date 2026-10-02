@@ -148,8 +148,13 @@ h4 {
 /* Каждая тема переопределяет палитру Tailwind (stone/ember/gold) на <html data-theme="...">,
    поэтому все существующие утилиты text-stone-*, bg-stone-*, border-ember и т.д. перекрашиваются автоматически. */
 
+/* Нативные контролы (выпадающие списки <select>, скроллбары, поле поиска) берут цвета из color-scheme:
+   без него в тёмной теме они оставались светлыми. */
+:root { color-scheme: dark; }
+
 /* Светлая тема: светлая бумага, тёмные чернила и тёплые акценты. */
 [data-theme="light"] {
+  color-scheme: light;
   --color-stone-50: #191c1e;
   --color-stone-100: #252a2c;
   --color-stone-200: #343b3d;

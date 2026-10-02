@@ -49,6 +49,9 @@ export const queryKeys = {
     ancestors: (id) => ['articles', id, 'ancestors'],
     revisions: (id, params) => ['articles', id, 'revisions', params ?? {}],
     revisionDiff: (id, version, against) => ['articles', id, 'revisions', 'diff', version, against ?? null],
+    proposals: (id, params) => ['articles', id, 'proposals', params ?? {}],
+    proposalDiff: (id, pid) => ['articles', id, 'proposals', 'diff', pid],
+    proposal: (id, pid) => ['articles', id, 'proposals', 'detail', pid],
     subtypes: (articleType) => ['articles', 'subtypes', articleType ?? 'all'],
   },
   tags: {

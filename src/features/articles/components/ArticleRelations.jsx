@@ -10,8 +10,8 @@ import { articleTypeLabels } from '@/lib/i18n'
 import LoreIcon from './LoreIcon.jsx'
 
 // Граф связей статьи (всё, что не укладывается в дерево parent_id): входящие и исходящие.
-// Добавление и правка — в модалке RelationModal, удаление — с подтверждением.
-export default function ArticleRelations({ articleId, articleTitle }) {
+// Добавление и правка — в модалке RelationModal, удаление — с подтверждением. readOnly — только список.
+export default function ArticleRelations({ articleId, articleTitle, readOnly = false }) {
   const qc = useQueryClient()
   const relQ = useArticleRelations(articleId)
   const [modal, setModal] = useState(null) // null | 'new' | relation
@@ -40,9 +40,11 @@ export default function ArticleRelations({ articleId, articleTitle }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="heading-sub">Связи</h3>
-        <Button size="sm" variant="ghost" onClick={() => setModal('new')}>
-          Добавить связь
-        </Button>
+        {!readOnly && (
+          <Button size="sm" variant="ghost" onClick={() => setModal('new')}>
+            Добавить связь
+          </Button>
+        )}
       </div>
       {relQ.error && <ErrorBox error={relQ.error} onRetry={relQ.refetch} />}
 
@@ -72,14 +74,16 @@ export default function ArticleRelations({ articleId, articleTitle }) {
                 </span>
                 {r.note && <p className="mt-0.5 text-xs text-stone-400">{r.note}</p>}
               </div>
-              <div className="flex shrink-0 gap-1.5">
-                <Button size="xs" variant="ghost" onClick={() => setModal(r)}>
-                  Изменить
-                </Button>
-                <Button size="xs" variant="danger" onClick={() => setToDelete(r)}>
-                  Удалить
-                </Button>
-              </div>
+              {!readOnly && (
+                <div className="flex shrink-0 gap-1.5">
+                  <Button size="xs" variant="ghost" onClick={() => setModal(r)}>
+                    Изменить
+                  </Button>
+                  <Button size="xs" variant="danger" onClick={() => setToDelete(r)}>
+                    Удалить
+                  </Button>
+                </div>
+              )}
             </li>
           )
         })}
