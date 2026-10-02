@@ -152,5 +152,21 @@ export const useArticleAncestors = (id, publicView = false) =>
     enabled: !!id,
   })
 
+// История версий для ГМ. Лежит под ключом статьи, поэтому её сбрасывает и общая инвалидация detail(id).
+export const useArticleRevisions = (id, params, { enabled = true } = {}) =>
+  useQuery({
+    queryKey: queryKeys.articles.revisions(id, params),
+    queryFn: () => articlesApi.revisions.list(Number(id), params),
+    enabled: !!id && enabled,
+    placeholderData: keepPreviousData,
+  })
+
+export const useRevisionDiff = (id, version, against, { enabled = true } = {}) =>
+  useQuery({
+    queryKey: queryKeys.articles.revisionDiff(id, version, against),
+    queryFn: () => articlesApi.revisions.diff(Number(id), version, against),
+    enabled: !!id && !!version && enabled,
+  })
+
 export const useTagsPage = (params) =>
   useQuery({ queryKey: queryKeys.tags.page(params), queryFn: () => tagsApi.list(params) })

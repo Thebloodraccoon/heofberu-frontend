@@ -5,11 +5,13 @@ import {
   articlesApi,
   ARTICLE_TYPES,
   ARTICLE_VISIBILITY,
+  canEditArticle,
   validateImageFile,
 } from '@/features/articles/api.js'
 import { useArticleDetail, useArticleFinder, useInvalidateArticles } from '@/features/articles/queries.js'
 import { useAuth } from '@/features/auth/useAuth.js'
 import { insertGmBlock } from '@/features/articles/insertGmBlock.js'
+import ArticleHistory from '@/features/articles/components/ArticleHistory.jsx'
 import ArticleImages from '@/features/articles/components/ArticleImages.jsx'
 import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
 import ImagePickerModal from '@/features/articles/components/ImagePickerModal.jsx'
@@ -200,7 +202,7 @@ export default function GmArticlesPage() {
   )
 }
 
-function ArticleActions({ article, onDelete }) {
+function ArticleActions({ article, canDelete, onDelete }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const buttonRef = useRef(null)
@@ -219,12 +221,12 @@ function ArticleActions({ article, onDelete }) {
     <button ref={buttonRef} type="button" aria-label="Действия со статьёй" aria-expanded={open} onClick={() => setOpen(!open)}>⋯</button>
     {open && <div className="lore-tools-content article-actions-dropdown">
       <Link to={articlePath(article)}><LoreIcon name="arrow" />Открыть в лоре</Link>
-      <button type="button" onClick={() => { setOpen(false); onDelete() }}>Удалить статью</button>
+      {canDelete && <button type="button" onClick={() => { setOpen(false); onDelete() }}>Удалить статью</button>}
     </div>}
   </div>
 }
 
-// Какие переходы доступны из статуса: отправить на проверку может любой ГМ,
+// Какие переходы доступны из статуса: отправить на проверку может автор статьи (чужие ГМ не правят),
 // опубликовать/вернуть/архивировать/восстановить — только основатель.
 const WORKFLOW = {
   draft: { gm: ['submit'], founder: ['submit', 'archive'] },
@@ -247,6 +249,9 @@ function ArticleWorkflow({ status, busy, onAction }) {
       ))}
       </div>
       {!isFounder && status === 'in_review' && <p className="text-xs text-stone-500">Ждёт проверки основателем.</p>}
+      {isFounder && status === 'in_review' && (
+        <p className="text-xs text-stone-500">Перед публикацией проверьте изменения во вкладке «История»: публикуется именно та версия, которую вы открыли.</p>
+      )}
     </div>
   )
 }
@@ -417,8 +422,19 @@ function ArticleCreateForm({ onSaved, toasts }) {
 // сохраняются сразу при изменении. Все запросы идут по очереди (queueRef), чтобы
 // ответы не приходили вперемешку, а на экране — последнее выбранное значение.
 function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts }) {
+  const { user, isFounder } = useAuth()
+  const canEdit = canEditArticle(article, user, isFounder)
   const { statuses, run, clear } = useSaveStatus()
   const [values, setValues] = useState(() => fromArticle(article))
+  // Версия содержимого, которую сейчас показывает форма: уходит в publish (проверка «основатель читал именно её»)
+  // и обновляется из каждого ответа сервера. Читателям версия не отдаётся — только ГМ.
+  const [version, setVersion] = useState(article.version)
+  const versionRef = useRef(article.version)
+  const syncVersion = (next) => {
+    if (next == null) return
+    versionRef.current = next
+    setVersion(next)
+  }
   const [error, setError] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -461,6 +477,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
   const patchFields = (patch) =>
     enqueue(async () => {
       const saved = await articlesApi.update(article.id, patch)
+      syncVersion(saved.version)
       const fresh = fromArticle(saved)
       setValues((v) => ({ ...v, ...Object.fromEntries(Object.keys(patch).map((k) => [k, fresh[k]])) }))
       onSaved?.(saved)
@@ -496,12 +513,37 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
   const transition = (action) =>
     run('status', () =>
       enqueue(async () => {
-        const saved = await articlesApi.transition(article.id, action)
+        const sent = versionRef.current
+        let saved
+        try {
+          saved = await (action === 'publish'
+            ? articlesApi.transition(article.id, action, { version: sent })
+            : articlesApi.transition(article.id, action))
+        } catch (e) {
+          if (action !== 'publish' || e?.status !== 409) throw e
+          // 409 бывает и из-за статуса; если версия на сервере другая — статью правили после вашего просмотра:
+          // показываем свежий текст, чтобы публиковалось только прочитанное.
+          const fresh = await articlesApi.get(article.id)
+          if (fresh.version === sent) throw e
+          setValues(fromArticle(fresh))
+          syncVersion(fresh.version)
+          onSaved?.(fresh)
+          throw new Error('Статью изменили после вашего просмотра. Текст обновлён: проверьте изменения во вкладке «История» и опубликуйте снова.', { cause: e })
+        }
+        syncVersion(saved.version)
         setValues((v) => ({ ...v, status: saved.status }))
         onSaved?.(saved)
         toasts.push(articleStatusLabels[saved.status], saved.title, 'success')
       }),
     )
+
+  // Возврат к старой версии: сервер создаёт новую версию с тем содержимым, форма показывает его.
+  const onRestored = (saved) => {
+    syncVersion(saved.version)
+    setValues(fromArticle(saved))
+    onSaved?.(saved)
+    toasts.push('Версия восстановлена', saved.title, 'success')
+  }
 
   const startBodyEdit = () => {
     clear('body')
@@ -585,7 +627,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
         </h2>
         <div className="flex items-center gap-3">
           <Badge tone={values.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[values.status]}</Badge>
-          <ArticleActions article={article} onDelete={() => setConfirmDelete(true)} />
+          <ArticleActions article={article} canDelete={isFounder} onDelete={() => setConfirmDelete(true)} />
         </div>
       </div>
 
@@ -593,11 +635,26 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       <div className="article-editor-layout">
       <div className="article-editor-main">
       <div ref={tabsRef} className="article-editor-tabs" aria-label="Разделы редактора">
-        {[['text', 'Текст'], ['images', 'Изображения'], ['relations', 'Связи']].map(([key, label]) => (
+        {(canEdit
+          ? [['text', 'Текст'], ['images', 'Изображения'], ['relations', 'Связи'], ['history', 'История']]
+          : [['text', 'Текст'], ['history', 'История']]
+        ).map(([key, label]) => (
           <button key={key} type="button" aria-pressed={activePanel === key} onClick={() => setActivePanel(key)}>{label}</button>
         ))}
         <span className="article-editor-tab-indicator" aria-hidden="true" />
       </div>
+      {!canEdit && (
+      <div hidden={activePanel !== 'text'} className="article-editor-panel space-y-3">
+        <p className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm text-stone-300">
+          Эту статью написал другой ГМ: править её может только автор или основатель. Вы можете читать её и смотреть историю изменений.
+        </p>
+        {values.excerpt && <p className="text-stone-300">{values.excerpt}</p>}
+        <div className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2">
+          <RichText value={values.body_markdown} empty="Текст статьи пока не написан." />
+        </div>
+      </div>
+      )}
+      {canEdit && (
       <div hidden={activePanel !== 'text'} className="article-editor-panel space-y-5">
       <TextField label="Название" value={values.title} onSave={(draft) => saveText('title', draft)} />
       <TextField label="Краткое описание" value={values.excerpt} onSave={(draft) => saveText('excerpt', draft)} />
@@ -646,6 +703,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
 
       <SaveStatus status={statuses.body} />
       </div>
+      )}
       <div hidden={activePanel !== 'images'} className="article-editor-panel">
       <ArticleImages
         articleId={article.id}
@@ -659,8 +717,13 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       <div hidden={activePanel !== 'relations'} className="article-editor-panel">
       <ArticleRelations articleId={article.id} articleTitle={values.title} />
       </div>
+      <div hidden={activePanel !== 'history'} className="article-editor-panel">
+        {activePanel === 'history' && (
+          <ArticleHistory articleId={article.id} currentVersion={version} canRestore={canEdit} onRestored={onRestored} />
+        )}
       </div>
-      <EditorSettings>
+      </div>
+      {canEdit && <EditorSettings>
         <div className="space-y-5">
           <ArticleWorkflow status={values.status} busy={statuses.status?.state === 'saving'} onAction={transition} />
           <SaveStatus status={statuses.status} />
@@ -673,7 +736,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
           <SaveStatus status={statuses.tags} />
           <p className="text-xs text-stone-500">Параметры и теги сохраняются сразу. Для текста используйте кнопку «Сохранить».</p>
         </div>
-      </EditorSettings>
+      </EditorSettings>}
       </div>
 
       {imagePicker && (

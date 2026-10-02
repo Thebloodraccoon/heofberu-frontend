@@ -9,9 +9,20 @@ export const articlesApi = {
   ancestors: (id, { auth = true } = {}) => request(`/articles/${id}/ancestors`, { auth }),
   create: (body) => request('/articles', { method: 'POST', body }),
   update: (id, body) => request(`/articles/${id}`, { method: 'PATCH', body }),
-  // Статус меняется только переходами: submit (ГМ), publish/reject/archive/restore (основатель).
-  transition: (id, action) => request(`/articles/${id}/${action}`, { method: 'POST' }),
+  // Статус меняется только переходами: submit (автор или основатель), publish/reject/archive/restore (основатель).
+  // publish требует version — ту версию статьи, которую основатель проверил: если после неё статью
+  // правили, бэк отвечает 409 и ничего не публикует.
+  transition: (id, action, { version } = {}) =>
+    request(`/articles/${id}/${action}`, { method: 'POST', ...(version != null ? { params: { version } } : {}) }),
   remove: (id) => request(`/articles/${id}`, { method: 'DELETE' }),
+  // История версий (только ГМ). Читатели всегда получают последнюю версию и номера версии не видят.
+  revisions: {
+    list: (id, params) => request(`/articles/${id}/revisions`, { params }),
+    get: (id, version) => request(`/articles/${id}/revisions/${version}`),
+    diff: (id, version, against) =>
+      request(`/articles/${id}/revisions/${version}/diff`, { params: against ? { against } : {} }),
+    restore: (id, version) => request(`/articles/${id}/revisions/${version}/restore`, { method: 'POST' }),
+  },
   setTags: (id, tagIds) => request(`/articles/${id}/tags`, { method: 'PUT', body: { tag_ids: tagIds } }),
   relations: {
     list: (id, { auth = true } = {}) => request(`/articles/${id}/relations`, { auth }),
@@ -67,6 +78,10 @@ export const legacyArticleId = (param) => {
   const match = /^(\d+)-/.exec(param ?? '')
   return match ? Number(match[1]) : null
 }
+
+// Править статью может её автор или основатель; чужую ГМ только читает (и смотрит историю).
+export const canEditArticle = (article, user, isFounder) =>
+  !!isFounder || (article?.author_id != null && user?.id != null && String(article.author_id) === String(user.id))
 
 // Игрок видит только опубликованные публичные статьи; краткие карточки не содержат этих полей.
 export const isPublicArticle = (a) => a?.status === 'published' && a?.visibility === 'public'

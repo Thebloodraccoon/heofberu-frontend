@@ -4,21 +4,26 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import GmArticlesPage from '@/features/articles/pages/GmArticlesPage.jsx'
 
-const auth = vi.hoisted(() => ({ isFounder: false }))
-const article = vi.hoisted(() => ({ status: 'draft' }))
+const auth = vi.hoisted(() => ({ isFounder: false, userId: 5 }))
+const article = vi.hoisted(() => ({ status: 'draft', authorId: 5, version: 3 }))
 const transition = vi.hoisted(() => vi.fn())
+const getArticle = vi.hoisted(() => vi.fn())
 
 vi.mock('@/components/ToastProvider.jsx', () => ({ useToasts: () => ({ push: vi.fn() }) }))
-vi.mock('@/features/auth/useAuth.js', () => ({ useAuth: () => ({ isGM: true, isFounder: auth.isFounder }) }))
+vi.mock('@/features/auth/useAuth.js', () => ({
+  useAuth: () => ({ isGM: true, isFounder: auth.isFounder, user: { id: auth.userId } }),
+}))
 vi.mock('@/features/articles/api.js', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, articlesApi: { ...actual.articlesApi, transition } }
+  return { ...actual, articlesApi: { ...actual.articlesApi, transition, get: getArticle } }
 })
 vi.mock('@/features/articles/queries.js', () => ({
   useTagSearch: () => ({ data: { items: [{ id: 1, name: 'История' }], total: 1 } }),
   useInvalidateArticles: () => vi.fn(),
   useArticleFinder: () => ({ data: { items: [{ id: 1, title: 'Летопись', article_type: 'lore', status: 'draft', subtype: { id: 7, name: 'Хроника' } }], total: 1 } }),
-  useArticleDetail: () => ({ data: { id: 1, title: 'Летопись', article_type: 'lore', status: article.status, visibility: 'public', body_markdown: 'Исходный текст', subtype: { id: 7, name: 'Хроника' } } }),
+  useArticleDetail: () => ({ data: { id: 1, title: 'Летопись', article_type: 'lore', status: article.status, visibility: 'public', body_markdown: 'Исходный текст', subtype: { id: 7, name: 'Хроника' }, author_id: article.authorId, version: article.version } }),
+  useArticleRevisions: () => ({ data: { items: [], total: 0 } }),
+  useRevisionDiff: () => ({ data: undefined }),
   useArticleSubtypes: () => ({ data: [{ id: 7, article_type: 'lore', name: 'Хроника' }] }),
   useCreateSubtype: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false, error: null }),
 }))
@@ -35,8 +40,11 @@ function setup(url = '/gm/articles?id=1') {
 afterEach(() => {
   vi.unstubAllGlobals()
   auth.isFounder = false
+  auth.userId = 5
   article.status = 'draft'
+  article.authorId = 5
   transition.mockReset()
+  getArticle.mockReset()
 })
 
 describe('Article editor workspace', () => {
@@ -89,9 +97,16 @@ describe('Article editor workspace', () => {
     expect(screen.queryByRole('link', { name: 'Открыть в лоре' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Действия со статьёй' }))
     expect(screen.getByRole('link', { name: 'Открыть в лоре' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Удалить статью' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Удалить статью' })).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('link', { name: 'Открыть в лоре' })).not.toBeInTheDocument()
+  })
+
+  it('offers deleting only to the founder', async () => {
+    auth.isFounder = true
+    const user = setup()
+    await user.click(screen.getByRole('button', { name: 'Действия со статьёй' }))
+    expect(screen.getByRole('button', { name: 'Удалить статью' })).toBeVisible()
   })
 
   it('uses the expanded layout for a new article', () => {
@@ -123,9 +138,56 @@ describe('Article editor workspace', () => {
     expect(screen.getByRole('button', { name: 'Вернуть в черновик' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'В архив' })).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Опубликовать' }))
-    expect(transition).toHaveBeenCalledWith(1, 'publish')
+    expect(transition).toHaveBeenCalledWith(1, 'publish', { version: 3 })
     expect(await screen.findByRole('button', { name: 'В архив' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument()
+  })
+
+  it('refreshes the text and refuses to publish when the article was edited after it was opened', async () => {
+    auth.isFounder = true
+    article.status = 'in_review'
+    transition.mockRejectedValue(Object.assign(new Error('edited meanwhile'), { status: 409 }))
+    getArticle.mockResolvedValue({
+      id: 1, title: 'Летопись', article_type: 'lore', status: 'in_review', visibility: 'public',
+      body_markdown: 'Тайная правка после проверки', subtype: { id: 7, name: 'Хроника' }, author_id: 5, version: 4,
+    })
+    const user = setup()
+    await user.click(screen.getByRole('button', { name: 'Опубликовать' }))
+    expect(await screen.findByText(/Статью изменили после вашего просмотра/)).toBeVisible()
+    expect(screen.getByText('Тайная правка после проверки')).toBeVisible()
+    transition.mockResolvedValue({ id: 1, title: 'Летопись', status: 'published', version: 4 })
+    await user.click(screen.getByRole('button', { name: 'Опубликовать' }))
+    expect(transition).toHaveBeenLastCalledWith(1, 'publish', { version: 4 })
+  })
+
+  it('shows the plain error when publishing fails for another reason', async () => {
+    auth.isFounder = true
+    article.status = 'in_review'
+    transition.mockRejectedValue(Object.assign(new Error('Cannot publish article 1: it is draft.'), { status: 409 }))
+    getArticle.mockResolvedValue({ id: 1, title: 'Летопись', status: 'draft', version: 3 })
+    const user = setup()
+    await user.click(screen.getByRole('button', { name: 'Опубликовать' }))
+    expect(await screen.findByText('Cannot publish article 1: it is draft.')).toBeVisible()
+  })
+
+  it('makes another GM\'s article read-only but keeps its history', async () => {
+    article.authorId = 99
+    const user = setup()
+    expect(screen.getByText(/Эту статью написал другой ГМ/)).toBeVisible()
+    expect(screen.getByText('Исходный текст')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Изменить текст статьи' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('complementary', { name: 'Параметры статьи' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Отправить на проверку' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Изображения', exact: true })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'История', exact: true }))
+    expect(screen.getByRole('heading', { name: 'История изменений' })).toBeVisible()
+  })
+
+  it('lets the founder edit any article', () => {
+    auth.isFounder = true
+    article.authorId = 99
+    setup()
+    expect(screen.getByRole('button', { name: 'Изменить текст статьи' })).toBeVisible()
   })
 
   it('keeps the status actions in the article settings panel', () => {

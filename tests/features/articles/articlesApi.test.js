@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/api/httpClient.js', () => ({ default: vi.fn().mockResolvedValue({}) }))
 import request from '@/lib/api/httpClient.js'
-import { articlesApi, subtypesApi } from '@/features/articles/api.js'
+import { articlesApi, canEditArticle, subtypesApi } from '@/features/articles/api.js'
 
 describe('articlesApi', () => {
   beforeEach(() => request.mockClear())
@@ -24,8 +24,26 @@ describe('articlesApi', () => {
   })
 
   it('changes status only through a workflow action endpoint', async () => {
-    await articlesApi.transition(5, 'publish')
-    expect(request).toHaveBeenCalledWith('/articles/5/publish', { method: 'POST' })
+    await articlesApi.transition(5, 'submit')
+    expect(request).toHaveBeenCalledWith('/articles/5/submit', { method: 'POST' })
+  })
+
+  it('publishes a specific reviewed version', async () => {
+    await articlesApi.transition(5, 'publish', { version: 3 })
+    expect(request).toHaveBeenCalledWith('/articles/5/publish', { method: 'POST', params: { version: 3 } })
+  })
+
+  it('reads the version history, diffs and restores a version', async () => {
+    await articlesApi.revisions.list(5, { page: 2, size: 20 })
+    expect(request).toHaveBeenLastCalledWith('/articles/5/revisions', { params: { page: 2, size: 20 } })
+    await articlesApi.revisions.get(5, 3)
+    expect(request).toHaveBeenLastCalledWith('/articles/5/revisions/3')
+    await articlesApi.revisions.diff(5, 3)
+    expect(request).toHaveBeenLastCalledWith('/articles/5/revisions/3/diff', { params: {} })
+    await articlesApi.revisions.diff(5, 3, 1)
+    expect(request).toHaveBeenLastCalledWith('/articles/5/revisions/3/diff', { params: { against: 1 } })
+    await articlesApi.revisions.restore(5, 2)
+    expect(request).toHaveBeenLastCalledWith('/articles/5/revisions/2/restore', { method: 'POST' })
   })
 
   it('lists and creates subtypes of one article type', async () => {
@@ -36,5 +54,16 @@ describe('articlesApi', () => {
       method: 'POST',
       body: { article_type: 'location', name: 'Таверна' },
     })
+  })
+})
+
+describe('canEditArticle', () => {
+  it('allows the author and the founder, nobody else', () => {
+    expect(canEditArticle({ author_id: 5 }, { id: 5 }, false)).toBe(true)
+    expect(canEditArticle({ author_id: 5 }, { id: '5' }, false)).toBe(true)
+    expect(canEditArticle({ author_id: 5 }, { id: 6 }, false)).toBe(false)
+    expect(canEditArticle({ author_id: 5 }, { id: 6 }, true)).toBe(true)
+    expect(canEditArticle({ author_id: null }, { id: 6 }, false)).toBe(false)
+    expect(canEditArticle({ author_id: 5 }, null, false)).toBe(false)
   })
 })
