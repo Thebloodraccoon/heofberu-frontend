@@ -145,9 +145,19 @@ function DesktopNavItem({ label, to, children }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="rounded px-3 py-2 text-sm font-medium text-stone-300 transition hover:bg-stone-800/60 hover:text-stone-100"
+        className="flex items-center gap-1 rounded px-3 py-2 text-sm font-medium text-stone-300 transition hover:bg-stone-800/60 hover:text-stone-100"
       >
         {label}
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          aria-hidden="true"
+          className={`size-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        >
+          <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {open && (
         <div id={panelId} className="absolute left-0 top-full z-50 mt-1 min-w-44 whitespace-nowrap rounded-lg border border-stone-700/50 bg-stone-900 p-1 shadow-md shadow-black/20">
