@@ -1,8 +1,8 @@
 import { abilityLabels, armorProficiencyLabels, label as i18nLabel, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 
 // Человекочитаемое описание одного эффект-бандла (PendingChoiceOption /
-// ChosenOptionResponse — оба несут один и тот же набор из шести типовых
-// списков) — общее для модалки «Выборы» (ожидающие) и секции «Выборы
+// ChosenOptionResponse — оба несут effects: [{ effect_type, items }], которые
+// httpClient раскладывает в шесть плоских *_effects) — общее для модалки «Выборы» (ожидающие) и секции «Выборы
 // способностей» на листе персонажа (уже отвеченные).
 
 function bundleRows(bundle) {
@@ -36,6 +36,8 @@ function describeRow({ type, r }, { skillNames = {}, spellNames = {} } = {}) {
         ? `предмет #${r.item_id}`
         : (weaponProficiencyLabels[r.weapon_category] ?? r.weapon_category)
     case 'spell': {
+      // В грантах персонажа заклинание приходит полным CharacterSpell.
+      if (r.name) return r.name
       if (r.spell_id != null) return spellNames[r.spell_id] ?? `заклинание #${r.spell_id}`
       const school = r.spell_school ? i18nLabel(r.spell_school) : null
       const lvl = r.spell_level_max ? i18nLabel(r.spell_level_max) : null

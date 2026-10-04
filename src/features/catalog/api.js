@@ -193,23 +193,6 @@ export const catalogApi = {
     effects: {
       get: (id) => request(`/features/${id}/effects`),
       set: (id, body) => request(`/features/${id}/effects`, { method: 'PUT', body }),
-      // PUT полностью заменяет ВСЕ типы фиксированных эффектов разом — чтобы
-      // редактор увеличений характеристик не затирал другие типы эффектов,
-      // подтягиваем текущее дерево и меняем только ability_effects.
-      setAbilityEffects: async (id, abilityEffects) => {
-        const current = await request(`/features/${id}/effects`)
-        return request(`/features/${id}/effects`, {
-          method: 'PUT',
-          body: {
-            ability_effects: abilityEffects,
-            skill_effects: current?.skill_effects ?? [],
-            saving_throw_effects: current?.saving_throw_effects ?? [],
-            armor_effects: current?.armor_effects ?? [],
-            weapon_effects: current?.weapon_effects ?? [],
-            spell_effects: current?.spell_effects ?? [],
-          },
-        })
-      },
     },
     choiceGroups: {
       get: (id) => request(`/features/${id}/choice-groups`),

@@ -1,4 +1,5 @@
 import { API } from '@/config/api.js'
+import { flattenEffectGroups } from '@/lib/utils/featureEffects.js'
 
 const TOKEN_KEY = 'heofberu.access_token'
 const TOKEN_EVENT = 'heofberu:token'
@@ -124,7 +125,7 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
     throw error
   }
 
-  return data
+  return flattenEffectGroups(data)
 }
 
 // Refresh-кука одноразовая (ротация): второй запрос с той же кукой бэк отвергает.

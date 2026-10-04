@@ -1071,10 +1071,10 @@ function FeatsSection({ character, onError, reload }) {
   const [featPickerOpen, setFeatPickerOpen] = useState(false)
   const [openFeatId, setOpenFeatId] = useState(null)
 
-  // Эффекты выданной черты приходят так же, как у особенности: плоские
-  // списки — в cf.effects, уже отвеченные выборы — в cf.choices.
+  // Эффекты выданной черты приходят так же, как у особенности:
+  // группы — в cf.effects ([{ effect_type, items }]), уже отвеченные выборы — в cf.choices.
   const hasGrantedEffects = (cf) => {
-    const flatHasAny = Object.values(cf.effects ?? {}).some((v) => Array.isArray(v) && v.length > 0)
+    const flatHasAny = (cf.effects ?? []).length > 0
     const choicesHaveAny = (cf.choices ?? []).some((choice) =>
       Object.entries(choice).some(
         ([key, value]) => !key.startsWith('choice_') && Array.isArray(value) && value.length > 0,
@@ -1235,11 +1235,10 @@ function FeaturesSection({ character, onError, reload }) {
   const featureName = (cf) => (cf.feature?.name ? sentenceCase(cf.feature.name) : `Особенность #${cf.feature_id}`)
 
   // Эффекты выданной особенности приходят не в том же виде, что у каталожной
-  // FeatureResponse: плоские списки лежат в cf.effects (без единого именования
-  // ключей), плюс уже отвеченные выборы — в cf.choices.Бейдж «Даёт эффекты»
+  // FeatureResponse: группы [{ effect_type, items }] лежат в cf.effects, плюс уже отвеченные выборы — в cf.choices.Бейдж «Даёт эффекты»
   // просто проверяет, есть ли там хоть что-то непустое.
   const hasGrantedEffects = (cf) => {
-    const flatHasAny = Object.values(cf.effects ?? {}).some((v) => Array.isArray(v) && v.length > 0)
+    const flatHasAny = (cf.effects ?? []).length > 0
     const choicesHaveAny = (cf.choices ?? []).some((choice) =>
       Object.entries(choice).some(
         ([key, value]) => !key.startsWith('choice_') && Array.isArray(value) && value.length > 0,
