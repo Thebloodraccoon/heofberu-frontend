@@ -12,7 +12,7 @@ import StepRace from '@/features/characters/components/wizard/StepRace.jsx'
 import StepSkills from '@/features/characters/components/wizard/StepSkills.jsx'
 import StepSummary from '@/features/characters/components/wizard/StepSummary.jsx'
 import RollToasts from '@/features/characters/components/wizard/RollToasts.jsx'
-import { smoothScrollTo } from '@/features/characters/components/wizard/scroll.js'
+import { smoothScrollTo } from '@/lib/utils/scroll.js'
 import { charactersApi } from '@/features/characters/api.js'
 import { useAuth } from '@/features/auth/useAuth.js'
 import {

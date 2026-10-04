@@ -124,14 +124,14 @@
 /* --- Форматированный текст (RichText/RichTextEditor): описания, предыстория, заметки --- */
 
 .rich-text {
-  @apply break-words text-sm leading-relaxed text-stone-300;
+  @apply break-words text-sm leading-[1.75] text-stone-300;
 }
 
 .rich-text :is(h1, h2, h3, h4) {
   @apply font-display font-bold text-stone-100;
 }
 .rich-text h1 {
-  @apply mt-5 mb-2 text-2xl;
+  @apply mt-8 mb-2 text-2xl;
 }
 .rich-text h4 {
   @apply mt-2 mb-1 text-sm;
@@ -140,19 +140,19 @@
   @apply my-2 h-auto max-w-full rounded border border-stone-700/60;
 }
 .rich-text h2 {
-  @apply mt-4 mb-1.5 text-lg;
+  @apply mt-7 mb-1.5 text-lg;
 }
 .rich-text h3 {
-  @apply mt-3 mb-1 text-base;
+  @apply mt-5 mb-1 text-base;
 }
 .rich-text p {
-  @apply mb-2 last:mb-0;
+  @apply mb-3.5 last:mb-0;
 }
 .rich-text p:empty::before {
   content: "\00a0";
 }
 .rich-text :is(ul, ol) {
-  @apply mb-2 space-y-1 pl-5;
+  @apply mb-3.5 space-y-1 pl-5;
 }
 .rich-text ul {
   @apply list-disc;
@@ -161,13 +161,13 @@
   @apply list-decimal;
 }
 .rich-text blockquote {
-  @apply mb-2 border-l-2 border-ember/50 pl-3 italic text-stone-400;
+  @apply mb-3.5 border-l-2 border-ember/50 pl-3 italic text-stone-400;
 }
 .rich-text hr {
-  @apply my-3 border-stone-700;
+  @apply my-6 border-stone-700;
 }
 .rich-text table {
-  @apply mb-2 overflow-hidden rounded border border-stone-700/60 text-left;
+  @apply mb-3.5 overflow-hidden rounded border border-stone-700/60 text-left;
   width: auto;
   max-width: 100%;
 }

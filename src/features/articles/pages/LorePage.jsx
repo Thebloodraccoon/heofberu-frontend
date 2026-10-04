@@ -1,44 +1,13 @@
 import { useEffect, useRef } from 'react'
-import { Link, useLocation, useNavigationType, useOutletContext, useSearchParams } from 'react-router-dom'
-import { articlePath } from '@/features/articles/api.js'
+import { useLocation, useNavigationType, useOutletContext, useSearchParams } from 'react-router-dom'
 import { parseSubtypeIds, parseTagIds, parseTypes } from '@/features/articles/filters.js'
 import { ARTICLE_SORTS } from '@/features/articles/sorts.js'
 import { useArticlesPage, useArticlesSearch } from '@/features/articles/queries.js'
-import { Badge, ErrorBox, Skeleton } from '@/components/ui'
+import { ErrorBox, Skeleton } from '@/components/ui'
 import Pagination from '@/components/ui/Pagination.jsx'
-import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
-import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
-import { articleStatusLabels, articleTypeLabels } from '@/lib/i18n'
+import ArticleRow from '@/features/articles/components/ArticleRow.jsx'
 
 const PAGE_SIZE = 12
-
-// search — текущие фильтры списка: уходят в ссылку на статью, чтобы на её странице
-// панель поиска показывала их же, а «Лор» в хлебных крошках вёл обратно к этим результатам.
-function ArticleRow({ article, gmView, showSnippet, search }) {
-  return (
-    <Link
-      to={{ pathname: articlePath(article), search }}
-      className="lore-article-row"
-    >
-      <div className="lore-article-meta">
-        <span className="lore-article-type">{articleTypeLabels[article.article_type] ?? article.article_type}</span>
-        {gmView && article.status !== 'published' && (
-          <Badge tone="default">{articleStatusLabels[article.status] ?? article.status}</Badge>
-        )}
-        {gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
-        {article.subtype && <span className="text-xs text-stone-500">{article.subtype.name}</span>}
-      </div>
-      <div className="lore-article-heading"><h2>{article.title}</h2><LoreIcon name="arrow" /></div>
-      {article.excerpt && !(showSnippet && article.snippet) && <p className="lore-article-excerpt">{article.excerpt}</p>}
-      {showSnippet && article.snippet && (
-        <p
-          className="lore-article-excerpt [&_mark]:bg-ember/20 [&_mark]:text-stone-100"
-          dangerouslySetInnerHTML={{ __html: article.snippet }}
-        />
-      )}
-    </Link>
-  )
-}
 
 function scrollKey(locationKey) {
   return `lore-scroll:${locationKey}`

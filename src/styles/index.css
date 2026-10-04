@@ -86,24 +86,10 @@ h4 {
   background: transparent;
 }
 
-/* Декоративная линия-разделитель: ✦ между двумя золотыми чертами */
+/* Декоративная линия-разделитель: золотая черта, гаснущая к краям */
 .ornate-rule {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--color-gold);
-}
-.ornate-rule::before,
-.ornate-rule::after {
-  content: "";
-  flex: 1;
   height: 1px;
-}
-.ornate-rule::before {
-  background: linear-gradient(90deg, transparent, rgba(168, 133, 61, 0.55));
-}
-.ornate-rule::after {
-  background: linear-gradient(90deg, rgba(168, 133, 61, 0.55), transparent);
+  background: linear-gradient(90deg, transparent, rgba(168, 133, 61, 0.55), transparent);
 }
 
 /* Панель-«фолиант»: бронзовая рамка с уголками-скобками */
@@ -151,6 +137,13 @@ h4 {
 /* Нативные контролы (выпадающие списки <select>, скроллбары, поле поиска) берут цвета из color-scheme:
    без него в тёмной теме они оставались светлыми. */
 :root { color-scheme: dark; }
+
+/* Высота липкой шапки (Layout.jsx): строка h-16 + 1px рамки, на lg ещё DesktopNav h-11.
+   Меняешь шапку — поправь здесь: от этого зависят липкое оглавление и отступ якорей. */
+:root { --app-header-h: 4.0625rem; }
+@media (min-width: 64rem) {
+  :root { --app-header-h: 6.8125rem; }
+}
 
 /* Светлая тема: светлая бумага, тёмные чернила и тёплые акценты. */
 [data-theme="light"] {

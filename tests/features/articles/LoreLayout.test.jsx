@@ -174,7 +174,7 @@ describe('Lore navigation and filters', () => {
     expect(screen.getByRole('heading', { name: 'Летопись' }).nextElementSibling.firstElementChild).toHaveTextContent('ГМ')
     expect(within(article).queryByText('Только для ГМ')).not.toBeInTheDocument()
     const relatedCard = screen.getByRole('link', { name: /Закрытая статья/ })
-    expect(within(relatedCard).getByText('ГМ').compareDocumentPosition(within(relatedCard).getByText(articleTypeLabels.lore)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(relatedCard).getByText(articleTypeLabels.lore).compareDocumentPosition(within(relatedCard).getByText('ГМ')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(screen.getByRole('link', { name: /Закрытый дочерний раздел/ })).getByText('ГМ')).toBeInTheDocument()
     expect(within(screen.getByRole('link', { name: /Открытая статья/ })).queryByText('ГМ')).not.toBeInTheDocument()
   })

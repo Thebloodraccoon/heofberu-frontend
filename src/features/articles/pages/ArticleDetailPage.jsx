@@ -14,6 +14,8 @@ import { articleChildCaption, articleStatusLabels, articleTypeLabels, relatedArt
 import { renderRichHtml } from '@/lib/utils/richText.js'
 import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import ArticleRow from '@/features/articles/components/ArticleRow.jsx'
+import TableOfContents from '@/features/articles/components/TableOfContents.jsx'
 
 // Используем тот же безопасный рендер, что и RichText; якоря добавляем после очистки HTML.
 // Оглавление строится только по разделам, видимым в текущем режиме.
@@ -36,14 +38,7 @@ function ArticleBody({ body, showSecrets }) {
   }
   return (
     <div className="lore-body-layout">
-      {headings.length > 0 && <aside className="lore-toc">
-        <details open>
-          <summary>В этой статье</summary>
-          <nav aria-label="Оглавление статьи">
-            {headings.map((heading) => <a key={heading.id} href={`#${heading.id}`} className={heading.nested ? 'lore-toc-nested' : ''}>{heading.title}</a>)}
-          </nav>
-        </details>
-      </aside>}
+      {headings.length > 0 && <TableOfContents items={headings} summary="В этой статье" label="Оглавление статьи" />}
       <div className="mt-6 space-y-4">
       {segments.map((seg, i) =>
         seg.secret ? (
@@ -117,30 +112,6 @@ function RelationFacts({ sections, gmView }) {
 }
 
 // Подпись карточки — кем связанная статья приходится этой («Упоминается в», «Союзник»…).
-function RelatedCard({ article, caption, note, secret = false, gmView = false }) {
-  return (
-    <Link
-      to={articlePath(article)}
-      className={`group flex flex-col gap-1.5 rounded-lg border bg-stone-900/60 p-4 transition hover:border-ember/60 hover:bg-stone-900 ${
-        secret ? 'border-violet-800/70' : 'border-stone-800'
-      }`}
-    >
-      <span className="text-xs uppercase tracking-wide text-stone-500">{caption}</span>
-      <span className="font-medium text-stone-100 group-hover:text-ember">{article.title}</span>
-      <span className="flex flex-wrap items-center gap-1.5 text-xs text-stone-500">
-        {secret ? (
-          <span className="inline-block" title="Секретная связь — игроки её не видят">
-            <GmOnlyBadge />
-          </span>
-        ) : gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
-        <Badge>{articleTypeLabels[article.article_type] ?? article.article_type}</Badge>
-        {article.subtype && <span>{article.subtype.name}</span>}
-      </span>
-      {note && <span className="text-sm text-stone-400">{note}</span>}
-    </Link>
-  )
-}
-
 export default function ArticleDetailPage() {
   const { gmView, playerView } = useOutletContext()
   const { slug } = useParams()
@@ -280,11 +251,11 @@ export default function ArticleDetailPage() {
       </div>
 
       {cards.length > 0 && (
-        <section className="mt-10 space-y-3 border-t border-stone-800 pt-6">
+        <section className="mt-10 space-y-3">
           <h3 className="heading-sub">{relatedArticlesLabel}</h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
             {cards.map(({ key, ...card }) => (
-              <RelatedCard key={key} {...card} gmView={gmView} />
+              <ArticleRow key={key} {...card} gmView={gmView} heading="h4" />
             ))}
           </div>
         </section>

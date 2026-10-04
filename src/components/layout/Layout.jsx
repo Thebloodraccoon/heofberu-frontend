@@ -145,19 +145,9 @@ function DesktopNavItem({ label, to, children }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex items-center gap-1 rounded px-3 py-2 text-sm font-medium text-stone-300 transition hover:bg-stone-800/60 hover:text-stone-100"
+        className="rounded px-3 py-2 text-sm font-medium text-stone-300 transition hover:bg-stone-800/60 hover:text-stone-100"
       >
         {label}
-        <svg
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          aria-hidden="true"
-          className={`size-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-        >
-          <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </button>
       {open && (
         <div id={panelId} className="absolute left-0 top-full z-50 mt-1 min-w-44 whitespace-nowrap rounded-lg border border-stone-700/50 bg-stone-900 p-1 shadow-md shadow-black/20">
@@ -251,6 +241,7 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-dvh w-full flex-col bg-stone-950">
+      {/* Высота этой липкой шапки продублирована в --app-header-h (index.css). */}
       <div className="sticky top-0 z-40 bg-stone-950/85 backdrop-blur">
         <header className="border-b border-stone-800">
           <nav className="mx-auto flex h-16 max-w-[80rem] items-center gap-3 px-5 sm:px-8">
