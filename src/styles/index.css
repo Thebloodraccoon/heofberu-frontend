@@ -145,26 +145,28 @@ h4 {
   :root { --app-header-h: 6.8125rem; }
 }
 
-/* Светлая тема: светлая бумага, тёмные чернила и тёплые акценты. */
+/* Светлая тема — «рукопись на пергаменте»: тёплые сепийные чернила вместо серого,
+   киноварь вместо ярко-оранжевого, приглушённая позолота. Контраст текста по WCAG:
+   stone-300 на фоне ~10:1, stone-500 (подсказки) ≥4.9:1 на панелях. */
 [data-theme="light"] {
   color-scheme: light;
-  --color-stone-50: #191c1e;
-  --color-stone-100: #252a2c;
-  --color-stone-200: #343b3d;
-  --color-stone-300: #475153;
-  --color-stone-400: #596366;
-  --color-stone-500: #657073;
-  --color-stone-600: #a79f92;
-  --color-stone-700: #c8bdad;
-  --color-stone-800: #e8ddcc;
-  --color-stone-900: #f7f0e5;
-  --color-stone-950: #fffaf2;
-  --color-parchment: #fffaf2;
-  --color-ink: #252a2c;
-  --color-ember: #ae431e;
-  --color-ember-dark: #862d10;
-  --color-gold: #88601e;
-  --color-gold-light: #75551f;
+  --color-stone-50: #1e140b;
+  --color-stone-100: #2b1d12;
+  --color-stone-200: #3b2a1a;
+  --color-stone-300: #4d3826;
+  --color-stone-400: #634b33;
+  --color-stone-500: #76603f;
+  --color-stone-600: #a8936f;
+  --color-stone-700: #cdb994;
+  --color-stone-800: #e7d8bb;
+  --color-stone-900: #f3e8d2;
+  --color-stone-950: #faf4e8;
+  --color-parchment: #faf4e8;
+  --color-ink: #2b1d12;
+  --color-ember: #a3321b;
+  --color-ember-dark: #7c2412;
+  --color-gold: #86621f;
+  --color-gold-light: #77561c;
   --color-red-100: #7f1d1d;
   --color-red-200: #8f2626;
   --color-red-300: #a12e2e;
@@ -173,26 +175,57 @@ h4 {
   --color-red-800: #d8a3a0;
   --color-red-900: #f2d6d2;
   --color-red-950: #f9e6e2;
+  /* Зелёный («успех», «+» в diff) инвертирован как и красный: светлые оттенки текста
+     тёмной темы становятся тёмными, тёмные фоновые — светлыми. */
+  --color-emerald-200: #1d5a3a;
+  --color-emerald-300: #1f6b45;
+  --color-emerald-400: #2a7a50;
+  --color-emerald-700: #5f9e79;
+  --color-emerald-900: #d6ecdc;
+  --color-emerald-950: #ebf6ee;
+
+  /* Поверхность «листа» для панелей: вместо парящей тени — лёгкое потемнение
+     к краям внутри, как у старой бумаги. Используется в catalog/editor/index. */
+  --paper-panel: linear-gradient(180deg, #fbf6ec, #f3e8d2);
+  --paper-border: #d6c29d;
+  --paper-shadow: inset 0 0 48px -12px rgba(140, 98, 45, 0.18), 0 1px 2px rgba(60, 40, 18, 0.1);
 }
 
 [data-theme="light"] body {
-  background-color: #f1e9da;
+  background-color: #ecdfc6;
   background-image:
-    radial-gradient(1100px 520px at 50% -5%, #fffdf8 0%, transparent 65%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(198, 171, 119, 0.15) 0%, transparent 55%);
+    radial-gradient(1100px 520px at 50% -5%, #fbf6ec 0%, transparent 65%),
+    radial-gradient(1400px 900px at 100% 110%, rgba(150, 105, 50, 0.16) 0%, transparent 55%),
+    radial-gradient(1200px 800px at 0% 110%, rgba(150, 105, 50, 0.12) 0%, transparent 55%);
+}
+
+/* Фактура бумаги поверх всей страницы: мелкое зерно (SVG-шум, ~0.5 КБ) и затемнённые
+   края, как у старого листа. Не перехватывает клики; при печати не нужна. */
+[data-theme="light"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .22 0 0 0 0 .1 .14 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 120% 100% at 50% 45%, transparent 62%, rgba(110, 72, 30, 0.12) 100%);
+}
+@media print {
+  [data-theme="light"] body::before { display: none; }
 }
 
 [data-theme="light"] .fantasy-panel {
-  border-color: #d7c8b1;
-  background: linear-gradient(180deg, #fffaf2, #f7f0e5);
-  box-shadow: 0 8px 24px -16px rgba(73, 54, 29, 0.25);
+  border-color: var(--paper-border);
+  background: var(--paper-panel);
+  box-shadow: var(--paper-shadow);
 }
 
 [data-theme="light"] .fantasy-panel.card-hover:hover {
-  box-shadow: 0 12px 28px -18px rgba(73, 54, 29, 0.3);
+  box-shadow: inset 0 0 48px -12px rgba(140, 98, 45, 0.24), 0 6px 18px -12px rgba(73, 54, 29, 0.35);
 }
 
-[data-theme="light"] [data-tone="accent"] { color: #823612; background: #f4dcc6; }
+[data-theme="light"] [data-tone="accent"] { color: #7c2412; background: #f1d9c4; }
 [data-theme="light"] [data-tone="good"] { color: #20623f; background: #dceee0; }
 [data-theme="light"] [data-tone="bad"] { color: #9a3030; background: #f6dddd; }
 [data-theme="light"] [data-tone="violet"] { color: #663e85; background: #eee1f5; }

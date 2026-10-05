@@ -86,11 +86,9 @@
   background: linear-gradient(150deg, color-mix(in srgb, var(--color-stone-800) 30%, var(--color-stone-900)), var(--color-stone-900) 38%);
   box-shadow: 0 22px 50px -30px #000;
 }
-.editor-detail > .fantasy-panel::before,
-.editor-detail > .fantasy-panel::after { display: none; }
 [data-theme="light"] .editor-detail > .fantasy-panel {
-  background: linear-gradient(180deg, #fffaf2, #f7f0e5);
-  box-shadow: 0 12px 30px -20px rgba(73, 54, 29, 0.3);
+  background: var(--paper-panel);
+  box-shadow: var(--paper-shadow);
 }
 
 .editor-detail > .editor-welcome {
