@@ -4,16 +4,18 @@ import { useRevisionDiff, useRevisionFeed } from '@/features/articles/queries.js
 import { FIELD_LABELS, fieldValue, formatDate, useWho } from '@/features/articles/history.js'
 import { Badge, Button, ConfirmDialog, ErrorBox, Skeleton } from '@/components/ui'
 
-// unified-diff тела: подсветка добавленных/удалённых строк, служебные ---/+++/@@ приглушены.
+// unified-diff тела как на GitHub: добавленные/удалённые строки — фоном на всю ширину
+// с контрастным текстом, служебные ---/+++/@@ приглушены.
 function BodyDiff({ text }) {
   if (!text) return <p className="text-xs text-stone-500">Текст не менялся.</p>
   return (
-    <pre className="max-h-80 overflow-auto rounded border border-stone-700/60 bg-stone-950/60 p-3 text-xs leading-relaxed whitespace-pre-wrap">
+    <pre className="max-h-80 overflow-auto rounded border border-stone-700/60 bg-stone-950/60 py-2 text-xs leading-relaxed whitespace-pre-wrap">
       {text.split('\n').map((line, i) => {
         const tone = line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@')
           ? 'text-stone-500'
-          : line.startsWith('+') ? 'text-emerald-300' : line.startsWith('-') ? 'text-red-300' : 'text-stone-400'
-        return <span key={i} className={`block ${tone}`}>{line || ' '}</span>
+          : line.startsWith('+') ? 'bg-emerald-900/50 text-emerald-200'
+            : line.startsWith('-') ? 'bg-red-900/50 text-red-200' : 'text-stone-400'
+        return <span key={i} className={`block px-3 ${tone}`}>{line || ' '}</span>
       })}
     </pre>
   )

@@ -69,8 +69,8 @@ describe('ArticleHistory', () => {
     expect(within(diff).getByText('Сравнение с версией 1')).toBeVisible()
     expect(within(diff).getByText('Мория')).toBeVisible()
     expect(within(diff).getByText('Только для ГМ')).toBeVisible()
-    expect(within(diff).getByText('+новая строка')).toHaveClass('text-emerald-300')
-    expect(within(diff).getByText('-старая строка')).toHaveClass('text-red-300')
+    expect(within(diff).getByText('+новая строка')).toHaveClass('bg-emerald-900/50', 'text-emerald-200')
+    expect(within(diff).getByText('-старая строка')).toHaveClass('bg-red-900/50', 'text-red-200')
   })
 
   it('restores an old version after confirmation and reports the new version', async () => {
