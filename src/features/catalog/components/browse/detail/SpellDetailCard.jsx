@@ -1,4 +1,4 @@
-import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
+import { abilityLabels, diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
 import { spellLevel, Section } from './detailHelpers.jsx'
 import SpellAvailability from '../SpellAvailability.jsx'
@@ -10,23 +10,29 @@ export default function SpellDetailCard({ spell }) {
     .map((c) => COMPONENT_FULL[c] ?? label(c))
     .join(', ')
 
-  const rangeText =
-    spell.range_value != null && spell.range_value !== ''
-      ? `${spell.range_value} футов`
-      : spell.range_type
-        ? label(spell.range_type)
-        : null
+  // «На себя (15 футов)» — тип дистанции важен, если это не просто «Дистанция».
+  const hasRangeValue = spell.range_value != null && spell.range_value !== ''
+  const rangeText = hasRangeValue
+    ? spell.range_type && spell.range_type !== 'RANGED'
+      ? `${label(spell.range_type)} (${spell.range_value} футов)`
+      : `${spell.range_value} футов`
+    : spell.range_type
+      ? label(spell.range_type)
+      : null
   const durationText = spell.duration
     ? spell.is_concentration
       ? `Концентрация, вплоть до ${label(spell.duration)}`
       : label(spell.duration)
     : null
+  // Материал показываем всегда, когда он заполнен, — даже если в компонентах
+  // не отмечен «Материальный» (иначе текст молча теряется).
+  const materialText = spell.material
+    ? `${spell.material}${spell.is_material_consumed ? ', расходуется' : ''}`
+    : null
   const componentsText =
-    spell.components && spell.components.length > 0
-      ? spell.components.includes('MATERIAL') && spell.material
-        ? `${components} (${spell.material})`
-        : components
-      : null
+    components && materialText
+      ? `${components} (${materialText})`
+      : components || (materialText && `Материал: ${materialText}`) || null
 
   const damageText =
     spell.damage_dice_count && spell.damage_dice_type
@@ -46,6 +52,8 @@ export default function SpellDetailCard({ spell }) {
     rangeText ? { label: 'Дистанция', value: rangeText } : null,
     durationText ? { label: 'Длительность', value: durationText } : null,
     componentsText ? { label: 'Компоненты', value: componentsText } : null,
+    spell.attack_type ? { label: 'Атака', value: label(spell.attack_type) } : null,
+    spell.save_stat ? { label: 'Спасбросок', value: abilityLabels[spell.save_stat] ?? label(spell.save_stat) } : null,
     damageText ? { label: 'Урон', value: damageText } : null,
     healingText ? { label: 'Лечение', value: healingText } : null,
   ]

@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   abilityLabels,
-  classSlugLabels,
   diceTypeLabels,
   fieldLabel,
   label,
@@ -43,7 +42,9 @@ export function TagChips({ tags = [], className = '' }) {
   )
 }
 
-export function SkillChips({ names = [] }) {
+// Чипы-ссылки на карточки справочника. По умолчанию — навыки; hrefOf(item, i) задаёт
+// другой адрес (null/undefined — чип без ссылки, например пока адрес не известен).
+export function SkillChips({ names = [], hrefOf = (item) => `/catalog/skills/${item.id ?? item.item_id}` }) {
   if (names.length === 0) return null
   return (
     <span className="badge-row align-middle">
@@ -58,12 +59,13 @@ export function SkillChips({ names = [] }) {
             {text}
           </span>
         )
-        return id == null ? (
+        const to = id == null ? null : hrefOf(n, i)
+        return !to ? (
           chip
         ) : (
           <Link
             key={i}
-            to={`/catalog/skills/${id}`}
+            to={to}
             className="inline-block"
           >
             {chip}
@@ -193,12 +195,6 @@ export function summaryBadges(item, resource) {
   if (item.duration) badges.push({ text: label(item.duration), tone: 'default' })
   if (item.is_concentration) badges.push({ text: 'Концентрация', tone: 'accent' })
   if (item.is_ritual) badges.push({ text: 'Ритуал', tone: 'accent' })
-  if (item.available_classes && item.available_classes.length > 0) {
-    badges.push({
-      text: item.available_classes.map((c) => classSlugLabels[itemName(c)] ?? label(itemName(c))).join(', '),
-      tone: 'default',
-    })
-  }
   if (item.prerequisite) {
     const text = Array.isArray(item.prerequisite)
       ? item.prerequisite
