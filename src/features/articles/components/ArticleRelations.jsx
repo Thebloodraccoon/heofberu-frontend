@@ -39,7 +39,7 @@ export default function ArticleRelations({ articleId, articleTitle, readOnly = f
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="heading-sub">Связи</h3>
+        <h3 className="article-editor-label">Связи</h3>
         {!readOnly && (
           <Button size="sm" variant="ghost" onClick={() => setModal('new')}>
             Добавить связь

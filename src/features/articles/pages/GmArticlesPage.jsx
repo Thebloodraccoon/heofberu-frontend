@@ -1,3 +1,4 @@
+import ArticleAuthor from '@/features/articles/components/ArticleAuthor.jsx'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -172,17 +173,16 @@ export default function GmArticlesPage() {
                 >
                   <span className="lore-article-meta">
                     {a.pending_proposals > 0 && <Badge tone="accent">Ждёт решения{a.pending_proposals > 1 ? `: ${a.pending_proposals}` : ''}</Badge>}
-                    <span className="lore-article-type">{articleTypeLabels[a.article_type] ?? a.article_type}</span>
+                    <span className="lore-article-category">
+                      <span className="lore-article-type">{articleTypeLabels[a.article_type] ?? a.article_type}</span>
+                      {a.subtype && <><span className="text-stone-500" aria-hidden="true">·</span><span className="lore-article-subtype">{a.subtype.name}</span></>}
+                    </span>
                     <Badge tone={a.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>
                     {a.visibility === 'gm_only' && <GmOnlyBadge />}
-                    {a.subtype && <span className="text-xs text-stone-500">{a.subtype.name}</span>}
-                    {a.author && (
-                      <span className="text-xs text-stone-500">
-                        автор: {String(a.author.id) === String(me?.id) ? 'вы' : a.author.username}
-                      </span>
-                    )}
+
                   </span>
                   <span className="lore-article-heading"><span className="article-library-title">{a.title}</span><LoreIcon name="arrow" /></span>
+                  <ArticleAuthor author={a.author} />
                   {a.excerpt && <span className="lore-article-excerpt">{a.excerpt}</span>}
                 </button>
               </li>
@@ -244,7 +244,7 @@ function ArticleActions({ article, canDelete, onDelete }) {
     <button ref={buttonRef} type="button" aria-label="Действия со статьёй" aria-expanded={open} onClick={() => setOpen(!open)}>⋯</button>
     {open && <div className="lore-tools-content article-actions-dropdown">
       <Link to={articlePath(article)}><LoreIcon name="arrow" />Открыть в лоре</Link>
-      {canDelete && <button type="button" onClick={() => { setOpen(false); onDelete() }}>Удалить статью</button>}
+      {canDelete && <button type="button" onClick={() => { setOpen(false); onDelete() }}><LoreIcon name="trash" />Удалить статью</button>}
     </div>}
   </div>
 }
@@ -258,24 +258,36 @@ const WORKFLOW = {
   archived: { gm: [], founder: ['restore'] },
 }
 
-function ArticleWorkflow({ status, busy, onAction }) {
+const WORKFLOW_HINTS = {
+  draft: 'Черновик доступен только мастерам. Отправьте его на проверку перед публикацией.',
+  in_review: 'Статья ожидает проверки основателем и пока недоступна читателям.',
+  published: 'Статья доступна читателям согласно выбранной видимости.',
+  archived: 'Статья в архиве и недоступна читателям.',
+}
+
+function ArticleWorkflow({ status, saveStatus, onAction }) {
   const { isFounder } = useAuth()
   const actions = WORKFLOW[status]?.[isFounder ? 'founder' : 'gm'] ?? []
+  const busy = saveStatus?.state === 'saving'
   return (
-    <div className="space-y-2" aria-label="Статус статьи">
-      <p className="text-label">Статус: {articleStatusLabels[status]}</p>
-      <div className="flex flex-wrap items-center gap-2">
-      {actions.map((action) => (
-        <Button key={action} size="sm" variant={action === 'archive' || action === 'reject' ? 'ghost' : 'primary'} disabled={busy} onClick={() => onAction(action)}>
-          {articleActionLabels[action]}
-        </Button>
-      ))}
+    <section className="article-workflow" aria-label="Статус статьи">
+      <h3 className="article-editor-label">Статус</h3>
+      <div className="article-workflow-state">
+        <Badge tone={status === 'published' ? 'good' : status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[status] ?? status}</Badge>
+        <SaveStatus compact status={saveStatus} />
       </div>
-      {!isFounder && status === 'in_review' && <p className="text-xs text-stone-500">Ждёт проверки основателем.</p>}
+      <p className="text-xs text-stone-500">{WORKFLOW_HINTS[status]}</p>
+      {actions.length > 0 && <div className="article-workflow-actions">
+        {actions.map((action) => (
+          <Button key={action} type="button" size="sm" variant={action === 'archive' || action === 'reject' ? 'ghost' : 'primary'} className="w-full" disabled={busy} onClick={() => onAction(action)}>
+            {articleActionLabels[action]}
+          </Button>
+        ))}
+      </div>}
       {isFounder && status === 'in_review' && (
         <p className="text-xs text-stone-500">Перед публикацией проверьте изменения во вкладке «История»: публикуется именно та версия, которую вы открыли.</p>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -292,11 +304,11 @@ function EditorSettings({ children }) {
   return mobile ? (
     <div className="article-editor-settings-toggle">
       <Button variant="ghost" onClick={() => setOpen(true)}>Параметры статьи</Button>
-      {open && <Drawer title="Параметры статьи" closeLabel="Закрыть параметры" onClose={() => setOpen(false)}>{children}</Drawer>}
+      {open && <Drawer title="Параметры статьи" closeLabel="Закрыть параметры" onClose={() => setOpen(false)}><div className="article-editor-parameters">{children}</div></Drawer>}
     </div>
   ) : (
-    <aside className="article-editor-settings" aria-label="Параметры статьи">
-      <h3 className="mb-5 font-semibold">Параметры статьи</h3>
+    <aside className="article-editor-settings article-editor-parameters" aria-label="Параметры статьи">
+      <h3 className="article-editor-label mb-5">Параметры статьи</h3>
       {children}
     </aside>
   )
@@ -318,7 +330,7 @@ function ReadOnlyField({ label, children }) {
 function AuthorRow({ article }) {
   const { user } = useAuth()
   const { author } = article
-  return <FactRow label="Автор" value={!author ? 'неизвестен' : String(author.id) === String(user?.id) ? 'вы' : author.username} />
+  return <FactRow label="Автор" value={!author ? 'неизвестен' : String(author.id) === String(user?.id) ? 'Вы' : author.username} />
 }
 
 function ParentTitle({ id }) {
@@ -373,7 +385,7 @@ function ArticleForm({ article, ...props }) {
 // Выпадающие списки общие для создания и правки; onChange(patch) решает, что с ними делать.
 function ArticleSelects({ values, articleId, onChange, disabled = false, statuses }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-2 sm:grid-cols-2">
       <Field label="Тип">
         <Select value={values.article_type} disabled={disabled || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value, ...(values.subtype_id ? { subtype_id: null } : {}) }, 'Тип')}>
           {ARTICLE_TYPES.map((t) => (
@@ -463,7 +475,7 @@ function ArticleCreateForm({ onSaved, toasts }) {
       </div>
       </div>
       <EditorSettings>
-        <div className="space-y-5">
+        <div className="space-y-3">
       <ArticleSelects values={form} onChange={(patch) => set(patch)} />
       <SubtypeSelect articleType={form.article_type} value={form.subtype_id} onChange={(id) => set({ subtype_id: id })} />
       <TagInput value={form.tags} onChange={(tags) => set({ tags })} />
@@ -857,10 +869,9 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       </div>
       </div>
       {canEdit && <EditorSettings>
-        <div className="space-y-5">
+        <div className="space-y-3">
           <ul><AuthorRow article={article} /></ul>
-          <ArticleWorkflow status={values.status} busy={statuses.status?.state === 'saving'} onAction={transition} />
-          <SaveStatus status={statuses.status} />
+          <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />
           <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} />
           <div>
             <SubtypeSelect articleType={values.article_type} value={values.subtype_id} disabled={statuses.subtype_id?.state === 'saving'} onChange={(id) => saveNow({ subtype_id: id })} />

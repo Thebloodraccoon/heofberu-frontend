@@ -24,8 +24,7 @@ function setup(value = null) {
 describe('SubtypeSelect', () => {
   it('renames a subtype from the dictionary; only the founder may delete', async () => {
     const { user } = setup()
-    await user.click(screen.getByRole('button', { name: 'Выбрать подтип' }))
-    await user.click(screen.getByRole('button', { name: 'Править словарь' }))
+    await user.click(screen.getByRole('button', { name: 'Словарь' }))
     expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument()
     const input = screen.getByRole('textbox', { name: 'Название подтипа Город' })
     await user.clear(input)
@@ -36,32 +35,33 @@ describe('SubtypeSelect', () => {
 
   it('treats a deleted subtype as no subtype', () => {
     setup(42)
-    expect(screen.getByText('Без подтипа.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Подтип статьи' })).toHaveTextContent('Без подтипа')
   })
 
-  it('shows the current subtype as a removable chip', async () => {
+  it('shows one selected subtype and allows clearing it', async () => {
     const { user, onChange } = setup(1)
-    await user.click(screen.getByRole('button', { name: 'Убрать подтип Таверна' }))
+    expect(screen.getByRole('button', { name: 'Подтип статьи' })).toHaveTextContent('Таверна')
+    await user.click(screen.getByRole('button', { name: 'Подтип статьи' }))
+    await user.click(screen.getByRole('option', { name: 'Без подтипа' }))
     expect(onChange).toHaveBeenCalledWith(null)
   })
 
-  it('searches subtypes and picks one', async () => {
+  it('selects one subtype from the dropdown without opening the dictionary', async () => {
     const { user, onChange } = setup()
-    await user.click(screen.getByRole('button', { name: 'Выбрать подтип' }))
-    await user.type(screen.getByRole('textbox', { name: 'Поиск подтипов' }), 'гор')
-    expect(screen.queryByRole('button', { name: 'Таверна' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Город' }))
+    await user.click(screen.getByRole('button', { name: 'Подтип статьи' }))
+    await user.click(screen.getByRole('option', { name: 'Город' }))
     expect(onChange).toHaveBeenCalledWith(2)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('creates a missing subtype of the current type and selects it', async () => {
+  it('creates a dictionary entry without changing the article subtype', async () => {
     createSubtype.mockResolvedValue({ id: 3, article_type: 'location', name: 'Данж' })
     const { user, onChange } = setup()
-    await user.click(screen.getByRole('button', { name: 'Выбрать подтип' }))
+    await user.click(screen.getByRole('button', { name: 'Словарь' }))
     await user.type(screen.getByRole('textbox', { name: 'Поиск подтипов' }), 'Данж')
     await user.click(screen.getByRole('button', { name: '+ Создать подтип «Данж»' }))
     expect(createSubtype).toHaveBeenCalledWith({ articleType: 'location', name: 'Данж' })
-    expect(onChange).toHaveBeenCalledWith(3)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'Словарь подтипов' })).toBeVisible()
   })
 })

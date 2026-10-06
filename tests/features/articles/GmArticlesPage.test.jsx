@@ -75,13 +75,14 @@ describe('Article editor workspace', () => {
     const row = screen.getByRole('button', { name: /Летопись/ })
     expect(row).toHaveClass('article-library-row--pending')
     expect(within(row).getByText('Ждёт решения: 2')).toBeVisible()
-    expect(within(row).getByText('автор: Саруман')).toBeVisible()
+    expect(within(row).getByText('@Саруман')).toBeVisible()
   })
 
   it('sorts the article list like the lore, newest first by default', async () => {
     const user = setup('/gm/articles')
     expect(finder).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'newest', page: 1 }))
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Сортировка' }), 'title')
+    await user.click(screen.getByRole('button', { name: 'Сортировка' }))
+    await user.click(screen.getByRole('menuitemradio', { name: 'По алфавиту' }))
     expect(finder).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'title', page: 1 }))
   })
 
@@ -212,7 +213,7 @@ describe('Article editor workspace', () => {
     expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Отправить на проверку' }))
     expect(transition).toHaveBeenCalledWith(1, 'submit')
-    expect(await screen.findByText('Ждёт проверки основателем.')).toBeVisible()
+    expect(await screen.findByText('Статья ожидает проверки основателем и пока недоступна читателям.')).toBeVisible()
   })
 
   it('lets the founder publish, reject or archive an article under review', async () => {

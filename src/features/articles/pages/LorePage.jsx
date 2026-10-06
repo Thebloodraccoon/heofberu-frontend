@@ -1,13 +1,48 @@
+import ArticleAuthor from '@/features/articles/components/ArticleAuthor.jsx'
 import { useEffect, useRef } from 'react'
-import { useLocation, useNavigationType, useOutletContext, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigationType, useOutletContext, useSearchParams } from 'react-router-dom'
+import { articlePath } from '@/features/articles/api.js'
 import { parseSubtypeIds, parseTagIds, parseTypes } from '@/features/articles/filters.js'
 import { ARTICLE_SORTS } from '@/features/articles/sorts.js'
 import { useArticlesPage, useArticlesSearch } from '@/features/articles/queries.js'
-import { ErrorBox, Skeleton } from '@/components/ui'
+import { Badge, ErrorBox, Skeleton } from '@/components/ui'
 import Pagination from '@/components/ui/Pagination.jsx'
-import ArticleRow from '@/features/articles/components/ArticleRow.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
+import { articleStatusLabels, articleTypeLabels } from '@/lib/i18n'
 
 const PAGE_SIZE = 12
+
+// search — текущие фильтры списка: уходят в ссылку на статью, чтобы на её странице
+// панель поиска показывала их же, а «Лор» в хлебных крошках вёл обратно к этим результатам.
+function ArticleRow({ article, gmView, showSnippet, search }) {
+  return (
+    <Link
+      to={{ pathname: articlePath(article), search }}
+      className="lore-article-row"
+    >
+      <div className="lore-article-meta">
+        <span className="lore-article-category">
+          <span className="lore-article-type">{articleTypeLabels[article.article_type] ?? article.article_type}</span>
+          {article.subtype && <><span className="text-stone-500" aria-hidden="true">·</span><span className="lore-article-subtype">{article.subtype.name}</span></>}
+        </span>
+        {gmView && article.status !== 'published' && (
+          <Badge tone="default">{articleStatusLabels[article.status] ?? article.status}</Badge>
+        )}
+        {gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
+      </div>
+      <div className="lore-article-heading"><h2>{article.title}</h2><LoreIcon name="arrow" /></div>
+      <ArticleAuthor author={article.author} />
+      {article.excerpt && !(showSnippet && article.snippet) && <p className="lore-article-excerpt">{article.excerpt}</p>}
+      {showSnippet && article.snippet && (
+        <p
+          className="lore-article-excerpt [&_mark]:bg-ember/20 [&_mark]:text-stone-100"
+          dangerouslySetInnerHTML={{ __html: article.snippet }}
+        />
+      )}
+    </Link>
+  )
+}
 
 function scrollKey(locationKey) {
   return `lore-scroll:${locationKey}`

@@ -1,3 +1,4 @@
+import ArticleAuthor from '@/features/articles/components/ArticleAuthor.jsx'
 import { useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { articlePath, isPublicArticle } from '@/features/articles/api.js'
@@ -14,8 +15,6 @@ import { articleChildCaption, articleStatusLabels, articleTypeLabels, relatedArt
 import { renderRichHtml } from '@/lib/utils/richText.js'
 import GmOnlyBadge from '@/features/articles/components/GmOnlyBadge.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
-import ArticleRow from '@/features/articles/components/ArticleRow.jsx'
-import TableOfContents from '@/features/articles/components/TableOfContents.jsx'
 
 // Используем тот же безопасный рендер, что и RichText; якоря добавляем после очистки HTML.
 // Оглавление строится только по разделам, видимым в текущем режиме.
@@ -38,7 +37,14 @@ function ArticleBody({ body, showSecrets }) {
   }
   return (
     <div className="lore-body-layout">
-      {headings.length > 0 && <TableOfContents items={headings} summary="В этой статье" label="Оглавление статьи" />}
+      {headings.length > 0 && <aside className="lore-toc">
+        <details open>
+          <summary>В этой статье</summary>
+          <nav aria-label="Оглавление статьи">
+            {headings.map((heading) => <a key={heading.id} href={`#${heading.id}`} className={heading.nested ? 'lore-toc-nested' : ''}>{heading.title}</a>)}
+          </nav>
+        </details>
+      </aside>}
       <div className="mt-6 space-y-4">
       {segments.map((seg, i) =>
         seg.secret ? (
@@ -69,7 +75,7 @@ function Breadcrumbs({ ancestors, search }) {
       </Link>
       {shown.map((a) => (
         <span key={a?.id ?? 'more'} className="flex items-center gap-1">
-          <span aria-hidden="true">›</span>
+          <LoreIcon name="chevron" />
           {a ? (
             <Link to={articlePath(a)} className="hover:text-stone-200">
               {a.title}
@@ -112,6 +118,30 @@ function RelationFacts({ sections, gmView }) {
 }
 
 // Подпись карточки — кем связанная статья приходится этой («Упоминается в», «Союзник»…).
+function RelatedCard({ article, caption, note, secret = false, gmView = false }) {
+  return (
+    <Link
+      to={articlePath(article)}
+      className={`group flex flex-col gap-1.5 rounded-lg border bg-stone-900/60 p-4 transition hover:border-ember/60 hover:bg-stone-900 ${
+        secret ? 'border-violet-800/70' : 'border-stone-800'
+      }`}
+    >
+      <span className="text-xs uppercase tracking-wide text-stone-500">{caption}</span>
+      <span className="font-medium text-stone-100 group-hover:text-ember">{article.title}</span>
+      <span className="flex flex-wrap items-center gap-1.5 text-xs text-stone-500">
+        {secret ? (
+          <span className="inline-block" title="Секретная связь — игроки её не видят">
+            <GmOnlyBadge />
+          </span>
+        ) : gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
+        <Badge>{articleTypeLabels[article.article_type] ?? article.article_type}</Badge>
+        {article.subtype && <span className="lore-article-subtype">{article.subtype.name}</span>}
+      </span>
+      {note && <span className="text-sm text-stone-400">{note}</span>}
+    </Link>
+  )
+}
+
 export default function ArticleDetailPage() {
   const { gmView, playerView } = useOutletContext()
   const { slug } = useParams()
@@ -204,31 +234,36 @@ export default function ArticleDetailPage() {
       <div className="mx-auto max-w-3xl">
         <Breadcrumbs ancestors={ancestorsQ.data ?? []} search={location.search} />
 
-        <h1 className="heading-section mt-2 text-left">{article.title}</h1>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="article-detail-category mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <div className="article-detail-category-labels">
           {gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
           {/* Тип, подтип и теги — ссылки на лор с этим фильтром. */}
-          <Link to={`/lore?type=${article.article_type}`} className="hover:opacity-80" title="Все статьи этого типа">
-            <Badge>{articleTypeLabels[article.article_type] ?? article.article_type}</Badge>
+          <Link to={`/lore?type=${article.article_type}`} className="lore-article-type hover:opacity-80" title="Все статьи этого типа">
+            {articleTypeLabels[article.article_type] ?? article.article_type}
           </Link>
           {article.subtype && (
+            <>
+            <span className="text-stone-500" aria-hidden="true">·</span>
             <Link
               to={`/lore?type=${article.article_type}&subtype=${article.subtype.id}`}
-              className="text-sm text-stone-400 hover:text-ember"
+              className="lore-article-subtype text-sm hover:text-ember"
               title="Все статьи этого подтипа"
             >
               {article.subtype.name}
             </Link>
+            </>
           )}
+          </div>
           {gmView && article.status !== 'published' && (
-            <Badge>{articleStatusLabels[article.status] ?? article.status}</Badge>
+            <span className="article-detail-status"><Badge tone={article.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[article.status] ?? article.status}</Badge></span>
           )}
-          {article.author && <span className="text-sm text-stone-400">Автор: <span className="text-stone-200">{article.author.username}</span></span>}
         </div>
 
+        <h1 className="heading-section mt-2 text-left">{article.title}</h1>
+        <ArticleAuthor author={article.author} />
+
         {(article.tags ?? []).length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="article-detail-tags mt-3 flex flex-wrap items-center gap-2" aria-label="Теги статьи">
             {(article.tags ?? []).map((t) => (
               <Link
                 key={t.id}
@@ -251,11 +286,11 @@ export default function ArticleDetailPage() {
       </div>
 
       {cards.length > 0 && (
-        <section className="mt-10 space-y-3">
+        <section className="mt-10 space-y-3 border-t border-stone-800 pt-6">
           <h3 className="heading-sub">{relatedArticlesLabel}</h3>
-          <div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {cards.map(({ key, ...card }) => (
-              <ArticleRow key={key} {...card} gmView={gmView} heading="h4" />
+              <RelatedCard key={key} {...card} gmView={gmView} />
             ))}
           </div>
         </section>

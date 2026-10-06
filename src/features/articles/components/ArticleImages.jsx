@@ -53,7 +53,7 @@ export default function ArticleImages({ articleId, images, usedUrls, onChanged, 
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="heading-sub">Картинки</h3>
+        <h3 className="article-editor-label">Картинки</h3>
         <input
           ref={inputRef}
           type="file"
@@ -86,17 +86,18 @@ export default function ArticleImages({ articleId, images, usedUrls, onChanged, 
               <li key={img.id} className="space-y-2 rounded border border-stone-700/60 p-2">
                 <div className="relative">
                   <img src={img.image_url} alt="" className="h-28 w-full rounded object-cover" />
-                  <Badge tone={used ? 'accent' : 'default'} className="absolute left-1 top-1">
+                  <Badge tone={used ? 'accent' : 'default'} className="article-image-usage absolute left-1 top-1">
                     {used ? 'в тексте' : 'не вставлена'}
                   </Badge>
                 </div>
-                {!readOnly && <div className="flex flex-wrap gap-1.5">
-                  <Button size="xs" variant="ghost" onClick={() => onInsert?.(img)}>
+                {!readOnly && <div className="flex gap-1.5">
+                  <Button size="xs" variant="ghost" className="min-w-0 flex-1" onClick={() => onInsert?.(img)}>
                     В текст
                   </Button>
                   <Button
                     size="xs"
                     variant="danger"
+                    className="min-w-0 flex-1"
                     disabled={busy}
                     onClick={() => run(() => articlesApi.images.remove(articleId, img.id))}
                   >

@@ -12,7 +12,7 @@ export default function TagInput({ value, onChange }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="heading-sub">Теги</h3>
+        <h3 className="article-editor-label">Теги</h3>
         <Button size="sm" variant="ghost" onClick={() => setModal(true)}>
           Добавить теги
         </Button>

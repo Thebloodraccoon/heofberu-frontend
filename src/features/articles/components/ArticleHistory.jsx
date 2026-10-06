@@ -1,43 +1,58 @@
-import { useState } from 'react'
+import LoreIcon from './LoreIcon.jsx'
+import { useId, useState } from 'react'
 import { articlesApi } from '@/features/articles/api.js'
-import { useRevisionDiff, useRevisionFeed } from '@/features/articles/queries.js'
+import { useArticleSubtypes, useRevisionDiff, useRevisionFeed } from '@/features/articles/queries.js'
 import { FIELD_LABELS, fieldValue, formatDate, useWho } from '@/features/articles/history.js'
 import { Badge, Button, ConfirmDialog, ErrorBox, Skeleton } from '@/components/ui'
 
-// unified-diff тела как на GitHub: добавленные/удалённые строки — фоном на всю ширину
-// с контрастным текстом, служебные ---/+++/@@ приглушены.
+// unified-diff тела: подсветка добавленных/удалённых строк, служебные ---/+++/@@ приглушены.
 function BodyDiff({ text }) {
   if (!text) return <p className="text-xs text-stone-500">Текст не менялся.</p>
   return (
-    <pre className="max-h-80 overflow-auto rounded border border-stone-700/60 bg-stone-950/60 py-2 text-xs leading-relaxed whitespace-pre-wrap">
+    <pre className="article-diff-body">
       {text.split('\n').map((line, i) => {
         const tone = line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@')
           ? 'text-stone-500'
-          : line.startsWith('+') ? 'bg-emerald-900/50 text-emerald-200'
-            : line.startsWith('-') ? 'bg-red-900/50 text-red-200' : 'text-stone-400'
-        return <span key={i} className={`block px-3 ${tone}`}>{line || ' '}</span>
+          : line.startsWith('+') ? 'text-emerald-300' : line.startsWith('-') ? 'text-red-300' : 'text-stone-400'
+        return <span key={i} className={`article-diff-line ${tone} ${tone === 'text-emerald-300' ? 'article-diff-line--added' : tone === 'text-red-300' ? 'article-diff-line--removed' : ''}`}>{line || ' '}</span>
       })}
     </pre>
   )
 }
 
 // Diff версии или предложения: одинаковая форма ответа { fields, body_diff, against }.
+function SubtypeValue({ value }) {
+  // История может включать смену типа статьи, поэтому ищем в полном словаре.
+  const subtypesQ = useArticleSubtypes()
+  const subtype = subtypesQ.data?.find((item) => String(item.id) === String(value))
+  if (subtype) return subtype.name
+  if (subtypesQ.isLoading) return 'Загрузка…'
+  if (subtypesQ.error) return 'Название подтипа недоступно'
+  return 'Подтип удалён'
+}
+
+function DiffFieldValue({ field, value }) {
+  if (field === 'subtype_id' && value != null && value !== '') return <SubtypeValue value={value} />
+  return fieldValue(field, value)
+}
+
 export function DiffView({ diffQ, label }) {
   if (diffQ.isLoading) return <Skeleton className="h-16 w-full" />
   if (diffQ.error) return <ErrorBox error={diffQ.error} onRetry={diffQ.refetch} />
   const { fields, body_diff: bodyDiff, against } = diffQ.data
   const changed = Object.entries(fields)
   return (
-    <div className="mt-2 space-y-2" aria-label={label}>
+    <div className="article-diff mt-2 space-y-2" aria-label={label}>
       <p className="text-xs text-stone-500">{against ? `Сравнение с версией ${against}` : 'Первая версия статьи'}</p>
       {changed.length > 0 && (
         <ul className="space-y-1 text-sm">
           {changed.map(([field, { old, new: next }]) => (
-            <li key={field}>
-              <span className="text-stone-400">{FIELD_LABELS[field] ?? field}: </span>
-              <span className="text-red-300 line-through">{fieldValue(field, old)}</span>
-              {' → '}
-              <span className="text-emerald-300">{fieldValue(field, next)}</span>
+            <li key={field} className="article-diff-field">
+              <h4 className="text-sm font-medium text-stone-300">{FIELD_LABELS[field] ?? field}</h4>
+              <div className="article-diff-values">
+                <div className="article-diff-old"><span className="article-diff-value-label">Было</span><p className="text-red-300"><DiffFieldValue field={field} value={old} /></p></div>
+                <div className="article-diff-new"><span className="article-diff-value-label">Стало</span><p className="text-emerald-300"><DiffFieldValue field={field} value={next} /></p></div>
+              </div>
             </li>
           ))}
         </ul>
@@ -67,6 +82,7 @@ export function FeedMore({ feed, label = 'Показать ещё' }) {
 
 export default function ArticleHistory({ articleId, currentVersion, canRestore, onRestored }) {
   const who = useWho()
+  const panelId = useId()
   const [openVersion, setOpenVersion] = useState(null)
   const [restoring, setRestoring] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -94,49 +110,40 @@ export default function ArticleHistory({ articleId, currentVersion, canRestore, 
   const { items } = historyQ
   return (
     <div className="space-y-3">
-      <h3 className="heading-sub">История изменений</h3>
+      <h3 className="article-editor-label">История изменений</h3>
       <p className="text-xs text-stone-500">
         Читатели всегда видят последнюю версию. Здесь — все сохранения содержимого (название, описание, текст, тип, подтип, видимость).
       </p>
-      <ul className="space-y-2">
+      <ul className="article-history-list">
         {items.map((revision) => {
           const isCurrent = revision.version === currentVersion
           const isOpen = openVersion === revision.version
           return (
-            <li key={revision.version} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="flex flex-wrap items-center gap-2 text-sm text-stone-100">
+            <li key={revision.version} className={`article-history-row ${isCurrent ? 'article-history-row--current' : ''}`}>
+              <button type="button" className="article-history-toggle" aria-label={`${isOpen ? 'Скрыть изменения' : 'Изменения'} версии ${revision.version}`} aria-expanded={isOpen} aria-controls={`${panelId}-${revision.version}`} onClick={() => setOpenVersion(isOpen ? null : revision.version)}>
+                <span className="article-history-summary">
+                  <span className="flex flex-wrap items-center gap-2 text-sm text-stone-100">
                     <b>Версия {revision.version}</b>
                     {isCurrent && <Badge tone="good">текущая</Badge>}
-                    <span className="truncate text-stone-300">{revision.title}</span>
-                  </p>
-                  <div className="mt-1 space-y-0.5 text-xs text-stone-500">
-                    <p>
-                      {revision.content_hash && (
-                        <code className="mr-1.5 text-stone-400" title={revision.content_hash}>{revision.content_hash.slice(0, 7)}</code>
-                      )}
-                      {formatDate(revision.created_at)}
-                    </p>
-                    <p>Правил: <span className="text-stone-300">{who(revision.editor_id)}</span></p>
-                    {revision.reviewer_id != null && revision.reviewer_id !== revision.editor_id && (
-                      <p>Принял: <span className="text-stone-300">{who(revision.reviewer_id)}</span></p>
-                    )}
-                  </div>
-                  {revision.change_note && <p className="mt-0.5 text-xs text-stone-300">{revision.change_note}</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" aria-expanded={isOpen} onClick={() => setOpenVersion(isOpen ? null : revision.version)}>
-                    {isOpen ? 'Скрыть изменения' : 'Изменения'}
-                  </Button>
-                  {canRestore && !isCurrent && (
-                    <Button size="sm" variant="ghost" onClick={() => { setError(null); setRestoring(revision.version) }}>
-                      Восстановить
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {isOpen && <RevisionDiff articleId={articleId} version={revision.version} />}
+                  </span>
+                  <span className="article-history-title">{revision.title}</span>
+                  <span className="article-history-meta">
+                    <span>Правил: {who(revision.editor_id)}</span>
+                    {revision.reviewer_id != null && revision.reviewer_id !== revision.editor_id && <span>Принял: {who(revision.reviewer_id)}</span>}
+                    <span>{formatDate(revision.created_at)}</span>
+                    {revision.content_hash && <code title={revision.content_hash}>{revision.content_hash.slice(0, 7)}</code>}
+                  </span>
+                  {revision.change_note && <span className="article-history-note">{translateChangeNote(revision.change_note)}</span>}
+                </span>
+                <LoreIcon name="chevron" className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+              </button>
+              {isOpen && <div id={`${panelId}-${revision.version}`} className="article-history-details">
+                <RevisionDiff articleId={articleId} version={revision.version} />
+                {canRestore && !isCurrent && <div className="article-history-actions">
+                  <Button size="sm" variant="ghost" onClick={() => { setError(null); setRestoring(revision.version) }}><LoreIcon name="undo" />Восстановить версию</Button>
+                </div>}
+              </div>}
+
             </li>
           )
         })}
@@ -157,4 +164,8 @@ export default function ArticleHistory({ articleId, currentVersion, canRestore, 
       )}
     </div>
   )
+}
+
+function translateChangeNote(note) {
+  return note.replace(/^Restored version\s+(\d+)\b/i, 'Восстановлена версия $1')
 }

@@ -164,7 +164,7 @@ export default function ArticleProposals({ articleId, canReview, onAccepted }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h3 className="heading-sub">Предложения правок</h3>
+        <h3 className="article-editor-label">Предложения правок</h3>
         <label className="flex items-center gap-2 text-sm text-stone-300">
           <input type="checkbox" checked={hideClosed} onChange={(e) => { setHideClosed(e.target.checked); setOpenId(null) }} />
           Скрыть закрытые

@@ -39,8 +39,8 @@ function Picker({ articleId, value, parent, onSelect, onClose }) {
   return <Drawer title="Родительская статья" subtitle="Выберите раздел, к которому относится статья." closeLabel="Закрыть выбор родителя" onClose={onClose}>
     {value && <section className="lore-preview-notice" aria-label="Текущий родитель">
       <p className="lore-eyebrow">Текущий родитель</p>
-      <p className="font-medium">{parent?.title ?? `Статья #${value}`}</p>
       {parent && <span className="lore-article-type">{articleTypeLabels[parent.article_type]}</span>}
+      <p className="font-medium">{parent?.title ?? `Статья #${value}`}</p>
     </section>}
     <form className="flex gap-2 mb-4" onSubmit={(event) => { event.preventDefault(); setApplied(search.trim()); setPage(1) }}>
       <Input aria-label="Поиск родительской статьи" placeholder="Поиск по названию…" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -77,11 +77,11 @@ export default function ParentArticlePicker({ articleId, value, onChange, disabl
     {value && <div>
       {parent.isLoading && <Skeleton className="h-8 w-full" />}
       {parent.error && <ErrorBox error={parent.error} onRetry={parent.refetch} />}
-      {parent.data && <><p className="font-medium">{parent.data.title}</p><span className="lore-article-type">{articleTypeLabels[parent.data.article_type]}</span></>}
+      {parent.data && <><span className="lore-article-type">{articleTypeLabels[parent.data.article_type]}</span><p className="font-medium">{parent.data.title}</p></>}
     </div>}
-    <div className="flex flex-wrap gap-2">
-      <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setOpen(true)}>{value ? 'Изменить родителя' : 'Выбрать родительскую статью'}</Button>
-      {value && <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onChange(null)}>Убрать</Button>}
+    <div className="flex gap-2">
+      <Button size="sm" variant="ghost" className="min-w-0 flex-1" aria-label={value ? 'Изменить родителя' : 'Выбрать родительскую статью'} disabled={disabled} onClick={() => setOpen(true)}>{value ? 'Изменить' : 'Выбрать родительскую статью'}</Button>
+      {value && <Button size="sm" variant="ghost" className="min-w-0 flex-1" disabled={disabled} onClick={() => onChange(null)}>Убрать</Button>}
     </div>
     {open && <Picker articleId={articleId} value={value} parent={parent.data} onClose={() => setOpen(false)} onSelect={(id) => { onChange(id); setOpen(false) }} />}
   </div>
