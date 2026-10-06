@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 
 const drawerStack = []
 
-export default function Drawer({ title, subtitle, onClose, children, footer, bodyClassName = '', closeLabel = 'Закрыть фильтры' }) {
+export default function Drawer({ title, subtitle, onClose, children, footer, bodyClassName = '', className = '', closeLabel = 'Закрыть фильтры' }) {
   const titleId = useId()
   const panelRef = useRef(null)
   const closeRef = useRef(null)
@@ -51,7 +51,7 @@ export default function Drawer({ title, subtitle, onClose, children, footer, bod
 
   return createPortal(
     <div className="ui-drawer-overlay" onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section ref={panelRef} className="ui-drawer" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <section ref={panelRef} className={`ui-drawer ${className}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="ui-drawer-header">
           <div>
             <h2 id={titleId} className="heading-section">{title}</h2>

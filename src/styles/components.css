@@ -348,7 +348,7 @@
 [data-theme="light"] .bonus-badge[data-tone="good"] { --bonus-color: #285b43; }
 [data-theme="light"] .bonus-badge[data-tone="feat"] { --bonus-color: #715015; }
 [data-theme="light"] .bonus-badge[data-tone="accent"], [data-theme="light"] .bonus-badge[data-tone="default"] { --bonus-color: #8b3e22; }
-.ui-drawer .grant-picker-card { margin-block: 0.35rem; padding: 0; }
+.ui-drawer .grant-picker-card { margin-block: 0; padding: 0; }
 .grant-picker-card button[aria-pressed] { white-space: normal; overflow-wrap: anywhere; }
 .ui-drawer .catalog-record-card button > span.truncate { white-space: normal; }
 .ui-drawer .catalog-filter-summary { margin-bottom: 1rem; }
@@ -368,3 +368,24 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+.grant-picker-list > .grant-picker-card + .grant-picker-card,
+.grant-picker-list > ul > .grant-picker-card + .grant-picker-card { margin-top: .75rem; }
+
+.editable-field-header { min-height: 2.25rem; }
+.editable-field-header > .text-label { display: flex; align-items: center; min-height: inherit; }
+.editable-field-header > .btn-edit-inline { margin-block: 0; }
+@media (max-width: 639px) { .editable-field-header { min-height: 2.75rem; } }
+
+.grant-picker-row { display: flex; align-items: center; gap: .5rem; min-height: 3.5rem; padding: .75rem; }
+.grant-picker-select { display: flex; flex: 1; min-width: 0; align-items: center; flex-wrap: wrap; gap: .5rem; text-align: left; font-size: .875rem; font-weight: 500; color: var(--color-stone-100); white-space: normal; overflow-wrap: anywhere; }
+.grant-picker-expand { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2.25rem; height: 2.25rem; border-radius: .25rem; color: var(--color-stone-400); }
+.grant-picker-expand:hover { background: var(--color-stone-800); color: var(--color-stone-100); }
+.grant-picker-expand .lore-icon { width: 1rem; height: 1rem; }
+.grant-picker-detail { border-top: 1px solid var(--color-stone-700); padding: .75rem; font-size: .875rem; color: var(--color-stone-300); }
+@media (max-width: 639px) { .grant-picker-expand { width: 2.75rem; height: 2.75rem; } }
+
+.inline-catalog-filters { display: flex; flex-direction: column; flex: none; min-height: 0; max-height: 35dvh; margin-bottom: .75rem; border: 1px solid var(--color-stone-700); border-radius: .5rem; background: var(--color-stone-900); }
+.inline-catalog-filters-fields { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .75rem; }
+.inline-catalog-filters-fields legend { font-size: .875rem; font-weight: 600; margin-bottom: .5rem; }
+.inline-catalog-filters-actions { display: flex; flex: none; gap: .5rem; padding: .75rem; border-top: 1px solid var(--color-stone-700); }
+.inline-catalog-filters-actions > button { flex: 1; min-width: 0; }
