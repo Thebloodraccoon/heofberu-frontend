@@ -20,7 +20,8 @@ const list = () => within(screen.getByRole('complementary', { name: 'Персо�
 describe('GM character list', () => {
   it('sorts by level and searches by player name', async () => {
     const user = setup()
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Сортировка персонажей' }), 'level-desc')
+    await user.click(screen.getByRole('button', { name: 'Сортировка персонажей' }))
+    await user.click(screen.getByRole('menuitemradio', { name: 'Уровень: по убыванию' }))
     expect(list().getAllByText(/Астра|Бор/).map((node) => node.textContent)).toEqual(['Бор', 'Астра'])
     await user.type(screen.getByRole('searchbox', { name: 'Поиск персонажей' }), 'Анна')
     await user.click(screen.getByRole('button', { name: 'Найти' }))

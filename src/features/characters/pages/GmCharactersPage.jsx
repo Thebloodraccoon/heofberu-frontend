@@ -1,3 +1,4 @@
+import SortMenu from '@/components/ui/SortMenu.jsx'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { sentenceCase } from '@/lib/i18n/index.js'
@@ -147,7 +148,7 @@ export default function GmCharactersPage() {
     <div className="lore-page gm-characters-page">
       <header className="lore-header article-workspace-header"><div><p className="lore-eyebrow">Мастерская мира</p><h1 className="heading-section">Персонажи игроков</h1><p className="lore-intro">Герои вашей истории: уровни, пути и состояние персонажей.</p></div></header>
       <div className="lore-search-panel">
-        <SearchToolbar className="lore-search-toolbar" query={query} onQueryChange={setQuery} onSearch={() => setAppliedQuery(query.trim())} onFilters={() => setFiltersOpen(true)} filterCount={activeFilters.length} filtersOpen={filtersOpen} label="Поиск персонажей" placeholder="Имя персонажа или игрока…" extraAction={<label className="lore-sort-control" title="Сортировка"><LoreIcon name="sort" /><span aria-hidden="true">{CHARACTER_SORTS.find(([key]) => key === sort)[1]}</span><select aria-label="Сортировка персонажей" value={sort} onChange={(event) => setSort(event.target.value)}>{CHARACTER_SORTS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>} />
+        <SearchToolbar className="lore-search-toolbar" query={query} onQueryChange={setQuery} onSearch={() => setAppliedQuery(query.trim())} onFilters={() => setFiltersOpen(true)} filterCount={activeFilters.length} filtersOpen={filtersOpen} label="Поиск персонажей" placeholder="Имя персонажа или игрока…" extraAction={<SortMenu options={CHARACTER_SORTS} value={sort} onChange={setSort} label="Сортировка персонажей" />} />
         {activeFilters.length > 0 && <div className="lore-active-filters" aria-label="Активные фильтры">{activeFilters.map(([key, label]) => <button key={key} type="button" className="lore-chip lore-chip--active" aria-label={`Убрать фильтр ${label}`} onClick={() => setFilters((current) => ({ ...current, [key]: '', ...(key === 'classId' ? { subclassId: '' } : {}) }))}><span>{label}</span><LoreIcon name="close" /></button>)}<button type="button" className="lore-reset" onClick={() => setFilters({ ...EMPTY_CHARACTER_FILTERS })}>Сбросить фильтры</button></div>}
       </div>
       {filtersOpen && <GmCharacterFilters filters={filters} classes={classes} subclasses={subclasses} players={players} onApply={setFilters} onClose={() => setFiltersOpen(false)} />}

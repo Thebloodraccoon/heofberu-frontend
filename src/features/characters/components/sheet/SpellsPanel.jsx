@@ -1,3 +1,4 @@
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
@@ -83,7 +84,7 @@ function SpellRow({ sp, open, onExpand, onRemove }) {
           onClick={onExpand}
           className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left"
         >
-          <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+          <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
             {sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}
           </span>
@@ -123,7 +124,7 @@ function GrantedSpellRow({ sp, open, onExpand }) {
         onClick={onExpand}
         className="flex w-full min-w-0 items-center gap-2 px-4 py-2.5 text-left"
       >
-        <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+        <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
           {sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}
         </span>

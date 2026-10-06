@@ -40,12 +40,12 @@ function TrashIcon() {
   return <LoreIcon name="trash" />
 }
 
-function Section({ title, action, children }) {
+function Section({ title, action, count, children }) {
   return (
     <section className="gm-editor-section" aria-label={title}>
       {action ? (
         <div className="mb-1 flex items-center justify-between gap-2">
-          <h3 className="heading-sub">{title}</h3>
+          <h3 className="heading-sub">{title}{count != null && <span className="gm-section-count">{count}</span>}</h3>
           {action}
         </div>
       ) : (
@@ -810,7 +810,16 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
         </div>
       }
     >
-      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={() => setShowFilters(true)} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.feats.filters} value={filters} onChange={setFilters} />
+      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={catalog.feats.filters?.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={true} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.feats.filters} value={filters} onChange={setFilters} />
+      {showFilters && (
+        <FilterModal
+          inline={true}
+          filters={catalog.feats.filters}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
       {!featsQ.isFetching && available.length === 0 && (
         <p className="py-4 text-center text-sm text-stone-400">
           {appliedSearch ? 'Ничего не найдено по запросу.' : 'Доступных черт нет.'}
@@ -825,10 +834,10 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
           return (
             <div
               key={f.id}
-              className={`catalog-record-card p-3 ${ok ? '' : 'opacity-60'}`}
+              className={`catalog-record-card grant-picker-card ${ok ? '' : 'opacity-60'}`}
               data-active={selected}
             >
-              <div className="flex items-start gap-2">
+              <div className="grant-picker-row">
                 <button
                   type="button"
                   disabled={!ok}
@@ -837,7 +846,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                     setIncreaseId(null)
                     setExpandedId(null)
                   }}
-                  className={`min-w-0 flex-1 truncate rounded text-left text-sm font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                  className={`grant-picker-select ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                   aria-pressed={selected}
                 >
                   {sentenceCase(f.name)}
@@ -862,14 +871,15 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                     type="button"
                     aria-label={`Посмотреть: ${f.name}`}
                     onClick={() => setExpandedId(expanded ? null : f.id)}
-                    className="rounded border border-stone-700 px-2 py-1 text-[11px] text-stone-300 transition hover:border-ember/50 hover:bg-stone-800"
+                    className="grant-picker-expand"
+                    aria-expanded={expanded}
                   >
                     <LoreIcon name="chevron" className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
                   </button>
                 </span>
               </div>
               {expanded && (
-                <div className="mt-2 border-t border-stone-700/50 pt-2">
+                <div className="grant-picker-detail">
                   {detailQ.isFetching && !rowDetail ? (
                     <div className="space-y-1.5 py-1" aria-busy="true">
                       <Skeleton className="h-3.5 w-full" />
@@ -905,14 +915,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
         )}
       </div>
 
-      {showFilters && (
-        <FilterModal
-          filters={catalog.feats.filters}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
+
     </Drawer>
   )
 }
@@ -993,8 +996,17 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
 
   return (
     <Drawer bodyClassName="grant-picker-body" title="Выдать особенность" subtitle="Особые свойства из справочника" onClose={onClose} footer={<div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected} onClick={() => onPick(selected)}>Выдать особенность</Button></div>}>
-      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={() => setShowFilters(true)} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.features.filters} value={filters} onChange={setFilters} />
-      <div ref={listRef} onScroll={onScroll} className="grant-picker-list space-y-1.5 pr-1">
+      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={catalog.features.filters?.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={true} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.features.filters} value={filters} onChange={setFilters} />
+      {showFilters && (
+        <FilterModal
+          inline={true}
+          filters={catalog.features.filters}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
+      <div ref={listRef} onScroll={onScroll} className="grant-picker-list space-y-2 pr-1">
         {!featuresQ.isFetching && available.length === 0 && (
           <p className="text-sm text-stone-500">Особенностей не найдено.</p>
         )}
@@ -1006,16 +1018,14 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
               className="catalog-record-card grant-picker-card"
               data-active={selected?.id === f.id}
             >
-              <div className="flex items-start gap-2 p-3">
+              <div className="grant-picker-row">
                 <button
                   type="button"
                   onClick={() => setSelected(f)}
                   aria-pressed={selected?.id === f.id}
-                  className="min-w-0 flex-1 truncate rounded text-left text-sm font-medium text-stone-100 hover:text-ember"
+                  className="grant-picker-select"
                 >
                   {sentenceCase(f.name)}
-                  {selected && <LoreIcon name="check" />}
-                  {selected?.id === f.id && <LoreIcon name="check" />}
                 </button>
                 <span className="flex shrink-0 items-center gap-1.5">
                   {effectBadges(f).map((badge, i) => (
@@ -1029,14 +1039,14 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
                     onClick={() => setExpandedId(expanded ? null : f.id)}
                     title={expanded ? 'Свернуть' : 'Подробнее'}
                     aria-expanded={expanded}
-                    className="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 transition hover:text-stone-100"
+                    className="grant-picker-expand"
                   >
                     <LoreIcon name="chevron" className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
                   </button>
                 </span>
               </div>
               {expanded && (
-                <div className="border-t border-stone-700/50 px-3 py-2.5">
+                <div className="grant-picker-detail">
                   <FeatureDetail featureId={f.id} />
                 </div>
               )}
@@ -1052,14 +1062,7 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
         )}
       </div>
 
-      {showFilters && (
-        <FilterModal
-          filters={catalog.features.filters}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
+
     </Drawer>
   )
 }
@@ -1119,14 +1122,14 @@ function FeatsSection({ character, onError, reload }) {
   }
 
   return (
-    <Section title="Черты" action={<Button
+    <Section title="Черты" count={charFeats.length} action={<Button
           type="button"
           onClick={() => setFeatPickerOpen(true)}
           size="sm" variant="ghost"
         >
           <PlusIcon />Выдать черту
         </Button>}>
-<p className="text-sm text-stone-400">Черт: {charFeats.length}</p>
+
 
       {charFeats.length === 0 ? (
         <p className="text-sm text-stone-500">Черт нет.</p>
@@ -1135,15 +1138,16 @@ function FeatsSection({ character, onError, reload }) {
           {charFeats.map((cf) => {
             const open = openFeatId === cf.id
             return (
-              <li key={cf.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60">
-                <div className="flex items-center justify-between gap-2 p-4">
+              <li key={cf.id} className="gm-ability-card">
+                <div className="gm-ability-card-header">
                   <button
                     type="button"
                     onClick={() => setOpenFeatId(open ? null : cf.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    aria-expanded={open}
+                    className="gm-ability-toggle"
                   >
-                    <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
-                    <span className="truncate text-sm font-medium text-stone-100">
+                    <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
+                    <span className="gm-ability-name">
                       {cf.feat?.name ? sentenceCase(cf.feat.name) : `Черта #${cf.feat_id}`}
                     </span>
                     {hasGrantedEffects(cf) && (
@@ -1160,7 +1164,7 @@ function FeatsSection({ character, onError, reload }) {
                   <Button
                     type="button"
                     variant="danger"
-                    size="xs"
+                    size="sm"
                     className="shrink-0"
                     onClick={() => removeFeat(cf.id)}
                   >
@@ -1171,7 +1175,7 @@ function FeatsSection({ character, onError, reload }) {
                   <RichText
                     value={cf.feat?.description}
                     tail={cf.feat?.effects_summary}
-                    className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400"
+                    className="gm-ability-content"
                   />
                 )}
               </li>
@@ -1249,14 +1253,14 @@ function FeaturesSection({ character, onError, reload }) {
   const hasGrantedChoices = (cf) => (cf.choices ?? []).length > 0
 
   return (
-    <Section title="Особенности" action={<Button
+    <Section title="Особенности" count={otherFeatures.length} action={<Button
           type="button"
           onClick={() => setFeaturePickerOpen(true)}
           size="sm" variant="ghost"
         >
           <PlusIcon />Выдать особенность
         </Button>}>
-<p className="text-sm text-stone-400">Особенностей: {otherFeatures.length}</p>
+
 
       {otherFeatures.length === 0 ? (
         <p className="text-sm text-stone-500">Особенностей нет.</p>
@@ -1265,15 +1269,16 @@ function FeaturesSection({ character, onError, reload }) {
           {otherFeatures.map((cf) => {
             const open = openFeatureId === cf.id
             return (
-              <li key={cf.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60">
-                <div className="flex items-center justify-between gap-2 p-4">
+              <li key={cf.id} className="gm-ability-card">
+                <div className="gm-ability-card-header">
                   <button
                     type="button"
                     onClick={() => setOpenFeatureId(open ? null : cf.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    aria-expanded={open}
+                    className="gm-ability-toggle"
                   >
-                    <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
-                    <span className="truncate text-sm font-medium text-stone-100">{featureName(cf)}</span>
+                    <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
+                    <span className="gm-ability-name">{featureName(cf)}</span>
                     {hasGrantedEffects(cf) && (
                       <Badge tone="good" className="shrink-0">
                         Даёт эффекты
@@ -1286,13 +1291,13 @@ function FeaturesSection({ character, onError, reload }) {
                     )}
                   </button>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cf)}>
+                    <Button type="button" variant="danger" size="sm" onClick={() => setRemoveTarget(cf)}>
                       Убрать
                     </Button>
                   </div>
                 </div>
                 {open && (cf.feature?.description || cf.feature?.effects_summary || cf.notes) && (
-                  <div className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400">
+                  <div className="gm-ability-content">
                     {cf.feature?.description || cf.feature?.effects_summary ? (
                       <RichText value={cf.feature?.description} tail={cf.feature?.effects_summary} />
                     ) : null}
@@ -1369,30 +1374,30 @@ function GrantedSpellsSection({ character, onError, reload }) {
   }
 
   return (
-    <Section title="Дополнительные заклинания" action={<Button
+    <Section title="Дополнительные заклинания" count={grantedSpells.length} action={<Button
           type="button"
           onClick={() => setPickerOpen(true)}
           size="sm" variant="ghost"
         >
           <PlusIcon />Выдать заклинание
         </Button>}>
-<p className="text-sm text-stone-400">Выдано ГМ: {grantedSpells.length}</p>
+
 
       {grantedSpells.length === 0 ? (
         <p className="text-sm text-stone-500">Дополнительных заклинаний нет.</p>
       ) : (
         <ul className="space-y-2">
           {grantedSpells.map((sp) => (
-            <li key={sp.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
+            <li key={sp.id} className="gm-ability-card gm-ability-card-header">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-stone-100">
+                <p className="gm-ability-name">
                   {sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}
                 </p>
                 {sp.school && (
                   <span className="text-xs text-stone-500">{label(sp.school)}</span>
                 )}
               </div>
-              <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(sp)}>
+              <Button type="button" variant="danger" size="sm" onClick={() => setRemoveTarget(sp)}>
                 Убрать
               </Button>
             </li>
@@ -1484,16 +1489,14 @@ function ItemsSection({ character, onError, reload }) {
   }
 
   return (
-    <Section title="Снаряжение персонажа" action={<Button
+    <Section title="Снаряжение персонажа" count={items.length} action={<Button
           type="button"
           onClick={() => setPickerOpen(true)}
           size="sm" variant="ghost"
         >
           <PlusIcon />Выдать предмет
         </Button>}>
-<p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">
-          Инвентарь ({items.length})
-        </p>
+
 
       {items.length === 0 ? (
         <p className="text-sm text-stone-500">Снаряжения пока нет.</p>
@@ -1501,11 +1504,11 @@ function ItemsSection({ character, onError, reload }) {
         <ul className="space-y-2">
           {items.map((ci) => {
             return (
-              <li key={ci.id} className="flex items-center gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
+              <li key={ci.id} className="gm-ability-card gm-ability-card-header">
                 <button
                   type="button"
                   onClick={() => setInfoItemId(ci.item_id)}
-                  className="link-ember min-w-0 flex-1 truncate text-left font-display text-sm font-bold"
+                  className="gm-ability-name min-w-0 flex-1 text-left hover:text-ember"
                   title="Показать предмет"
                 >
                   {ci.item?.name ? sentenceCase(ci.item.name) : `Предмет #${ci.item_id}`}

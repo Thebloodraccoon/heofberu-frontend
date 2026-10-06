@@ -839,3 +839,11 @@
   .gm-skill-row > div { flex-basis: 100%; }
   .gm-skill-switch { margin-right: auto; }
 }
+
+.gm-section-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem; margin-left: .5rem; padding: .1rem .4rem; border-radius: .25rem; background: var(--color-stone-800); color: var(--color-stone-400); font: 500 .75rem/1.5 var(--font-sans); vertical-align: middle; }
+.gm-ability-card { border: 1px solid var(--color-stone-700); border-radius: .5rem; background: var(--color-stone-900); overflow: hidden; }
+.gm-ability-card-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem; }
+.gm-character-panel button.gm-ability-toggle { display: flex; flex: 1; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: .5rem; text-align: left; min-height: 2.25rem; }
+.gm-ability-name { min-width: 0; overflow-wrap: anywhere; font-size: .875rem; font-weight: 500; color: var(--color-stone-100); }
+.gm-ability-content { border-top: 1px solid var(--color-stone-700); padding: .75rem; font-size: .875rem; line-height: 1.6; color: var(--color-stone-400); }
+@media (max-width: 639px) { .gm-character-panel button.gm-ability-toggle { min-height: 2.75rem; } }
