@@ -16,11 +16,11 @@ const SCROLL_THRESHOLD = 120
 
 // Тот же набор полей, что и в карточке предмета (ItemDetailCard), без
 // заголовка — имя и так видно в строке аккордеона.
-function ItemDetail({ itemId }) {
+function ItemDetail({ itemId, drawer = false }) {
   const { data: it, isLoading } = useItemDetail(itemId)
   if (isLoading || !it) {
     return (
-      <div className="border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400">
+      <div className={drawer ? 'grant-picker-detail' : 'border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400'}>
         <Skeleton className="h-3 w-3/4" />
         <Skeleton className="mt-2 h-3 w-1/2" />
       </div>
@@ -64,7 +64,7 @@ function ItemDetail({ itemId }) {
   ].filter(Boolean)
 
   return (
-    <div className="border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400">
+    <div className={drawer ? 'grant-picker-detail' : 'border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400'}>
       {rows.length > 0 && (
         <dl className="mb-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
           {rows.map((r) => (
@@ -156,11 +156,20 @@ export default function ItemPickerModal({
 
   return (
     <Container {...(drawer ? { bodyClassName: 'grant-picker-body' } : {})} title={title} subtitle={subtitle} onClose={onClose} size="lg" scroll footer={drawer && <div className="w-full space-y-3">{selected && <label className="block text-sm text-stone-300">Количество<Input className="mt-1 w-full" type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label>}<div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected || !quantityValid} onClick={() => { onPick(selected, Number(quantity)); onClose() }}>Выдать предмет</Button></div></div>}>
-      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={() => setShowFilters(true)} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={ITEM_FILTERS} value={filters} onChange={setFilters} />
+      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={ITEM_FILTERS.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={drawer} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={ITEM_FILTERS} value={filters} onChange={setFilters} />
+      {showFilters && (
+        <FilterModal
+          inline={drawer}
+          filters={ITEM_FILTERS}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
 
-      <div ref={listRef} onScroll={onScroll} className={drawer ? 'grant-picker-list space-y-1 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
+      <div ref={listRef} onScroll={onScroll} className={drawer ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
         {!listQ.isFetching && items.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
-        <ul className="space-y-1">
+        <ul className={drawer ? 'space-y-2' : 'space-y-1'}>
           {items.map((item) => {
             const isOpen = expanded.has(item.id)
             return (
@@ -169,7 +178,7 @@ export default function ItemPickerModal({
                 className={drawer ? 'catalog-record-card grant-picker-card' : `rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${isOpen ? 'bg-stone-900' : ''}`}
                 data-active={drawer && selected?.id === item.id}
               >
-                <div className="flex items-center gap-2 px-3 py-1.5">
+                <div className={drawer ? 'grant-picker-row' : 'flex items-center gap-2 px-3 py-1.5'}>
                   <button
                     type="button"
                     onClick={() => {
@@ -177,11 +186,10 @@ export default function ItemPickerModal({
                       onPick(item)
                       onClose()
                     }}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    className={drawer ? 'grant-picker-select' : 'flex min-w-0 flex-1 items-center gap-2 text-left'}
                     aria-pressed={drawer ? selected?.id === item.id : undefined}
                   >
                     <span className="truncate text-sm text-stone-100 hover:text-ember">{sentenceCase(item.name)}</span>
-                    {drawer && selected?.id === item.id && <LoreIcon name="check" />}
                     {item.item_type && (
                       <Badge tone="accent" className="shrink-0">
                         {label(item.item_type)}
@@ -199,23 +207,15 @@ export default function ItemPickerModal({
                   <button
                     type="button"
                     onClick={() => toggleExpand(item.id)}
-                    className="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 transition hover:text-stone-100"
+                    className="grant-picker-expand"
+                    aria-label={`Посмотреть: ${item.name}`}
                     title={isOpen ? 'Свернуть' : 'Подробнее'}
                     aria-expanded={isOpen}
                   >
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className={`size-4 transition-transform ${isOpen ? 'rotate-90' : ''}`}
-                      aria-hidden="true"
-                    >
-                      <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <LoreIcon name="chevron" className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                   </button>
                 </div>
-                {isOpen && <ItemDetail itemId={item.id} />}
+                {isOpen && <ItemDetail itemId={item.id} drawer={drawer} />}
               </li>
             )
           })}
@@ -235,14 +235,7 @@ export default function ItemPickerModal({
         </Button>
       </div>}
 
-      {showFilters && (
-        <FilterModal
-          filters={ITEM_FILTERS}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
+
     </Container>
   )
 }

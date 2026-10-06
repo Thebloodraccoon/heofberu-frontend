@@ -1,3 +1,5 @@
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { featurePayload, persistFeatureEffects } from '@/features/catalog/config/editors/index.js'
@@ -6,11 +8,12 @@ import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
 import TagInput from '@/features/articles/components/TagInput.jsx'
-import { ErrorBox, RichTextField, Select, TextField } from '@/components/ui'
+import { Button, ErrorBox, RichTextField, Select, TextField } from '@/components/ui'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
 
 export default function SubraceEditor({ raceId, detail, features, busy = false, error = null, onRefresh }) {
+  const [tab, setTab] = useState('main')
   const { push: pushStatus } = useToasts()
   const [bonuses, setBonuses] = useState(() => detail?.ability_bonuses ?? [])
   const [tags, setTags] = useState(() => (detail?.tags ?? []).map((t) => ({ id: t.id, name: t.name })))
@@ -146,6 +149,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
       await onRefresh()
     } catch (err) {
       setSaveError(err)
+      throw err
     }
   }
 
@@ -197,14 +201,10 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
           {saveError && <ErrorBox error={saveError} onRetry={() => {}} />}
           {error && <ErrorBox error={error} onRetry={() => {}} />}
 
-          <ImageUploadBlock
-            imageUrl={imageUrl}
-            onUpload={uploadImage}
-            onRemove={removeImage}
-            busy={imageBusy}
-            error={imageError}
-          />
-
+          <EditorTabs tabs={[['main', 'Основное'], ['bonuses', 'Бонусы'], ['features', 'Особенности']]} value={tab} onChange={setTab} label="Разделы подрасы" />
+          <div hidden={tab !== 'main'} className="space-y-4">
+          <div className="race-editor-main">
+          <div className="space-y-4">
           <TextField
             label="Название подрасы"
             value={detail.name}
@@ -214,17 +214,24 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
 
           <RichTextField label="Описание" value={detail.description} onSave={saveField('description')} rows={2} />
 
-          <div>
+          </div>
+          <div className="race-editor-image">
+          <ImageUploadBlock
+            imageUrl={imageUrl}
+            onUpload={uploadImage}
+            onRemove={removeImage}
+            busy={imageBusy}
+            error={imageError}
+          />
+
+          </div>
+          </div>
+          <TagInput value={tags} onChange={setTags} />
+          </div>
+          <div hidden={tab !== 'bonuses'}>
             <SectionTitle
               button={
-                <button
-                  type="button"
-                  onClick={addBonus}
-                  disabled={abilitiesUsedUp}
-                  className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
-                >
-                  + Добавить
-                </button>
+                <Button type="button" variant="ghost" size="sm" onClick={addBonus} disabled={abilitiesUsedUp}><LoreIcon name="plus" /> Добавить</Button>
               }
             >
               Бонусы характеристик
@@ -244,7 +251,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
                     return (
                       <div
                         key={i}
-                        className="flex w-[calc(50%-0.5rem)] min-w-[260px] items-center gap-2"
+                        className="catalog-bonus-row"
                       >
                         <div className="w-48">
                           <Select
@@ -284,10 +291,9 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
             )}
           </div>
 
-          <TagInput value={tags} onChange={setTags} />
-
-          <div className=" pt-3">
+          <div hidden={tab !== 'features'}>
             <FeaturesEditorBlock
+              compact
               block={{
                 label: 'Особенности подрасы',
                 addLabel: '+ Добавить',
@@ -309,8 +315,9 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
         const row = featureModal.index == null ? null : features[featureModal.index]
         return (
           <FeatureModal
+            drawer
             title={featureModal.index == null ? 'Добавить особенность' : `Изменить: ${row?.name || 'особенность'}`}
-            subtitle={detail.name}
+            subtitle={`Подраса: ${detail.name}`}
             value={row}
             onSave={saveFeature}
             onClose={() => setFeatureModal(null)}

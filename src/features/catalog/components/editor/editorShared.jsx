@@ -75,7 +75,7 @@ export function BlurNumberInput({ value, onChange, min, max, placeholder, classN
 export function SectionTitle({ children, button }) {
   return (
     <div className="mb-3 flex items-center gap-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">{children}</p>
+      <p className="catalog-editor-section-title text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">{children}</p>
       <span className="h-px flex-1 bg-stone-700/70" aria-hidden="true" />
       {button}
     </div>

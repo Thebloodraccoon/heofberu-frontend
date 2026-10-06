@@ -1,3 +1,4 @@
+import Drawer from '@/components/ui/Drawer.jsx'
 import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { catalogEditorTabs, catalogFieldTab, catalogSectionTab } from '@/features/catalog/config/editors/tabs.js'
@@ -351,18 +352,12 @@ export default function GmEditorPage() {
   }
 
   const toggleSubrace = (id) => {
-    const next = new Set(openSubraces)
-    if (next.has(id)) {
-      next.delete(id)
-    } else {
-      next.add(id)
-      const info = subraceDetails[id]
-      if (!info?.detail && !info?.loading) {
-        const sub = subraces.find((s) => s.id === id)
-        if (sub) loadSubraceDetail(editing.id, sub)
-      }
+    setOpenSubraces(new Set([id]))
+    const info = subraceDetails[id]
+    if (!info?.detail && !info?.loading) {
+      const sub = subraces.find((item) => item.id === id)
+      if (sub) loadSubraceDetail(editing.id, sub)
     }
-    setOpenSubraces(next)
   }
 
   const reloadSubraces = async (raceId) => {
@@ -709,6 +704,7 @@ export default function GmEditorPage() {
       setFeatureModal(null)
     } catch (e) {
       setFeaturesError(e)
+      throw e
     }
   }
 
@@ -947,7 +943,7 @@ export default function GmEditorPage() {
 
           <section className="editor-detail min-w-0" aria-label="Форма записи">
             {showForm && form ? (
-              <Card className="detail-padded">
+              <Card className={`detail-padded ${resource === 'races' ? 'race-editor' : ''}`}>
                 <div className="mb-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="font-display text-xl font-bold text-stone-100">
@@ -962,7 +958,7 @@ export default function GmEditorPage() {
                         onClick={() => setDeleteTarget(editing)}
                       >
                         <TrashIcon className="mr-1.5 inline h-3.5 w-3.5" />
-                        Удалить...
+                        Удалить
                       </Button>
                     )}
                   </div>
@@ -971,16 +967,9 @@ export default function GmEditorPage() {
                 {editorTabs && <EditorTabs tabs={editorTabs} value={editorTab} onChange={setEditorTab} label="Разделы записи справочника" />}
                 <form onSubmit={editing ? saveFields : createSubmit} className="flex flex-col gap-5">
                   {!editing && editorTabs && ['features', 'subraces', 'subclasses'].includes(editorTab) && <p className="text-sm text-stone-500">Сначала создайте запись, чтобы добавить {editorTab === 'subraces' ? 'подрасы' : editorTab === 'subclasses' ? 'подклассы' : 'умения и особенности'}.</p>}
-                  {editing && cfg.imageOps && (
-                    <div hidden={tabHidden('main')}><ImageUploadBlock
-                      imageUrl={imageUrl}
-                      onUpload={uploadImage}
-                      onRemove={removeImage}
-                      busy={imageBusy}
-                      error={imageError}
-                    /></div>
-                  )}
+                  {resource !== 'races' && editing && cfg.imageOps && <div hidden={tabHidden('main')}><ImageUploadBlock imageUrl={imageUrl} onUpload={uploadImage} onRemove={removeImage} busy={imageBusy} error={imageError} /></div>}
                   {(editorTabs ?? [['main', 'Основное']]).map(([tab, title]) => <div key={tab} hidden={tabHidden(tab)} role="tabpanel" aria-label={title}>
+                  <div className={resource === 'races' && tab === 'main' ? 'race-editor-main' : ''}>
                   <div className="grid gap-4 sm:grid-cols-2" onInvalid={() => setEditorTab(tab)}>
                     {(() => {
                       const visibleFields = cfg.fields.filter(
@@ -1046,6 +1035,8 @@ export default function GmEditorPage() {
                     })()}
                   </div>
 
+                  {resource === 'races' && tab === 'main' && editing && cfg.imageOps && <div className="race-editor-image"><ImageUploadBlock imageUrl={imageUrl} onUpload={uploadImage} onRemove={removeImage} busy={imageBusy} error={imageError} /></div>}
+                  </div>
                   </div>)}
 
                   {cfg.sections
@@ -1311,14 +1302,7 @@ onClick={() => {
                         <div key={section.key}>
                           <SectionTitle
                             button={
-                              <button
-                                type="button"
-                                onClick={() => addRow(section)}
-                                disabled={allUsed}
-                                className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
-                              >
-                                {section.addLabel}
-                              </button>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => addRow(section)} disabled={allUsed}><LoreIcon name="plus" /> {section.addLabel.replace(/^\+\s*/, '')}</Button>
                             }
                           >
                             {section.label}
@@ -1335,7 +1319,7 @@ onClick={() => {
                             {form[section.key].map((row, i) => (
                               <div
                                 key={i}
-                                className="flex w-[calc(50%-0.5rem)] min-w-[260px] items-center gap-2"
+                                className="catalog-bonus-row"
                               >
                                 {section.columns.map((col) => {
                                   const control = (() => {
@@ -1429,6 +1413,7 @@ onClick={() => {
                       section.type === 'pills' ? section.options : listOptions[section.listKey]
                     return (
                       <OptionsPicker
+                        drawer={resource === 'races'}
                         key={section.key}
                         label={section.label}
                         hint={section.hint}
@@ -1455,6 +1440,7 @@ onClick={() => {
 
                 {editing && cfg.featuresOps && (
                   <div hidden={tabHidden('features')}><FeaturesEditorBlock
+                    compact={resource === 'races'}
                     block={cfg.featuresBlock}
                     items={features}
                     loading={featuresLoading}
@@ -1591,44 +1577,24 @@ onClick={() => {
                   <div hidden={tabHidden('subraces')} className="mt-6">
                     <SectionTitle
                       button={
-                        <button
-                          type="button"
-                          onClick={openNewSubrace}
-                          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-                        >
-                          + Добавить
-                        </button>
+                        <Button type="button" variant="ghost" size="sm" onClick={openNewSubrace}><LoreIcon name="plus" /> Добавить подрасу</Button>
                       }
                     >
-                      Подрасы
+                      Подрасы <span className="text-stone-500">{subraces.length}</span>
                     </SectionTitle>
                     {subraceError && <ErrorBox error={subraceError} onRetry={() => reloadSubraces(editing.id)} />}
 
                     {newSubrace && (
-                      <div className="mb-3 rounded-lg border border-ember/40 bg-stone-900/60 p-4">
-                        <p className="mb-3 font-display text-sm font-bold text-stone-100">Новая подраса</p>
-                        {newSubraceError && <ErrorBox error={newSubraceError} onRetry={() => {}} className="mb-[5px]" />}
-                        <div className="mb-[5px] grid gap-3">
-                          <Field label="Название подрасы">
-                            <Input
-                              value={newSubrace.name}
-                              onChange={setNewSubraceField('name')}
-                              placeholder="Например, Высший эльф"
-                            />
-                          </Field>
+                      <Drawer title="Новая подраса" subtitle={`Раса: ${editing.name}`} className="catalog-editor-drawer" closeLabel="Закрыть создание подрасы" onClose={() => setNewSubrace(null)} footer={<>
+                        <Button type="button" variant="ghost" onClick={() => setNewSubrace(null)}>Отмена</Button>
+                        <Button type="button" disabled={newSubraceSaving || !newSubrace.name.trim()} onClick={saveNewSubrace}>{newSubraceSaving ? 'Создаём…' : 'Создать'}</Button>
+                      </>}>
+                        <div className="space-y-4">
+                          {newSubraceError && <ErrorBox error={newSubraceError} />}
+                          <Field label="Название подрасы"><Input value={newSubrace.name} onChange={setNewSubraceField('name')} placeholder="Например, Высший эльф" /></Field>
+                          <Field label="Описание"><RichTextEditor value={newSubrace.description} onChange={setNewSubraceField('description')} rows={4} /></Field>
                         </div>
-                        <Field label="Описание" className="my-[5px]">
-                          <RichTextEditor value={newSubrace.description} onChange={setNewSubraceField('description')} rows={2} />
-                        </Field>
-                        <div className="mb-[5px] flex flex-wrap items-center gap-2">
-                          <Button type="button" disabled={newSubraceSaving} onClick={saveNewSubrace} className="my-[5px]">
-                            {newSubraceSaving ? 'Создаём...' : 'Создать подрасу'}
-                          </Button>
-                          <Button type="button" variant="ghost" onClick={() => setNewSubrace(null)} className="my-[5px]">
-                            Отмена
-                          </Button>
-                        </div>
-                      </div>
+                      </Drawer>
                     )}
 
                     {subraces.length === 0 && !newSubrace ? (
@@ -1638,19 +1604,20 @@ onClick={() => {
                         {subraces.map((sub) => {
                           const info = subraceDetails[sub.id] ?? {}
                           const open = openSubraces.has(sub.id)
+                          const subImage = info.detail ? info.detail.image_url : sub.image_url
                           return (
                             <div
                               key={sub.id}
-                              className="rounded-lg border border-stone-700/60 bg-stone-900/60"
+                              className="editor-record-card catalog-subrace-card"
                             >
                               <div className="flex items-center justify-between gap-2 px-3 py-2.5">
                                 <button
                                   type="button"
                                   onClick={() => toggleSubrace(sub.id)}
-                                  aria-expanded={open}
-                                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                                  aria-haspopup="dialog"
+                                  className="catalog-card-open flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
                                 >
-                                  <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
+                                  {subImage && <img src={subImage} alt="" className="catalog-subrace-image" />}
                                   <span className="truncate text-base font-medium text-stone-100">
                                     {info.detail?.name ?? sub.name}
                                   </span>
@@ -1658,14 +1625,15 @@ onClick={() => {
                                 <button
                                   type="button"
                                   onClick={() => setConfirmSubrace(sub)}
-                                  className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                  className="catalog-card-delete inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
                                   title="Удалить"
                                 >
                                   <TrashIcon />
                                 </button>
                               </div>
                               {open && (
-                                <div className="border-t border-stone-700/60 p-4">
+                                <Drawer title={info.detail?.name ?? sub.name} subtitle={`Раса: ${editing.name}`} className="catalog-editor-drawer" closeLabel="Закрыть подрасу" onClose={() => setOpenSubraces(new Set())} footer={<Button type="button" variant="ghost" onClick={() => setOpenSubraces(new Set())}>Готово</Button>}>
+                                  <p className="catalog-parent-context">Базовая раса: {editing.name} · {cfg.listBadges(editing).map((badge) => badge.text).join(' · ')}</p>
                                   {!info.detail && info.loading ? (
                                     <div className="space-y-2" aria-busy="true">
                                       <Skeleton className="h-4 w-1/2" />
@@ -1686,7 +1654,7 @@ onClick={() => {
                                       onRefresh={() => reloadSubraceDetail(sub.id)}
                                     />
                                   ) : null}
-                                </div>
+                                </Drawer>
                               )}
                             </div>
                           )
@@ -1742,12 +1710,13 @@ onClick={() => {
         const row = featureModal.index == null ? null : features[featureModal.index]
         return (
           <FeatureModal
+            drawer={resource === 'races'}
             title={
               featureModal.index == null
                 ? `Добавить ${cfg.featuresBlock.noun}`
                 : `Изменить: ${row?.name || cfg.featuresBlock.noun}`
             }
-            subtitle={editing?.name}
+            subtitle={resource === 'races' ? `Раса: ${editing?.name}` : editing?.name}
             value={row}
             showLevel={cfg.featuresModal.showLevel}
             levelRequired={cfg.featuresModal.levelRequired}

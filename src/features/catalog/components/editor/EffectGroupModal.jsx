@@ -1,3 +1,4 @@
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
 import { Button, Input, Modal } from '@/components/ui'
 import { AddButton, EFFECT_TYPES, EMPTY_OPTION_EFFECTS } from './effectTypeEditors.jsx'
@@ -7,7 +8,7 @@ import { TrashIcon } from './editorShared.jsx'
 // не поддерживает label) — только порядковый номер и строки эффекта того же
 // типа, что и вся группа (например, у группы «Характеристики» каждый вариант —
 // это набор строк ability_effects).
-function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove }) {
+function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, inline, onNavigate }) {
   return (
     <div className="space-y-2 rounded-lg border border-stone-700/60 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -21,7 +22,7 @@ function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove })
           <TrashIcon />
         </button>
       </div>
-      <Editor rows={option[effectType] ?? []} onChange={(rows) => onChange({ ...option, [effectType]: rows })} />
+      <Editor inline={inline} onNavigate={onNavigate} rows={option[effectType] ?? []} onChange={(rows) => onChange({ ...option, [effectType]: rows })} />
     </div>
   )
 }
@@ -29,7 +30,20 @@ function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove })
 // Модальное окно для одной группы эффектов особенности — и статичной, и
 // группы выбора. Два шага: сначала выбор типа эффекта (только при добавлении
 // новой группы — у существующей тип уже зафиксирован), потом форма.
+function EffectScreen({ title, subtitle, onClose, footer, children, navigating, summary }) {
+  return <section className="catalog-effect-screen">
+    {!navigating && <button type="button" className="article-back" onClick={onClose}><LoreIcon name="back" /> К эффектам</button>}
+    {summary && <div className="mt-3">{summary}</div>}
+    <h3 className="article-editor-label mt-4">{title}</h3>
+    {subtitle && <p className="mb-4 text-sm text-stone-400">{subtitle}</p>}
+    {children}
+    {footer && !navigating && <div className="catalog-effect-actions">{footer}</div>}
+  </section>
+}
+
 export default function EffectGroupModal({
+  inline = false,
+  summary,
   mode, // 'static' | 'choice'
   effectType: initialType = null,
   availableTypes = [],
@@ -38,13 +52,17 @@ export default function EffectGroupModal({
   onSave,
   onClose,
 }) {
+  const [navigating, setNavigating] = useState(false)
   const [effectType, setEffectType] = useState(initialType)
   const [rows, setRows] = useState(initialRows)
   const [group, setGroup] = useState(() => initialGroup ?? { pick_count: 1, options: [] })
 
+  const Container = inline ? EffectScreen : Modal
+
   if (!effectType) {
     return (
-      <Modal
+      <Container
+        summary={summary}
         title={mode === 'static' ? 'Добавить статичный эффект' : 'Добавить выбор эффектов'}
         subtitle="Выберите тип эффекта"
         onClose={onClose}
@@ -65,7 +83,7 @@ export default function EffectGroupModal({
             <p className="text-sm text-stone-500">Все типы эффектов уже использованы.</p>
           )}
         </div>
-      </Modal>
+      </Container>
     )
   }
 
@@ -80,7 +98,9 @@ export default function EffectGroupModal({
   const canSave = mode === 'static' ? rows.length > 0 : group.options.length > 0
 
   return (
-    <Modal
+    <Container
+      summary={summary}
+      navigating={navigating}
       title={typeDef.label}
       subtitle={mode === 'choice' ? 'Группа выбора' : 'Статичный эффект'}
       onClose={onClose}
@@ -98,7 +118,7 @@ export default function EffectGroupModal({
       }
     >
       {mode === 'static' ? (
-        <Editor rows={rows} onChange={setRows} />
+        <Editor inline={inline} onNavigate={setNavigating} rows={rows} onChange={setRows} />
       ) : (
         <div className="space-y-3">
           <label className="flex items-center gap-2 text-sm text-stone-300">
@@ -117,6 +137,8 @@ export default function EffectGroupModal({
             {group.options.map((option, oi) => (
               <ChoiceOption
                 key={oi}
+                inline={inline}
+                onNavigate={setNavigating}
                 index={oi}
                 option={option}
                 effectType={effectType}
@@ -137,6 +159,6 @@ export default function EffectGroupModal({
           )}
         </div>
       )}
-    </Modal>
+    </Container>
   )
 }

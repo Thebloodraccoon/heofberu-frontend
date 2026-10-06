@@ -19,9 +19,9 @@ vi.mock('@/features/catalog/api.js', async () => {
 })
 
 // Редактор управляемый: харнесс держит value в стейте, как это делают формы.
-function Harness({ initial = {} }) {
+function Harness({ initial = {}, inline = false }) {
   const [tree, setTree] = useState(initial)
-  return <FeatureEffectsEditor value={tree} onChange={setTree} />
+  return <FeatureEffectsEditor value={tree} onChange={setTree} inline={inline} />
 }
 
 const renderEditor = (initial) => renderWithProviders(<Harness initial={initial} />)
@@ -34,6 +34,19 @@ describe('FeatureEffectsEditor', () => {
     catalogApi.spells.list.mockResolvedValue({
       items: [{ id: 9, name: 'Огненный шар' }],
     })
+  })
+
+  it('edits effects and chooses a spell in place without opening another dialog', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<Harness inline />)
+    await user.click(screen.getByRole('button', { name: '+ Добавить статичный эффект' }))
+    await user.click(screen.getByRole('button', { name: 'Заклинания' }))
+    await user.click(screen.getByRole('button', { name: '+ Заклинание' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^огненный шар/i }))
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(screen.getByText(/Заклинания/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'К эффектам' })).not.toBeInTheDocument()
   })
 
   it('renders empty static effects and choice groups sections', async () => {
@@ -134,8 +147,8 @@ describe('FeatureEffectsEditor', () => {
     await user.click(await screen.findByRole('button', { name: 'Заклинания' }))
     await user.click(await screen.findByRole('button', { name: '+ Заклинание' }))
 
-    expect(await screen.findByPlaceholderText('Поиск заклинания…')).toBeInTheDocument()
-    await user.click(await screen.findByRole('button', { name: 'Огненный шар' }))
+    expect(await screen.findByPlaceholderText('Название или описание…')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^огненный шар/i }))
 
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
     expect(await screen.findByText(/Заклинания/)).toBeInTheDocument()

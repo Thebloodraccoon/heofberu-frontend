@@ -1,6 +1,8 @@
+import Drawer from '@/components/ui/Drawer.jsx'
+import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Button, Field, Input, Modal, RichText, RichTextEditor } from '@/components/ui'
+import { Button, Field, Input, Modal, RichText, RichTextEditor, ErrorBox } from '@/components/ui'
 import { normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
 import FeatureEffectsEditor from './FeatureEffectsEditor.jsx'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -11,6 +13,7 @@ function blankFeature() {
 
 export default function FeatureModal({
   title,
+  drawer = false,
   subtitle,
   value = null,
   showLevel = false,
@@ -47,6 +50,11 @@ export default function FeatureModal({
   const tree = localTree ?? (treeQ.data ? { ...treeQ.data } : normalizeEffectsTree(undefined))
   const setTree = (next) => setLocalTree(next)
 
+  const [navigating, setNavigating] = useState(false)
+  const [tab, setTab] = useState('description')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const Container = drawer ? Drawer : Modal
   const [levelError, setLevelError] = useState(false)
 
   const LEVEL_MIN = 1
@@ -63,35 +71,53 @@ export default function FeatureModal({
           : e.target.value,
     }))
 
-  const save = () => {
+  const save = async () => {
     if (showLevel && levelRequired && edit.level == null) {
       setLevelError(true)
       return
     }
-    onSave({ ...edit, effects: tree })
+    setSaving(true)
+    setSaveError(null)
+    try { await onSave({ ...edit, effects: tree }) }
+    catch (error) { setSaveError(error) }
+    finally { setSaving(false) }
   }
 
   const loading = treeQ.isLoading && value?.id != null
 
+  const summary = tree?.effects_summary && (
+        <Field label="Сводка эффектов">
+          <RichText
+            value={tree.effects_summary}
+            className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm leading-relaxed text-stone-300"
+          />
+        </Field>
+      )
+
   return (
-    <Modal
+    <Container
       title={title}
       subtitle={subtitle}
       onClose={onClose}
       size="4xl"
+      className={drawer ? 'catalog-editor-drawer' : undefined}
+      closeLabel="Закрыть редактор особенности"
       scroll
-      footer={
+      footer={!navigating &&
         <>
           <Button type="button" variant="ghost" onClick={onClose}>
             Отмена
           </Button>
-          <Button type="button" onClick={save}>
-            Сохранить
+          <Button type="button" onClick={save} disabled={saving || !edit.name.trim() || loading}>
+            {saving ? 'Сохраняем…' : value || !drawer ? 'Сохранить' : 'Создать'}
           </Button>
         </>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      {saveError && <ErrorBox error={saveError} />}
+      {drawer && !navigating && <EditorTabs tabs={[['description', 'Описание'], ['effects', 'Эффекты']]} value={tab} onChange={setTab} label="Разделы особенности" />}
+      <div hidden={drawer && tab !== 'description'} className="space-y-4">
+      <div className={showLevel ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3'}>
         <Field label="Название">
           <Input value={edit.name} onChange={setField('name')} placeholder="Например, Тёмное зрение" autoFocus />
         </Field>
@@ -120,20 +146,16 @@ export default function FeatureModal({
         <RichTextEditor value={edit.description} onChange={setField('description')} rows={4} />
       </Field>
 
-      {tree?.effects_summary && (
-        <Field label="Сводка эффектов">
-          <RichText
-            value={tree.effects_summary}
-            className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm leading-relaxed text-stone-300"
-          />
-        </Field>
-      )}
+      </div>
+      <div hidden={drawer && tab !== 'effects'} className="space-y-4">
+      {!navigating && summary}
 
       {loading ? (
         <p className="py-4 text-sm text-stone-500">Загрузка эффектов…</p>
       ) : (
-        <FeatureEffectsEditor value={tree} onChange={setTree} />
+        <FeatureEffectsEditor summary={summary} value={tree} onChange={setTree} inline={drawer} onNavigate={drawer ? setNavigating : undefined} />
       )}
-    </Modal>
+      </div>
+    </Container>
   )
 }

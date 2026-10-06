@@ -371,7 +371,7 @@ export function WeaponEffectsEditor({ rows = [], onChange, onHide }) {
   )
 }
 
-export function SpellEffectsEditor({ rows = [], onChange, onHide }) {
+export function SpellEffectsEditor({ rows = [], onChange, onHide, inline = false, onNavigate }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const spellNames = useSpellNames(rows.map((r) => r.spell_id))
   const nameOf = (id) => spellNames[Number(id)] ?? `заклинание #${id}`
@@ -379,12 +379,13 @@ export function SpellEffectsEditor({ rows = [], onChange, onHide }) {
 
   return (
     <>
+      <div hidden={inline && pickerOpen}>
       <Section
         title="Заклинания"
         count={rows.length}
         empty="Заклинаний нет"
         onHide={onHide}
-        addControl={<AddButton onClick={() => setPickerOpen(true)} title="+ Заклинание" />}
+        addControl={<AddButton onClick={() => { setPickerOpen(true); onNavigate?.(true) }} title="+ Заклинание" />}
       >
         {rows.map((row, i) => (
           <RowShell key={i} onRemove={() => onChange(rows.filter((_, j) => j !== i))}>
@@ -394,11 +395,13 @@ export function SpellEffectsEditor({ rows = [], onChange, onHide }) {
           </RowShell>
         ))}
       </Section>
+      </div>
       {pickerOpen && (
         <SpellPickerModal
+          inline={inline}
           excludeIds={rows.map((r) => r.spell_id)}
           onPick={add}
-          onClose={() => setPickerOpen(false)}
+          onClose={() => { setPickerOpen(false); onNavigate?.(false) }}
         />
       )}
     </>

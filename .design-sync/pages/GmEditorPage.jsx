@@ -155,7 +155,7 @@ function Page({ initiallyEditing }) {
                   {editing && (
                     <Button type="button" variant="danger" size="sm" className="my-[5px]">
                       <TrashIcon className="mr-1.5 inline h-3.5 w-3.5" />
-                      Удалить...
+                      Удалить
                     </Button>
                   )}
                 </div>

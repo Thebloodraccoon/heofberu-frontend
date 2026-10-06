@@ -1,7 +1,8 @@
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
 import { ruLevel } from '@/lib/i18n/index.js'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
-import { Badge, ConfirmDialog, ErrorBox, RichText, Skeleton } from '@/components/ui'
+import { Badge, Button, ConfirmDialog, ErrorBox, RichText, Skeleton } from '@/components/ui'
 import { SectionTitle, PencilIcon, TrashIcon } from './editorShared.jsx'
 
 function Chevron({ open }) {
@@ -20,6 +21,7 @@ function Chevron({ open }) {
 }
 
 export default function FeaturesEditorBlock({
+  compact = false,
   block,
   items = [],
   loading,
@@ -48,16 +50,12 @@ export default function FeaturesEditorBlock({
     <div className="space-y-4 pt-4">
       <SectionTitle
         button={
-          <button
-            type="button"
-            onClick={onAdd}
-            className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
-          >
-            {block.addLabel}
-          </button>
+          <Button type="button" variant="ghost" size="sm" onClick={onAdd}>
+            <LoreIcon name="plus" /> {block.addLabel.replace(/^\+\s*/, '')}
+          </Button>
         }
       >
-        {block.label}
+        {block.label} <span className="text-stone-500">{items.length}</span>
       </SectionTitle>
       {error && <ErrorBox error={error} onRetry={onRetry} />}
       {loading ? (
@@ -84,7 +82,7 @@ export default function FeaturesEditorBlock({
             return (
               <li
                 key={key}
-                className={`rounded-lg border p-3 transition ${
+                className={compact ? 'editor-record-card catalog-feature-card' : `rounded-lg border p-3 transition ${
                   open
                     ? 'border-ember/60 bg-stone-900'
                     : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/40'
@@ -93,11 +91,12 @@ export default function FeaturesEditorBlock({
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => toggle(key)}
-                    className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left"
-                    aria-expanded={open}
+                    onClick={() => compact ? onEdit(i) : toggle(key)}
+                    className={`flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left ${compact ? 'catalog-card-open' : ''}`}
+                    aria-expanded={compact ? undefined : open}
+                    aria-haspopup={compact ? 'dialog' : undefined}
                   >
-                    <Chevron open={open} />
+                    {!compact && <Chevron open={open} />}
                     <span className="min-w-0 break-words text-base font-semibold text-stone-100">
                       {f.name || 'Без названия'}
                     </span>
@@ -108,7 +107,7 @@ export default function FeaturesEditorBlock({
                       </Badge>
                     ))}
                   </button>
-                  <div className="flex shrink-0 gap-1">
+                  <div hidden={compact} className="flex shrink-0 gap-1">
                     <button
                       type="button"
                       onClick={() => onEdit(i)}
@@ -127,11 +126,12 @@ export default function FeaturesEditorBlock({
                     </button>
                   </div>
                 </div>
-                {open && (f.description || f.effects_summary) && (
+                {compact && <Button type="button" variant="danger" size="sm" className="catalog-card-delete" aria-label={`Удалить: ${f.name || 'Без названия'}`} onClick={() => setConfirmTarget(f)}><LoreIcon name="trash" /></Button>}
+                {(compact || open) && (f.description || f.effects_summary) && (
                   <RichText
                     value={f.description}
                     tail={f.effects_summary}
-                    className="mt-2 break-words text-sm leading-loose text-stone-300"
+                    className={compact ? 'catalog-feature-preview' : 'mt-2 break-words text-sm leading-loose text-stone-300'}
                   />
                 )}
               </li>

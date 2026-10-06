@@ -59,6 +59,25 @@ describe('GmEditorPage', () => {
     catalogApi.skills.list.mockResolvedValue({ items: [] })
   })
 
+  it('opens subrace editing in a side panel without saving on navigation', async () => {
+    const user = userEvent.setup()
+    const subrace = { id: 12, name: 'Высший эльф', ability_bonuses: [], tags: [], features: [] }
+    catalogApi.races.get.mockResolvedValue({ ...races[0], subraces: [subrace], granted_skills: [], ability_bonuses: [] })
+    catalogApi.races.features.list.mockResolvedValue([])
+    catalogApi.races.subraces.get.mockResolvedValue(subrace)
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^эльф/i }))
+    await user.click(await screen.findByRole('tab', { name: 'Подрасы' }))
+    await user.click(screen.getByRole('button', { name: 'Высший эльф' }))
+    const panel = await screen.findByRole('dialog', { name: 'Высший эльф' })
+    await user.click(await within(panel).findByRole('tab', { name: 'Бонусы' }))
+    expect(within(panel).getByText('Бонусов нет')).toBeVisible()
+    expect(catalogApi.races.subraces.update).not.toHaveBeenCalled()
+    await user.click(within(panel).getByRole('button', { name: 'Закрыть подрасу' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Высший эльф' })).toHaveFocus()
+  })
+
   it('switches catalog editor tabs without saving', async () => {
     const user = userEvent.setup()
     catalogApi.races.get.mockResolvedValue({ ...races[0], ability_bonuses: [], granted_skills: [], subraces: [] })

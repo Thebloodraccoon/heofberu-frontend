@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui'
 import Drawer from '@/components/ui/Drawer.jsx'
 
-export default function FilterModal({ filters, value, onChange, onClose }) {
+export default function FilterModal({ filters, value, onChange, onClose, inline = false }) {
   const [draft, setDraft] = useState(value)
 
   const toggle = (name, v) => {
@@ -31,13 +31,11 @@ export default function FilterModal({ filters, value, onChange, onClose }) {
   const activeCount = Object.values(draft).reduce((count, entries) => count + entries.length, 0)
   const appliedCount = Object.values(value).reduce((count, entries) => count + entries.length, 0)
 
-  return (
-    <Drawer title="Фильтры" subtitle={activeCount ? `Выбрано: ${activeCount}` : 'Выберите параметры поиска'} onClose={onClose} footer={
-      <>
-        <Button variant="ghost" onClick={resetAndClose} disabled={!activeCount && !appliedCount}>Сбросить</Button>
-        <Button onClick={applyAndClose}>Применить</Button>
-      </>
-    }>
+  const footer = <>
+    <Button type="button" variant="ghost" onClick={resetAndClose} disabled={!activeCount && !appliedCount}>Сбросить</Button>
+    <Button type="button" onClick={applyAndClose}>Применить</Button>
+  </>
+  const content = (
       <div className="space-y-6">
         {filters.length === 0 && <p className="text-sm text-stone-500">Фильтров нет</p>}
         {filters.map((filter) => (
@@ -49,6 +47,10 @@ export default function FilterModal({ filters, value, onChange, onClose }) {
           </fieldset>
         ))}
       </div>
-    </Drawer>
   )
+  if (inline) return <section className="inline-catalog-filters" aria-label="Фильтры">
+    <div className="inline-catalog-filters-fields">{content}</div>
+    <div className="inline-catalog-filters-actions">{footer}</div>
+  </section>
+  return <Drawer title="Фильтры" subtitle={activeCount ? `Выбрано: ${activeCount}` : 'Выберите параметры поиска'} onClose={onClose} footer={footer}>{content}</Drawer>
 }
