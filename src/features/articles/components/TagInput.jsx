@@ -3,7 +3,7 @@ import TagSelectModal from '@/features/articles/components/TagSelectModal.jsx'
 import { Button } from '@/components/ui'
 import LoreIcon from './LoreIcon.jsx'
 
-// Теги статьи в конструкторе ГМ — как связи: список чипов с «✕» и кнопка
+// Общий выбор тегов для статей и записей справочника: чипы и кнопка
 // «Добавить теги», открывающая боковую панель со словарём (поиск, создание нового тега).
 // value/onChange — массив { id, name }.
 export default function TagInput({ value, onChange }) {
@@ -13,7 +13,7 @@ export default function TagInput({ value, onChange }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="article-editor-label">Теги</h3>
-        <Button size="sm" variant="ghost" onClick={() => setModal(true)}>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setModal(true)}>
           Добавить теги
         </Button>
       </div>
@@ -44,7 +44,6 @@ export default function TagInput({ value, onChange }) {
 
       {modal && (
         <TagSelectModal
-          title="Теги статьи"
           subtitle="Выберите из словаря или создайте новый."
           selected={value}
           allowCreate

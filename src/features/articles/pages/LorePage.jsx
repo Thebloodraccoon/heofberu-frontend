@@ -27,11 +27,11 @@ function ArticleRow({ article, gmView, showSnippet, search }) {
           {article.subtype && <><span className="text-stone-500" aria-hidden="true">·</span><span className="lore-article-subtype">{article.subtype.name}</span></>}
         </span>
         {gmView && article.status !== 'published' && (
-          <Badge tone="default">{articleStatusLabels[article.status] ?? article.status}</Badge>
+          <Badge tone={article.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[article.status] ?? article.status}</Badge>
         )}
         {gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
       </div>
-      <div className="lore-article-heading"><h2>{article.title}</h2><LoreIcon name="arrow" /></div>
+      <div className="lore-article-heading"><h2>{article.title}</h2></div>
       <ArticleAuthor author={article.author} />
       {article.excerpt && !(showSnippet && article.snippet) && <p className="lore-article-excerpt">{article.excerpt}</p>}
       {showSnippet && article.snippet && (
@@ -40,6 +40,7 @@ function ArticleRow({ article, gmView, showSnippet, search }) {
           dangerouslySetInnerHTML={{ __html: article.snippet }}
         />
       )}
+      <LoreIcon name="arrow" className="lore-article-arrow" />
     </Link>
   )
 }

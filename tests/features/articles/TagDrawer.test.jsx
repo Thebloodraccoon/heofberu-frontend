@@ -17,14 +17,35 @@ function Example() {
 }
 
 describe('Tag drawer', () => {
+  it('does not submit its enclosing form or apply tags until Done is pressed', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn((event) => event.preventDefault())
+    const onChange = vi.fn()
+    render(<form onSubmit={onSubmit}><TagInput value={[]} onChange={onChange} /></form>)
+    await user.click(screen.getByRole('button', { name: 'Добавить теги' }))
+    await user.click(screen.getByRole('button', { name: /#История/ }))
+    await user.click(screen.getByRole('button', { name: 'Отмена' }))
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(onChange).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Добавить теги' }))
+    await user.click(screen.getByRole('button', { name: /#История/ }))
+    await user.click(screen.getByRole('button', { name: 'Закрыть теги' }))
+    expect(onChange).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Добавить теги' }))
+    await user.click(screen.getByRole('button', { name: /#История/ }))
+    await user.click(screen.getByRole('button', { name: 'Готово' }))
+    expect(onChange).toHaveBeenCalledExactlyOnceWith([{ id: 1, name: 'История' }])
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   it('applies selection only after confirmation and closes only the top drawer on Escape', async () => {
     const user = userEvent.setup()
     render(<Example />)
     await user.click(screen.getByRole('button', { name: 'Добавить теги' }))
-    expect(screen.getByRole('dialog', { name: 'Теги статьи' })).toHaveClass('ui-drawer')
+    expect(screen.getByRole('dialog', { name: 'Теги' })).toHaveClass('ui-drawer')
     await user.click(screen.getByRole('button', { name: /#История/ }))
     await user.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog', { name: 'Теги статьи' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Теги' })).not.toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'Параметры' })).toBeVisible()
     expect(screen.getByText('Тегов пока нет.')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Добавить теги' }))
@@ -33,3 +54,4 @@ describe('Tag drawer', () => {
     expect(screen.getByRole('button', { name: 'Удалить тег История' })).toBeVisible()
   })
 })
+

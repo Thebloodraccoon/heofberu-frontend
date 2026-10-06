@@ -236,7 +236,6 @@ export default function ArticleDetailPage() {
 
         <div className="article-detail-category mt-3 flex flex-wrap items-center gap-2 text-sm">
           <div className="article-detail-category-labels">
-          {gmView && article.visibility === 'gm_only' && <GmOnlyBadge />}
           {/* Тип, подтип и теги — ссылки на лор с этим фильтром. */}
           <Link to={`/lore?type=${article.article_type}`} className="lore-article-type hover:opacity-80" title="Все статьи этого типа">
             {articleTypeLabels[article.article_type] ?? article.article_type}
@@ -254,8 +253,11 @@ export default function ArticleDetailPage() {
             </>
           )}
           </div>
-          {gmView && article.status !== 'published' && (
-            <span className="article-detail-status"><Badge tone={article.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[article.status] ?? article.status}</Badge></span>
+          {gmView && (article.visibility === 'gm_only' || article.status !== 'published') && (
+            <div className="article-detail-status">
+              {article.visibility === 'gm_only' && <GmOnlyBadge />}
+              {article.status !== 'published' && <Badge tone={article.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[article.status] ?? article.status}</Badge>}
+            </div>
           )}
         </div>
 

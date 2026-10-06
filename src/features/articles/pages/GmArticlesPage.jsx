@@ -177,13 +177,14 @@ export default function GmArticlesPage() {
                       <span className="lore-article-type">{articleTypeLabels[a.article_type] ?? a.article_type}</span>
                       {a.subtype && <><span className="text-stone-500" aria-hidden="true">·</span><span className="lore-article-subtype">{a.subtype.name}</span></>}
                     </span>
-                    <Badge tone={a.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>
+                    <Badge tone={a.status === 'published' ? 'good' : a.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>
                     {a.visibility === 'gm_only' && <GmOnlyBadge />}
 
                   </span>
-                  <span className="lore-article-heading"><span className="article-library-title">{a.title}</span><LoreIcon name="arrow" /></span>
+                  <span className="lore-article-heading"><span className="article-library-title">{a.title}</span></span>
                   <ArticleAuthor author={a.author} />
                   {a.excerpt && <span className="lore-article-excerpt">{a.excerpt}</span>}
+                  <LoreIcon name="arrow" className="lore-article-arrow" />
                 </button>
               </li>
             ))}
@@ -386,6 +387,7 @@ function ArticleForm({ article, ...props }) {
 function ArticleSelects({ values, articleId, onChange, disabled = false, statuses }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
+      <div className="space-y-2">
       <Field label="Тип">
         <Select value={values.article_type} disabled={disabled || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value, ...(values.subtype_id ? { subtype_id: null } : {}) }, 'Тип')}>
           {ARTICLE_TYPES.map((t) => (
@@ -396,6 +398,9 @@ function ArticleSelects({ values, articleId, onChange, disabled = false, statuse
         </Select>
         {statuses && <SaveStatus status={statuses.article_type} />}
       </Field>
+      <SubtypeSelect articleType={values.article_type} value={values.subtype_id} disabled={disabled || statuses?.subtype_id?.state === 'saving'} onChange={(id) => onChange({ subtype_id: id })} />
+      {statuses && <SaveStatus status={statuses.subtype_id} />}
+      </div>
       <Field label="Видимость">
         <Select
           value={values.visibility}
@@ -477,7 +482,6 @@ function ArticleCreateForm({ onSaved, toasts }) {
       <EditorSettings>
         <div className="space-y-3">
       <ArticleSelects values={form} onChange={(patch) => set(patch)} />
-      <SubtypeSelect articleType={form.article_type} value={form.subtype_id} onChange={(id) => set({ subtype_id: id })} />
       <TagInput value={form.tags} onChange={(tags) => set({ tags })} />
         </div>
       </EditorSettings>
@@ -724,7 +728,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
           {values.title}
         </h2>
         <div className="flex items-center gap-3">
-          <Badge tone={values.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[values.status]}</Badge>
+          <Badge tone={values.status === 'published' ? 'good' : values.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[values.status]}</Badge>
           <ArticleActions article={article} canDelete={isFounder} onDelete={() => setConfirmDelete(true)} />
         </div>
       </div>
@@ -873,10 +877,6 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
           <ul><AuthorRow article={article} /></ul>
           <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />
           <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} />
-          <div>
-            <SubtypeSelect articleType={values.article_type} value={values.subtype_id} disabled={statuses.subtype_id?.state === 'saving'} onChange={(id) => saveNow({ subtype_id: id })} />
-            <SaveStatus status={statuses.subtype_id} />
-          </div>
           <TagInput value={values.tags} onChange={saveTags} />
           <SaveStatus status={statuses.tags} />
           <p className="text-xs text-stone-500">Параметры и теги сохраняются сразу. Для текста используйте кнопку «Сохранить».</p>

@@ -66,13 +66,12 @@ export default function TagSelectModal({
       closeLabel="Закрыть теги"
       onClose={onClose}
       footer={
-        <div className="flex w-full flex-wrap items-center justify-end gap-3">
-          <span className="mr-auto text-sm text-stone-400 max-sm:mr-0">Выбрано: {draft.length}</span>
-          <Button variant="ghost" onClick={onClose}>
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>
             Отмена
           </Button>
-          <Button onClick={() => onApply(draft, matchDraft)}>{applyText}</Button>
-        </div>
+          <Button type="button" onClick={() => onApply(draft, matchDraft)}>{applyText}</Button>
+        </>
       }
     >
       <div className="space-y-5">
