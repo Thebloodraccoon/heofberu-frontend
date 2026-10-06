@@ -21,7 +21,7 @@ describe('SubraceEditor autosave', () => {
     expect(mocks.tags).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('tab', { name: 'Бонусы' }))
     const heading = screen.getByText('Бонусы характеристик')
-    fireEvent.click(within(heading.parentElement).getByRole('button', { name: 'Добавить' }))
+    fireEvent.click(within(heading.parentElement).getByRole('button', { name: 'Добавить бонус' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
     expect(mocks.bonuses).toHaveBeenCalledWith(1, 2, { ability_bonuses: [{ ability: 'STR', bonus: 1 }] })
   })

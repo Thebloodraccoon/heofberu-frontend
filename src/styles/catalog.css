@@ -53,7 +53,8 @@
   background: var(--color-stone-900);
   box-shadow: 0 8px 20px -15px rgba(73, 54, 29, 0.35);
 }
-[data-theme="light"] .catalog-detail > .fantasy-panel {
+[data-theme="light"] .catalog-detail > .fantasy-panel,
+[data-theme="light"] .editor-detail > .fantasy-panel {
   background: var(--paper-panel);
   box-shadow: var(--paper-shadow);
 }
@@ -139,9 +140,7 @@
   object-position: top;
   border: 1px solid rgba(168, 133, 61, 0.26);
   border-radius: 0 10px 0 10px;
-  background:
-    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
-    var(--color-stone-900);
+  background: var(--color-stone-900);
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
 }
 
@@ -219,10 +218,11 @@
   @apply mb-3 flex items-center gap-3;
 }
 
-.catalog-detail > .fantasy-panel {
+.catalog-detail > .fantasy-panel,
+.editor-detail > .fantasy-panel {
   border-color: color-mix(in srgb, var(--color-gold) 35%, var(--color-stone-800));
   border-radius: 0.95rem;
-  background: linear-gradient(150deg, color-mix(in srgb, var(--color-stone-800) 30%, var(--color-stone-900)), var(--color-stone-900) 38%);
+  background: var(--color-stone-900);
   box-shadow: 0 22px 50px -30px #000;
 }
 .catalog-detail .detail-section-title {
@@ -293,7 +293,8 @@
 .catalog-entry-body { display: flex; flex-direction: column; min-height: 0; }
 .catalog-entry-body { padding-top: 0.75rem; }
 .catalog-entry-list { min-height: 0; max-height: 50vh; overflow-y: auto; padding-right: 0.75rem; }
-.catalog-record-card {
+.catalog-record-card,
+.editor-record-card {
   position: relative;
   width: 100%;
   margin-block: 3px;
@@ -307,15 +308,16 @@
   color: var(--color-stone-100);
   transition: border-color 180ms ease, background 180ms ease;
 }
-.catalog-record-card:hover { border-color: var(--color-gold); background: var(--color-stone-800); }
-.catalog-record-card[data-active="true"] {
+.catalog-record-card:hover, .editor-record-card:hover { border-color: var(--color-gold); background: var(--color-stone-800); }
+.catalog-record-card[data-active="true"],
+.editor-record-card.is-active {
   border-color: var(--color-ember);
   background: color-mix(in srgb, var(--color-ember) 10%, var(--color-stone-900));
   box-shadow: inset 3px 0 var(--color-ember);
 }
 .catalog-record-card > button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
-  .catalog-record-card { transition: none; }
+  .catalog-record-card, .editor-record-card { transition: none; }
 }
 .catalog-page--detail .catalog-page-aside {
   padding: 0;
@@ -521,9 +523,7 @@
   align-items: center;
   padding: 1.25rem;
   border: 1px solid rgba(168, 133, 61, 0.26);
-  background:
-    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
-    var(--color-stone-900);
+  background: var(--color-stone-900);
   border-radius: 0.75rem;
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
 }

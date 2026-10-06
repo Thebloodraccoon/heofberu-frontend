@@ -12,7 +12,6 @@ export default function RecordListItem({ item, selectedId, badges, onEdit }) {
     >
       <div className="editor-record-heading">
         <span className="editor-record-title">{item.name}</span>
-        <span className="editor-record-arrow" aria-hidden="true">↗</span>
       </div>
       {badges.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">

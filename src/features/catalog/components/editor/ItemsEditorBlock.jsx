@@ -1,3 +1,4 @@
+import EditorAddButton from './EditorAddButton.jsx'
 import { useState } from 'react'
 import { label } from '@/lib/i18n/index.js'
 import { Badge, ErrorBox, Skeleton } from '@/components/ui'
@@ -87,13 +88,11 @@ export default function ItemsEditorBlock({
       <div>
         <SectionTitle
           button={
-            <button
-              type="button"
+            <EditorAddButton
               onClick={() => setGrantOpen(true)}
-              className="my-[5px] rounded border border-stone-700 px-2 py-0.5 text-[11px] text-stone-300 transition hover:bg-stone-800"
             >
-              {block.addLabel}
-            </button>
+              Добавить снаряжение
+            </EditorAddButton>
           }
         >
           {block.label}
@@ -130,13 +129,11 @@ export default function ItemsEditorBlock({
         <div>
           <SectionTitle
             button={
-              <button
-                type="button"
+              <EditorAddButton
                 onClick={() => setGroupModal({ index: null })}
-                className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
               >
-                + Добавить группу
-              </button>
+                Добавить группу
+              </EditorAddButton>
             }
           >
             Снаряжение на выбор
@@ -204,7 +201,7 @@ export default function ItemsEditorBlock({
       )}
 
       {infoItemId != null && (
-        <ItemInfoModal itemId={infoItemId} onClose={() => setInfoItemId(null)} />
+        <ItemInfoModal drawer itemId={infoItemId} onClose={() => setInfoItemId(null)} />
       )}
     </div>
   )

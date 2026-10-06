@@ -38,6 +38,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
       await onRefresh()
     } catch (err) {
       setSaveError(err)
+      throw err
     }
   }
 
@@ -108,6 +109,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
 
           <div>
             <FeaturesEditorBlock
+              compact
               block={{
                 label: 'Умения подкласса',
                 addLabel: '+ Добавить',
@@ -130,6 +132,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
         const row = featureModal.index == null ? null : features[featureModal.index]
         return (
           <FeatureModal
+            drawer
             title={
               featureModal.index == null
                 ? 'Добавить умение'

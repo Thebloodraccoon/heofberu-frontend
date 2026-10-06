@@ -1,3 +1,4 @@
+import EditorAddButton from '@/features/catalog/components/editor/EditorAddButton.jsx'
 import Drawer from '@/components/ui/Drawer.jsx'
 import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
@@ -230,18 +231,12 @@ export default function GmEditorPage() {
   }
 
   const toggleSub = (id) => {
-    const next = new Set(openSubs)
-    if (next.has(id)) {
-      next.delete(id)
-    } else {
-      next.add(id)
-      const info = subDetails[id]
-      if (!info?.detail && !info?.loading) {
-        const sub = subclasses.find((s) => s.id === id)
-        if (sub) loadSubDetail(editing.id, sub)
-      }
+    setOpenSubs(new Set([id]))
+    const info = subDetails[id]
+    if (!info?.detail && !info?.loading) {
+      const sub = subclasses.find((item) => item.id === id)
+      if (sub) loadSubDetail(editing.id, sub)
     }
-    setOpenSubs(next)
   }
 
   const reloadFeatures = async (id) => {
@@ -957,7 +952,7 @@ export default function GmEditorPage() {
                         className="my-[5px]"
                         onClick={() => setDeleteTarget(editing)}
                       >
-                        <TrashIcon className="mr-1.5 inline h-3.5 w-3.5" />
+                        <TrashIcon className="mr-1.5" />
                         Удалить
                       </Button>
                     )}
@@ -1054,16 +1049,12 @@ export default function GmEditorPage() {
                         <div key={section.key}>
                           <SectionTitle
                             button={
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="my-[5px]"
+                              <EditorAddButton
                                 onClick={() => addSpellSlotLevel(section.key)}
                                 disabled={slotLevels.length >= 20}
                               >
-                                + Добавить уровень
-                              </Button>
+                                Добавить уровень
+                              </EditorAddButton>
                             }
                           >
                             {section.label}
@@ -1176,6 +1167,7 @@ export default function GmEditorPage() {
 if (section.type === 'effectsTree') {
                       return (
                         <FeatureEffectsEditor
+                          drawer
                           key={section.key}
                           value={form[section.key]}
                           onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
@@ -1195,8 +1187,7 @@ if (section.type === 'effectsTree') {
                               <div key={group.value}>
                                 <SectionTitle
                                   button={
-                                    <button
-                                      type="button"
+                                    <EditorAddButton
 onClick={() => {
                                           setForm((f) => ({
                                             ...f,
@@ -1206,10 +1197,9 @@ onClick={() => {
                                             ],
                                           }))
                                         }}
-                                      className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
                                     >
                                       {section.addLabel}
-                                    </button>
+                                    </EditorAddButton>
                                   }
                                 >
                                   {group.label}
@@ -1263,8 +1253,8 @@ onClick={() => {
                                           )}
                                           <button
                                             type="button"
-                                            onClick={() => setConfirmRow({ key: section.key, index: idx })}
-                                            className="my-[5px] inline-flex h-[32px] w-[32px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                            onClick={() => editing ? setConfirmRow({ key: section.key, index: idx }) : removeRow(section.key, idx)}
+                                            className="catalog-delete-button"
                                             title="Удалить"
                                           >
                                             <TrashIcon />
@@ -1302,7 +1292,7 @@ onClick={() => {
                         <div key={section.key}>
                           <SectionTitle
                             button={
-                              <Button type="button" variant="ghost" size="sm" onClick={() => addRow(section)} disabled={allUsed}><LoreIcon name="plus" /> {section.addLabel.replace(/^\+\s*/, '')}</Button>
+                              <EditorAddButton onClick={() => addRow(section)} disabled={allUsed}>{section.key === 'ability_bonuses' ? 'Добавить бонус' : section.addLabel.replace(/^\+\s*/, '')}</EditorAddButton>
                             }
                           >
                             {section.label}
@@ -1387,8 +1377,8 @@ onClick={() => {
                                 {section.fixedWidths ? (
                                   <button
                                     type="button"
-                                    onClick={() => setConfirmRow({ key: section.key, index: i })}
-                                    className="my-[5px] inline-flex h-[40px] w-[40px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                    onClick={() => editing ? setConfirmRow({ key: section.key, index: i }) : removeRow(section.key, i)}
+                                    className="catalog-delete-button"
                                     title="Удалить"
                                   >
                                     <TrashIcon />
@@ -1396,8 +1386,8 @@ onClick={() => {
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() => setConfirmRow({ key: section.key, index: i })}
-                                    className="my-[5px] inline-flex h-[40px] w-[40px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                    onClick={() => editing ? setConfirmRow({ key: section.key, index: i }) : removeRow(section.key, i)}
+                                    className="catalog-delete-button"
                                     title="Убрать"
                                   >
                                     <TrashIcon />
@@ -1413,7 +1403,7 @@ onClick={() => {
                       section.type === 'pills' ? section.options : listOptions[section.listKey]
                     return (
                       <OptionsPicker
-                        drawer={resource === 'races'}
+                        drawer
                         key={section.key}
                         label={section.label}
                         hint={section.hint}
@@ -1440,7 +1430,7 @@ onClick={() => {
 
                 {editing && cfg.featuresOps && (
                   <div hidden={tabHidden('features')}><FeaturesEditorBlock
-                    compact={resource === 'races'}
+                    compact
                     block={cfg.featuresBlock}
                     items={features}
                     loading={featuresLoading}
@@ -1474,13 +1464,11 @@ onClick={() => {
                   <div hidden={tabHidden('subclasses')} className="mt-6">
                     <SectionTitle
                       button={
-                        <button
-                          type="button"
+                        <EditorAddButton
                           onClick={openNewSub}
-                          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
                         >
-                          + Добавить подкласс
-                        </button>
+                          Добавить подкласс
+                        </EditorAddButton>
                       }
                     >
                       Подклассы (архетипы)
@@ -1488,24 +1476,16 @@ onClick={() => {
                     {subError && <ErrorBox error={subError} onRetry={() => reloadSubclasses(editing.id)} />}
 
                     {newSub && (
-                      <div className="mb-3 rounded-lg border border-ember/40 bg-stone-900/60 p-4">
-                        <p className="mb-3 font-display text-sm font-bold text-stone-100">Новый подкласс</p>
-                        {newSubError && <ErrorBox error={newSubError} onRetry={() => {}} className="mb-[5px]" />}
-                        <Field label="Название подкласса">
-                          <Input value={newSub.name} onChange={setNewSubField('name')} placeholder="Например, Школа Воплощения" />
-                        </Field>
-                        <Field label="Описание" className="my-[5px]">
-                          <RichTextEditor value={newSub.description} onChange={setNewSubField('description')} rows={2} />
-                        </Field>
-                        <div className="mb-[5px] flex flex-wrap items-center gap-2">
-                          <Button type="button" disabled={newSubSaving} onClick={saveNewSub} className="my-[5px]">
-                            {newSubSaving ? 'Создаём...' : 'Создать подкласс'}
-                          </Button>
-                          <Button type="button" variant="ghost" onClick={() => setNewSub(null)} className="my-[5px]">
-                            Отмена
-                          </Button>
+                      <Drawer title="Новый подкласс" subtitle={`Класс: ${editing.name}`} className="catalog-editor-drawer" closeLabel="Закрыть создание подкласса" onClose={() => setNewSub(null)} footer={<>
+                        <Button type="button" variant="ghost" onClick={() => setNewSub(null)}>Отмена</Button>
+                        <Button type="button" disabled={newSubSaving || !newSub.name.trim()} onClick={saveNewSub}>{newSubSaving ? 'Создаём…' : 'Создать'}</Button>
+                      </>}>
+                        <div className="space-y-4">
+                          {newSubError && <ErrorBox error={newSubError} />}
+                          <Field label="Название подкласса"><Input value={newSub.name} onChange={setNewSubField('name')} placeholder="Например, Школа Воплощения" /></Field>
+                          <Field label="Описание"><RichTextEditor value={newSub.description} onChange={setNewSubField('description')} rows={4} /></Field>
                         </div>
-                      </div>
+                      </Drawer>
                     )}
 
                     {subclasses.length === 0 && !newSub ? (
@@ -1518,14 +1498,14 @@ onClick={() => {
                           return (
                             <div
                               key={sub.id}
-                              className="rounded-lg border border-stone-700/60 bg-stone-900/60"
+                              className="editor-record-card catalog-subrace-card"
                             >
                               <div className="flex items-center justify-between gap-2 px-3 py-2.5">
                                 <button
                                   type="button"
                                   onClick={() => toggleSub(sub.id)}
-                                  aria-expanded={open}
-                                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                                  aria-haspopup="dialog"
+                                  className="catalog-card-open flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                                 >
                                   <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
                                   <span className="truncate text-base font-medium text-stone-100">
@@ -1535,14 +1515,14 @@ onClick={() => {
                                 <button
                                   type="button"
                                   onClick={() => setConfirmSub(sub)}
-                                  className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                  className="catalog-delete-button relative z-[1]"
                                   title="Удалить"
                                 >
                                   <TrashIcon />
                                 </button>
                               </div>
                               {open && (
-                                <div className="border-t border-stone-700/60 p-4">
+                                <Drawer title={info.detail?.name ?? sub.name} subtitle={`Класс: ${editing.name}`} className="catalog-editor-drawer" closeLabel="Закрыть подкласс" onClose={() => setOpenSubs(new Set())} footer={<Button type="button" variant="ghost" onClick={() => setOpenSubs(new Set())}>Готово</Button>}>
                                   {!info.detail && info.loading ? (
                                     <div className="space-y-2" aria-busy="true">
                                       <Skeleton className="h-4 w-1/2" />
@@ -1563,7 +1543,7 @@ onClick={() => {
                                       onRefresh={() => reloadSubDetail(sub.id)}
                                     />
                                   ) : null}
-                                </div>
+                                </Drawer>
                               )}
                             </div>
                           )
@@ -1577,7 +1557,7 @@ onClick={() => {
                   <div hidden={tabHidden('subraces')} className="mt-6">
                     <SectionTitle
                       button={
-                        <Button type="button" variant="ghost" size="sm" onClick={openNewSubrace}><LoreIcon name="plus" /> Добавить подрасу</Button>
+                        <EditorAddButton onClick={openNewSubrace}>Добавить подрасу</EditorAddButton>
                       }
                     >
                       Подрасы <span className="text-stone-500">{subraces.length}</span>
@@ -1625,7 +1605,7 @@ onClick={() => {
                                 <button
                                   type="button"
                                   onClick={() => setConfirmSubrace(sub)}
-                                  className="catalog-card-delete inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                                  className="catalog-delete-button relative z-[1]"
                                   title="Удалить"
                                 >
                                   <TrashIcon />
@@ -1710,7 +1690,7 @@ onClick={() => {
         const row = featureModal.index == null ? null : features[featureModal.index]
         return (
           <FeatureModal
-            drawer={resource === 'races'}
+            drawer
             title={
               featureModal.index == null
                 ? `Добавить ${cfg.featuresBlock.noun}`

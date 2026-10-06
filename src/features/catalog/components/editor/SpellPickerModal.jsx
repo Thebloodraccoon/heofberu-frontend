@@ -110,11 +110,12 @@ function SpellDetail({ spellId, drawer = false }) {
 // «Фильтр», список подгружается по скроллу вниз, «Подробнее» раскрывает ту же
 // карточку, что видит игрок.
 function InlineSpellPicker({ onClose, children }) {
-  return <section className="space-y-4"><Button type="button" variant="ghost" onClick={onClose}><LoreIcon name="back" /> К эффекту</Button><h3 className="article-editor-label">Выбрать заклинание</h3>{children}</section>
+  return <section className="spell-picker-content"><button type="button" className="article-back" onClick={onClose}><LoreIcon name="back" /> К эффекту</button><h3 className="article-editor-label">Выбрать заклинание</h3>{children}</section>
 }
 
 export default function SpellPickerModal({ excludeIds = [], onPick, onClose, drawer = false, inline = false }) {
   const [selected, setSelected] = useState(null)
+  const panel = drawer || inline
   const Container = inline ? InlineSpellPicker : drawer ? Drawer : Modal
   const [queryInput, setQueryInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
@@ -185,18 +186,18 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose, dra
           onClose={() => setShowFilters(false)}
         />
       )}
-      <div ref={listRef} onScroll={onScroll} className={drawer ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
+      <div ref={listRef} onScroll={onScroll} className={panel ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
         {!listQ.isFetching && spells.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
-        <ul className={drawer ? 'space-y-2' : 'space-y-1'}>
+        <ul className={panel ? 'space-y-2' : 'space-y-1'}>
           {spells.map((sp) => {
             const isOpen = expanded.has(sp.id)
             return (
               <li
                 key={sp.id}
-                className={drawer ? 'catalog-record-card grant-picker-card' : `rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${isOpen ? 'bg-stone-900' : ''}`}
+                className={panel ? 'catalog-record-card grant-picker-card' : `rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${isOpen ? 'bg-stone-900' : ''}`}
                 data-active={drawer && selected?.id === sp.id}
               >
-                <div className={drawer ? 'grant-picker-row' : 'flex items-center gap-2 px-3 py-1.5'}>
+                <div className={panel ? 'grant-picker-row' : 'flex items-center gap-2 px-3 py-1.5'}>
                   <button
                     type="button"
                     onClick={() => {
@@ -204,7 +205,7 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose, dra
                       onPick(sp)
                       onClose()
                     }}
-                    className={drawer ? 'grant-picker-select' : 'flex min-w-0 flex-1 items-center gap-2 text-left'}
+                    className={panel ? 'grant-picker-select' : 'flex min-w-0 flex-1 items-center gap-2 text-left'}
                     aria-pressed={drawer ? selected?.id === sp.id : undefined}
                   >
                     <span className="truncate text-sm text-stone-100 hover:text-ember">{sentenceCase(sp.name)}</span>
@@ -225,7 +226,7 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose, dra
                     <LoreIcon name="chevron" className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                   </button>
                 </div>
-                {isOpen && <SpellDetail spellId={sp.id} drawer={drawer} />}
+                {isOpen && <SpellDetail spellId={sp.id} drawer={panel} />}
               </li>
             )
           })}
@@ -238,7 +239,7 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose, dra
           </div>
         )}
       </div>
-      {!drawer && <div className="flex pt-3 mt-4">
+      {!drawer && !inline && <div className="flex pt-3 mt-4">
         <Button type="button" variant="ghost" className="w-full" onClick={onClose}>
           Закрыть
         </Button>

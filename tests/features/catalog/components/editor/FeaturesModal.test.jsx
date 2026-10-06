@@ -17,7 +17,7 @@ describe('race feature editor', () => {
     const panel = screen.getByRole('dialog', { name: 'Добавить особенность' })
     await user.type(within(panel).getByPlaceholderText('Например, Тёмное зрение'), 'Тёмное зрение')
     await user.click(within(panel).getByRole('tab', { name: 'Эффекты' }))
-    await user.click(within(panel).getByRole('button', { name: '+ Добавить статичный эффект' }))
+    await user.click(within(panel).getByRole('button', { name: 'Добавить статичный эффект' }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(within(panel).queryByRole('button', { name: 'Создать' })).not.toBeInTheDocument()
     await user.click(within(panel).getByRole('button', { name: 'К эффектам' }))

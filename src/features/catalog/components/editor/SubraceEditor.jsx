@@ -1,4 +1,4 @@
-import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import EditorAddButton from './EditorAddButton.jsx'
 import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -8,7 +8,7 @@ import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
 import TagInput from '@/features/articles/components/TagInput.jsx'
-import { Button, ErrorBox, RichTextField, Select, TextField } from '@/components/ui'
+import { ErrorBox, RichTextField, Select, TextField } from '@/components/ui'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
 
@@ -231,7 +231,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
           <div hidden={tab !== 'bonuses'}>
             <SectionTitle
               button={
-                <Button type="button" variant="ghost" size="sm" onClick={addBonus} disabled={abilitiesUsedUp}><LoreIcon name="plus" /> Добавить</Button>
+                <EditorAddButton onClick={addBonus} disabled={abilitiesUsedUp}>Добавить бонус</EditorAddButton>
               }
             >
               Бонусы характеристик
@@ -278,7 +278,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
                         <button
                           type="button"
                           onClick={() => removeBonus(i)}
-                          className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                          className="catalog-delete-button"
                           title="Удалить"
                         >
                           <TrashIcon />

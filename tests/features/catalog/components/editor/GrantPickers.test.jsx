@@ -1,5 +1,6 @@
+import ItemsGrantModal from '@/features/catalog/components/editor/ItemsGrantModal.jsx'
 import { describe, expect, it, vi } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/helpers/render.jsx'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
@@ -12,6 +13,22 @@ vi.mock('@/features/catalog/api.js', () => ({ catalogApi: {
 vi.mock('@/features/catalog/queries.js', () => ({ useItemDetail: () => ({ data: null }), useSpellDetail: () => ({ data: null }) }))
 
 describe('GM grant drawers', () => {
+  it('keeps equipment quantity when returning from item selection in the same drawer', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    renderWithProviders(<ItemsGrantModal value={[{ item_id: 3, quantity: 2, item: { name: 'Щит' } }]} onSave={onSave} onClose={vi.fn()} />, { auth: false })
+    const quantity = screen.getByRole('spinbutton')
+    fireEvent.change(quantity, { target: { value: '4' } })
+    await user.click(screen.getByRole('button', { name: 'Добавить предмет' }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Меч' }))
+    expect(screen.getAllByRole('spinbutton')[0]).toHaveValue(4)
+    expect(onSave).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(onSave).toHaveBeenCalledWith([{ item_id: 3, quantity: 4 }, { item_id: 1, quantity: 1 }])
+  })
+
   it('expands filters inside the drawer and preserves selection after applying', async () => {
     const user = userEvent.setup()
     renderWithProviders(<ItemPickerModal drawer title="Выдать предмет" onPick={vi.fn()} onClose={vi.fn()} />, { auth: false })

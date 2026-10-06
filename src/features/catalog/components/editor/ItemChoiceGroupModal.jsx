@@ -1,5 +1,6 @@
+import Drawer from '@/components/ui/Drawer.jsx'
 import { useState } from 'react'
-import { Button, ErrorBox, Input, Modal } from '@/components/ui'
+import { Button, ErrorBox, Input } from '@/components/ui'
 import { AddButton } from './effectTypeEditors.jsx'
 import { TrashIcon } from './editorShared.jsx'
 import ItemPickerModal from './ItemPickerModal.jsx'
@@ -44,13 +45,16 @@ export default function ItemChoiceGroupModal({ initialGroup = null, onSave, onCl
   }
 
   return (
-    <Modal
+    <Drawer
+      className="catalog-editor-drawer"
+      bodyClassName={pickerOpen ? 'equipment-picker-body' : ''}
+      closeLabel="Закрыть редактор снаряжения"
       title={initialGroup ? 'Изменить группу выбора' : 'Новая группа выбора'}
       subtitle="Игрок выбирает N предметов из перечисленных вариантов"
       onClose={onClose}
       size="lg"
       scroll
-      footer={
+      footer={pickerOpen ? <Button type="button" variant="ghost" onClick={() => setPickerOpen(false)}>Закрыть</Button> :
         <>
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
             Отмена
@@ -61,7 +65,7 @@ export default function ItemChoiceGroupModal({ initialGroup = null, onSave, onCl
         </>
       }
     >
-      <div className="space-y-3">
+      <div hidden={pickerOpen} className="space-y-3">
         {error && <ErrorBox error={error} onRetry={() => {}} />}
         <div className="flex items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-sm text-stone-300">
@@ -95,7 +99,7 @@ export default function ItemChoiceGroupModal({ initialGroup = null, onSave, onCl
               <button
                 type="button"
                 onClick={() => removeOption(oi)}
-                className="inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                className="catalog-delete-button"
                 title="Убрать"
               >
                 <TrashIcon />
@@ -109,8 +113,8 @@ export default function ItemChoiceGroupModal({ initialGroup = null, onSave, onCl
       </div>
 
       {pickerOpen && (
-        <ItemPickerModal excludeIds={usedIds} onPick={addOption} onClose={() => setPickerOpen(false)} />
+        <ItemPickerModal inline excludeIds={usedIds} onPick={addOption} onClose={() => setPickerOpen(false)} />
       )}
-    </Modal>
+    </Drawer>
   )
 }

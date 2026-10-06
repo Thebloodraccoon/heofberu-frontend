@@ -50,15 +50,16 @@ export default function OptionsPicker({ drawer = false, label, hint, empty, opti
             )}
             <button
               type="button"
+              className="catalog-add-button"
               onClick={() => {
                 setQuery('')
                 setOpen((v) => !v)
               }}
               disabled={options.length === 0 || (!drawer && available.length === 0)}
               aria-expanded={open}
-              className="rounded border border-stone-700 bg-stone-800/70 px-2.5 py-1 text-xs font-medium text-stone-200 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {drawer ? 'Изменить' : '+ Добавить'}
+              {!drawer && <LoreIcon name="plus" />}
+              {drawer ? 'Изменить' : 'Добавить'}
             </button>
           </div>
         }
@@ -95,8 +96,8 @@ export default function OptionsPicker({ drawer = false, label, hint, empty, opti
         </div>
       )}
 
-      {open && drawer && <Drawer title={label} closeLabel="Закрыть выбор навыков" onClose={() => setOpen(false)} footer={<Button type="button" onClick={() => setOpen(false)}>Готово</Button>}>
-        <Input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск навыков…" aria-label={`Поиск: ${label}`} className="w-full mb-4" />
+      {open && drawer && <Drawer title={label} closeLabel={`Закрыть: ${label}`} onClose={() => setOpen(false)} footer={<Button type="button" onClick={() => setOpen(false)}>Готово</Button>}>
+        <Input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск…" aria-label={`Поиск: ${label}`} className="w-full mb-4" />
         <div className="space-y-2">{options.filter((option) => !q || String(option.label).toLowerCase().includes(q)).map((option) => <button type="button" key={option.value} className={`editor-record-card ${selected.includes(option.value) ? 'is-active' : ''}`} aria-pressed={selected.includes(option.value)} onClick={() => onToggle(option.value)}>
           {option.label}
         </button>)}</div>

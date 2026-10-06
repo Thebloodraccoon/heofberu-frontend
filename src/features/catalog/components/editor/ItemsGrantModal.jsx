@@ -1,5 +1,6 @@
+import Drawer from '@/components/ui/Drawer.jsx'
 import { useState } from 'react'
-import { Button, ErrorBox, Modal } from '@/components/ui'
+import { Button, ErrorBox } from '@/components/ui'
 import { AddButton } from './effectTypeEditors.jsx'
 import { TrashIcon } from './editorShared.jsx'
 import ItemPickerModal from './ItemPickerModal.jsx'
@@ -33,13 +34,16 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
   }
 
   return (
-    <Modal
+    <Drawer
+      className="catalog-editor-drawer"
+      bodyClassName={pickerOpen ? 'equipment-picker-body' : ''}
+      closeLabel="Закрыть редактор снаряжения"
       title={title}
       subtitle="Выдаётся игроку целиком, без выбора"
       onClose={onClose}
       size="lg"
       scroll
-      footer={
+      footer={pickerOpen ? <Button type="button" variant="ghost" onClick={() => setPickerOpen(false)}>Закрыть</Button> :
         <>
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
             Отмена
@@ -50,7 +54,7 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
         </>
       }
     >
-      <div className="space-y-3">
+      <div hidden={pickerOpen} className="space-y-3">
         {error && <ErrorBox error={error} onRetry={() => {}} />}
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm text-stone-300">Список снаряжения</span>
@@ -75,7 +79,7 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                className="catalog-delete-button"
                 title="Удалить"
               >
                 <TrashIcon />
@@ -86,8 +90,8 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
       </div>
 
       {pickerOpen && (
-        <ItemPickerModal excludeIds={usedIds} onPick={add} onClose={() => setPickerOpen(false)} />
+        <ItemPickerModal inline excludeIds={usedIds} onPick={add} onClose={() => setPickerOpen(false)} />
       )}
-    </Modal>
+    </Drawer>
   )
 }

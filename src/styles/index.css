@@ -51,10 +51,7 @@ body {
   color: var(--color-stone-100);
   -webkit-font-smoothing: antialiased;
   background-color: #0d0905;
-  background-image:
-    radial-gradient(1100px 520px at 50% -5%, #2b1d0e 0%, rgba(43, 29, 14, 0) 60%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(90, 52, 20, 0.35) 0%, rgba(90, 52, 20, 0) 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(60, 40, 18, 0.3) 0%, rgba(60, 40, 18, 0) 55%);
+  background-image: none;
   background-attachment: fixed;
 }
 
@@ -97,9 +94,7 @@ h4 {
   position: relative;
   padding: 20px;
   border: 1px solid rgba(168, 133, 61, 0.26);
-  background:
-    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
-    var(--color-stone-900);
+  background: var(--color-stone-900);
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
 }
 .fantasy-panel.popup-panel { box-shadow: 0 8px 22px -12px rgb(0 0 0 / 25%); }
@@ -184,23 +179,18 @@ h4 {
   --color-emerald-900: #d6ecdc;
   --color-emerald-950: #ebf6ee;
 
-  /* Поверхность «листа» для панелей: вместо парящей тени — лёгкое потемнение
-     к краям внутри, как у старой бумаги. Используется в catalog/editor/index. */
-  --paper-panel: linear-gradient(180deg, #fbf6ec, #f3e8d2);
+  /* Однотонная поверхность панелей в светлой теме. */
+  --paper-panel: #f7efdf;
   --paper-border: #d6c29d;
-  --paper-shadow: inset 0 0 48px -12px rgba(140, 98, 45, 0.18), 0 1px 2px rgba(60, 40, 18, 0.1);
+  --paper-shadow: 0 1px 2px rgba(60, 40, 18, 0.1);
 }
 
 [data-theme="light"] body {
   background-color: #ecdfc6;
-  background-image:
-    radial-gradient(1100px 520px at 50% -5%, #fbf6ec 0%, transparent 65%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(150, 105, 50, 0.16) 0%, transparent 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(150, 105, 50, 0.12) 0%, transparent 55%);
+  background-image: none;
 }
 
-/* Фактура бумаги поверх всей страницы: мелкое зерно (SVG-шум, ~0.5 КБ) и затемнённые
-   края, как у старого листа. Не перехватывает клики; при печати не нужна. */
+/* Фактура бумаги поверх страницы. Не перехватывает клики; при печати не нужна. */
 [data-theme="light"] body::before {
   content: "";
   position: fixed;
@@ -208,8 +198,7 @@ h4 {
   z-index: 100;
   pointer-events: none;
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .22 0 0 0 0 .1 .14 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    radial-gradient(ellipse 120% 100% at 50% 45%, transparent 62%, rgba(110, 72, 30, 0.12) 100%);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .22 0 0 0 0 .1 .14 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 @media print {
   [data-theme="light"] body::before { display: none; }
@@ -222,7 +211,7 @@ h4 {
 }
 
 [data-theme="light"] .fantasy-panel.card-hover:hover {
-  box-shadow: inset 0 0 48px -12px rgba(140, 98, 45, 0.24), 0 6px 18px -12px rgba(73, 54, 29, 0.35);
+  box-shadow: 0 6px 18px -12px rgba(73, 54, 29, 0.35);
 }
 
 [data-theme="light"] [data-tone="accent"] { color: #7c2412; background: #f1d9c4; }

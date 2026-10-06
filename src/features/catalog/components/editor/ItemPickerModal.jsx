@@ -87,6 +87,10 @@ function ItemDetail({ itemId, drawer = false }) {
 // Модалка выбора предмета для снаряжения — тот же стиль поиска, что и в
 // основном списке ГМ-редактора: поле + кнопка «⌕» + «Фильтр», список
 // подгружается по скроллу вниз, «Подробнее» раскрывает карточку в строке.
+function InlineItemPicker({ onClose, children }) {
+  return <section className="equipment-picker-content"><button type="button" className="article-back inline-flex items-center gap-2 text-sm text-stone-300" onClick={onClose}><LoreIcon name="back" /> К снаряжению</button>{children}</section>
+}
+
 export default function ItemPickerModal({
   title = 'Предметы',
   subtitle = 'Поиск и выбор предмета',
@@ -94,11 +98,12 @@ export default function ItemPickerModal({
   onPick,
   onClose,
   drawer = false,
+  inline = false,
 }) {
   const [selected, setSelected] = useState(null)
   const [quantity, setQuantity] = useState('1')
   const quantityValid = Number.isInteger(Number(quantity)) && Number(quantity) >= 1
-  const Container = drawer ? Drawer : Modal
+  const Container = inline ? InlineItemPicker : drawer ? Drawer : Modal
   const [queryInput, setQueryInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState({})
@@ -156,10 +161,10 @@ export default function ItemPickerModal({
 
   return (
     <Container {...(drawer ? { bodyClassName: 'grant-picker-body' } : {})} title={title} subtitle={subtitle} onClose={onClose} size="lg" scroll footer={drawer && <div className="w-full space-y-3">{selected && <label className="block text-sm text-stone-300">Количество<Input className="mt-1 w-full" type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label>}<div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected || !quantityValid} onClick={() => { onPick(selected, Number(quantity)); onClose() }}>Выдать предмет</Button></div></div>}>
-      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={ITEM_FILTERS.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={drawer} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={ITEM_FILTERS} value={filters} onChange={setFilters} />
+      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={ITEM_FILTERS.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={drawer || inline} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={ITEM_FILTERS} value={filters} onChange={setFilters} />
       {showFilters && (
         <FilterModal
-          inline={drawer}
+          inline={drawer || inline}
           filters={ITEM_FILTERS}
           value={filters}
           onChange={setFilters}
@@ -167,7 +172,7 @@ export default function ItemPickerModal({
         />
       )}
 
-      <div ref={listRef} onScroll={onScroll} className={drawer ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
+      <div ref={listRef} onScroll={onScroll} className={drawer || inline ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
         {!listQ.isFetching && items.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
         <ul className={drawer ? 'space-y-2' : 'space-y-1'}>
           {items.map((item) => {
@@ -229,8 +234,8 @@ export default function ItemPickerModal({
         )}
       </div>
 
-      {!drawer && <div className="modal-actions pt-3 mt-4">
-        <Button type="button" variant="ghost" onClick={onClose}>
+      {!drawer && !inline && <div className="flex pt-3 mt-4">
+        <Button type="button" variant="ghost" className="w-full" onClick={onClose}>
           Закрыть
         </Button>
       </div>}

@@ -1,3 +1,5 @@
+import SpellPickerModal from './SpellPickerModal.jsx'
+import Drawer from '@/components/ui/Drawer.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
 import { Button, Input, Modal } from '@/components/ui'
@@ -8,7 +10,7 @@ import { TrashIcon } from './editorShared.jsx'
 // не поддерживает label) — только порядковый номер и строки эффекта того же
 // типа, что и вся группа (например, у группы «Характеристики» каждый вариант —
 // это набор строк ability_effects).
-function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, inline, onNavigate }) {
+function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, onSelectSpell }) {
   return (
     <div className="space-y-2 rounded-lg border border-stone-700/60 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -16,13 +18,13 @@ function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, i
         <button
           type="button"
           onClick={onRemove}
-          className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+          className="catalog-delete-button"
           title="Удалить вариант"
         >
           <TrashIcon />
         </button>
       </div>
-      <Editor inline={inline} onNavigate={onNavigate} rows={option[effectType] ?? []} onChange={(rows) => onChange({ ...option, [effectType]: rows })} />
+      <Editor onSelectSpell={onSelectSpell} rows={option[effectType] ?? []} onChange={(rows) => onChange({ ...option, [effectType]: rows })} />
     </div>
   )
 }
@@ -31,18 +33,19 @@ function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, i
 // группы выбора. Два шага: сначала выбор типа эффекта (только при добавлении
 // новой группы — у существующей тип уже зафиксирован), потом форма.
 function EffectScreen({ title, subtitle, onClose, footer, children, navigating, summary }) {
-  return <section className="catalog-effect-screen">
+  return <section className={`catalog-effect-screen${navigating ? ' catalog-effect-screen--picker' : ''}`}>
     {!navigating && <button type="button" className="article-back" onClick={onClose}><LoreIcon name="back" /> К эффектам</button>}
-    {summary && <div className="mt-3">{summary}</div>}
-    <h3 className="article-editor-label mt-4">{title}</h3>
-    {subtitle && <p className="mb-4 text-sm text-stone-400">{subtitle}</p>}
+    {!navigating && summary && <div className="mt-3">{summary}</div>}
+    {!navigating && <h3 className="article-editor-label mt-4">{title}</h3>}
+    {!navigating && subtitle && <p className="mb-4 text-sm text-stone-400">{subtitle}</p>}
     {children}
-    {footer && !navigating && <div className="catalog-effect-actions">{footer}</div>}
+    {footer && <footer className="catalog-effect-actions">{footer}</footer>}
   </section>
 }
 
 export default function EffectGroupModal({
   inline = false,
+  drawer = false,
   summary,
   mode, // 'static' | 'choice'
   effectType: initialType = null,
@@ -52,16 +55,19 @@ export default function EffectGroupModal({
   onSave,
   onClose,
 }) {
-  const [navigating, setNavigating] = useState(false)
+  const [spellTarget, setSpellTarget] = useState(null)
+  const navigating = spellTarget !== null
   const [effectType, setEffectType] = useState(initialType)
   const [rows, setRows] = useState(initialRows)
   const [group, setGroup] = useState(() => initialGroup ?? { pick_count: 1, options: [] })
 
-  const Container = inline ? EffectScreen : Modal
+  const Container = inline ? EffectScreen : drawer ? Drawer : Modal
 
   if (!effectType) {
     return (
       <Container
+        className={drawer ? 'catalog-editor-drawer' : undefined}
+        closeLabel="Закрыть редактор эффектов"
         summary={summary}
         title={mode === 'static' ? 'Добавить статичный эффект' : 'Добавить выбор эффектов'}
         subtitle="Выберите тип эффекта"
@@ -99,14 +105,17 @@ export default function EffectGroupModal({
 
   return (
     <Container
+      className={drawer ? 'catalog-editor-drawer' : undefined}
+      closeLabel="Закрыть редактор эффектов"
       summary={summary}
       navigating={navigating}
+      bodyClassName={navigating ? 'grant-picker-body' : undefined}
       title={typeDef.label}
       subtitle={mode === 'choice' ? 'Группа выбора' : 'Статичный эффект'}
       onClose={onClose}
       size="lg"
       scroll
-      footer={
+      footer={navigating ? <Button type="button" variant="ghost" onClick={() => setSpellTarget(null)}>Закрыть</Button> :
         <>
           <Button type="button" variant="ghost" onClick={onClose}>
             Отмена
@@ -117,8 +126,24 @@ export default function EffectGroupModal({
         </>
       }
     >
-      {mode === 'static' ? (
-        <Editor inline={inline} onNavigate={setNavigating} rows={rows} onChange={setRows} />
+      {navigating ? (
+        <SpellPickerModal
+          inline
+          excludeIds={(spellTarget === 'static' ? rows : group.options[spellTarget].spell_effects ?? []).map((row) => row.spell_id)}
+          onClose={() => setSpellTarget(null)}
+          onPick={(spell) => {
+            const effect = { spell_id: spell.id }
+            if (spellTarget === 'static') setRows((current) => [...current, effect])
+            else setGroup((current) => ({
+              ...current,
+              options: current.options.map((option, index) => index === spellTarget
+                ? { ...option, spell_effects: [...(option.spell_effects ?? []), effect] }
+                : option),
+            }))
+          }}
+        />
+      ) : mode === 'static' ? (
+        <Editor onSelectSpell={() => setSpellTarget('static')} rows={rows} onChange={setRows} />
       ) : (
         <div className="space-y-3">
           <label className="flex items-center gap-2 text-sm text-stone-300">
@@ -137,8 +162,7 @@ export default function EffectGroupModal({
             {group.options.map((option, oi) => (
               <ChoiceOption
                 key={oi}
-                inline={inline}
-                onNavigate={setNavigating}
+                onSelectSpell={() => setSpellTarget(oi)}
                 index={oi}
                 option={option}
                 effectType={effectType}

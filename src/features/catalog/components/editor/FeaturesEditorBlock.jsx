@@ -1,8 +1,9 @@
+import EditorAddButton from './EditorAddButton.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
 import { ruLevel } from '@/lib/i18n/index.js'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
-import { Badge, Button, ConfirmDialog, ErrorBox, RichText, Skeleton } from '@/components/ui'
+import { Badge, ConfirmDialog, ErrorBox, RichText, Skeleton } from '@/components/ui'
 import { SectionTitle, PencilIcon, TrashIcon } from './editorShared.jsx'
 
 function Chevron({ open }) {
@@ -50,9 +51,9 @@ export default function FeaturesEditorBlock({
     <div className="space-y-4 pt-4">
       <SectionTitle
         button={
-          <Button type="button" variant="ghost" size="sm" onClick={onAdd}>
-            <LoreIcon name="plus" /> {block.addLabel.replace(/^\+\s*/, '')}
-          </Button>
+          <EditorAddButton onClick={onAdd}>
+            {`Добавить ${block.noun}`}
+          </EditorAddButton>
         }
       >
         {block.label} <span className="text-stone-500">{items.length}</span>
@@ -119,14 +120,14 @@ export default function FeaturesEditorBlock({
                     <button
                       type="button"
                       onClick={() => setConfirmTarget(f)}
-                      className="my-[5px] inline-flex h-[40px] w-[40px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                      className="catalog-delete-button"
                       title="Удалить"
                     >
                       <TrashIcon />
                     </button>
                   </div>
                 </div>
-                {compact && <Button type="button" variant="danger" size="sm" className="catalog-card-delete" aria-label={`Удалить: ${f.name || 'Без названия'}`} onClick={() => setConfirmTarget(f)}><LoreIcon name="trash" /></Button>}
+                {compact && <button type="button" className="catalog-delete-button catalog-card-delete" title="Удалить" aria-label={`Удалить: ${f.name || 'Без названия'}`} onClick={() => setConfirmTarget(f)}><LoreIcon name="trash" /></button>}
                 {(compact || open) && (f.description || f.effects_summary) && (
                   <RichText
                     value={f.description}

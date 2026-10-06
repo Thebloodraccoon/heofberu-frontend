@@ -1,3 +1,4 @@
+import EditorAddButton from './EditorAddButton.jsx'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -46,7 +47,7 @@ const pluralOption = (n) => {
   return 'вариантов'
 }
 
-export default function FeatureEffectsEditor({ value, onChange, inline = false, onNavigate, summary }) {
+export default function FeatureEffectsEditor({ value, onChange, inline = false, drawer = false, onNavigate, summary }) {
   const tree = normalizeEffectsTree(value)
   const groups = tree.choice_groups
   const [modal, setModal] = useState(null) // { mode: 'static'|'choice', effectType, groupIndex? } | null
@@ -113,13 +114,11 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
       <div>
         <SectionTitle
           button={
-            <button
-              type="button"
+            <EditorAddButton
               onClick={() => openModal({ mode: 'static', effectType: null })}
-              className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
             >
-              + Добавить статичный эффект
-            </button>
+              Добавить статичный эффект
+            </EditorAddButton>
           }
         >
           Статичные эффекты
@@ -156,13 +155,11 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
       <div>
         <SectionTitle
           button={
-            <button
-              type="button"
+            <EditorAddButton
               onClick={() => openModal({ mode: 'choice', effectType: null, groupIndex: null })}
-              className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
             >
-              + Добавить выбор эффектов
-            </button>
+              Добавить выбор эффектов
+            </EditorAddButton>
           }
         >
           Группы выбора
@@ -209,6 +206,7 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
 
       {modal?.mode === 'static' && (
         <EffectGroupModal
+          drawer={drawer}
           mode="static"
           effectType={modal.effectType}
           availableTypes={availableTypesFor(usedStaticTypes)}
@@ -219,6 +217,7 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
       )}
       {modal?.mode === 'choice' && (
         <EffectGroupModal
+          drawer={drawer}
           mode="choice"
           effectType={modal.effectType}
           availableTypes={availableTypesFor(usedGroupTypes)}

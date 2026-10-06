@@ -1,3 +1,4 @@
+import EditorAddButton from './EditorAddButton.jsx'
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -10,7 +11,6 @@ import {
 import { Input } from '@/components/ui'
 import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
 import { useSpellNames } from '@/features/catalog/queries.js'
-import SpellPickerModal from './SpellPickerModal.jsx'
 
 // Редакторы по одному типу эффекта (характеристики/навыки/спасброски/доспехи/
 // оружие/заклинания) — общий строительный блок и для статичных эффектов
@@ -18,16 +18,7 @@ import SpellPickerModal from './SpellPickerModal.jsx'
 // сюда, чтобы EffectGroupModal и FeatureEffectsEditor не дублировали код.
 
 export function AddButton({ onClick, disabled, title }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
-    >
-      {title}
-    </button>
-  )
+  return <EditorAddButton onClick={onClick} disabled={disabled}>{title}</EditorAddButton>
 }
 
 export function RowShell({ children, onRemove }) {
@@ -39,7 +30,7 @@ export function RowShell({ children, onRemove }) {
       <button
         type="button"
         onClick={onRemove}
-        className="inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+        className="catalog-delete-button"
         title="Удалить"
       >
         <TrashIcon />
@@ -78,7 +69,7 @@ function useMenuPosition(open, anchorRef) {
 // Всплывающее меню «что доступно добавить» — открывается кнопкой «+», без
 // нативного <select>. Уже добавленные варианты показаны серым и недоступны
 // для повторного выбора (дублирование владений/эффектов невозможно).
-export function PickerMenu({ options, onPick, disabled, addLabel, searchable }) {
+export function PickerMenu({ options, onPick, disabled, addLabel, searchable, onSearchChange, onOpenChange, loading = false, hasMore = false, onMore, error, onRetry }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const ref = useRef(null)
@@ -87,35 +78,35 @@ export function PickerMenu({ options, onPick, disabled, addLabel, searchable }) 
   useEffect(() => {
     if (!open) return
     const onDoc = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+      if (ref.current && !ref.current.contains(e.target)) { setOpen(false); onOpenChange?.(false) }
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
+  }, [open, onOpenChange])
 
-  const list = q.trim()
+  const list = !onSearchChange && q.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase()))
     : options
 
   return (
-    <div className="relative inline-block" ref={ref}>
-      <AddButton onClick={() => setOpen((v) => !v)} disabled={disabled} title={addLabel} />
+    <div className="relative inline-block" ref={ref} onKeyDown={(event) => { if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); onOpenChange?.(false); ref.current?.querySelector('button')?.focus() } }}>
+      <AddButton onClick={() => { const next = !open; setOpen(next); onOpenChange?.(next) }} disabled={disabled} title={addLabel} />
       {open && pos && (
         <div
           style={{ position: 'fixed', top: pos.top, left: pos.left }}
           className="z-30 max-h-72 w-72 overflow-auto rounded-lg border border-stone-700 bg-stone-900 p-1 shadow-xl"
         >
-          {searchable && options.length > 6 && (
+          {searchable && (options.length > 6 || onSearchChange) && (
             <input
               autoFocus
               type="search"
               className="input-base mb-1 w-full"
               placeholder="Поиск…"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => { setQ(e.target.value); onSearchChange?.(e.target.value) }}
             />
           )}
-          {list.length === 0 && <p className="px-2 py-1.5 text-xs text-stone-500">Ничего не найдено</p>}
+          {!loading && !error && list.length === 0 && <p className="px-2 py-1.5 text-xs text-stone-500">Ничего не найдено</p>}
           <ul>
             {list.map((o) => (
               <li key={o.key}>
@@ -124,7 +115,7 @@ export function PickerMenu({ options, onPick, disabled, addLabel, searchable }) 
                   disabled={o.disabled}
                   onClick={() => {
                     onPick(o.key)
-                    if (!o.keepOpen) setOpen(false)
+                    if (!o.keepOpen) { setOpen(false); onOpenChange?.(false) }
                   }}
                   className="flex w-full items-center justify-between gap-2 truncate rounded px-2 py-1.5 text-left text-sm text-stone-200 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-30"
                 >
@@ -134,6 +125,9 @@ export function PickerMenu({ options, onPick, disabled, addLabel, searchable }) 
               </li>
             ))}
           </ul>
+          {loading && <p className="px-2 py-2 text-sm text-stone-400">Загружаем…</p>}
+          {error && <button type="button" onClick={onRetry} className="px-2 py-2 text-sm text-stone-300">Не удалось загрузить. Повторить</button>}
+          {hasMore && <button type="button" disabled={loading} onClick={onMore} className="w-full px-2 py-2 text-sm text-stone-300 hover:bg-stone-800">Показать ещё</button>}
         </div>
       )}
     </div>
@@ -371,41 +365,17 @@ export function WeaponEffectsEditor({ rows = [], onChange, onHide }) {
   )
 }
 
-export function SpellEffectsEditor({ rows = [], onChange, onHide, inline = false, onNavigate }) {
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const spellNames = useSpellNames(rows.map((r) => r.spell_id))
+export function SpellEffectsEditor({ rows = [], onChange, onHide, onSelectSpell }) {
+  const spellNames = useSpellNames(rows.map((row) => row.spell_id))
   const nameOf = (id) => spellNames[Number(id)] ?? `заклинание #${id}`
-  const add = (sp) => onChange([...rows, { spell_id: sp.id }])
-
-  return (
-    <>
-      <div hidden={inline && pickerOpen}>
-      <Section
-        title="Заклинания"
-        count={rows.length}
-        empty="Заклинаний нет"
-        onHide={onHide}
-        addControl={<AddButton onClick={() => { setPickerOpen(true); onNavigate?.(true) }} title="+ Заклинание" />}
-      >
-        {rows.map((row, i) => (
-          <RowShell key={i} onRemove={() => onChange(rows.filter((_, j) => j !== i))}>
-            <span className="min-w-0 self-center truncate text-sm text-stone-200">{nameOf(row.spell_id)}</span>
-            <BlankSlot />
-            <BlankSlot />
-          </RowShell>
-        ))}
-      </Section>
-      </div>
-      {pickerOpen && (
-        <SpellPickerModal
-          inline={inline}
-          excludeIds={rows.map((r) => r.spell_id)}
-          onPick={add}
-          onClose={() => { setPickerOpen(false); onNavigate?.(false) }}
-        />
-      )}
-    </>
-  )
+  return <Section title="Заклинания" count={rows.length} empty="Заклинаний нет" onHide={onHide}
+    addControl={<AddButton onClick={onSelectSpell} title="Добавить заклинание" />}>
+    {rows.map((row, i) => <RowShell key={i} onRemove={() => onChange(rows.filter((_, j) => j !== i))}>
+      <span className="min-w-0 self-center truncate text-sm text-stone-200">{nameOf(row.spell_id)}</span>
+      <BlankSlot />
+      <BlankSlot />
+    </RowShell>)}
+  </Section>
 }
 
 // Каталог статичных типов эффектов: используется и для корневых эффектов
