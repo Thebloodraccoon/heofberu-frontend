@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../../../helpers/render.jsx'
 import { byText } from '../../../helpers/byText.js'
@@ -59,22 +59,56 @@ describe('GmEditorPage', () => {
     catalogApi.skills.list.mockResolvedValue({ items: [] })
   })
 
+  it('opens subrace editing in a side panel without saving on navigation', async () => {
+    const user = userEvent.setup()
+    const subrace = { id: 12, name: 'Высший эльф', ability_bonuses: [], tags: [], features: [] }
+    catalogApi.races.get.mockResolvedValue({ ...races[0], subraces: [subrace], granted_skills: [], ability_bonuses: [] })
+    catalogApi.races.features.list.mockResolvedValue([])
+    catalogApi.races.subraces.get.mockResolvedValue(subrace)
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^эльф/i }))
+    await user.click(await screen.findByRole('tab', { name: 'Подрасы' }))
+    await user.click(screen.getByRole('button', { name: 'Высший эльф' }))
+    const panel = await screen.findByRole('dialog', { name: 'Высший эльф' })
+    await user.click(await within(panel).findByRole('tab', { name: 'Бонусы' }))
+    expect(within(panel).getByText('Бонусов нет')).toBeVisible()
+    expect(catalogApi.races.subraces.update).not.toHaveBeenCalled()
+    await user.click(within(panel).getByRole('button', { name: 'Закрыть подрасу' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Высший эльф' })).toHaveFocus()
+  })
+
+  it('switches catalog editor tabs without saving', async () => {
+    const user = userEvent.setup()
+    catalogApi.races.get.mockResolvedValue({ ...races[0], ability_bonuses: [], granted_skills: [], subraces: [] })
+    catalogApi.races.features.list.mockResolvedValue([])
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^эльф/i }))
+    await screen.findByRole('tab', { name: 'Основное' })
+    await user.click(screen.getByRole('tab', { name: 'Характеристики и навыки' }))
+    expect(screen.getByText('Бонусы характеристик')).toBeVisible()
+    await user.click(screen.getByRole('tab', { name: 'Подрасы' }))
+    expect(screen.getByText('Подрас нет')).toBeVisible()
+    await user.click(screen.getByRole('tab', { name: 'Основное' }))
+    expect(catalogApi.races.update).not.toHaveBeenCalled()
+  })
+
   it('lists records with search input, filter button and pagination area', async () => {
     renderPage()
     expect(await screen.findByRole('button', { name: /^эльф/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^великан/i })).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Поиск: имя, описание...')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '⌕' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Фильтр' })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Поиск по справочнику' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Поиск' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Открыть фильтры' })).toBeInTheDocument()
   })
 
-  it('queries the server by search on ⌕ and Enter', async () => {
+  it('queries the server through the search form', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByRole('button', { name: /^эльф/i })
 
-    await user.type(screen.getByPlaceholderText('Поиск: имя, описание...'), 'эльф')
-    await user.click(screen.getByRole('button', { name: '⌕' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Поиск по справочнику' }), 'эльф')
+    await user.click(screen.getByRole('button', { name: 'Поиск' }))
 
     await waitFor(() => {
       expect(catalogApi.races.list).toHaveBeenLastCalledWith(
@@ -92,11 +126,11 @@ describe('GmEditorPage', () => {
     renderPage()
     await screen.findByRole('button', { name: /^эльф/i })
 
-    await user.click(screen.getByRole('button', { name: 'Фильтр' }))
+    await user.click(screen.getByRole('button', { name: 'Открыть фильтры' }))
     expect(screen.getByText('Размер')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Большой' }))
-    await user.click(screen.getByRole('button', { name: '✕' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Фильтры' })).getByRole('button', { name: 'Применить' }))
 
     await waitFor(() => {
       expect(catalogApi.races.list).toHaveBeenLastCalledWith(
@@ -109,13 +143,80 @@ describe('GmEditorPage', () => {
     })
   })
 
+  it('keeps current results when the filter dialog is dismissed', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: /^эльф/i })
+
+    await user.click(screen.getByRole('button', { name: 'Открыть фильтры' }))
+    await user.click(screen.getByRole('button', { name: 'Большой' }))
+    await user.click(screen.getByRole('button', { name: 'Закрыть фильтры' }))
+
+    expect(screen.getByRole('button', { name: /^эльф/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^великан/i })).toBeInTheDocument()
+    expect(catalogApi.races.list).not.toHaveBeenCalledWith(expect.objectContaining({ race_size: ['LARGE'] }))
+  })
+
+  it('keeps keyboard focus in the drawer and returns it to the filter button on Escape', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: /^эльф/i })
+    const trigger = screen.getByRole('button', { name: 'Открыть фильтры' })
+    await user.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Фильтры' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Закрыть фильтры' })).toHaveFocus()
+    expect(document.body.style.overflow).toBe('hidden')
+    await user.tab({ shift: true })
+    expect(within(screen.getByRole('dialog', { name: 'Фильтры' })).getByRole('button', { name: 'Применить' })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'Закрыть фильтры' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(document.body.style.overflow).toBe('')
+  })
+
+  it('removes an applied filter directly from the results', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: /^эльф/i })
+    await user.click(screen.getByRole('button', { name: 'Открыть фильтры' }))
+    await user.click(screen.getByRole('button', { name: 'Большой' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Фильтры' })).getByRole('button', { name: 'Применить' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^эльф/i })).not.toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Убрать фильтр Размер: Большой' }))
+
+    expect(await screen.findByRole('button', { name: /^эльф/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^великан/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Сбросить все' })).not.toBeInTheDocument()
+  })
+
+  it('clears applied filters and refreshes results immediately from the drawer', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: /^эльф/i })
+    await user.click(screen.getByRole('button', { name: 'Открыть фильтры' }))
+    await user.click(screen.getByRole('button', { name: 'Большой' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Фильтры' })).getByRole('button', { name: 'Применить' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^эльф/i })).not.toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Фильтры применены. Изменить фильтры' }))
+    await user.click(screen.getByRole('button', { name: 'Сбросить' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Фильтры' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^эльф/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^великан/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Открыть фильтры' })).toBeInTheDocument()
+  })
+
   it('shows pagination below the list and navigates pages', async () => {
     catalogApi.races.list.mockImplementation(respond(manyRaces))
     const user = userEvent.setup()
     renderPage()
     await screen.findByText(byText('Стр. 1 из 2'))
 
-    await user.click(screen.getByRole('button', { name: /вперёд/i }))
+    await user.click(screen.getByRole('button', { name: 'Следующая страница' }))
 
     await waitFor(() => {
       expect(catalogApi.races.list).toHaveBeenLastCalledWith(
@@ -130,11 +231,15 @@ describe('GmEditorPage', () => {
     renderPage()
     await screen.findByRole('button', { name: /^эльф/i })
 
-    await user.type(screen.getByPlaceholderText('Поиск: имя, описание...'), 'zzz')
-    await user.click(screen.getByRole('button', { name: '⌕' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Поиск по справочнику' }), 'zzz')
+    await user.click(screen.getByRole('button', { name: 'Поиск' }))
 
     await waitFor(() => {
       expect(screen.getByText('Ничего не найдено по запросу')).toBeInTheDocument()
     })
+
+    await user.click(screen.getByRole('button', { name: 'Сбросить поиск и фильтры' }))
+    expect(await screen.findByRole('button', { name: /^эльф/i })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Поиск по справочнику' })).toHaveValue('')
   })
 })

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { fmtBonus } from '@/lib/utils/sheet.js'
 import { RichText, RichTextEditor } from '@/components/ui'
 
@@ -205,13 +206,13 @@ export function RollModal({ title = 'Проверка', bonus, d20, onClose }) {
   const total = d20 + Number(bonus ?? 0)
   const isNat20 = d20 === 20
   const isNat1 = d20 === 1
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xs rounded-lg border border-stone-700 bg-stone-900 p-5 text-center shadow-2xl"
+        className="w-full max-w-xs rounded-lg border border-stone-700 bg-stone-900 p-5 text-center shadow-lg shadow-black/20"
         onClick={(e) => e.stopPropagation()}
       >
         <p className="text-xs uppercase tracking-wide text-stone-500">{title}</p>
@@ -242,6 +243,7 @@ export function RollModal({ title = 'Проверка', bonus, d20, onClose }) {
           Закрыть
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

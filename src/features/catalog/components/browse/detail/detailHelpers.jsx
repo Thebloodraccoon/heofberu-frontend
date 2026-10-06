@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   abilityLabels,
-  classSlugLabels,
   diceTypeLabels,
   fieldLabel,
   label,
@@ -24,7 +23,28 @@ export function FeatureDescription({ feature, className = 'description-secondary
   return <RichText value={feature.description} tail={feature.effects_summary} className={className} />
 }
 
-export function SkillChips({ names = [] }) {
+// Теги расы/подрасы/предыстории под их названием — клик по тегу ведёт в лор
+// с фильтром по этому одному тегу.
+export function TagChips({ tags = [], className = '' }) {
+  if (!tags || tags.length === 0) return null
+  return (
+    <span className={`flex flex-wrap items-center gap-1.5 ${className}`}>
+      {tags.map((t) => (
+        <Link
+          key={t.id}
+          to={`/lore?tags=${t.id}`}
+          className="rounded-full border border-stone-700 px-2 py-0.5 text-xs text-stone-400 transition hover:border-ember hover:text-ember"
+        >
+          #{t.name}
+        </Link>
+      ))}
+    </span>
+  )
+}
+
+// Чипы-ссылки на карточки справочника. По умолчанию — навыки; hrefOf(item, i) задаёт
+// другой адрес (null/undefined — чип без ссылки, например пока адрес не известен).
+export function SkillChips({ names = [], hrefOf = (item) => `/catalog/skills/${item.id ?? item.item_id}` }) {
   if (names.length === 0) return null
   return (
     <span className="badge-row align-middle">
@@ -39,12 +59,13 @@ export function SkillChips({ names = [] }) {
             {text}
           </span>
         )
-        return id == null ? (
+        const to = id == null ? null : hrefOf(n, i)
+        return !to ? (
           chip
         ) : (
           <Link
             key={i}
-            to={`/catalog/skills/${id}`}
+            to={to}
             className="inline-block"
           >
             {chip}
@@ -174,12 +195,6 @@ export function summaryBadges(item, resource) {
   if (item.duration) badges.push({ text: label(item.duration), tone: 'default' })
   if (item.is_concentration) badges.push({ text: 'Концентрация', tone: 'accent' })
   if (item.is_ritual) badges.push({ text: 'Ритуал', tone: 'accent' })
-  if (item.available_classes && item.available_classes.length > 0) {
-    badges.push({
-      text: item.available_classes.map((c) => classSlugLabels[itemName(c)] ?? label(itemName(c))).join(', '),
-      tone: 'default',
-    })
-  }
   if (item.prerequisite) {
     const text = Array.isArray(item.prerequisite)
       ? item.prerequisite

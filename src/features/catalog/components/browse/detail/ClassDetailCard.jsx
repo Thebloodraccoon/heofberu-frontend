@@ -177,7 +177,7 @@ export default function ClassDetailCard({ cls, selectedSubId, subDetail, subLoad
   return (
     <Card className="my-[3px] detail-padded">
       <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="order-2 min-w-0 flex-1 sm:order-1">
+        <div className="min-w-0 flex-1">
           <div className="mb-2">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(cls.name)}</h1>
@@ -214,13 +214,12 @@ export default function ClassDetailCard({ cls, selectedSubId, subDetail, subLoad
           </div>
         </div>
 
-        <div className="order-1 w-full shrink-0 sm:order-2 sm:w-auto flex justify-center items-start">
-          <CatalogImage
-            imageUrl={selectedSub?.image_url ?? cls.image_url}
-            alt={selectedSub ? selectedSub.name : cls.name}
-            title={selectedSub ? selectedSub.name : cls.name}
-          />
-        </div>
+        <CatalogImage
+          className="catalog-portrait-frame mx-auto sm:mx-0"
+          imageUrl={selectedSub?.image_url ?? cls.image_url}
+          alt={selectedSub ? selectedSub.name : cls.name}
+          title={selectedSub ? selectedSub.name : cls.name}
+        />
       </div>
 
       <Section title="Развитие по уровням">
@@ -340,14 +339,19 @@ export default function ClassDetailCard({ cls, selectedSubId, subDetail, subLoad
                     .join(', ')}
             </dd>
           </div>
-          <div className="pt-1">
+          <div>
             <p className="inline font-medium text-stone-200">
-              Навыки{' '}
+              Навыки
               {cls.skill_choice_count > 0 && (
-                <span className="font-normal text-stone-300">{`(выберите ${cls.skill_choice_count})`}</span>
+                <>
+                  {' '}
+                  <span className="font-normal text-stone-300">{`(выберите ${cls.skill_choice_count})`}</span>
+                </>
               )}
+              :
             </p>
-            <div className="inline-flex flex-wrap gap-1.5 ml-2">
+            {' '}
+            <div className="inline-flex flex-wrap gap-1.5 pt-1">
               {(cls.available_skills ?? [])
                 .map((s) => ({ ...s, __name: skillLabels[itemName(s)] ?? sentenceCase(itemName(s)) }))
                 .sort((a, b) => a.__name.localeCompare(b.__name, 'ru'))

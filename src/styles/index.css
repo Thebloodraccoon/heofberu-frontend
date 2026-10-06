@@ -4,6 +4,7 @@
 @import "./guide.css";
 @import "./sheet.css";
 @import "./catalog.css";
+@import "./lore.css";
 @import "./editor.css";
 @import "./wizard.css";
 
@@ -28,6 +29,8 @@
   --color-ink: #241709;
   --color-ember: #d4552a;
   --color-ember-dark: #9a3a16;
+  --color-action-primary: #356859;
+  --color-action-primary-hover: #2b574a;
   --color-gold: #a8853d;
   --color-gold-light: #cdb58b;
 }
@@ -38,15 +41,17 @@ body,
   height: 100%;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family: var(--font-display);
+  color: var(--color-stone-100);
   -webkit-font-smoothing: antialiased;
   background-color: #0d0905;
-  background-image:
-    radial-gradient(1100px 520px at 50% -5%, #2b1d0e 0%, rgba(43, 29, 14, 0) 60%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(90, 52, 20, 0.35) 0%, rgba(90, 52, 20, 0) 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(60, 40, 18, 0.3) 0%, rgba(60, 40, 18, 0) 55%);
+  background-image: none;
   background-attachment: fixed;
 }
 
@@ -78,24 +83,10 @@ h4 {
   background: transparent;
 }
 
-/* Декоративная линия-разделитель: ✦ между двумя золотыми чертами */
+/* Декоративная линия-разделитель: золотая черта, гаснущая к краям */
 .ornate-rule {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--color-gold);
-}
-.ornate-rule::before,
-.ornate-rule::after {
-  content: "";
-  flex: 1;
   height: 1px;
-}
-.ornate-rule::before {
-  background: linear-gradient(90deg, transparent, rgba(168, 133, 61, 0.55));
-}
-.ornate-rule::after {
-  background: linear-gradient(90deg, rgba(168, 133, 61, 0.55), transparent);
+  background: linear-gradient(90deg, transparent, rgba(168, 133, 61, 0.55), transparent);
 }
 
 /* Панель-«фолиант»: бронзовая рамка с уголками-скобками */
@@ -103,11 +94,10 @@ h4 {
   position: relative;
   padding: 20px;
   border: 1px solid rgba(168, 133, 61, 0.26);
-  background:
-    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
-    var(--color-stone-900);
+  background: var(--color-stone-900);
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
 }
+.fantasy-panel.popup-panel { box-shadow: 0 8px 22px -12px rgb(0 0 0 / 25%); }
 @media (max-width: 639px) {
   .fantasy-panel {
     padding: 15px;
@@ -117,57 +107,117 @@ h4 {
 .fantasy-panel::after {
   content: "";
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   pointer-events: none;
   opacity: 0.6;
 }
 .fantasy-panel::before {
   top: -1px;
   left: -1px;
-  border-top: 2px solid var(--color-gold);
-  border-left: 2px solid var(--color-gold);
+  border-top: 4px solid var(--color-gold);
+  border-left: 4px solid var(--color-gold);
 }
 .fantasy-panel::after {
   bottom: -1px;
   right: -1px;
-  border-bottom: 2px solid var(--color-gold);
-  border-right: 2px solid var(--color-gold);
+  border-bottom: 4px solid var(--color-gold);
+  border-right: 4px solid var(--color-gold);
 }
 
 /* ===== Темы оформления ===== */
 /* Каждая тема переопределяет палитру Tailwind (stone/ember/gold) на <html data-theme="...">,
    поэтому все существующие утилиты text-stone-*, bg-stone-*, border-ember и т.д. перекрашиваются автоматически. */
 
-/* Светлая тема — тот же пергамент, но заметно светлее (не белая бумага):
-   вся тёплая палитра поднята на пару тонов вверх */
+/* Нативные контролы (выпадающие списки <select>, скроллбары, поле поиска) берут цвета из color-scheme:
+   без него в тёмной теме они оставались светлыми. */
+:root { color-scheme: dark; }
+
+/* Высота липкой шапки (Layout.jsx): строка h-16 + 1px рамки, на lg ещё DesktopNav h-11.
+   Меняешь шапку — поправь здесь: от этого зависят липкое оглавление и отступ якорей. */
+:root { --app-header-h: 4.0625rem; }
+@media (min-width: 64rem) {
+  :root { --app-header-h: 6.8125rem; }
+}
+
+/* Светлая тема — «рукопись на пергаменте»: тёплые сепийные чернила вместо серого,
+   киноварь вместо ярко-оранжевого, приглушённая позолота. Контраст текста по WCAG:
+   stone-300 на фоне ~10:1, stone-500 (подсказки) ≥4.9:1 на панелях. */
 [data-theme="light"] {
-  --color-stone-50: #fdf8ec;
-  --color-stone-100: #f9f0da;
-  --color-stone-200: #efe2c2;
-  --color-stone-300: #dcc79c;
-  --color-stone-400: #bfa87e;
-  --color-stone-500: #a08a63;
-  --color-stone-600: #7f6a48;
-  --color-stone-700: #63502f;
-  --color-stone-800: #4a361e;
-  --color-stone-900: #3a2915;
-  --color-stone-950: #2c1e10;
-  --color-parchment: #f9f0da;
-  --color-ink: #2c1e10;
-  --color-ember: #d4552a;
-  --color-ember-dark: #9a3a16;
-  --color-gold: #b9954c;
-  --color-gold-light: #ddc08a;
+  color-scheme: light;
+  --color-stone-50: #1e140b;
+  --color-stone-100: #2b1d12;
+  --color-stone-200: #3b2a1a;
+  --color-stone-300: #4d3826;
+  --color-stone-400: #634b33;
+  --color-stone-500: #76603f;
+  --color-stone-600: #a8936f;
+  --color-stone-700: #cdb994;
+  --color-stone-800: #e7d8bb;
+  --color-stone-900: #f3e8d2;
+  --color-stone-950: #faf4e8;
+  --color-parchment: #faf4e8;
+  --color-ink: #2b1d12;
+  --color-ember: #a3321b;
+  --color-ember-dark: #7c2412;
+  --color-gold: #86621f;
+  --color-gold-light: #77561c;
+  --color-red-100: #7f1d1d;
+  --color-red-200: #8f2626;
+  --color-red-300: #a12e2e;
+  --color-red-400: #ad3535;
+  --color-red-700: #c77e78;
+  --color-red-800: #d8a3a0;
+  --color-red-900: #f2d6d2;
+  --color-red-950: #f9e6e2;
+  /* Зелёный («успех», «+» в diff) инвертирован как и красный: светлые оттенки текста
+     тёмной темы становятся тёмными, тёмные фоновые — светлыми. */
+  --color-emerald-200: #1d5a3a;
+  --color-emerald-300: #1f6b45;
+  --color-emerald-400: #2a7a50;
+  --color-emerald-700: #5f9e79;
+  --color-emerald-900: #d6ecdc;
+  --color-emerald-950: #ebf6ee;
+
+  /* Однотонная поверхность панелей в светлой теме. */
+  --paper-panel: #f7efdf;
+  --paper-border: #d6c29d;
+  --paper-shadow: 0 1px 2px rgba(60, 40, 18, 0.1);
 }
 
 [data-theme="light"] body {
-  background-color: #241709;
-  background-image:
-    radial-gradient(1100px 520px at 50% -5%, #3d2b17 0%, rgba(61, 43, 23, 0) 60%),
-    radial-gradient(1400px 900px at 100% 110%, rgba(122, 78, 32, 0.4) 0%, rgba(122, 78, 32, 0) 55%),
-    radial-gradient(1200px 800px at 0% 110%, rgba(96, 64, 28, 0.35) 0%, rgba(96, 64, 28, 0) 55%);
+  background-color: #ecdfc6;
+  background-image: none;
 }
+
+/* Фактура бумаги поверх страницы. Не перехватывает клики; при печати не нужна. */
+[data-theme="light"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .22 0 0 0 0 .1 .14 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media print {
+  [data-theme="light"] body::before { display: none; }
+}
+
+[data-theme="light"] .fantasy-panel {
+  border-color: var(--paper-border);
+  background: var(--paper-panel);
+  box-shadow: var(--paper-shadow);
+}
+
+[data-theme="light"] .fantasy-panel.card-hover:hover {
+  box-shadow: 0 6px 18px -12px rgba(73, 54, 29, 0.35);
+}
+
+[data-theme="light"] [data-tone="accent"] { color: #7c2412; background: #f1d9c4; }
+[data-theme="light"] [data-tone="good"] { color: #20623f; background: #dceee0; }
+[data-theme="light"] [data-tone="bad"] { color: #9a3030; background: #f6dddd; }
+[data-theme="light"] [data-tone="violet"] { color: #663e85; background: #eee1f5; }
 
 /* ===== Кликабельный курсор ===== */
 :where(button, [role="button"], a[href], label, summary, select, input[type="checkbox"], input[type="radio"], input[type="range"]) {

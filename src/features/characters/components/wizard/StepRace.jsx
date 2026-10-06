@@ -4,7 +4,7 @@ import { AccordionItem, RichText } from '@/components/ui'
 import { formatBonus, itemName, SkillChips } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
 import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
-import { smoothScrollTo } from './scroll.js'
+import { smoothScrollTo } from '@/lib/utils/scroll.js'
 
 const sizeLabel = (size) =>
   size === 'TINY'

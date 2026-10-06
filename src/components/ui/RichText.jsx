@@ -1,18 +1,14 @@
-import { sanitizeHtml, toEditableHtml } from '@/lib/utils/richText.js'
+import { renderRichHtml } from '@/lib/utils/richText.js'
 
-// Безопасный рендер контента из RichTextEditor: принимает как новый HTML, так и
-// старые записи в виде обычного текста (см. toEditableHtml) — санитизирует и
-// показывает единым образом, чтобы не хранить два разных пути отображения.
+// Безопасный рендер сохранённого текста: Markdown (новый формат) либо HTML от
+// прежнего редактора / обычный текст (старые записи) — см. renderRichHtml.
+// Всегда идёт через санитайзер, единый путь отображения.
 // tail — доп. текст (например, effects_summary с бэка), который дорендеривается
-// в конце того же дива — и тоже может прийти как HTML, так и как обычный текст.
+// в конце того же дива в том же формате.
 export function RichText({ value, className = '', empty = '—', tail }) {
-  const bodyHtml = toEditableHtml(value)
-  // tail (effects_summary) может прийти как обычный текст, так и с готовой
-  // разметкой (<ul><li>…</li></ul>) — тем же путём, что и основное значение,
-  // а не escape-ом, иначе теги показывались бы буквально.
-  const spacer = tail && bodyHtml ? '<p><br></p>' : ''
-  const tailHtml = tail ? spacer + toEditableHtml(tail) : ''
-  const html = sanitizeHtml(bodyHtml + tailHtml)
+  const body = renderRichHtml(value)
+  const tailHtml = tail ? renderRichHtml(tail) : ''
+  const html = body && tailHtml ? `${body}<p><br></p>${tailHtml}` : body + tailHtml
   if (!html) {
     return (
       <p className={className}>

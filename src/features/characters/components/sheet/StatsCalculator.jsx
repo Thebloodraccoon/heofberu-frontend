@@ -1,6 +1,7 @@
 import { STATS } from '@/lib/utils/ability.js'
 import { useCharacterStats } from '@/features/characters/queries.js'
 import { Skeleton } from '@/components/ui'
+import BonusBadge from '@/components/ui/BonusBadge.jsx'
 
 // Вкладовый тип источника приходит строками типа 'RACE'/'FEAT'/'GM' и т.п.
 // подбираем тон и человекочитаемую подпись, если бэкенд её не прислал.
@@ -40,18 +41,6 @@ const chipTone = (type) => {
     if (re.test(String(type ?? ''))) return tone
   }
   return 'dim'
-}
-
-const chipClass = (tone) => {
-  const tones = {
-    default: 'bg-ember/15 text-orange-200',
-    good: 'bg-emerald-900/50 text-emerald-200',
-    feat: 'bg-amber-900/50 text-amber-200',
-    accent: 'bg-ember/15 text-orange-200',
-    bad: 'bg-red-900/40 text-red-200',
-    dim: 'bg-stone-800 text-stone-400',
-  }
-  return tones[tone] ?? tones.dim
 }
 
 const fmtAmount = (amount) => {
@@ -109,16 +98,16 @@ export default function StatsCalculator({ characterId }) {
             {sources.length > 0 ? (
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {sources.map((c, i) => (
-                  <span
+                  <BonusBadge
                     key={`${c?.id ?? i}-${i}`}
-                    className={`rounded px-1.5 py-0.5 text-[10px] ${chipClass(chipTone(contribSource(c)))}`}
+                    tone={chipTone(contribSource(c))}
                   >
                     {contribLabel(c)} {fmtAmount(contribAmount(c))}
-                  </span>
+                  </BonusBadge>
                 ))}
               </div>
             ) : (
-              <p className="mt-1 text-[11px] text-stone-600">Без бонусов</p>
+              <p className="mt-1 text-xs text-stone-400">Без бонусов</p>
             )}
           </li>
 )

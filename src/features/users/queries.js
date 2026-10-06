@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/features/users/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 
@@ -8,6 +9,12 @@ export const useUsers = (options = {}) =>
     queryFn: () => usersApi.list({ size: 100 }).then((p) => p?.items ?? []),
     enabled: options.enabled !== false,
   })
+
+// id → имя для подписей «кто правил» (список пользователей доступен ГМ).
+export const useUserNames = (enabled = true) => {
+  const { data } = useUsers({ enabled })
+  return useMemo(() => new Map((data ?? []).map((u) => [u.id, u.username])), [data])
+}
 
 export const useUserCount = (enabled = true) =>
   useQuery({
@@ -24,6 +31,21 @@ export const useCreateUser = () => {
   })
 }
 
+export const useUsersPage = (params) =>
+  useQuery({
+    queryKey: [...queryKeys.users.all, 'page', params],
+    queryFn: () => usersApi.list(params),
+    placeholderData: keepPreviousData,
+  })
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...body }) => usersApi.update(id, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
+  })
+}
+
 export const useDeleteUser = () => {
   const queryClient = useQueryClient()
   return useMutation({
@@ -31,6 +53,8 @@ export const useDeleteUser = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
   })
 }
+
+export const useFlushCache = () => useMutation({ mutationFn: () => usersApi.flushCache() })
 
 export const useUpdateMe = () => {
   const queryClient = useQueryClient()

@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth.js'
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher.jsx'
 
@@ -21,10 +20,12 @@ const personalLinks = [
 ]
 
 const gmLinks = [
+  { to: '/gm/articles', label: 'Редактор статей и тегов' },
   { to: '/gm/editor', label: 'Редактор справочников' },
   { to: '/gm/characters', label: 'Персонажи игроков' },
-  { to: '/users', label: 'Пользователи' },
 ]
+
+const founderLinks = [{ to: '/users', label: 'Админ-панель' }]
 
 function Crest({ size = 'size-9' }) {
   return <img src="/logo.svg" alt="Heofberu" className={`${size} h-auto object-contain`} draggable="false" />
@@ -59,31 +60,36 @@ function SectionTitle({ children }) {
 }
 
 function SidebarContent({ onClick }) {
-  const { authenticated, isGM } = useAuth()
+  const { authenticated, isGM, isFounder } = useAuth()
   return (
     <nav className="flex flex-col gap-0.5">
       <SidebarLink to="/" end label="Главная" onClick={onClick} />
       <SidebarLink to="/guide" label="Руководство" onClick={onClick} />
+      <SidebarLink to="/lore" label="Лор" onClick={onClick} />
 
       <SectionTitle>Справочники</SectionTitle>
       {catalogLinks.map((l) => (
-        <SidebarLink key={l.to} to={l.to} end={l.to === '/catalog/races'} label={l.label} onClick={onClick} />
+        <SidebarLink key={l.to} to={l.to} label={l.label} onClick={onClick} />
       ))}
 
       {authenticated && (
         <>
           <SectionTitle>Личное</SectionTitle>
-          <SidebarLink to="/profile" label="Профиль" onClick={onClick} />
-          <SidebarLink to="/characters" label="Мои персонажи" onClick={onClick} />
+          {personalLinks.map((link) => <SidebarLink key={link.to} {...link} onClick={onClick} />)}
         </>
       )}
 
       {authenticated && isGM && (
         <>
           <SectionTitle>ГМ</SectionTitle>
-          <SidebarLink to="/gm/editor" label="Редактор справочников" onClick={onClick} />
-          <SidebarLink to="/gm/characters" label="Персонажи игроков" onClick={onClick} />
-          <SidebarLink to="/users" label="Пользователи" onClick={onClick} />
+          {gmLinks.map((link) => <SidebarLink key={link.to} {...link} onClick={onClick} />)}
+        </>
+      )}
+
+      {authenticated && isFounder && (
+        <>
+          <SectionTitle>Админ</SectionTitle>
+          {founderLinks.map((link) => <SidebarLink key={link.to} {...link} onClick={onClick} />)}
         </>
       )}
     </nav>
@@ -92,75 +98,34 @@ function SidebarContent({ onClick }) {
 
 function DesktopNavItem({ label, to, children }) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState(null)
   const ref = useRef(null)
-  const menuRef = useRef(null)
-  const timer = useRef(null)
-
-  const place = () => {
-    const rect = ref.current?.getBoundingClientRect()
-    if (!rect) return
-    let left = rect.left
-    const width = Math.max(rect.width, 176)
-    if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8)
-    setPos({ left, top: rect.bottom + 4, width })
-  }
-
-  const enter = () => {
-    clearTimeout(timer.current)
-    if (!open) {
-      place()
-      setOpen(true)
-    }
-  }
-
-  const leave = () => {
-    timer.current = setTimeout(() => setOpen(false), 100)
-  }
+  const triggerRef = useRef(null)
+  const panelId = useId()
 
   useEffect(() => {
     if (!open) return undefined
-    const onScroll = () => {
-      const rect = ref.current?.getBoundingClientRect()
-      if (!rect) return
-      if (rect.top < 0) {
+    const onPointerDown = (event) => {
+      if (!ref.current?.contains(event.target)) setOpen(false)
+    }
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
         setOpen(false)
-        return
+        triggerRef.current?.focus()
       }
-      place()
     }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll)
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
     return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open])
-
-  useEffect(() => () => clearTimeout(timer.current), [])
-
-  useEffect(() => {
-    if (!open) return
-    const menuWidth = menuRef.current?.getBoundingClientRect().width
-    if (!menuWidth) return
-    setPos((p) => {
-      if (!p) return p
-      const left = Math.max(8, Math.min(p.left, window.innerWidth - menuWidth - 8))
-      return left === p.left ? p : { ...p, left }
-    })
   }, [open])
 
   if (to) {
     return (
-      <NavLink
-        to={to}
-        end={to === '/'}
-        className={({ isActive }) =>
-          `rounded px-3 py-2 text-sm font-medium transition ${
-            isActive ? 'bg-stone-800 text-stone-100' : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'
-          }`
-        }
-      >
+      <NavLink to={to} end={to === '/'} className={({ isActive }) =>
+        `rounded px-3 py-2 text-sm font-medium transition ${isActive ? 'bg-stone-800 text-stone-100' : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'}`
+      }>
         {label}
       </NavLink>
     )
@@ -170,74 +135,64 @@ function DesktopNavItem({ label, to, children }) {
     <div
       ref={ref}
       className="relative"
-      onMouseEnter={enter}
-      onMouseLeave={leave}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
+      }}
     >
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={panelId}
         className="flex items-center gap-1 rounded px-3 py-2 text-sm font-medium text-stone-300 transition hover:bg-stone-800/60 hover:text-stone-100"
       >
         {label}
         <svg
           viewBox="0 0 20 20"
-          fill="currentColor"
-          className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
           aria-hidden="true"
+          className={`size-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
         >
-          <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-
-      {open &&
-        pos &&
-        createPortal(
-          <div
-            ref={menuRef}
-            onMouseEnter={enter}
-            onMouseLeave={leave}
-            style={{ left: pos.left, top: pos.top, minWidth: pos.width }}
-            className="fixed z-[100] whitespace-nowrap rounded-lg border border-stone-700/50 bg-stone-900 py-1 shadow-2xl shadow-black/50"
-          >
-            {children.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/catalog/races'}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `block px-4 py-2 text-sm transition ${
-                    isActive
-                      ? 'bg-stone-800 text-stone-100'
-                      : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </div>,
-          document.body,
-        )}
+      {open && (
+        <div id={panelId} className="absolute left-0 top-full z-50 mt-1 min-w-44 whitespace-nowrap rounded-lg border border-stone-700/50 bg-stone-900 p-1 shadow-md shadow-black/20">
+          {children.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) => `block rounded px-4 py-2 text-sm transition ${isActive ? 'bg-stone-800 text-stone-100' : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'}`}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 function DesktopNav() {
-  const { authenticated, isGM } = useAuth()
+  const { authenticated, isGM, isFounder } = useAuth()
 
   const groups = [
     { label: 'Главная', to: '/' },
     { label: 'Руководство', to: '/guide' },
+    { label: 'Лор', to: '/lore' },
     { label: 'Справочники', children: catalogLinks },
     authenticated && { label: 'Личное', children: personalLinks },
     authenticated && isGM && { label: 'Для ГМ', children: gmLinks },
+    authenticated && isFounder && { label: 'Админ', children: founderLinks },
   ].filter(Boolean)
 
   return (
-    <nav className="hidden backdrop-blur lg:flex">
-      <div className="mx-auto border-b border-l border-r  border-stone-800 bg-stone-950/85 flex h-11 w-full max-w-[80rem] items-center justify-center gap-1 borde
-r-x border-stone-800/80 px-5 sm:px-8">
+    <nav className="relative z-30 hidden backdrop-blur lg:flex">
+      <div className="mx-auto flex h-11 w-full max-w-[80rem] items-center justify-center gap-1 border-x border-b border-stone-800/80 bg-stone-950/85 px-5 sm:px-8">
         {groups.map((g) => (
           <DesktopNavItem key={g.label} {...g} />
         ))}
@@ -247,77 +202,124 @@ r-x border-stone-800/80 px-5 sm:px-8">
 }
 
 export default function Layout() {
+  const { pathname } = useLocation()
+  const authPage = ['/login', '/register', '/forgot-password', '/reset-password'].includes(pathname.replace(/\/+$/, ''))
   const { authenticated, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const menuButtonRef = useRef(null)
+  const closeButtonRef = useRef(null)
+  const sidebarRef = useRef(null)
   const navigate = useNavigate()
 
-  const close = () => setSidebarOpen(false)
+  const close = () => {
+    setSidebarOpen(false)
+    menuButtonRef.current?.focus()
+  }
+
+  useEffect(() => {
+    if (!sidebarOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButtonRef.current?.focus()
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') close()
+      if (event.key !== 'Tab') return
+      const controls = sidebarRef.current?.querySelectorAll('a[href], button:not([disabled])')
+      if (!controls?.length) return
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    const desktop = window.matchMedia('(min-width: 1024px)')
+    const onBreakpoint = (event) => {
+      if (event.matches) setSidebarOpen(false)
+    }
+    desktop.addEventListener('change', onBreakpoint)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      desktop.removeEventListener('change', onBreakpoint)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [sidebarOpen])
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-stone-950">
-      <header className="sticky top-0 z-40 border-b border-stone-800 bg-stone-950/85 backdrop-blur">
-        <nav className="mx-auto flex h-16 max-w-[80rem] items-center gap-3 px-5 sm:px-8">
-          <Link to="/" className="flex items-center gap-2 text-sm font-medium text-stone-300 transition hover:text-stone-100">
-            <Crest size="size-8" />
-            <span className="text-base font-bold tracking-wide text-stone-100">Heofberu</span>
-          </Link>
+    <div className="flex min-h-dvh w-full flex-col bg-stone-950">
+      {/* Высота этой липкой шапки продублирована в --app-header-h (index.css). */}
+      <div className="sticky top-0 z-40 bg-stone-950/85 backdrop-blur">
+        <header className="border-b border-stone-800">
+          <nav className="mx-auto flex h-16 max-w-[80rem] items-center gap-3 px-5 sm:px-8">
+            <Link to="/" className="flex items-center gap-2 text-sm font-medium text-stone-300 transition hover:text-stone-100">
+              <Crest size="size-8" />
+              <span className="text-base font-bold tracking-wide text-stone-100">Heofberu</span>
+            </Link>
 
-          <div className="ml-auto flex items-center gap-2">
-            <span className="hidden md:inline-flex">
-              <ThemeSwitcher />
-            </span>
-            {authenticated ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    logout()
-                    navigate('/')
-                  }}
-                  className="hidden h-10 items-center gap-1.5 rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="size-4"
-                    aria-hidden="true"
+            <div className="ml-auto flex items-center gap-2">
+              <span className="hidden md:inline-flex">
+                <ThemeSwitcher />
+              </span>
+              {authenticated ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout()
+                      navigate('/')
+                    }}
+                    className="hidden h-10 items-center gap-1.5 rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
                   >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <path d="M16 17l5-5-5-5" />
-                    <path d="M21 12H9" />
-                  </svg>
-                  Выйти
-                </button>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                className="hidden h-10 items-center rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
-              >
-                Войти
-              </Link>
-            )}
-          </div>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-4"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <path d="M16 17l5-5-5-5" />
+                      <path d="M21 12H9" />
+                    </svg>
+                    Выйти
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="hidden h-10 items-center rounded border border-stone-700 px-2 text-xs text-stone-300 transition hover:bg-stone-800 md:inline-flex"
+                >
+                  Войти
+                </Link>
+              )}
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="flex h-10 items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800 lg:hidden"
-            aria-label="Открыть меню"
-          >
-            ☰
-          </button>
-        </nav>
-      </header>
+            <button
+              ref={menuButtonRef}
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="flex h-10 items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800 lg:hidden"
+              aria-label="Открыть меню"
+              aria-expanded={sidebarOpen}
+              aria-controls="mobile-navigation"
+            >
+              ☰
+            </button>
+          </nav>
+        </header>
 
-      <DesktopNav />
+        <DesktopNav />
+      </div>
 
-      <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col border-x border-stone-800/80 bg-stone-950/90 shadow-[0_0_30px_rgba(0,0,0,0.75)]">
-        <main className="flex-1 px-5 py-5 sm:px-8 sm:py-8">
+      <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col border-x border-stone-800/80 bg-stone-950/90">
+        <main className={`flex-1 px-5 py-5 sm:px-8 sm:py-8 ${authPage ? 'flex flex-col' : ''}`}>
           <Outlet />
         </main>
 
@@ -327,7 +329,7 @@ export default function Layout() {
       </div>
 
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-stone-950 lg:hidden">
+        <div ref={sidebarRef} id="mobile-navigation" role="dialog" aria-modal="true" aria-label="Меню навигации" className="fixed inset-0 z-50 flex flex-col bg-stone-950 lg:hidden">
           <header className="flex h-16 shrink-0 items-center gap-3 border-b border-stone-800 px-5">
             <Link
               to="/"
@@ -380,6 +382,7 @@ export default function Layout() {
             </div>
 
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={close}
               className="flex h-10 items-center rounded border border-stone-700 px-2 text-sm text-stone-300 transition hover:bg-stone-800"

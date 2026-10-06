@@ -71,6 +71,29 @@ function fixedEffectsFromStaticGroups(groups = []) {
   return out
 }
 
+const isEffectGroups = (v) =>
+  Array.isArray(v) && v.every((g) => g && typeof g === 'object' && 'effect_type' in g && Array.isArray(g.items))
+
+// Бэк отдаёт эффекты вариантов выбора, выборов игрока и грантов как
+// effects: [{ effect_type, items }] вместо шести плоских списков. Вызывается
+// на каждом ответе в httpClient: рекурсивно дописывает рядом с effects
+// плоские *_effects (сам effects не трогает), так что весь UI читает старые
+// ключи. Мутирует только что распарсенный JSON — это безопасно.
+export function flattenEffectGroups(data) {
+  if (Array.isArray(data)) {
+    data.forEach(flattenEffectGroups)
+  } else if (data && typeof data === 'object') {
+    Object.values(data).forEach(flattenEffectGroups)
+    if (isEffectGroups(data.effects)) {
+      for (const group of data.effects) {
+        const key = STATIC_GROUP_TYPE_TO_KEY[group.effect_type]
+        if (key && data[key] === undefined) data[key] = group.items
+      }
+    }
+  }
+  return data
+}
+
 // Гарантирует, что дерево эффектов (из API или из формы) имеет все шесть
 // списков и choice_groups — у старого бэка их может не быть вовсе. Плоские
 // списки (старый формат) в приоритете, static_groups — как источник данных,
@@ -122,19 +145,29 @@ const toSpellEffect = ({ id, spell_id, spell_school, spell_level_max, always_pre
   counts_against_known_limit: counts_against_known_limit ?? false,
 })
 
-// Фиксированные эффекты для PUT /features/{id}/effects: бэк теперь diff-ит
-// по id, поэтому всегда возвращаются все шесть списков (пустые — как
-// "очистить"), но с сохранением id существующих строк.
-export function buildFixedEffectsPayload(effects = {}) {
+const TO_ITEM = {
+  ability: toAbilityEffect,
+  skill: toSkillEffect,
+  saving_throw: toSavingThrowEffect,
+  armor: toArmorEffect,
+  weapon: toWeaponEffect,
+  spell: toSpellEffect,
+}
+
+// Плоские списки -> [{ effect_type, items }] по всем шести типам (пустые
+// items — «очистить тип»), с сохранением id существующих строк.
+function toEffectGroups(effects = {}) {
   const fixed = normalizeEffects(effects)
-  return {
-    ability_effects: fixed.ability_effects.map(toAbilityEffect),
-    skill_effects: fixed.skill_effects.map(toSkillEffect),
-    saving_throw_effects: fixed.saving_throw_effects.map(toSavingThrowEffect),
-    armor_effects: fixed.armor_effects.map(toArmorEffect),
-    weapon_effects: fixed.weapon_effects.map(toWeaponEffect),
-    spell_effects: fixed.spell_effects.map(toSpellEffect),
-  }
+  return Object.entries(STATIC_GROUP_TYPE_TO_KEY).map(([effectType, key]) => ({
+    effect_type: effectType,
+    items: fixed[key].map(TO_ITEM[effectType]),
+  }))
+}
+
+// Фиксированные эффекты для PUT /features/{id}/effects: бэк diff-ит по id;
+// шлём все шесть групп, чтобы удалённые в редакторе типы очищались.
+export function buildFixedEffectsPayload(effects = {}) {
+  return { static_groups: toEffectGroups(effects) }
 }
 
 // Группы выбора для PUT /features/{id}/choice-groups: бэк diff-ит группы и
@@ -145,19 +178,24 @@ export function buildFixedEffectsPayload(effects = {}) {
 // отвеченные игроками выборы, которые на них указывали. choice_type
 // обязателен у ChoiceGroupPayload (без дефолта на бэке) — без него запрос
 // падает с 422 "Field required" на body.choice_groups.N.choice_type.
+// Вариант несёт только группу типа своей группы выбора — другой тип бэк
+// отклоняет с 422.
 export function buildChoiceGroupsPayload(tree = {}) {
   return {
-    choice_groups: (tree.choice_groups ?? []).map((group, gi) => ({
-      id: group.id ?? null,
-      choice_type: KEY_TO_CHOICE_TYPE[inferGroupEffectType(group)],
-      pick_count: toNumOr(group.pick_count, 1) || 1,
-      sort_order: gi,
-      options: (group.options ?? []).map((option, oi) => ({
-        id: option.id ?? null,
-        sort_order: oi,
-        ...buildFixedEffectsPayload(option),
-      })),
-    })),
+    choice_groups: (tree.choice_groups ?? []).map((group, gi) => {
+      const key = inferGroupEffectType(group)
+      return {
+        id: group.id ?? null,
+        choice_type: KEY_TO_CHOICE_TYPE[key],
+        pick_count: toNumOr(group.pick_count, 1) || 1,
+        sort_order: gi,
+        options: (group.options ?? []).map((option, oi) => ({
+          id: option.id ?? null,
+          sort_order: oi,
+          effects: toEffectGroups(option).filter((g) => STATIC_GROUP_TYPE_TO_KEY[g.effect_type] === key),
+        })),
+      }
+    }),
   }
 }
 

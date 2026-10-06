@@ -272,7 +272,7 @@ export function Select({ value, onChange, children, className = '', disabled, pl
             ref={menuRef}
             role="listbox"
             data-select-dropdown
-            className={`fixed z-[60] max-h-64 overflow-y-auto rounded-lg border border-stone-700 bg-stone-900 p-1 shadow-2xl ${
+            className={`fixed z-[350] max-h-64 overflow-y-auto rounded-lg border border-stone-700 bg-stone-900 p-1 shadow-lg shadow-black/20 ${
               pos.up ? 'origin-bottom' : 'origin-top'
             } ${dropdownClassName}`}
             style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: '16rem' }}
@@ -310,14 +310,14 @@ export function Select({ value, onChange, children, className = '', disabled, pl
 
 export function Button({ variant = 'primary', size = 'md', className = '', ...props }) {
   const styles = {
-    primary: 'bg-ember text-white hover:bg-ember-dark',
+    primary: 'bg-action-primary text-white hover:bg-action-primary-hover',
     ghost: 'border border-stone-600 text-stone-200 hover:bg-stone-800',
     danger: 'border border-red-800 text-red-300 hover:bg-red-950/50',
   }
   const sizes = {
-    xs: 'px-2 py-0.5 text-[11px]',
-    sm: 'px-2.5 py-1 text-xs',
-    md: 'px-4 py-2 text-sm',
+    xs: 'min-h-9 px-2.5 py-1 text-xs max-sm:min-h-11',
+    sm: 'min-h-9 px-3 py-1.5 text-sm max-sm:min-h-11',
+    md: 'min-h-10 px-4 py-2 text-sm max-sm:min-h-11',
   }
   return (
     <button
@@ -336,16 +336,16 @@ export function Badge({ children, tone = 'default', className = '' }) {
     violet: 'bg-violet-900/50 text-violet-300',
   }
   return (
-    <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tones[tone]} ${className}`}>
+    <span data-tone={tone} className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tones[tone]} ${className}`}>
       {children}
     </span>
   )
 }
 
-export function PageHeader({ title, subtitle, actions, centered = false }) {
+export function PageHeader({ title, subtitle, actions, centered = false, className = '' }) {
   return (
     <div
-      className={`mb-8 flex flex-wrap items-center gap-4 ${
+      className={`${className || 'mb-8'} flex flex-wrap items-center gap-4 ${
         centered ? 'flex-col items-center text-center' : 'justify-between'
       }`}
     >
@@ -410,6 +410,7 @@ export function PillToggle({ options, selected, onToggle, className = '' }) {
             key={o.value}
             type="button"
             onClick={() => onToggle(o.value)}
+            aria-pressed={active}
             className={`rounded px-2.5 py-1 text-xs font-medium transition ${
               active ? 'bg-ember text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
             }`}
@@ -440,18 +441,18 @@ export function Modal({
   const maxW = sizes[size] ?? sizes.md
   const overlay =
     align === 'top'
-      ? 'fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 max-sm:p-2'
-      : 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 max-sm:p-2'
-  const panelBase = `w-full rounded-lg bg-stone-900 shadow-2xl ${
+      ? 'fixed inset-0 z-[300] overflow-y-auto bg-black/60 p-4 max-sm:p-2'
+      : 'fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4 max-sm:p-2'
+  const panelBase = `w-full rounded-lg bg-stone-900 shadow-lg shadow-black/20 ${
     tone === 'danger' ? 'ring-1 ring-red-900/60' : 'ring-1 ring-stone-700'
   }`
   const panel = scroll
     ? `flex ${scrollHeights[maxH] ?? scrollHeights['88vh']} flex-col ${maxW} ${panelBase}`
     : align === 'top'
       ? `mx-auto mt-8 max-sm:mt-2 max-sm:max-h-[90vh] max-sm:overflow-y-auto ${maxW} ${panelBase} p-5 max-sm:p-3`
-      : `max-sm:max-h-[90vh] max-sm:overflow-y-auto ${maxW} ${panelBase} p-5 max-sm:p-3`
-  return (
-    <div className={`${overlay} ${className}`} onClick={onClose}>
+      : `max-h-[calc(100dvh-2rem)] overflow-y-auto ${maxW} ${panelBase} p-5 max-sm:p-3`
+  return createPortal(
+    <div role="dialog" aria-modal="true" className={`${overlay} ${className}`} onClick={onClose}>
       <div className={panel} onClick={(e) => e.stopPropagation()}>
         {(title || onClose) && (
           <div
@@ -489,7 +490,8 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

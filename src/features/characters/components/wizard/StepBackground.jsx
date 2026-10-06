@@ -6,7 +6,7 @@ import { Hint, Section, StepShell } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
 import { useSearch } from './useSearch.js'
 import { itemName, SkillChips } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
-import { smoothScrollTo } from './scroll.js'
+import { smoothScrollTo } from '@/lib/utils/scroll.js'
 
 const suggestionTypeLabels = {
   PERSONALITY_TRAIT: 'Черта характера',

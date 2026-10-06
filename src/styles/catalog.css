@@ -4,47 +4,98 @@
 
 /* --- Карточка каталога (плитка) --- */
 
+.catalog-toolbar-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  font: 600 0.8rem var(--font-sans);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.catalog-toolbar-submit { background: var(--color-action-primary); color: white; }
+.catalog-toolbar-submit:hover { background: var(--color-action-primary-hover); }
+.catalog-toolbar-filter { border-color: var(--color-stone-700); background: var(--color-stone-800); color: var(--color-stone-200); }
+.catalog-toolbar-filter:hover, .catalog-toolbar-filter.is-active { border-color: var(--color-gold); color: var(--color-stone-100); }
+.catalog-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  font: 500 0.8rem var(--font-sans);
+}
+.catalog-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 45%, transparent);
+  border-radius: 0.3rem;
+  color: var(--color-stone-100);
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+}
+.catalog-filter-chip:hover { border-color: var(--color-ember); }
+.catalog-filter-chip span { color: var(--color-gold-light); font-size: 1.1rem; }
+.catalog-filter-clear { min-height: 2.25rem; padding: 0.4rem; color: var(--color-stone-300); text-decoration: underline; text-underline-offset: 3px; }
+
+[data-theme="light"] .catalog-tile {
+  border-color: var(--paper-border);
+  background: var(--color-stone-900);
+}
+[data-theme="light"] .catalog-image-frame img {
+  border-color: var(--paper-border);
+  background: var(--color-stone-900);
+  box-shadow: 0 8px 20px -15px rgba(73, 54, 29, 0.35);
+}
+[data-theme="light"] .catalog-detail > .fantasy-panel,
+[data-theme="light"] .editor-detail > .fantasy-panel {
+  background: var(--paper-panel);
+  box-shadow: var(--paper-shadow);
+}
+
+.catalog-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 2rem 1.25rem;
+  border: 1px dashed var(--color-stone-700);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--color-stone-900) 60%, transparent);
+  text-align: center;
+}
+.catalog-empty-symbol { color: var(--color-gold); font: 2rem var(--font-sans); }
+.catalog-empty-state h2 { color: var(--color-stone-100); font-size: 1.1rem; font-weight: 700; }
+.catalog-empty-state p { max-width: 28rem; color: var(--color-stone-400); font: 0.85rem/1.6 var(--font-sans); }
+
+
+
 .catalog-tile {
-  @apply flex h-full flex-col justify-center rounded-lg p-4 transition;
+  @apply flex h-full flex-col rounded-lg p-4 transition;
   @apply hover:border-ember/70;
   position: relative;
+  border-start-start-radius: 0;
+  border-end-end-radius: 0;
+  min-height: 10rem;
+  overflow: hidden;
   border: 1px solid rgba(168, 133, 61, 0.26);
-  background:
-    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
-    var(--color-stone-900);
-  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  background: var(--color-stone-900);
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.catalog-tile:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
 }
 .catalog-tile:hover {
   transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-stone-700));
-  box-shadow:
-    0 18px 42px -18px rgba(0, 0, 0, 0.85),
-    0 0 0 1px color-mix(in srgb, var(--color-gold) 20%, transparent),
-    0 0 28px -8px color-mix(in srgb, var(--color-gold) 30%, transparent);
 }
-.catalog-tile::before,
-.catalog-tile::after {
-  content: "";
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  pointer-events: none;
-  opacity: 0.6;
-}
-.catalog-tile::before {
-  top: -1px;
-  left: -1px;
-  border-top: 2px solid var(--color-gold);
-  border-left: 2px solid var(--color-gold);
-}
-.catalog-tile::after {
-  bottom: -1px;
-  right: -1px;
-  border-bottom: 2px solid var(--color-gold);
-  border-right: 2px solid var(--color-gold);
-}
-
 .catalog-tile-icon {
   @apply flex size-11 items-center justify-center rounded border border-stone-700 bg-stone-800/70 font-display text-lg font-bold text-ember;
 }
@@ -57,8 +108,8 @@
   position: relative;
   display: inline-block;
   line-height: 0;
-  width: 300px;
-  height: 500px;
+  width: min(300px, 100%);
+  aspect-ratio: 3 / 5;
 }
 .catalog-image-frame::before,
 .catalog-image-frame::after {
@@ -89,21 +140,52 @@
   object-position: top;
   border: 1px solid rgba(168, 133, 61, 0.26);
   border-radius: 0 10px 0 10px;
-  background:
-    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
-    var(--color-stone-900);
+  background: var(--color-stone-900);
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
 }
 
-/* Уголки-скобки находятся сверху-слева и снизу-справа -> в этих углах скругление убираем */
-.fantasy-panel.fantasy-panel {
-  border-top-left-radius: 0;
-  border-bottom-right-radius: 0;
+@media (max-width: 639px) {
+  .catalog-image-frame {
+    width: 100%;
+    height: 14rem;
+    aspect-ratio: auto;
+  }
+}
+
+.catalog-image-frame.catalog-portrait-frame {
+  display: block;
+  flex: none;
+  width: 300px;
+  height: 500px;
+  aspect-ratio: auto;
 }
 
 .catalog-tile-title {
-  @apply mt-2 font-display text-lg font-bold text-stone-100 group-hover:text-ember;
+  @apply font-display text-lg font-bold text-stone-100 group-hover:text-ember;
 }
+
+.catalog-tile-kicker {
+  color: var(--color-gold-light);
+  font: 600 0.65rem var(--font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.catalog-tile-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.catalog-tile-arrow {
+  flex: none;
+  color: var(--color-gold);
+  font: 1.15rem var(--font-sans);
+  transition: transform 0.18s ease;
+}
+.catalog-tile:hover .catalog-tile-arrow { transform: translate(2px, -2px); }
 
 .catalog-tile-desc {
   @apply mt-1 text-sm text-stone-400;
@@ -125,13 +207,29 @@
 
 /* --- Секция внутри карточки --- */
 
+/* Разделы отделяет один отступ от предыдущего блока; у первого в карточке его нет.
+   Без рамки/фона padding не нужен — линию даёт сам заголовок (.detail-section-title). */
 .detail-section {
-  @apply mb-[3px] mt-4 pt-3;
+  @apply mb-[3px] mt-6 first:mt-0;
 }
 
 .detail-section-title {
   @apply text-xs font-semibold uppercase tracking-wide text-stone-500;
   @apply mb-3 flex items-center gap-3;
+}
+
+.catalog-detail > .fantasy-panel,
+.editor-detail > .fantasy-panel {
+  border-color: color-mix(in srgb, var(--color-gold) 35%, var(--color-stone-800));
+  border-radius: 0.95rem;
+  background: var(--color-stone-900);
+  box-shadow: 0 22px 50px -30px #000;
+}
+.catalog-detail .detail-section-title {
+  margin-bottom: 1rem;
+  color: var(--color-gold-light);
+  font: 700 0.73rem var(--font-sans);
+  letter-spacing: 0.13em;
 }
 
 /* --- Пара поле-значение --- */
@@ -151,13 +249,114 @@
 /* --- Сетка каталога --- */
 
 .catalog-grid {
-  @apply grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4;
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  grid-auto-rows: 1fr;
+  gap: 1rem;
 }
+.catalog-results--paginated {
+  display: flex;
+  height: max(14rem, calc(100dvh - var(--catalog-results-top, 20rem) - 1rem));
+  flex-direction: column;
+}
+.catalog-results--paginated .catalog-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  grid-auto-rows: minmax(10rem, max-content);
+  padding-right: 0.5rem;
+}
+.catalog-results--paginated > nav { flex: none; margin-top: 0; padding-top: 0.75rem; }
+/* --- Боковая навигация и основная область каталога --- */
 
-/* --- Двухколоночный макет каталога --- */
+.catalog-page { position: relative; min-width: 0; }
+.catalog-page-content { min-width: 0; width: 100%; }
+.catalog-detail,
+.catalog-detail > .fantasy-panel { width: 100%; }
+.catalog-page-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem 1.25rem 1.25rem;
+  border: 1px solid var(--color-stone-800);
+  border-radius: 0.95rem;
+  background: var(--color-stone-900);
+}
+.catalog-aside-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 0.65rem; }
+.catalog-aside-heading .heading-page { margin: 0; }
+.catalog-page-aside .catalog-filter-summary { margin: 0; }
+.catalog-entry-navigation,
+.catalog-entry-body { display: flex; flex-direction: column; min-height: 0; }
+.catalog-entry-body { padding-top: 0.75rem; }
+.catalog-entry-list { min-height: 0; max-height: 50vh; overflow-y: auto; padding-right: 0.75rem; }
+.catalog-record-card,
+.editor-record-card {
+  position: relative;
+  width: 100%;
+  margin-block: 3px;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 25%, var(--color-stone-800));
+  border-radius: 0.65rem;
+  /* Как у плиток: прямые углы там, где у главной панели золотые уголки. */
+  border-start-start-radius: 0;
+  border-end-end-radius: 0;
+  background: var(--color-stone-900);
+  color: var(--color-stone-100);
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.catalog-record-card:hover, .editor-record-card:hover { border-color: var(--color-gold); background: var(--color-stone-800); }
+.catalog-record-card[data-active="true"],
+.editor-record-card.is-active {
+  border-color: var(--color-ember);
+  background: color-mix(in srgb, var(--color-ember) 10%, var(--color-stone-900));
+  box-shadow: inset 3px 0 var(--color-ember);
+}
+.catalog-record-card > button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .catalog-record-card, .editor-record-card { transition: none; }
+}
+.catalog-page--detail .catalog-page-aside {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.catalog-page--list .catalog-page-aside {
+  gap: 1.25rem;
+  padding: 0 0 1.25rem;
+  border: 0;
+  border-bottom: 1px solid var(--color-stone-700);
+  border-radius: 0;
+  background: transparent;
+}
+.catalog-page--list .catalog-aside-heading { gap: 0; padding-bottom: 0.5rem; }
+.catalog-page--list .catalog-aside-heading h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.catalog-heading-eyebrow { margin-bottom: 0.5rem; color: var(--color-gold-light); font: 600 0.7rem var(--font-sans); letter-spacing: 0.18em; text-transform: uppercase; }
+.catalog-heading-intro { margin-top: 0.5rem; color: var(--color-stone-400); }
+.catalog-filter-choice {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.3rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--color-stone-700);
+  border-radius: 0.3rem;
+  color: var(--color-stone-300);
+  font: 0.85rem/1.4 var(--font-sans);
+  transition: background 150ms, border-color 150ms;
+}
+.catalog-filter-choice:hover { background: var(--color-stone-900); border-color: var(--color-gold); }
+.catalog-filter-choice[aria-pressed="true"] { border-color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 12%, transparent); color: var(--color-stone-100); }
 
-.catalog-layout {
-  @apply grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)];
+@media (min-width: 64rem) {
+  .catalog-page--detail { display: grid; grid-template-columns: 19rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  .catalog-page--detail .catalog-page-aside { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); margin-bottom: 0; overflow: hidden; }
+  .catalog-entry-body { padding-top: 0; }
+  .catalog-entry-list { max-height: min(80vh, calc(100vh - 8rem)); }
+  .catalog-entry-pagination { padding-right: calc(0.75rem + 10px); }
 }
 
 /* --- Отступы для списков в карточках детейл --- */
@@ -254,6 +453,12 @@
   justify-content: center;
   gap: 0.85rem;
 }
+.hero-actions > .btn {
+  justify-content: center;
+  width: min(100%, 13rem);
+  min-height: 3rem;
+  text-align: center;
+}
 
 /* ============================================================
    Кнопки лендинга
@@ -262,6 +467,8 @@
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
   gap: 0.5rem;
   border-radius: 0.25rem;
   padding: 0.7rem 1.4rem;
@@ -270,14 +477,18 @@
   transition: all 0.18s ease;
 }
 
+@media (max-width: 639px) {
+  .btn, .catalog-toolbar-button { min-height: 2.75rem; }
+}
+
 .btn-primary {
-  background: var(--color-ember);
+  background: var(--color-action-primary);
   color: #fff;
-  box-shadow: 0 8px 24px -10px rgba(212, 85, 42, 0.55);
+  box-shadow: 0 8px 24px -10px rgb(53 104 89 / 35%);
 }
 
 .btn-primary:hover {
-  background: var(--color-ember-dark);
+  background: var(--color-action-primary-hover);
   transform: translateY(-1px);
 }
 
@@ -305,36 +516,36 @@
    ============================================================ */
 
 .world-panel {
-  position: relative;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2rem;
+  grid-template-areas: "copy" "quote" "cta";
+  gap: 1.5rem;
   align-items: center;
-  padding: 2.5rem;
+  padding: 1.25rem;
   border: 1px solid rgba(168, 133, 61, 0.26);
-  background:
-    linear-gradient(180deg, rgba(255, 248, 225, 0.03), rgba(0, 0, 0, 0.12)),
-    var(--color-stone-900);
+  background: var(--color-stone-900);
   border-radius: 0.75rem;
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
-  overflow: hidden;
 }
+
+[data-theme="light"] .world-panel {
+  border-color: var(--paper-border);
+  background: var(--paper-panel);
+  box-shadow: var(--paper-shadow);
+}
+
+.world-panel-copy { grid-area: copy; }
+.world-panel-quote { grid-area: quote; }
+.world-panel > .cta { grid-area: cta; margin-top: 0; }
 
 @media (min-width: 900px) {
   .world-panel {
     grid-template-columns: 1.1fr 1fr;
-    padding: 3rem;
+    grid-template-areas: "copy quote" "cta quote";
+    row-gap: 0;
+    padding: 2rem;
   }
-}
-
-.world-panel::before {
-  content: "✦";
-  position: absolute;
-  top: -1rem;
-  right: 1.5rem;
-  font-size: 6rem;
-  color: rgba(168, 133, 61, 0.06);
-  font-family: var(--font-display);
+  .world-panel > .cta { margin-top: 1.4rem; }
 }
 
 .world-panel .kicker {

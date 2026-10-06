@@ -8,10 +8,74 @@
   @apply grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)];
 }
 
-/* Первый элемент списка записей не поднимается при наведении */
-.editor-record-list > .card-hover:first-child:hover {
-  transform: none;
+.editor-resource-tabs {
+  overflow-x: auto;
+  padding: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 24%, var(--color-stone-800));
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--color-stone-900) 78%, transparent);
 }
+.editor-resource-tabs-inner {
+  display: flex;
+  width: max-content;
+  gap: 0.4rem;
+  margin-inline: auto;
+}
+
+.editor-resource-tab {
+  flex: none;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--color-stone-300);
+  font: 600 0.85rem var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.editor-resource-tab:hover { background: var(--color-stone-800); color: var(--color-stone-100); }
+.editor-resource-tab.is-active {
+  border-color: color-mix(in srgb, var(--color-gold) 55%, transparent);
+  background: color-mix(in srgb, var(--color-ember) 18%, var(--color-stone-800));
+  color: var(--color-stone-100);
+  box-shadow: inset 0 -2px var(--color-ember);
+}
+
+.editor-list-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-inline: 0.2rem;
+  color: var(--color-stone-300);
+  font: 600 0.7rem var(--font-sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.editor-list-label span { color: var(--color-gold); letter-spacing: 0; }
+
+.editor-record-card { display: block; text-align: left; cursor: pointer; }
+.editor-record-card:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+.editor-record-heading { display: flex; align-items: start; justify-content: space-between; gap: 0.5rem; }
+.editor-record-title { font: 700 1rem var(--font-display); overflow-wrap: anywhere; }
+.editor-record-arrow { color: var(--color-gold); font: 1.1rem var(--font-sans); }
+
+.editor-detail > .editor-welcome {
+  display: flex;
+  min-height: 20rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+.editor-welcome-eyebrow { color: var(--color-gold-light); font: 600 0.7rem var(--font-sans); text-transform: uppercase; letter-spacing: 0.15em; }
+.editor-welcome h2 { max-width: 28rem; color: var(--color-stone-100); font-size: clamp(1.3rem, 2vw, 1.75rem); font-weight: 700; }
+.editor-welcome p { max-width: 28rem; color: var(--color-stone-300); font: 0.9rem/1.7 var(--font-sans); }
 
 /* --- Заголовок записи в редакторе --- */
 
@@ -63,3 +127,78 @@
 @media (min-width: 1024px) {
   .editor-section-title { font-size: 0.875rem; }
 }
+
+/* Race editor and its side panels */
+.ui-drawer.catalog-editor-drawer { width: min(46rem, 100vw); }
+.race-editor-main { display: grid; gap: 1.5rem; align-items: start; }
+.race-editor-image { grid-row: 1; }
+.race-editor-image > div { padding: 1rem; }
+.race-editor-image img { object-fit: contain; }
+.catalog-bonus-row { display: flex; align-items: center; gap: .5rem; width: min(100%, 24rem); min-width: 0; padding: .75rem; border: 1px solid var(--color-stone-700); border-radius: .65rem; background: var(--color-stone-900); }
+.catalog-bonus-row > .w-48 { flex: 1; min-width: 0; width: auto; }
+.catalog-bonus-row > .w-20 { flex: none; width: 4.5rem; }
+.catalog-bonus-row > .w-20 > input { width: 100%; min-width: 0; }
+.catalog-parent-context { margin-bottom: 1rem; padding: .75rem 1rem; border-left: 2px solid var(--color-gold); background: var(--color-stone-900); color: var(--color-stone-300); font-size: .875rem; }
+.catalog-feature-card { position: relative; padding-right: 3.75rem; }
+.catalog-feature-preview { margin-top: .5rem; color: var(--color-stone-400); font-size: .875rem; line-height: 1.6; overflow-wrap: anywhere; }
+.catalog-subrace-card { position: relative; }
+.catalog-card-open::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.catalog-card-open:focus-visible { outline: none; }
+.catalog-card-open:focus-visible::after { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+.catalog-card-delete { position: absolute; z-index: 1; top: .75rem; right: .75rem; }
+.catalog-subrace-image { width: 3rem; height: 3rem; flex: none; border-radius: .4rem; object-fit: cover; }
+.catalog-bonus-row { align-items: center; gap: .5rem; }
+.catalog-bonus-row > button, .catalog-bonus-row input, .catalog-bonus-row button[aria-haspopup="listbox"] { height: 2.5rem; min-height: 2.5rem; margin-block: 0; }
+.catalog-bonus-row > button { width: 2.5rem; flex: none; }
+.catalog-effect-actions { position: sticky; bottom: -1.5rem; display: flex; gap: .75rem; padding-block: 1rem; margin-top: 1rem; background: var(--color-stone-950); border-top: 1px solid var(--color-stone-700); }
+.catalog-effect-actions > button { flex: 1; }
+.race-editor .text-label, .catalog-editor-drawer .text-label { font-size: .875rem; font-weight: 600; letter-spacing: normal; text-transform: none; }
+@media (min-width: 1100px) {
+  .race-editor-main { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 639px) {
+  .ui-drawer.catalog-editor-drawer { width: 100%; }
+  .catalog-effect-actions { bottom: -1rem; }
+  .catalog-bonus-row > button, .catalog-bonus-row input, .catalog-bonus-row button[aria-haspopup="listbox"] { height: 2.75rem; min-height: 2.75rem; }
+  .catalog-bonus-row > button { width: 2.75rem; }
+}
+
+.race-editor .catalog-editor-section-title, .catalog-editor-drawer .catalog-editor-section-title { color: var(--color-stone-300); font-size: .875rem; letter-spacing: normal; text-transform: none; }
+.catalog-editor-drawer .space-y-4.pt-4, .race-editor .space-y-4.pt-4 { padding-top: 0; }
+
+.catalog-effect-screen > .article-back,
+.spell-picker-content > .article-back { display: inline-flex; align-items: center; gap: .5rem; min-height: 2.75rem; color: var(--color-stone-300); font-size: .85rem; }
+.catalog-effect-screen > .article-back:hover,
+.spell-picker-content > .article-back:hover { color: var(--color-ember); }
+
+.ui-drawer-body.equipment-picker-body { display: flex; flex-direction: column; overflow: hidden; }
+.equipment-picker-content { display: flex; flex: 1; flex-direction: column; gap: 1rem; min-height: 0; }
+.equipment-picker-content > :not(.grant-picker-list) { flex-shrink: 0; }
+
+.catalog-add-button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.5rem; padding: .5rem .75rem; border: 1px solid var(--color-stone-700); border-radius: .35rem; background: transparent; color: var(--color-stone-300); font: 500 .875rem/1.4 var(--font-sans); transition: background 150ms, border-color 150ms; }
+.catalog-add-button:hover { background: var(--color-stone-800); border-color: var(--color-stone-500); }
+.catalog-add-button:disabled { opacity: .4; cursor: not-allowed; }
+button.catalog-delete-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.5rem; height: 2.5rem; min-height: 2.5rem; margin-block: 0; padding: 0; border: 0; border-radius: .35rem; background: transparent; box-shadow: none; color: var(--color-stone-400); transition: color 150ms, background 150ms; }
+button.catalog-delete-button:hover { color: var(--color-red-300); background: color-mix(in srgb, var(--color-red-300) 12%, transparent); }
+.catalog-add-button:focus-visible, .catalog-delete-button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+@media (max-width: 639px) {
+  .catalog-add-button { min-height: 2.75rem; }
+  button.catalog-delete-button { width: 2.75rem; height: 2.75rem; min-height: 2.75rem; }
+}
+
+/* Keep nested spell selection within the available drawer height. */
+.ui-drawer-body:has(.spell-picker-content),
+.ui-drawer-body > div:has(> .catalog-effect-screen--picker),
+.catalog-effect-screen--picker,
+.spell-picker-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.spell-picker-content { gap: 1rem; }
+.spell-picker-content > :not(.grant-picker-list) { flex-shrink: 0; }
+.spell-picker-content > .article-back { align-self: flex-start; }
+.catalog-effect-screen--picker > .catalog-effect-actions { position: static; flex-shrink: 0; margin-top: 1rem; }
+.ui-drawer .spell-picker-content .grant-picker-card + .grant-picker-card { margin-top: .5rem; }

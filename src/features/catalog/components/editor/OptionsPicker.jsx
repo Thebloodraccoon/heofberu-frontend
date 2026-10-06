@@ -1,3 +1,6 @@
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import Drawer from '@/components/ui/Drawer.jsx'
+import { Button, Input } from '@/components/ui'
 import { useEffect, useRef, useState } from 'react'
 import { SectionTitle } from './editorShared.jsx'
 
@@ -6,13 +9,13 @@ const SEARCH_THRESHOLD = 8
 // Блок множественного выбора из справочника: показывает только выбранные
 // значения (чипы с крестиком), а кнопка «+ Добавить» раскрывает список ещё
 // не выбранных вариантов — клик по варианту добавляет его.
-export default function OptionsPicker({ label, hint, empty, options, selected, onToggle, onClear }) {
+export default function OptionsPicker({ drawer = false, label, hint, empty, options, selected, onToggle, onClear }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const rootRef = useRef(null)
 
   useEffect(() => {
-    if (!open) return undefined
+    if (!open || drawer) return undefined
     const onDown = (e) => {
       if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
     }
@@ -23,7 +26,7 @@ export default function OptionsPicker({ label, hint, empty, options, selected, o
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, drawer])
 
   const chosen = options.filter((o) => selected.includes(o.value))
   const available = options.filter((o) => !selected.includes(o.value))
@@ -47,15 +50,16 @@ export default function OptionsPicker({ label, hint, empty, options, selected, o
             )}
             <button
               type="button"
+              className="catalog-add-button"
               onClick={() => {
                 setQuery('')
                 setOpen((v) => !v)
               }}
-              disabled={options.length === 0 || available.length === 0}
+              disabled={options.length === 0 || (!drawer && available.length === 0)}
               aria-expanded={open}
-              className="rounded border border-stone-700 bg-stone-800/70 px-2.5 py-1 text-xs font-medium text-stone-200 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              + Добавить
+              {!drawer && <LoreIcon name="plus" />}
+              {drawer ? 'Изменить' : 'Добавить'}
             </button>
           </div>
         }
@@ -69,7 +73,11 @@ export default function OptionsPicker({ label, hint, empty, options, selected, o
         <p className="text-sm text-stone-500">{hint ?? 'Ничего не выбрано'}</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
-          {chosen.map((o) => (
+          {chosen.map((o) => drawer ? (
+            <button key={o.value} type="button" className="catalog-filter-chip" onClick={() => onToggle(o.value)} aria-label={`Убрать: ${o.label}`}>
+              {o.label} <LoreIcon name="close" />
+            </button>
+          ) : (
             <span
               key={o.value}
               className="inline-flex items-center gap-1 rounded bg-ember/15 py-1 pl-2.5 pr-1 text-xs font-medium text-ember"
@@ -88,7 +96,14 @@ export default function OptionsPicker({ label, hint, empty, options, selected, o
         </div>
       )}
 
-      {open && (
+      {open && drawer && <Drawer title={label} closeLabel={`Закрыть: ${label}`} onClose={() => setOpen(false)} footer={<Button type="button" onClick={() => setOpen(false)}>Готово</Button>}>
+        <Input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск…" aria-label={`Поиск: ${label}`} className="w-full mb-4" />
+        <div className="space-y-2">{options.filter((option) => !q || String(option.label).toLowerCase().includes(q)).map((option) => <button type="button" key={option.value} className={`editor-record-card ${selected.includes(option.value) ? 'is-active' : ''}`} aria-pressed={selected.includes(option.value)} onClick={() => onToggle(option.value)}>
+          {option.label}
+        </button>)}</div>
+        {options.every((option) => q && !String(option.label).toLowerCase().includes(q)) && <p className="text-sm text-stone-500">Ничего не найдено</p>}
+      </Drawer>}
+      {open && !drawer && (
         <div className="mt-2 rounded border border-stone-700/70 bg-stone-900/80 p-2">
           {available.length > SEARCH_THRESHOLD && (
             <input

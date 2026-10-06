@@ -1,3 +1,5 @@
+import EditorAddButton from './EditorAddButton.jsx'
+import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { featurePayload, persistFeatureEffects } from '@/features/catalog/config/editors/index.js'
@@ -5,13 +7,16 @@ import { abilityLabels } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
-import { ErrorBox, Input, RichTextField, Select, TextField } from '@/components/ui'
+import TagInput from '@/features/articles/components/TagInput.jsx'
+import { ErrorBox, RichTextField, Select, TextField } from '@/components/ui'
 import { useToasts } from '@/components/ToastProvider.jsx'
-import { SectionTitle, TrashIcon } from './editorShared.jsx'
+import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
 
 export default function SubraceEditor({ raceId, detail, features, busy = false, error = null, onRefresh }) {
+  const [tab, setTab] = useState('main')
   const { push: pushStatus } = useToasts()
   const [bonuses, setBonuses] = useState(() => detail?.ability_bonuses ?? [])
+  const [tags, setTags] = useState(() => (detail?.tags ?? []).map((t) => ({ id: t.id, name: t.name })))
   const [imageUrl, setImageUrl] = useState(detail?.image_url ?? null)
   const [imageBusy, setImageBusy] = useState(false)
   const [imageError, setImageError] = useState(null)
@@ -58,18 +63,59 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
 
   // Автосохранение бонусов: правки копятся 700мс, затем уходят без отдельной
   // кнопки. Первый рендер (значения из detail) не считается правкой.
-  const isFirstRender = useRef(true)
+  const previousBonuses = useRef(JSON.stringify(bonuses))
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
+    const next = JSON.stringify(bonuses)
+    if (previousBonuses.current === next) return
     const id = setTimeout(() => {
+      previousBonuses.current = next
       saveBonuses()
     }, 700)
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bonuses])
+
+  const savingTagsRef = useRef(false)
+  const pendingTagsSaveRef = useRef(false)
+  const tagsRef = useRef(tags)
+  useEffect(() => {
+    tagsRef.current = tags
+  }, [tags])
+
+  const saveTags = async () => {
+    if (savingTagsRef.current) {
+      pendingTagsSaveRef.current = true
+      return
+    }
+    savingTagsRef.current = true
+    setSaveError(null)
+    pushStatus('Сохраняем…', 'Теги', 'saving')
+    try {
+      await api.races.subraces.tags(raceId, detail.id, { tag_ids: tagsRef.current.map((t) => t.id) })
+      pushStatus('Сохранено', 'Теги')
+      await onRefresh()
+    } catch (err) {
+      setSaveError(err)
+    } finally {
+      savingTagsRef.current = false
+      if (pendingTagsSaveRef.current) {
+        pendingTagsSaveRef.current = false
+        saveTags()
+      }
+    }
+  }
+
+  const previousTags = useRef(JSON.stringify(tags))
+  useEffect(() => {
+    const next = JSON.stringify(tags)
+    if (previousTags.current === next) return
+    const id = setTimeout(() => {
+      previousTags.current = next
+      saveTags()
+    }, 700)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tags])
 
   const setBonus = (i, key, val) =>
     setBonuses((rows) => rows.map((row, j) => (j === i ? { ...row, [key]: val } : row)))
@@ -103,6 +149,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
       await onRefresh()
     } catch (err) {
       setSaveError(err)
+      throw err
     }
   }
 
@@ -154,14 +201,10 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
           {saveError && <ErrorBox error={saveError} onRetry={() => {}} />}
           {error && <ErrorBox error={error} onRetry={() => {}} />}
 
-          <ImageUploadBlock
-            imageUrl={imageUrl}
-            onUpload={uploadImage}
-            onRemove={removeImage}
-            busy={imageBusy}
-            error={imageError}
-          />
-
+          <EditorTabs tabs={[['main', 'Основное'], ['bonuses', 'Бонусы'], ['features', 'Особенности']]} value={tab} onChange={setTab} label="Разделы подрасы" />
+          <div hidden={tab !== 'main'} className="space-y-4">
+          <div className="race-editor-main">
+          <div className="space-y-4">
           <TextField
             label="Название подрасы"
             value={detail.name}
@@ -171,17 +214,24 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
 
           <RichTextField label="Описание" value={detail.description} onSave={saveField('description')} rows={2} />
 
-          <div>
+          </div>
+          <div className="race-editor-image">
+          <ImageUploadBlock
+            imageUrl={imageUrl}
+            onUpload={uploadImage}
+            onRemove={removeImage}
+            busy={imageBusy}
+            error={imageError}
+          />
+
+          </div>
+          </div>
+          <TagInput value={tags} onChange={setTags} />
+          </div>
+          <div hidden={tab !== 'bonuses'}>
             <SectionTitle
               button={
-                <button
-                  type="button"
-                  onClick={addBonus}
-                  disabled={abilitiesUsedUp}
-                  className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800 disabled:pointer-events-none disabled:opacity-40"
-                >
-                  + Добавить
-                </button>
+                <EditorAddButton onClick={addBonus} disabled={abilitiesUsedUp}>Добавить бонус</EditorAddButton>
               }
             >
               Бонусы характеристик
@@ -201,7 +251,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
                     return (
                       <div
                         key={i}
-                        className="flex w-[calc(50%-0.5rem)] min-w-[260px] items-center gap-2"
+                        className="catalog-bonus-row"
                       >
                         <div className="w-48">
                           <Select
@@ -217,18 +267,18 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
                           </Select>
                         </div>
                         <div className="w-20">
-                          <Input
-                            type="number"
+                          <BlurNumberInput
                             min={-5}
                             max={5}
                             value={row.bonus}
-                            onChange={(e) => setBonus(i, 'bonus', Number(e.target.value))}
+                            onChange={(next) => setBonus(i, 'bonus', Number(next) || 0)}
+                            className="input-narrow w-full sm:h-10"
                           />
                         </div>
                         <button
                           type="button"
                           onClick={() => removeBonus(i)}
-                          className="my-[5px] inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+                          className="catalog-delete-button"
                           title="Удалить"
                         >
                           <TrashIcon />
@@ -241,8 +291,9 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
             )}
           </div>
 
-          <div className=" pt-3">
+          <div hidden={tab !== 'features'}>
             <FeaturesEditorBlock
+              compact
               block={{
                 label: 'Особенности подрасы',
                 addLabel: '+ Добавить',
@@ -264,8 +315,9 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
         const row = featureModal.index == null ? null : features[featureModal.index]
         return (
           <FeatureModal
+            drawer
             title={featureModal.index == null ? 'Добавить особенность' : `Изменить: ${row?.name || 'особенность'}`}
-            subtitle={detail.name}
+            subtitle={`Подраса: ${detail.name}`}
             value={row}
             onSave={saveFeature}
             onClose={() => setFeatureModal(null)}

@@ -1,3 +1,4 @@
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { Input, RichText, RichTextEditor, RichTextField, Select, TextField } from '@/components/ui'
 
@@ -18,14 +19,8 @@ export function CheckIcon({ className = 'h-4 w-4' }) {
   )
 }
 
-export function TrashIcon({ className = 'h-4 w-4' }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M3 6h18" />
-      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h2c1 0 2 1 2 2v2" />
-    </svg>
-  )
+export function TrashIcon({ className = '' }) {
+  return <LoreIcon name="trash" className={className} />
 }
 
 // Числовое поле с коммитом по потере фокуса (или Enter): пока GM вводит
@@ -34,7 +29,7 @@ export function TrashIcon({ className = 'h-4 w-4' }) {
 // ещё до ввода «5». Внешние изменения формы (открытие другой записи, ответ
 // автосейва) подтягиваются, только когда поле не в фокусе, чтобы не затирать
 // черновик во время ввода.
-export function BlurNumberInput({ value, onChange, min, max, placeholder, className = '' }) {
+export function BlurNumberInput({ value, onChange, min, max, placeholder, className = '', ...rest }) {
   const [draft, setDraft] = useState(() => String(value ?? ''))
   const draftRef = useRef(draft)
   const focusedRef = useRef(false)
@@ -67,6 +62,7 @@ export function BlurNumberInput({ value, onChange, min, max, placeholder, classN
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()
       }}
+      {...rest}
     />
   )
 }
@@ -74,7 +70,7 @@ export function BlurNumberInput({ value, onChange, min, max, placeholder, classN
 export function SectionTitle({ children, button }) {
   return (
     <div className="mb-3 flex items-center gap-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">{children}</p>
+      <p className="catalog-editor-section-title text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">{children}</p>
       <span className="h-px flex-1 bg-stone-700/70" aria-hidden="true" />
       {button}
     </div>
@@ -120,7 +116,7 @@ export function GroupRow({ title, count, open, onToggle, onEdit, onRemove, child
             {count != null && <span className="ml-1.5 text-xs font-normal text-stone-500">· {count}</span>}
           </span>
         </button>
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={onEdit}
@@ -132,7 +128,7 @@ export function GroupRow({ title, count, open, onToggle, onEdit, onRemove, child
           <button
             type="button"
             onClick={onRemove}
-            className="my-[5px] inline-flex h-[36px] w-[36px] items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50"
+            className="catalog-delete-button"
             title="Удалить"
           >
             <TrashIcon />

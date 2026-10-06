@@ -45,6 +45,7 @@ export const backgroundsCfg = {
       ops: api.backgrounds.suggestions,
     },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки предыстории', empty: 'Навыков в справочнике нет' },
+    { type: 'tags', key: 'tags', label: 'Теги' },
   ],
   emptyForm: () => ({
     name: '',
@@ -52,6 +53,7 @@ export const backgroundsCfg = {
     description: '',
     suggestions: [],
     skill_ids: [],
+    tags: [],
   }),
   fromRecord: (r) => ({
     name: r.name,
@@ -63,6 +65,7 @@ export const backgroundsCfg = {
       text: s.text,
     })),
     skill_ids: (r.granted_skills ?? []).map((s) => s.id),
+    tags: (r.tags ?? []).map((t) => ({ id: t.id, name: t.name })),
   }),
   submitFields: async (form, rec) => {
     const base = {
@@ -79,6 +82,9 @@ export const backgroundsCfg = {
           suggestion_type: s.suggestion_type,
           text: s.text,
         })
+      }
+      if (form.tags.length) {
+        await api.backgrounds.tags(created.id, { tag_ids: form.tags.map((t) => t.id) })
       }
       return created
     }
@@ -120,6 +126,11 @@ export const backgroundsCfg = {
       if (!keepIds.has(String(prev.id))) {
         await api.backgrounds.suggestions.remove(rec.id, prev.id)
       }
+    }
+    const prevTagIds = (rec.tags ?? []).map((t) => Number(t.id)).sort()
+    const nextTagIds = form.tags.map((t) => Number(t.id)).sort()
+    if (JSON.stringify(prevTagIds) !== JSON.stringify(nextTagIds)) {
+      await api.backgrounds.tags(rec.id, { tag_ids: form.tags.map((t) => t.id) })
     }
   },
   listBadges: () => [],

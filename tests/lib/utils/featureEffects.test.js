@@ -4,6 +4,7 @@ import {
   buildFixedEffectsPayload,
   effectBadges,
   effectSummaryLines,
+  flattenEffectGroups,
   normalizeEffects,
   normalizeEffectsTree,
 } from '@/lib/utils/featureEffects.js'
@@ -32,9 +33,36 @@ describe('normalizeEffects', () => {
   })
 })
 
+const items = (groups, type) => groups.find((g) => g.effect_type === type)?.items
+
+describe('flattenEffectGroups', () => {
+  it('adds flat *_effects next to every nested effects: [{ effect_type, items }] and keeps effects', () => {
+    const data = flattenEffectGroups({
+      choice_groups: [
+        {
+          options: [
+            { id: 1, effects: [{ effect_type: 'ability', items: [{ id: 5, ability: 'STR', amount: 1 }] }] },
+            { id: 2, effects: [] },
+          ],
+        },
+      ],
+    })
+    const [withAbility, empty] = data.choice_groups[0].options
+    expect(withAbility.ability_effects).toEqual([{ id: 5, ability: 'STR', amount: 1 }])
+    expect(withAbility.effects).toHaveLength(1)
+    expect(empty.ability_effects).toBeUndefined()
+  })
+
+  it('leaves non-effect data and primitives alone', () => {
+    expect(flattenEffectGroups(null)).toBeNull()
+    expect(flattenEffectGroups('x')).toBe('x')
+    expect(flattenEffectGroups([{ effects: [1, 2] }])).toEqual([{ effects: [1, 2] }])
+  })
+})
+
 describe('buildFixedEffectsPayload', () => {
   it('normalizes amounts and preserves row ids from a GET-backed tree (backend diffs writes by id)', () => {
-    const payload = buildFixedEffectsPayload({
+    const { static_groups: groups } = buildFixedEffectsPayload({
       ability_effects: [{ id: 1, ability: 'STR', amount: '2', new_cap: '' }],
       skill_effects: [{ id: 4, skill_id: 7, grants_expertise: true }],
       saving_throw_effects: [{ ability: 'DEX' }],
@@ -42,14 +70,14 @@ describe('buildFixedEffectsPayload', () => {
       weapon_effects: [{ weapon_category: 'MARTIAL', item_id: null }],
       spell_effects: [{ spell_id: 9, always_prepared: true, counts_against_known_limit: false }],
     })
-    expect(payload.ability_effects).toEqual([{ id: 1, ability: 'STR', amount: 2, new_cap: null }])
-    expect(payload.skill_effects).toEqual([{ id: 4, skill_id: 7, grants_expertise: true }])
+    expect(items(groups, 'ability')).toEqual([{ id: 1, ability: 'STR', amount: 2, new_cap: null }])
+    expect(items(groups, 'skill')).toEqual([{ id: 4, skill_id: 7, grants_expertise: true }])
     // Строки без id (только что добавленные в редакторе) идут как id: null —
     // бэк создаёт новую строку.
-    expect(payload.saving_throw_effects).toEqual([{ id: null, ability: 'DEX' }])
-    expect(payload.armor_effects).toEqual([{ id: null, armor_type: 'LIGHT' }])
-    expect(payload.weapon_effects).toEqual([{ id: null, weapon_category: 'MARTIAL' }])
-    expect(payload.spell_effects).toEqual([
+    expect(items(groups, 'saving_throw')).toEqual([{ id: null, ability: 'DEX' }])
+    expect(items(groups, 'armor')).toEqual([{ id: null, armor_type: 'LIGHT' }])
+    expect(items(groups, 'weapon')).toEqual([{ id: null, weapon_category: 'MARTIAL' }])
+    expect(items(groups, 'spell')).toEqual([
       {
         id: null,
         spell_id: 9,
@@ -62,21 +90,31 @@ describe('buildFixedEffectsPayload', () => {
   })
 
   it('switches weapon effect to a concrete item when item_id is set', () => {
-    const payload = buildFixedEffectsPayload({
+    const { static_groups: groups } = buildFixedEffectsPayload({
       weapon_effects: [{ weapon_category: null, item_id: 12 }],
     })
-    expect(payload.weapon_effects).toEqual([{ id: null, item_id: 12 }])
+    expect(items(groups, 'weapon')).toEqual([{ id: null, item_id: 12 }])
   })
 
-  it('always returns every one of the six lists (diff-by-id semantics — empty clears a type)', () => {
+  it('always sends all six groups (empty items clears a type)', () => {
     const payload = buildFixedEffectsPayload({})
-    expect(Object.keys(payload)).toHaveLength(6)
-    expect(payload.spell_effects).toEqual([])
+    expect(Object.keys(payload)).toEqual(['static_groups'])
+    expect(payload.static_groups.map((g) => g.effect_type)).toEqual([
+      'ability', 'skill', 'saving_throw', 'armor', 'weapon', 'spell',
+    ])
+    expect(payload.static_groups.every((g) => g.items.length === 0)).toBe(true)
+  })
+
+  it('round-trips a tree read through static_groups', () => {
+    const { static_groups: groups } = buildFixedEffectsPayload({
+      static_groups: [{ effect_type: 'armor', items: [{ id: 3, armor_type: 'HEAVY' }] }],
+    })
+    expect(items(groups, 'armor')).toEqual([{ id: 3, armor_type: 'HEAVY' }])
   })
 })
 
 describe('buildChoiceGroupsPayload', () => {
-  it('preserves group/option/effect-row ids so the backend diff updates in place instead of recreating everything', () => {
+  it('preserves group/option/effect-row ids and sends only the group-type effects per option', () => {
     const payload = buildChoiceGroupsPayload({
       choice_groups: [
         {
@@ -97,24 +135,21 @@ describe('buildChoiceGroupsPayload', () => {
     })
     expect(payload.choice_groups).toHaveLength(1)
     const group = payload.choice_groups[0]
-    // group.id — preserved (existing row, backend updates it in place).
     expect(group.id).toBe(10)
     expect(group.feature_id).toBeUndefined()
     expect(group.pick_count).toBe(1)
     expect(group.sort_order).toBe(0)
-    expect(group.label).toBeUndefined()
-    // choice_type обязателен у ChoiceGroupPayload на бэке (без дефолта) —
-    // 422 "Field required", если его нет; определяется по непустому списку
-    // эффектов у опций (тут — ability_effects, значит ABILITY_SCORE).
+    // choice_type обязателен у ChoiceGroupPayload на бэке — определяется по
+    // первому непустому списку эффектов у опций (тут — ability).
     expect(group.choice_type).toBe('ABILITY_SCORE')
     const option = group.options[0]
     expect(option.id).toBe(77)
     expect(option.sort_order).toBe(0)
-    expect(option.label).toBeUndefined()
-    expect(option.ability_effects).toEqual([{ id: 3, ability: 'DEX', amount: 1, new_cap: null }])
-    expect(option.skill_effects).toEqual([{ id: 8, skill_id: 5, grants_expertise: false }])
-    expect(option.weapon_effects).toEqual([])
-    expect(option.spell_effects).toEqual([])
+    // Бэк отвечает 422 на тип эффекта, отличный от типа группы.
+    expect(option.effects).toEqual([
+      { effect_type: 'ability', items: [{ id: 3, ability: 'DEX', amount: 1, new_cap: null }] },
+    ])
+    expect(option.ability_effects).toBeUndefined()
   })
 
   it('sends id: null for a newly added group/option so the backend creates rather than diffs', () => {
@@ -130,7 +165,7 @@ describe('buildChoiceGroupsPayload', () => {
     const group = payload.choice_groups[0]
     expect(group.id).toBeNull()
     expect(group.options[0].id).toBeNull()
-    expect(group.options[0].ability_effects[0].id).toBeNull()
+    expect(group.options[0].effects[0].items[0].id).toBeNull()
   })
 
   it('derives choice_type from the backend GET field on an existing group', () => {
@@ -139,12 +174,14 @@ describe('buildChoiceGroupsPayload', () => {
         {
           choice_type: 'SAVING_THROW',
           pick_count: 1,
-          label: '',
           options: [{ saving_throw_effects: [{ ability: 'DEX' }] }, { saving_throw_effects: [{ ability: 'CON' }] }],
         },
       ],
     })
     expect(payload.choice_groups[0].choice_type).toBe('SAVING_THROW')
+    expect(payload.choice_groups[0].options[1].effects).toEqual([
+      { effect_type: 'saving_throw', items: [{ id: null, ability: 'CON' }] },
+    ])
   })
 })
 

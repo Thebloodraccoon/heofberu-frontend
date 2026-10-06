@@ -45,7 +45,7 @@ export function RichTextField({ label, value, onSave, rows = 4, placeholder }) {
 
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between gap-2">
+      <div className="editable-field-header mb-1.5 flex items-center justify-between gap-2">
         <span className="text-label">{label}</span>
         {!edit && (
           <button type="button" onClick={startEdit} className="btn-edit-inline">

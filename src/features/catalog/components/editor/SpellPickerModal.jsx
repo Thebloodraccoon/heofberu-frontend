@@ -1,3 +1,5 @@
+import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
+import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -5,8 +7,10 @@ import { catalog } from '@/features/catalog/catalog.js'
 import { useSpellDetail } from '@/features/catalog/queries.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { spellLevel } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
-import { Badge, Button, Input, Modal, RichText, Skeleton } from '@/components/ui'
+import { Badge, Button, Modal, RichText, Skeleton } from '@/components/ui'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
+import Drawer from '@/components/ui/Drawer.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 
 const COMPONENT_FULL = { VERBAL: 'Вербальный', SOMATIC: 'Соматический', MATERIAL: 'Материальный' }
 const PAGE_SIZE = 30
@@ -15,11 +19,11 @@ const SCROLL_THRESHOLD = 120
 // Тот же набор полей, что и в карточке заклинания игрока/каталога
 // (SpellDetailCard) — школа, время накладывания, дистанция, длительность,
 // компоненты, урон/лечение, описание и «на более высоких уровнях».
-function SpellDetail({ spellId }) {
+function SpellDetail({ spellId, drawer = false }) {
   const { data: sp, isLoading } = useSpellDetail(spellId)
   if (isLoading || !sp) {
     return (
-      <div className="border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400">
+      <div className={drawer ? 'grant-picker-detail' : 'border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400'}>
         <Skeleton className="h-3 w-3/4" />
         <Skeleton className="mt-2 h-3 w-1/2" />
       </div>
@@ -70,7 +74,7 @@ function SpellDetail({ spellId }) {
   const description = sp.description?.trim()
 
   return (
-    <div className="border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400">
+    <div className={drawer ? 'grant-picker-detail' : 'border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400'}>
       {sp.is_ritual && (
         <span className="mb-1.5 inline-block rounded bg-stone-800 px-1.5 py-0.5 text-xs text-stone-300">Ритуал</span>
       )}
@@ -105,7 +109,14 @@ function SpellDetail({ spellId }) {
 // стиль поиска, что и в основном списке ГМ-редактора: поле + кнопка «⌕» +
 // «Фильтр», список подгружается по скроллу вниз, «Подробнее» раскрывает ту же
 // карточку, что видит игрок.
-export default function SpellPickerModal({ excludeIds = [], onPick, onClose }) {
+function InlineSpellPicker({ onClose, children }) {
+  return <section className="spell-picker-content"><button type="button" className="article-back" onClick={onClose}><LoreIcon name="back" /> К эффекту</button><h3 className="article-editor-label">Выбрать заклинание</h3>{children}</section>
+}
+
+export default function SpellPickerModal({ excludeIds = [], onPick, onClose, drawer = false, inline = false }) {
+  const [selected, setSelected] = useState(null)
+  const panel = drawer || inline
+  const Container = inline ? InlineSpellPicker : drawer ? Drawer : Modal
   const [queryInput, setQueryInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState({})
@@ -144,7 +155,6 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose }) {
   const total = listQ.data?.total ?? 0
   const hasMore = allSpells.length < total
   const spells = allSpells.filter((sp) => !excluded.has(sp.id))
-  const hasActiveFilters = Object.keys(filters).length > 0
 
   const applySearch = () => setAppliedSearch(queryInput)
 
@@ -165,58 +175,41 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose }) {
     })
 
   return (
-    <Modal title="Заклинания" subtitle="Поиск и выбор заклинания" onClose={onClose} size="lg" scroll>
-      <div className="mb-3 flex gap-2">
-        <Input
-          autoFocus
-          type="search"
-          value={queryInput}
-          onChange={(e) => setQueryInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-          placeholder="Поиск заклинания…"
-          className="flex-1"
+    <Container {...(drawer ? { bodyClassName: 'grant-picker-body' } : {})} title={drawer ? 'Выдать заклинание' : 'Заклинания'} subtitle="Поиск и выбор заклинания" onClose={onClose} size="lg" scroll footer={drawer && <div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected} onClick={() => { onPick(selected); onClose() }}>Выдать заклинание</Button></div>}>
+      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={catalog.spells.filters?.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={drawer || inline} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.spells.filters} value={filters} onChange={setFilters} />
+      {showFilters && (
+        <FilterModal
+          inline={drawer || inline}
+          filters={catalog.spells.filters}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
         />
-        <button
-          type="button"
-          onClick={applySearch}
-          title="Искать"
-          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 text-sm text-stone-200 transition hover:bg-stone-800"
-        >
-          ⌕
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowFilters(true)}
-          className={`shrink-0 rounded border px-3 text-sm transition ${
-            hasActiveFilters
-              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
-              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
-          }`}
-        >
-          Фильтр
-        </button>
-      </div>
-      <div ref={listRef} onScroll={onScroll} className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
+      )}
+      <div ref={listRef} onScroll={onScroll} className={panel ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
         {!listQ.isFetching && spells.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
-        <ul className="space-y-1">
+        <ul className={panel ? 'space-y-2' : 'space-y-1'}>
           {spells.map((sp) => {
             const isOpen = expanded.has(sp.id)
             return (
               <li
                 key={sp.id}
-                className={`rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${isOpen ? 'bg-stone-900' : ''}`}
+                className={panel ? 'catalog-record-card grant-picker-card' : `rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${isOpen ? 'bg-stone-900' : ''}`}
+                data-active={drawer && selected?.id === sp.id}
               >
-                <div className="flex items-center gap-2 px-3 py-1.5">
+                <div className={panel ? 'grant-picker-row' : 'flex items-center gap-2 px-3 py-1.5'}>
                   <button
                     type="button"
                     onClick={() => {
+                      if (drawer) { setSelected(sp); return }
                       onPick(sp)
                       onClose()
                     }}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    className={panel ? 'grant-picker-select' : 'flex min-w-0 flex-1 items-center gap-2 text-left'}
+                    aria-pressed={drawer ? selected?.id === sp.id : undefined}
                   >
                     <span className="truncate text-sm text-stone-100 hover:text-ember">{sentenceCase(sp.name)}</span>
-                    {sp.level && (
+                    {sp.level != null && (
                       <Badge tone="accent" className="shrink-0">
                         {spellLevel(sp.level)}
                       </Badge>
@@ -225,23 +218,15 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose }) {
                   <button
                     type="button"
                     onClick={() => toggleExpand(sp.id)}
-                    className="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 transition hover:text-stone-100"
+                    className="grant-picker-expand"
+                    aria-label={`Посмотреть: ${sp.name}`}
                     title={isOpen ? 'Свернуть' : 'Подробнее'}
                     aria-expanded={isOpen}
                   >
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className={`size-4 transition-transform ${isOpen ? 'rotate-90' : ''}`}
-                      aria-hidden="true"
-                    >
-                      <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <LoreIcon name="chevron" className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                   </button>
                 </div>
-                {isOpen && <SpellDetail spellId={sp.id} />}
+                {isOpen && <SpellDetail spellId={sp.id} drawer={panel} />}
               </li>
             )
           })}
@@ -254,20 +239,13 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose }) {
           </div>
         )}
       </div>
-      <div className="modal-actions pt-3 mt-4">
-        <Button type="button" variant="ghost" onClick={onClose}>
+      {!drawer && !inline && <div className="flex pt-3 mt-4">
+        <Button type="button" variant="ghost" className="w-full" onClick={onClose}>
           Закрыть
         </Button>
-      </div>
+      </div>}
 
-      {showFilters && (
-        <FilterModal
-          filters={catalog.spells.filters}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
-    </Modal>
+
+    </Container>
   )
 }

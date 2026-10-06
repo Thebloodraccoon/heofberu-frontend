@@ -1,3 +1,4 @@
+import EditorAddButton from './EditorAddButton.jsx'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
@@ -46,7 +47,7 @@ const pluralOption = (n) => {
   return 'вариантов'
 }
 
-export default function FeatureEffectsEditor({ value, onChange }) {
+export default function FeatureEffectsEditor({ value, onChange, inline = false, drawer = false, onNavigate, summary }) {
   const tree = normalizeEffectsTree(value)
   const groups = tree.choice_groups
   const [modal, setModal] = useState(null) // { mode: 'static'|'choice', effectType, groupIndex? } | null
@@ -80,7 +81,8 @@ export default function FeatureEffectsEditor({ value, onChange }) {
   const removeStatic = (key) => onChange({ ...tree, [key]: [] })
   const removeGroup = (gi) => onChange({ ...tree, choice_groups: groups.filter((_, j) => j !== gi) })
 
-  const closeModal = () => setModal(null)
+  const openModal = (next) => { setModal(next); onNavigate?.(true) }
+  const closeModal = () => { setModal(null); onNavigate?.(false) }
 
   const saveStatic = (effectType, rows) => {
     onChange({ ...tree, [effectType]: rows })
@@ -95,18 +97,28 @@ export default function FeatureEffectsEditor({ value, onChange }) {
     closeModal()
   }
 
+  if (inline && modal) return <EffectGroupModal
+    summary={summary}
+    inline
+    mode={modal.mode}
+    effectType={modal.effectType}
+    availableTypes={availableTypesFor(modal.mode === 'static' ? usedStaticTypes : usedGroupTypes)}
+    initialRows={modal.effectType ? tree[modal.effectType] : []}
+    initialGroup={modal.groupIndex != null ? groups[modal.groupIndex] : null}
+    onSave={modal.mode === 'static' ? saveStatic : saveGroup}
+    onClose={closeModal}
+  />
+
   return (
     <div className="space-y-4">
       <div>
         <SectionTitle
           button={
-            <button
-              type="button"
-              onClick={() => setModal({ mode: 'static', effectType: null })}
-              className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+            <EditorAddButton
+              onClick={() => openModal({ mode: 'static', effectType: null })}
             >
-              + Добавить статичный эффект
-            </button>
+              Добавить статичный эффект
+            </EditorAddButton>
           }
         >
           Статичные эффекты
@@ -125,7 +137,7 @@ export default function FeatureEffectsEditor({ value, onChange }) {
                   count={rows.length}
                   open={openKeys.has(key)}
                   onToggle={() => toggleOpen(key)}
-                  onEdit={() => setModal({ mode: 'static', effectType: t.key })}
+                  onEdit={() => openModal({ mode: 'static', effectType: t.key })}
                   onRemove={() => removeStatic(t.key)}
                 >
                   <ul className="list-disc space-y-0.5 pl-5">
@@ -143,13 +155,11 @@ export default function FeatureEffectsEditor({ value, onChange }) {
       <div>
         <SectionTitle
           button={
-            <button
-              type="button"
-              onClick={() => setModal({ mode: 'choice', effectType: null, groupIndex: null })}
-              className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+            <EditorAddButton
+              onClick={() => openModal({ mode: 'choice', effectType: null, groupIndex: null })}
             >
-              + Добавить выбор эффектов
-            </button>
+              Добавить выбор эффектов
+            </EditorAddButton>
           }
         >
           Группы выбора
@@ -173,7 +183,7 @@ export default function FeatureEffectsEditor({ value, onChange }) {
                   title={`${typeLabel} · выбрать ${group.pick_count ?? 1} из ${options.length} ${pluralOption(options.length)}`}
                   open={openKeys.has(key)}
                   onToggle={() => toggleOpen(key)}
-                  onEdit={() => setModal({ mode: 'choice', effectType, groupIndex: gi })}
+                  onEdit={() => openModal({ mode: 'choice', effectType, groupIndex: gi })}
                   onRemove={() => removeGroup(gi)}
                 >
                   <ul className="space-y-1">
@@ -196,6 +206,7 @@ export default function FeatureEffectsEditor({ value, onChange }) {
 
       {modal?.mode === 'static' && (
         <EffectGroupModal
+          drawer={drawer}
           mode="static"
           effectType={modal.effectType}
           availableTypes={availableTypesFor(usedStaticTypes)}
@@ -206,6 +217,7 @@ export default function FeatureEffectsEditor({ value, onChange }) {
       )}
       {modal?.mode === 'choice' && (
         <EffectGroupModal
+          drawer={drawer}
           mode="choice"
           effectType={modal.effectType}
           availableTypes={availableTypesFor(usedGroupTypes)}

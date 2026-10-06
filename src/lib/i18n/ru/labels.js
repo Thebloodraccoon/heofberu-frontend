@@ -44,6 +44,12 @@ export const spellCastTimeLabels = {
   ACTION: 'Действие',
   BONUS_ACTION: 'Бонусное действие',
   REACTION: 'Реакция',
+  ONE_MINUTE: '1 минута',
+  TEN_MINUTES: '10 минут',
+  ONE_HOUR: '1 час',
+  EIGHT_HOURS: '8 часов',
+  TWELVE_HOURS: '12 часов',
+  TWENTY_FOUR_HOURS: '24 часа',
   SPECIAL: 'Особое',
 }
 
@@ -376,3 +382,76 @@ export function fieldLabel(key) {
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
+
+export const articleTypeLabels = {
+  lore: 'Лор',
+  region: 'Регион',
+  location: 'Локация',
+  faction: 'Фракция',
+  npc: 'НПС',
+  event: 'Событие',
+  artifact: 'Артефакт',
+  deity: 'Божество',
+  religion: 'Религия',
+  creature: 'Существо',
+  culture: 'Культура',
+  language: 'Язык',
+  document: 'Документ',
+  condition: 'Состояние',
+  quest: 'Квест',
+  session: 'Сессия',
+}
+
+export const articleStatusLabels = {
+  draft: 'Черновик',
+  in_review: 'На проверке',
+  published: 'Опубликовано',
+  archived: 'В архиве',
+}
+
+// Переходы статуса статьи (кнопки редактора).
+export const articleActionLabels = {
+  submit: 'Отправить на проверку',
+  publish: 'Опубликовать',
+  reject: 'Вернуть в черновик',
+  archive: 'В архив',
+  restore: 'Восстановить из архива',
+}
+
+export const articleVisibilityLabels = {
+  public: 'Публичная',
+  gm_only: 'Только для ГМ',
+}
+
+export const relationTypeLabels = {
+  LOCATED_IN: 'находится в',
+  MEMBER_OF: 'состоит в',
+  RULES: 'правит',
+  PARENT_FACTION: 'дочерняя фракция от',
+  ALLY_OF: 'союзник',
+  ENEMY_OF: 'враг',
+  RELATIVE_OF: 'родственник',
+  MENTIONS: 'упоминает',
+  SEE_ALSO: 'см. также',
+  PARTICIPATED_IN: 'участвовал в',
+}
+
+// Подпись связанной статьи на странице статьи — кем она приходится текущей:
+// outgoing — эта статья «находится в» X, incoming — X «находится в» этой статье.
+// Подпись стоит на одной карточке, поэтому в единственном числе. У симметричных связей
+// подпись одна для обеих сторон.
+export const relationCaptionLabels = {
+  LOCATED_IN: { outgoing: 'Находится в', incoming: 'Находится здесь' },
+  MEMBER_OF: { outgoing: 'Состоит в', incoming: 'Член' },
+  RULES: { outgoing: 'Правит', incoming: 'Правитель' },
+  PARENT_FACTION: { outgoing: 'Родительская фракция', incoming: 'Дочерняя фракция' },
+  PARTICIPATED_IN: { outgoing: 'Участвовал в', incoming: 'Участник' },
+  ALLY_OF: { outgoing: 'Союзник', incoming: 'Союзник' },
+  ENEMY_OF: { outgoing: 'Враг', incoming: 'Враг' },
+  RELATIVE_OF: { outgoing: 'Родственник', incoming: 'Родственник' },
+  MENTIONS: { outgoing: 'Упоминает', incoming: 'Упоминается в' },
+  SEE_ALSO: { outgoing: 'Смотрите также', incoming: 'Смотрите также' },
+}
+
+export const articleChildCaption = 'Вложенная статья'
+export const relatedArticlesLabel = 'Связанные статьи'

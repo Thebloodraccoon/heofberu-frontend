@@ -4,7 +4,7 @@ import { abilityName } from '@/lib/utils/ability.js'
 import { armorProficiencyLabels, sentenceCase, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { Hint, Section, StepShell } from './StepShell.jsx'
 import PickerGrid from './PickerGrid.jsx'
-import { smoothScrollTo } from './scroll.js'
+import { smoothScrollTo } from '@/lib/utils/scroll.js'
 
 export default function StepClass({ stepNo, total, form, update, lookups }) {
   const [openFeatures, setOpenFeatures] = useState(() => new Set())

@@ -1,6 +1,6 @@
 import { abilityLabels, raceSizeLabels, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Badge, Card, RichText } from '@/components/ui'
-import { Section, FeatureCards, SkillChips, formatBonus, itemName } from './detailHelpers.jsx'
+import { Section, FeatureCards, SkillChips, TagChips, formatBonus, itemName } from './detailHelpers.jsx'
 import CatalogImage from '../CatalogImage.jsx'
 
 function AbilityBonusChips({ bonuses = [] }) {
@@ -19,6 +19,13 @@ function AbilityBonusChips({ bonuses = [] }) {
 }
 
 export default function RaceDetailCard({ race, selectedSub, subLoading }) {
+  const activeTags = (() => {
+    if (!selectedSub) return race.tags ?? []
+    const byId = new Map()
+    for (const t of race.tags ?? []) byId.set(t.id, t)
+    for (const t of selectedSub.tags ?? []) byId.set(t.id, t)
+    return Array.from(byId.values())
+  })()
   const raceFeatures = (race.features ?? []).map((f) => ({ ...f, fromSubrace: false }))
   const subFeatures = selectedSub
     ? (selectedSub.features ?? []).map((f) => ({
@@ -31,8 +38,8 @@ export default function RaceDetailCard({ race, selectedSub, subLoading }) {
 
   return (
     <Card className="my-[3px] detail-padded">
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="order-2 min-w-0 flex-1 sm:order-1">
+      <div className="mb-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_300px] sm:grid-rows-[auto_1fr] sm:items-start">
+        <div className="min-w-0">
           <div className="mb-2">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(race.name)}</h1>
@@ -40,6 +47,7 @@ export default function RaceDetailCard({ race, selectedSub, subLoading }) {
             {selectedSub && (
               <p className="mt-1 font-display text-lg font-semibold text-ember">{sentenceCase(selectedSub.name)}</p>
             )}
+            <TagChips tags={activeTags} className="mt-1.5" />
           </div>
 
           <div className="mb-4 flex flex-wrap gap-1.5">
@@ -50,6 +58,17 @@ export default function RaceDetailCard({ race, selectedSub, subLoading }) {
           {selectedSub
             ? selectedSub.description && <RichText value={selectedSub.description} className="description-blockquote" />
             : race.description && <RichText value={race.description} className="description-blockquote" />}
+
+        </div>
+
+        <CatalogImage
+          className="catalog-portrait-frame justify-self-center sm:col-start-2 sm:row-start-1 sm:row-span-2"
+          imageUrl={selectedSub?.image_url ?? race.image_url}
+          alt={selectedSub ? selectedSub.name : race.name}
+          title={selectedSub ? selectedSub.name : race.name}
+        />
+
+        <div className="min-w-0 sm:col-start-1 sm:row-start-2">
 
           {(race.ability_bonuses ?? []).length > 0 && (
             <p className="mt-3 flex flex-wrap items-center gap-2 text-sm leading-relaxed">
@@ -79,13 +98,6 @@ export default function RaceDetailCard({ race, selectedSub, subLoading }) {
           )}
         </div>
 
-        <div className="order-1 w-full shrink-0 sm:order-2 sm:w-auto flex justify-center items-start">
-          <CatalogImage
-            imageUrl={selectedSub?.image_url ?? race.image_url}
-            alt={selectedSub ? selectedSub.name : race.name}
-            title={selectedSub ? selectedSub.name : race.name}
-          />
-        </div>
       </div>
 
       <Section title="Особенности и умения">

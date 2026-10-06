@@ -3,10 +3,10 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import { Extension } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
-import TextAlign from '@tiptap/extension-text-align'
+import Image from '@tiptap/extension-image'
+import { Markdown } from '@tiptap/markdown'
 import { TableKit } from '@tiptap/extension-table'
-import { sanitizeHtml, toEditableHtml } from '@/lib/utils/richText.js'
-import { Indent } from './richTextIndent.js'
+import { looksLikeHtml as looksLikeLegacy, toEditorContent } from '@/lib/utils/richText.js'
 import { TextArea } from './primitives.jsx'
 
 // Липкое форматирование через абзацы: шаг split в ProseMirror сбрасывает
@@ -51,16 +51,32 @@ function ToolbarButton({ active, disabled, onClick, title, children }) {
   )
 }
 
-const ALIGN_OPTIONS = [
-  ['left', 'По левому краю', 'Л'],
-  ['center', 'По центру', 'Ц'],
-  ['right', 'По правому краю', 'П'],
-  ['justify', 'По ширине', 'Ш'],
-]
+function EditorIcon({ name, className = '' }) {
+  const paths = {
+    link: <><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" /><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1" /></>,
+    image: <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></>,
+    loading: <path d="M12 3a9 9 0 1 0 9 9" />,
+  }
+  return <svg className={`size-4 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
+}
+
+const imageFilesOf = (dataTransfer) =>
+  Array.from(dataTransfer?.files ?? []).filter((f) => f.type.startsWith('image/'))
 
 // Замена обычной <textarea> для «прозных» полей (описания, предыстория, заметки):
-// панель форматирования + переключатель «Показать код» для правки сырого HTML.
+// панель форматирования + переключатель «Показать код» для правки сырого Markdown.
+// Хранит и отдаёт Markdown; старые значения-HTML при загрузке разбираются как HTML
+// и при первой правке сохраняются уже Markdown-ом.
 // Контракт совместим со старым TextArea: value/onChange({ target: { value } }).
+// allowImages — картинки разрешены только в редакторе тела статьи; во всех
+// остальных полях (описания, предыстории, заметки в справочнике и т.п.) кнопка
+// и вставка картинок скрыты по умолчанию.
+// onUploadImage(file) => Promise<{ src, alt }> — если задан (и allowImages),
+// картинки можно вставить из буфера, перетащить в текст или выбрать кнопкой 🖼:
+// файл загружается и вставляется на место курсора/броска. onPickImage(editor) —
+// если задан, кнопка 🖼 отдаёт выбор картинки родителю (например, модалка «уже
+// загруженные / новая»).
+// extraTools — [{ title, label, onClick(editor) }].
 export function RichTextEditor({
   value = '',
   onChange,
@@ -70,36 +86,87 @@ export function RichTextEditor({
   disabled = false,
   autoFocus = false,
   ariaLabel,
+  onEditor,
+  allowImages = false,
+  onUploadImage,
+  onPickImage,
+  extraTools = [],
 }) {
   const [showCode, setShowCode] = useState(false)
   const [sourceDraft, setSourceDraft] = useState('')
+  const [uploading, setUploading] = useState(0)
+  const [uploadError, setUploadError] = useState(null)
+  const fileInputRef = useRef(null)
+  // editorProps (paste/drop) создаются один раз вместе с редактором — актуальный
+  // обработчик загрузки читаем через ref, а не из замыкания первого рендера.
+  const uploadRef = useRef(onUploadImage)
+  useEffect(() => {
+    uploadRef.current = onUploadImage
+  }, [onUploadImage])
 
+  // Загружает файлы по очереди и вставляет каждую картинку в позицию pos (или в
+  // текущее выделение). Позицию ограничиваем размером документа: пока шла загрузка,
+  // текст могли поправить.
+  const uploadAndInsert = async (view, files, pos) => {
+    setUploadError(null)
+    let at = pos
+    for (const file of files) {
+      setUploading((n) => n + 1)
+      try {
+        const { src, alt } = await uploadRef.current(file)
+        const { state } = view
+        const node = state.schema.nodes.image.create({ src, alt: alt ?? '' })
+        const insertAt = Math.min(at ?? state.selection.from, state.doc.content.size)
+        view.dispatch(state.tr.insert(insertAt, node))
+        at = insertAt + node.nodeSize
+      } catch (e) {
+        setUploadError(e?.message || 'Не удалось загрузить картинку')
+      } finally {
+        setUploading((n) => n - 1)
+      }
+    }
+  }
+
+  const initial = toEditorContent(value)
   const editor = useEditor({
     extensions: [
       PersistMarksOnEnter,
       StarterKit.configure({
-        heading: { levels: [2, 3] },
+        heading: { levels: [1, 2, 3, 4] },
         codeBlock: false,
         code: false,
         link: { openOnClick: false, autolink: true },
       }),
       Placeholder.configure({ placeholder: placeholder ?? '' }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Indent,
+      Image.configure({ inline: false }),
+      Markdown,
       TableKit.configure({ table: { resizable: false } }),
     ],
-    // Санитизируем даже начальный контент: значение может прийти из БД в обход
-    // клиента (старые записи, прямые правки, будущий баг в другом месте), а
-    // Tiptap иначе отрендерит его as-is в DOM редактора ещё до первого onUpdate.
-    content: sanitizeHtml(toEditableHtml(value)),
+    content: initial.content,
+    contentType: initial.contentType,
     editable: !disabled,
     autofocus: autoFocus ? 'end' : false,
     onUpdate: ({ editor: ed }) => {
-      const next = sanitizeHtml(ed.getHTML())
+      const next = ed.getMarkdown().trim()
       lastReported.current = next
       onChange?.({ target: { value: next } })
     },
     editorProps: {
+      handlePaste: (view, event) => {
+        const files = imageFilesOf(event.clipboardData)
+        if (!allowImages || !uploadRef.current || files.length === 0) return false
+        event.preventDefault()
+        uploadAndInsert(view, files, null)
+        return true
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        const files = imageFilesOf(event.dataTransfer)
+        if (moved || !allowImages || !uploadRef.current || files.length === 0) return false
+        event.preventDefault()
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null
+        uploadAndInsert(view, files, pos)
+        return true
+      },
       attributes: {
         class: 'rich-text rich-editor__content',
         role: 'textbox',
@@ -109,15 +176,18 @@ export function RichTextEditor({
     },
   })
 
+  // Отдаём наружу текущий экземпляр редактора. Не через onCreate: в StrictMode Tiptap
+  // создаёт редактор, уничтожает и создаёт заново — onCreate мог оставить у родителя
+  // ссылку на уже уничтоженный экземпляр, и команды (например, «В текст») молча не работали.
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) onEditor?.(editor)
+  }, [editor, onEditor])
+
   // Синхронизируем внешние изменения value (сброс формы, загрузка другой записи),
   // но только когда контент реально другой — иначе курсор будет прыгать при вводе.
   // Сравниваем с последним значением, которое редактор сам отдал наружу (lastReported):
-  // родитель почти всегда возвращает его как есть, а прямое сравнение с
-  // editor.getHTML() давало ложное расхождение на таблицах — санитайзер вырезает
-  // их colgroup/col, и каждый ввод символа перезагружал весь документ (курсор
-  // улетал в конец таблицы). Пропускаем самый первый прогон: на монтировании
-  // контент уже равен value, а ProseMirror нормализует пустую строку в "<p></p>",
-  // что дало бы ложное расхождение.
+  // родитель почти всегда возвращает его как есть. Пропускаем самый первый прогон:
+  // на монтировании контент уже равен value.
   const skipNextSync = useRef(true)
   const lastReported = useRef(null)
   useEffect(() => {
@@ -127,9 +197,9 @@ export function RichTextEditor({
       return
     }
     if (lastReported.current !== null && value === lastReported.current) return
-    const next = sanitizeHtml(toEditableHtml(value))
-    if (next !== editor.getHTML()) {
-      editor.commands.setContent(next, { emitUpdate: false })
+    const next = toEditorContent(value)
+    if (looksLikeLegacy(value) || next.content !== editor.getMarkdown().trim()) {
+      editor.commands.setContent(next.content, { emitUpdate: false, contentType: next.contentType })
     }
   }, [value, editor])
 
@@ -153,17 +223,37 @@ export function RichTextEditor({
   }
 
   const openSource = () => {
-    setSourceDraft(editor.getHTML())
+    setSourceDraft(editor.getMarkdown())
     setShowCode(true)
   }
 
   const applySource = () => {
-    const clean = sanitizeHtml(sourceDraft)
     // emitUpdate: true (по умолчанию) — контент проходит через onUpdate, который
     // один-единственный отвечает за lastReported/onChange, иначе синк-эффект
     // выше посчитает это внешним изменением и передёрнет курсор.
-    editor.commands.setContent(clean, { emitUpdate: true })
+    editor.commands.setContent(sourceDraft, { emitUpdate: true, contentType: 'markdown' })
     setShowCode(false)
+  }
+
+  const setImage = () => {
+    if (!allowImages) return
+    if (onPickImage) {
+      onPickImage(editor)
+      return
+    }
+    if (onUploadImage) {
+      fileInputRef.current?.click()
+      return
+    }
+    const url = window.prompt('Адрес картинки (https://…):', '')
+    if (!url?.trim()) return
+    editor.chain().focus().setImage({ src: url.trim() }).run()
+  }
+
+  const pickFiles = (e) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length) uploadAndInsert(editor.view, files, null)
   }
 
   return (
@@ -175,19 +265,23 @@ export function RichTextEditor({
         <ToolbarButton title="Курсив" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
           <i>К</i>
         </ToolbarButton>
-        <ToolbarButton title="Подчёркнутый" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
-          <u>Ч</u>
-        </ToolbarButton>
         <ToolbarButton title="Зачёркнутый" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
           <s>С</s>
         </ToolbarButton>
+        <ToolbarButton title="Подчёркнутый" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+          <u>Ч</u>
+        </ToolbarButton>
         <span className="rich-toolbar__sep" aria-hidden="true" />
-        <ToolbarButton title="Заголовок" active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
-          H2
-        </ToolbarButton>
-        <ToolbarButton title="Подзаголовок" active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
-          H3
-        </ToolbarButton>
+        {[1, 2, 3, 4].map((level) => (
+          <ToolbarButton
+            key={level}
+            title={`Заголовок ${level}`}
+            active={editor.isActive('heading', { level })}
+            onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
+          >
+            H{level}
+          </ToolbarButton>
+        ))}
         <span className="rich-toolbar__sep" aria-hidden="true" />
         <ToolbarButton title="Маркированный список" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
           ☰
@@ -199,29 +293,41 @@ export function RichTextEditor({
           &ldquo;&rdquo;
         </ToolbarButton>
         <ToolbarButton title="Ссылка" active={editor.isActive('link')} onClick={setLink}>
-          🔗
+          <EditorIcon name="link" />
         </ToolbarButton>
         <ToolbarButton title="Разделитель" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
           ―
         </ToolbarButton>
-        <span className="rich-toolbar__sep" aria-hidden="true" />
-        {ALIGN_OPTIONS.map(([value, title, label]) => (
+        {allowImages && (
           <ToolbarButton
-            key={value}
-            title={title}
-            active={editor.isActive({ textAlign: value })}
-            onClick={() => editor.chain().focus().setTextAlign(value).run()}
+            title={
+              onPickImage
+                ? 'Вставить картинку: уже загруженную или новую'
+                : onUploadImage
+                  ? 'Картинка с компьютера (можно и перетащить/вставить в текст)'
+                  : 'Картинка по ссылке'
+            }
+            disabled={uploading > 0}
+            onClick={setImage}
           >
-            {label}
+            {uploading > 0 ? <EditorIcon name="loading" className="animate-spin" /> : <EditorIcon name="image" />}
+          </ToolbarButton>
+        )}
+        {allowImages && onUploadImage && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            hidden
+            onChange={pickFiles}
+          />
+        )}
+        {extraTools.map((tool) => (
+          <ToolbarButton key={tool.title} title={tool.title} onClick={() => tool.onClick(editor)}>
+            {tool.label}
           </ToolbarButton>
         ))}
-        <span className="rich-toolbar__sep" aria-hidden="true" />
-        <ToolbarButton title="Уменьшить отступ" disabled={!editor.can().outdent()} onClick={() => editor.chain().focus().outdent().run()}>
-          ⇤
-        </ToolbarButton>
-        <ToolbarButton title="Увеличить отступ" disabled={!editor.can().indent()} onClick={() => editor.chain().focus().indent().run()}>
-          ⇥
-        </ToolbarButton>
         <span className="rich-toolbar__sep" aria-hidden="true" />
         <ToolbarButton
           title="Вставить таблицу"
@@ -273,6 +379,19 @@ export function RichTextEditor({
         </div>
       ) : (
         <EditorContent editor={editor} style={{ minHeight: `${Math.max(3, rows) * 1.6}em` }} />
+      )}
+      {(uploading > 0 || uploadError) && (
+        <div className="border-t border-stone-700/60 px-3 py-1.5 text-xs" role="status">
+          {uploading > 0 && <span className="text-stone-400">Загружаем картинки… ({uploading})</span>}
+          {uploadError && (
+            <span className="text-red-300">
+              {uploadError}{' '}
+              <button type="button" className="underline" onClick={() => setUploadError(null)}>
+                скрыть
+              </button>
+            </span>
+          )}
+        </div>
       )}
     </div>
   )

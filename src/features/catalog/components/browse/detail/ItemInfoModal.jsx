@@ -1,13 +1,17 @@
+import Drawer from '@/components/ui/Drawer.jsx'
 import { ErrorBox, Modal, Skeleton } from '@/components/ui'
 import { sentenceCase } from '@/lib/i18n/index.js'
 import { useItemDetail } from '@/features/catalog/queries.js'
 import ItemDetailCard from './ItemDetailCard.jsx'
 
-export default function ItemInfoModal({ itemId, onClose }) {
+export default function ItemInfoModal({ itemId, onClose, drawer = false }) {
+  const Container = drawer ? Drawer : Modal
   const detailQ = useItemDetail(itemId)
 
   return (
-    <Modal
+    <Container
+      className={drawer ? 'catalog-editor-drawer' : undefined}
+      closeLabel="Закрыть предмет"
       title="Предмет"
       subtitle={detailQ.data?.name && sentenceCase(detailQ.data.name)}
       onClose={onClose}
@@ -35,6 +39,6 @@ export default function ItemInfoModal({ itemId, onClose }) {
       ) : (
         <ItemDetailCard item={detailQ.data} />
       )}
-    </Modal>
+    </Container>
   )
 }

@@ -1,3 +1,4 @@
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useMemo } from 'react'
 import { useCharacterFeatures, useCharacterFeats } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
@@ -21,7 +22,7 @@ function AccordionItem({ name, badge, level, open, onToggle, children }) {
         onClick={onToggle}
         className="flex w-full items-center gap-2 px-4 py-2.5 text-left"
       >
-        <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+        <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">{name}</span>
         {level != null && (
           <span className="rounded bg-stone-800 px-1.5 py-0.5 text-xs text-stone-400">ур. {level}</span>

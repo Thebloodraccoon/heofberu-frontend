@@ -1,3 +1,5 @@
+import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
+import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
@@ -7,15 +9,17 @@ import {
   useCharacterAsiAdjustments,
   useCharacterFeats,
   useCharacterFeatures,
-  useCharacterGrantedSpells,
+  useCharacterGmSpells,
   useCharacterItems,
   useCharacterMaxLevel,
   useCharacterProficiencies,
   useCharacterStats,
 } from '@/features/characters/queries.js'
 import { useFeatDetail, useSkills } from '@/features/catalog/queries.js'
-import { TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
-import { PickerMenu } from '@/features/catalog/components/editor/effectTypeEditors.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import EditorTabs from '@/components/ui/EditorTabs.jsx'
+import Drawer from '@/components/ui/Drawer.jsx'
+import ProficiencyPicker from './ProficiencyPicker.jsx'
 import SpellPickerModal from '@/features/catalog/components/editor/SpellPickerModal.jsx'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
@@ -23,40 +27,32 @@ import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { STATS, abilityByCode, abilityName } from '@/lib/utils/ability.js'
-import { Badge, Button, ConfirmDialog, Field, Input, Modal, RichText, Select, Skeleton } from '@/components/ui'
+import { Badge, Button, ConfirmDialog, Input, RichText, Select, Skeleton } from '@/components/ui'
 import { armorProficiencyLabels, label, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import StatsCalculator from '@/features/characters/components/sheet/StatsCalculator.jsx'
 import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
 
 function PlusIcon({ className = 'h-4 w-4' }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  )
+  return <LoreIcon name="plus" className={className} />
 }
 
-function Section({ title, action, children }) {
+function TrashIcon() {
+  return <LoreIcon name="trash" />
+}
+
+function Section({ title, action, count, children }) {
   return (
-    <div className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+    <section className="gm-editor-section" aria-label={title}>
       {action ? (
         <div className="mb-1 flex items-center justify-between gap-2">
-          <p className="sheet-section-label !mt-0">{title}</p>
+          <h3 className="heading-sub">{title}{count != null && <span className="gm-section-count">{count}</span>}</h3>
           {action}
         </div>
       ) : (
-        <p className="sheet-section-label !mt-0">{title}</p>
+        <h3 className="heading-sub">{title}</h3>
       )}
       {children}
-    </div>
+    </section>
   )
 }
 
@@ -330,7 +326,7 @@ function StatsSection({ character, onError, reload }) {
                   onClick={() => removeAdjustment(adj.id)}
                   title="Откатить правку"
                 >
-                  ✕ Откатить
+                  <LoreIcon name="undo" /> Откатить
                 </button>
               </li>
             ))}
@@ -445,19 +441,10 @@ function ExpertiseSection({ character, onError, reload }) {
     .map((s) => ({ key: s.id, label: skillName(s) }))
 
   return (
-    <Section title="Навыки и экспертиза">
-      <div className="-mt-1 mb-2 flex items-center justify-between gap-2">
-        <p className="text-xs text-stone-500">
-          Нажмите на навык с ★, чтобы снять экспертизу; обычный навык — чтобы дать её.
-        </p>
-        <PickerMenu
-          options={addOptions}
-          onPick={addSkill}
-          disabled={addOptions.length === 0}
-          addLabel={<PlusIcon />}
-          searchable
-        />
-      </div>
+    <Section title="Навыки и экспертиза" action={
+      <ProficiencyPicker title="Добавить навык" options={addOptions} onPick={addSkill} disabled={addOptions.length === 0 || busyId !== null} addLabel="Добавить навык" />
+    }>
+      <p className="mb-3 text-sm text-stone-500">Владение добавляет бонус мастерства, экспертиза удваивает его.</p>
       {proficiencies.length === 0 ? (
         <p className="text-sm text-stone-500">У персонажа нет владений навыками.</p>
       ) : (
@@ -469,37 +456,31 @@ function ExpertiseSection({ character, onError, reload }) {
               const expert = Boolean(p.is_expertise)
               const removable = (p.sources ?? []).some((s) => s.source_type === 'GM')
               return (
-                <li key={p.skill_id} className="flex items-center gap-1.5">
+                <li key={p.skill_id} className="gm-skill-row">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-stone-200">{skill ? skillName(skill) : `Навык #${p.skill_id}`}</p>
+                    <p className="mt-0.5 text-xs text-stone-500">{skill?.ability ? `${abilityLabel(skill.ability)} · ` : ''}{expert ? 'Двойной бонус мастерства' : 'Бонус мастерства'}</p>
+                  </div>
                   <button
                     type="button"
-                    disabled={busyId === p.skill_id}
+                    role="switch"
+                    aria-checked={expert}
+                    aria-label={`Экспертиза: ${skill ? skillName(skill) : `Навык #${p.skill_id}`}`}
+                    disabled={busyId !== null}
                     onClick={() => toggle(p.skill_id, !expert)}
-                    title={expert ? 'Снять экспертизу' : 'Дать экспертизу'}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-50 ${
-                      expert
-                        ? 'border-ember/70 bg-ember/10'
-                        : 'border-stone-700/60 bg-stone-900/60 hover:border-stone-600'
-                    }`}
+                    className="lore-player-switch gm-skill-switch"
                   >
-                    <span
-                      className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs ${
-                        expert ? 'border-ember bg-ember/20 text-ember' : 'border-stone-600 text-transparent'
-                      }`}
-                    >
-                      ★
-                    </span>
-                    <span className={`min-w-0 flex-1 truncate ${expert ? 'font-medium text-orange-100' : 'text-stone-200'}`}>
-                      {skill ? skillName(skill) : `Навык #${p.skill_id}`}
-                    </span>
-                    {skill?.ability && <span className="shrink-0 text-[11px] text-stone-500">{abilityLabel(skill.ability)}</span>}
+                    <span>Экспертиза</span>
+                    <span className="lore-switch-track" aria-hidden="true" />
                   </button>
                   {removable && (
                     <button
                       type="button"
                       onClick={() => removeSkill(p.skill_id)}
-                      disabled={busyId === p.skill_id}
+                      disabled={busyId !== null}
                       className="inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded border border-red-800 text-red-300 transition hover:bg-red-950/50 disabled:opacity-50"
                       title="Убрать владение"
+                      aria-label={`Убрать владение: ${skill ? skillName(skill) : `Навык #${p.skill_id}`}`}
                     >
                       <TrashIcon />
                     </button>
@@ -562,11 +543,12 @@ function ArmorProficienciesSection({ character, onError, reload }) {
     <Section
       title="Владение доспехами"
       action={
-        <PickerMenu
+        <ProficiencyPicker
+          title="Добавить владение"
           options={addOptions}
           onPick={add}
-          disabled={addOptions.every((o) => o.disabled)}
-          addLabel={<PlusIcon />}
+          disabled={busyType !== null || addOptions.every((o) => o.disabled)}
+          addLabel="Добавить владение"
         />
       }
     >
@@ -578,7 +560,7 @@ function ArmorProficienciesSection({ character, onError, reload }) {
             <span
               key={a.armor_type}
               className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-sm ${
-                removable ? 'border-ember/70 bg-ember/10 text-orange-100' : 'border-stone-700/60 bg-stone-900/60 text-stone-200'
+                removable ? 'border-ember/70 bg-ember/10 text-stone-100' : 'border-stone-700/60 bg-stone-900/60 text-stone-200'
               }`}
             >
               {armorProficiencyLabels[a.armor_type] ?? a.armor_type}
@@ -590,7 +572,7 @@ function ArmorProficienciesSection({ character, onError, reload }) {
                   className="text-stone-500 transition hover:text-red-300 disabled:opacity-50"
                   title="Убрать владение"
                 >
-                  ✕
+                  <LoreIcon name="close" />
                 </button>
               )}
             </span>
@@ -647,11 +629,12 @@ function WeaponProficienciesSection({ character, onError, reload }) {
     <Section
       title="Владение оружием"
       action={
-        <PickerMenu
+        <ProficiencyPicker
+          title="Добавить владение"
           options={addOptions}
           onPick={add}
-          disabled={addOptions.every((o) => o.disabled)}
-          addLabel={<PlusIcon />}
+          disabled={busyType !== null || addOptions.every((o) => o.disabled)}
+          addLabel="Добавить владение"
         />
       }
     >
@@ -663,7 +646,7 @@ function WeaponProficienciesSection({ character, onError, reload }) {
             <span
               key={w.weapon_category}
               className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-sm ${
-                removable ? 'border-ember/70 bg-ember/10 text-orange-100' : 'border-stone-700/60 bg-stone-900/60 text-stone-200'
+                removable ? 'border-ember/70 bg-ember/10 text-stone-100' : 'border-stone-700/60 bg-stone-900/60 text-stone-200'
               }`}
             >
               {weaponProficiencyLabels[w.weapon_category] ?? w.weapon_category}
@@ -675,7 +658,7 @@ function WeaponProficienciesSection({ character, onError, reload }) {
                   className="text-stone-500 transition hover:text-red-300 disabled:opacity-50"
                   title="Убрать владение"
                 >
-                  ✕
+                  <LoreIcon name="close" />
                 </button>
               )}
             </span>
@@ -726,7 +709,6 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
   const total = featsQ.data?.total ?? 0
   const hasMore = allFeats.length < total
   const feats = allFeats
-  const hasActiveFilters = Object.keys(filters).length > 0
 
   const applySearch = () => setAppliedSearch(queryInput)
   const onScroll = () => {
@@ -751,9 +733,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
   // Черты, уже выданные персонажу, на повторную выдачу недоступны.
   const available = feats.filter((f) => !grantedIds.has(Number(f.id)))
   const selectedFeat = feats.find((f) => String(f.id) === String(featId))
-  // Текущая черта — выбранная или та, что просто открыта на «Посмотреть».
-  const viewedFeat = feats.find((f) => String(f.id) === String(expandedId))
-  const currentFeat = selectedFeat ?? viewedFeat
+  const currentFeat = selectedFeat
 
   // Варианты увеличения характеристик берём из деталей черты (список может их содержать).
   const increaseOptions = useMemo(() => {
@@ -766,7 +746,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
 
   // Если черта даёт ровно один вариант — используем его автоматически, но id всё равно передаём явно.
   const confirmReady =
-    !!currentFeat && (!needsIncrease || increaseId != null || increaseOptions.length === 1)
+    !!currentFeat && !detailQ.isFetching && (!needsIncrease || increaseId != null || increaseOptions.length === 1)
 
   const confirm = () => {
     if (!currentFeat || (needsIncrease && increaseId == null && increaseOptions.length !== 1)) return
@@ -777,14 +757,14 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
   }
 
   return (
-    <Modal
+    <Drawer
+      bodyClassName="grant-picker-body"
       title="Выдать черту"
       subtitle="Как при выборе игрока: посмотрите черту и подтвердите выбор"
       onClose={onClose}
-      size="lg"
-      scroll
       footer={
         <div className="w-full space-y-3">
+          {currentFeat && <p className="text-sm text-stone-200">Выбрано: {sentenceCase(currentFeat.name)}</p>}
           {currentFeat && needsIncrease && (
             <div className="rounded-lg border border-stone-700/60 bg-stone-800/40 p-3">
               <p className="mb-2 text-sm font-medium text-stone-200">
@@ -830,42 +810,22 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
         </div>
       }
     >
-      <div className="mb-3 flex gap-2">
-        <Input
-          autoFocus
-          type="search"
-          value={queryInput}
-          onChange={(e) => setQueryInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-          placeholder="Поиск черты…"
-          className="flex-1"
+      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={catalog.feats.filters?.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={true} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.feats.filters} value={filters} onChange={setFilters} />
+      {showFilters && (
+        <FilterModal
+          inline={true}
+          filters={catalog.feats.filters}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
         />
-        <button
-          type="button"
-          onClick={applySearch}
-          title="Искать"
-          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 text-sm text-stone-200 transition hover:bg-stone-800"
-        >
-          ⌕
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowFilters(true)}
-          className={`shrink-0 rounded border px-3 text-sm transition ${
-            hasActiveFilters
-              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
-              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
-          }`}
-        >
-          Фильтр
-        </button>
-      </div>
+      )}
       {!featsQ.isFetching && available.length === 0 && (
         <p className="py-4 text-center text-sm text-stone-400">
           {appliedSearch ? 'Ничего не найдено по запросу.' : 'Доступных черт нет.'}
         </p>
       )}
-      <div ref={listRef} onScroll={onScroll} className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+      <div ref={listRef} onScroll={onScroll} className="grant-picker-list space-y-2 pr-1">
         {available.map((f) => {
           const ok = featPrereqOk(f) && featLevelOk(f)
           const selected = String(f.id) === String(featId)
@@ -874,15 +834,10 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
           return (
             <div
               key={f.id}
-              className={`rounded-lg border p-3 transition ${
-                selected
-                  ? 'border-ember/80 bg-ember/10'
-                  : ok
-                    ? 'border-stone-700/50 bg-stone-800/40'
-                    : 'border-stone-800 bg-stone-900/40 opacity-60'
-              }`}
+              className={`catalog-record-card grant-picker-card ${ok ? '' : 'opacity-60'}`}
+              data-active={selected}
             >
-              <div className="flex items-start gap-2">
+              <div className="grant-picker-row">
                 <button
                   type="button"
                   disabled={!ok}
@@ -891,7 +846,8 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                     setIncreaseId(null)
                     setExpandedId(null)
                   }}
-                  className={`min-w-0 flex-1 truncate rounded text-left text-sm font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                  className={`grant-picker-select ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                  aria-pressed={selected}
                 >
                   {sentenceCase(f.name)}
                 </button>
@@ -915,23 +871,15 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                     type="button"
                     aria-label={`Посмотреть: ${f.name}`}
                     onClick={() => setExpandedId(expanded ? null : f.id)}
-                    className="rounded border border-stone-700 px-2 py-1 text-[11px] text-stone-300 transition hover:border-ember/50 hover:bg-stone-800"
+                    className="grant-picker-expand"
+                    aria-expanded={expanded}
                   >
-                    <svg
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          className={`size-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                          aria-hidden="true"
-                        >
-                          <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <LoreIcon name="chevron" className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
                   </button>
                 </span>
               </div>
               {expanded && (
-                <div className="mt-2 border-t border-stone-700/50 pt-2">
+                <div className="grant-picker-detail">
                   {detailQ.isFetching && !rowDetail ? (
                     <div className="space-y-1.5 py-1" aria-busy="true">
                       <Skeleton className="h-3.5 w-full" />
@@ -967,15 +915,8 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
         )}
       </div>
 
-      {showFilters && (
-        <FilterModal
-          filters={catalog.feats.filters}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
-    </Modal>
+
+    </Drawer>
   )
 }
 
@@ -1007,6 +948,7 @@ function FeatureDetail({ featureId }) {
 }
 
 function FeaturePickerModal({ grantedIds, onPick, onClose }) {
+  const [selected, setSelected] = useState(null)
   const [queryInput, setQueryInput] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [filters, setFilters] = useState({})
@@ -1018,6 +960,9 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
 
   const listParams = { page, size: PICKER_PAGE_SIZE, source_type: 'OTHER' }
   if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
+  for (const [key, values] of Object.entries(filters)) {
+    if (key !== 'source_type' && values.length) listParams[key] = values
+  }
 
   const featuresQ = useQuery({
     queryKey: ['catalog', 'feature-picker-modal', appliedSearch.trim(), filters, page],
@@ -1039,7 +984,6 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
   const total = featuresQ.data?.total ?? 0
   const hasMore = allFeatures.length < total
   const available = allFeatures.filter((f) => !grantedIds.has(Number(f.id)))
-  const hasActiveFilters = Object.keys(filters).length > 0
 
   const applySearch = () => setAppliedSearch(queryInput)
   const onScroll = () => {
@@ -1051,38 +995,18 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
   }
 
   return (
-    <Modal title="Выдать особенность" subtitle="Особые свойства из справочника" onClose={onClose} size="lg" scroll>
-      <div className="mb-3 flex gap-2">
-        <Input
-          autoFocus
-          type="search"
-          value={queryInput}
-          onChange={(e) => setQueryInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-          placeholder="Поиск особенности…"
-          className="flex-1"
+    <Drawer bodyClassName="grant-picker-body" title="Выдать особенность" subtitle="Особые свойства из справочника" onClose={onClose} footer={<div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected} onClick={() => onPick(selected)}>Выдать особенность</Button></div>}>
+      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={catalog.features.filters?.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={true} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.features.filters} value={filters} onChange={setFilters} />
+      {showFilters && (
+        <FilterModal
+          inline={true}
+          filters={catalog.features.filters}
+          value={filters}
+          onChange={setFilters}
+          onClose={() => setShowFilters(false)}
         />
-        <button
-          type="button"
-          onClick={applySearch}
-          title="Искать"
-          className="shrink-0 rounded border border-stone-700 bg-stone-800/70 px-3 text-sm text-stone-200 transition hover:bg-stone-800"
-        >
-          ⌕
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowFilters(true)}
-          className={`shrink-0 rounded border px-3 text-sm transition ${
-            hasActiveFilters
-              ? 'border-ember/80 bg-ember/10 text-ember hover:bg-ember/20'
-              : 'border-stone-700 bg-stone-800/70 text-stone-200 hover:bg-stone-800'
-          }`}
-        >
-          Фильтр
-        </button>
-      </div>
-      <div ref={listRef} onScroll={onScroll} className="max-h-[55vh] space-y-1.5 overflow-y-auto pr-1">
+      )}
+      <div ref={listRef} onScroll={onScroll} className="grant-picker-list space-y-2 pr-1">
         {!featuresQ.isFetching && available.length === 0 && (
           <p className="text-sm text-stone-500">Особенностей не найдено.</p>
         )}
@@ -1091,13 +1015,15 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
           return (
             <div
               key={f.id}
-              className={`rounded-lg border border-stone-700/60 bg-stone-900/60 transition ${expanded ? 'bg-stone-900' : ''}`}
+              className="catalog-record-card grant-picker-card"
+              data-active={selected?.id === f.id}
             >
-              <div className="flex items-start gap-2 p-3">
+              <div className="grant-picker-row">
                 <button
                   type="button"
-                  onClick={() => onPick(f)}
-                  className="min-w-0 flex-1 truncate rounded text-left text-sm font-medium text-stone-100 hover:text-ember"
+                  onClick={() => setSelected(f)}
+                  aria-pressed={selected?.id === f.id}
+                  className="grant-picker-select"
                 >
                   {sentenceCase(f.name)}
                 </button>
@@ -1113,23 +1039,14 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
                     onClick={() => setExpandedId(expanded ? null : f.id)}
                     title={expanded ? 'Свернуть' : 'Подробнее'}
                     aria-expanded={expanded}
-                    className="flex shrink-0 items-center justify-center rounded p-1 text-stone-400 transition hover:text-stone-100"
+                    className="grant-picker-expand"
                   >
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className={`size-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                      aria-hidden="true"
-                    >
-                      <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <LoreIcon name="chevron" className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
                   </button>
                 </span>
               </div>
               {expanded && (
-                <div className="border-t border-stone-700/50 px-3 py-2.5">
+                <div className="grant-picker-detail">
                   <FeatureDetail featureId={f.id} />
                 </div>
               )}
@@ -1145,15 +1062,8 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
         )}
       </div>
 
-      {showFilters && (
-        <FilterModal
-          filters={catalog.features.filters}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
-    </Modal>
+
+    </Drawer>
   )
 }
 
@@ -1164,10 +1074,10 @@ function FeatsSection({ character, onError, reload }) {
   const [featPickerOpen, setFeatPickerOpen] = useState(false)
   const [openFeatId, setOpenFeatId] = useState(null)
 
-  // Эффекты выданной черты приходят так же, как у особенности: плоские
-  // списки — в cf.effects, уже отвеченные выборы — в cf.choices.
+  // Эффекты выданной черты приходят так же, как у особенности:
+  // группы — в cf.effects ([{ effect_type, items }]), уже отвеченные выборы — в cf.choices.
   const hasGrantedEffects = (cf) => {
-    const flatHasAny = Object.values(cf.effects ?? {}).some((v) => Array.isArray(v) && v.length > 0)
+    const flatHasAny = (cf.effects ?? []).length > 0
     const choicesHaveAny = (cf.choices ?? []).some((choice) =>
       Object.entries(choice).some(
         ([key, value]) => !key.startsWith('choice_') && Array.isArray(value) && value.length > 0,
@@ -1212,17 +1122,14 @@ function FeatsSection({ character, onError, reload }) {
   }
 
   return (
-    <Section title="Черты">
-      <div className="-mt-1 mb-3 flex items-center justify-between">
-        <p className="text-sm text-stone-400">Черт: {charFeats.length}</p>
-        <button
+    <Section title="Черты" count={charFeats.length} action={<Button
           type="button"
           onClick={() => setFeatPickerOpen(true)}
-          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+          size="sm" variant="ghost"
         >
-          Добавить...
-        </button>
-      </div>
+          <PlusIcon />Выдать черту
+        </Button>}>
+
 
       {charFeats.length === 0 ? (
         <p className="text-sm text-stone-500">Черт нет.</p>
@@ -1231,15 +1138,16 @@ function FeatsSection({ character, onError, reload }) {
           {charFeats.map((cf) => {
             const open = openFeatId === cf.id
             return (
-              <li key={cf.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60">
-                <div className="flex items-center justify-between gap-2 p-4">
+              <li key={cf.id} className="gm-ability-card">
+                <div className="gm-ability-card-header">
                   <button
                     type="button"
                     onClick={() => setOpenFeatId(open ? null : cf.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    aria-expanded={open}
+                    className="gm-ability-toggle"
                   >
-                    <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
-                    <span className="truncate text-sm font-medium text-stone-100">
+                    <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
+                    <span className="gm-ability-name">
                       {cf.feat?.name ? sentenceCase(cf.feat.name) : `Черта #${cf.feat_id}`}
                     </span>
                     {hasGrantedEffects(cf) && (
@@ -1256,7 +1164,7 @@ function FeatsSection({ character, onError, reload }) {
                   <Button
                     type="button"
                     variant="danger"
-                    size="xs"
+                    size="sm"
                     className="shrink-0"
                     onClick={() => removeFeat(cf.id)}
                   >
@@ -1267,7 +1175,7 @@ function FeatsSection({ character, onError, reload }) {
                   <RichText
                     value={cf.feat?.description}
                     tail={cf.feat?.effects_summary}
-                    className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400"
+                    className="gm-ability-content"
                   />
                 )}
               </li>
@@ -1331,11 +1239,10 @@ function FeaturesSection({ character, onError, reload }) {
   const featureName = (cf) => (cf.feature?.name ? sentenceCase(cf.feature.name) : `Особенность #${cf.feature_id}`)
 
   // Эффекты выданной особенности приходят не в том же виде, что у каталожной
-  // FeatureResponse: плоские списки лежат в cf.effects (без единого именования
-  // ключей), плюс уже отвеченные выборы — в cf.choices.Бейдж «Даёт эффекты»
+  // FeatureResponse: группы [{ effect_type, items }] лежат в cf.effects, плюс уже отвеченные выборы — в cf.choices.Бейдж «Даёт эффекты»
   // просто проверяет, есть ли там хоть что-то непустое.
   const hasGrantedEffects = (cf) => {
-    const flatHasAny = Object.values(cf.effects ?? {}).some((v) => Array.isArray(v) && v.length > 0)
+    const flatHasAny = (cf.effects ?? []).length > 0
     const choicesHaveAny = (cf.choices ?? []).some((choice) =>
       Object.entries(choice).some(
         ([key, value]) => !key.startsWith('choice_') && Array.isArray(value) && value.length > 0,
@@ -1346,17 +1253,14 @@ function FeaturesSection({ character, onError, reload }) {
   const hasGrantedChoices = (cf) => (cf.choices ?? []).length > 0
 
   return (
-    <Section title="Особенности">
-      <div className="-mt-1 mb-3 flex items-center justify-between">
-        <p className="text-sm text-stone-400">Особенностей: {otherFeatures.length}</p>
-        <button
+    <Section title="Особенности" count={otherFeatures.length} action={<Button
           type="button"
           onClick={() => setFeaturePickerOpen(true)}
-          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+          size="sm" variant="ghost"
         >
-          Добавить...
-        </button>
-      </div>
+          <PlusIcon />Выдать особенность
+        </Button>}>
+
 
       {otherFeatures.length === 0 ? (
         <p className="text-sm text-stone-500">Особенностей нет.</p>
@@ -1365,15 +1269,16 @@ function FeaturesSection({ character, onError, reload }) {
           {otherFeatures.map((cf) => {
             const open = openFeatureId === cf.id
             return (
-              <li key={cf.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60">
-                <div className="flex items-center justify-between gap-2 p-4">
+              <li key={cf.id} className="gm-ability-card">
+                <div className="gm-ability-card-header">
                   <button
                     type="button"
                     onClick={() => setOpenFeatureId(open ? null : cf.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    aria-expanded={open}
+                    className="gm-ability-toggle"
                   >
-                    <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
-                    <span className="truncate text-sm font-medium text-stone-100">{featureName(cf)}</span>
+                    <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
+                    <span className="gm-ability-name">{featureName(cf)}</span>
                     {hasGrantedEffects(cf) && (
                       <Badge tone="good" className="shrink-0">
                         Даёт эффекты
@@ -1386,13 +1291,13 @@ function FeaturesSection({ character, onError, reload }) {
                     )}
                   </button>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cf)}>
+                    <Button type="button" variant="danger" size="sm" onClick={() => setRemoveTarget(cf)}>
                       Убрать
                     </Button>
                   </div>
                 </div>
                 {open && (cf.feature?.description || cf.feature?.effects_summary || cf.notes) && (
-                  <div className="border-t border-stone-800 px-4 py-3 text-xs text-stone-400">
+                  <div className="gm-ability-content">
                     {cf.feature?.description || cf.feature?.effects_summary ? (
                       <RichText value={cf.feature?.description} tail={cf.feature?.effects_summary} />
                     ) : null}
@@ -1435,10 +1340,11 @@ function FeaturesSection({ character, onError, reload }) {
 }
 
 // Дополнительные заклинания, выданные ГМ: выдаются/удаляются вне ячеек
-// (homebrew-бонус) через modalreuse SpellPickerModal из каталога.
+// (homebrew-бонус) через modalreuse SpellPickerModal из каталога. Заклинания от
+// особенностей/черт здесь не показываются — они уходят только вместе с особенностью.
 function GrantedSpellsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
-  const { data: grantedSpells = [] } = useCharacterGrantedSpells(character.id)
+  const { data: grantedSpells = [] } = useCharacterGmSpells(character.id)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
 
@@ -1457,10 +1363,10 @@ function GrantedSpellsSection({ character, onError, reload }) {
     }
   }
 
-  const removeSpell = async (cs) => {
+  const removeSpell = async (sp) => {
     setRemoveTarget(null)
     try {
-      await charactersApi.gmPanel.spells.remove(character.id, cs.id)
+      await charactersApi.gmPanel.spells.remove(character.id, sp.id)
       await invalidate()
     } catch (e) {
       onError(e)
@@ -1468,46 +1374,41 @@ function GrantedSpellsSection({ character, onError, reload }) {
   }
 
   return (
-    <Section title="Дополнительные заклинания">
-      <div className="-mt-1 mb-3 flex items-center justify-between">
-        <p className="text-sm text-stone-400">Выдано ГМ: {grantedSpells.length}</p>
-        <button
+    <Section title="Дополнительные заклинания" count={grantedSpells.length} action={<Button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+          size="sm" variant="ghost"
         >
-          Добавить...
-        </button>
-      </div>
+          <PlusIcon />Выдать заклинание
+        </Button>}>
+
 
       {grantedSpells.length === 0 ? (
         <p className="text-sm text-stone-500">Дополнительных заклинаний нет.</p>
       ) : (
         <ul className="space-y-2">
-          {grantedSpells.map((cs) => {
-            const sp = cs.spell || {}
-            return (
-              <li key={cs.id} className="flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-stone-100">
-                    {sp.name ? sentenceCase(sp.name) : `Заклинание #${cs.spell_id}`}
-                  </p>
-                  {sp.school && (
-                    <span className="text-xs text-stone-500">{label(sp.school)}</span>
-                  )}
-                </div>
-                <Button type="button" variant="danger" size="xs" onClick={() => setRemoveTarget(cs)}>
-                  Убрать
-                </Button>
-              </li>
-            )
-          })}
+          {grantedSpells.map((sp) => (
+            <li key={sp.id} className="gm-ability-card gm-ability-card-header">
+              <div className="min-w-0 flex-1">
+                <p className="gm-ability-name">
+                  {sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}
+                </p>
+                {sp.school && (
+                  <span className="text-xs text-stone-500">{label(sp.school)}</span>
+                )}
+              </div>
+              <Button type="button" variant="danger" size="sm" onClick={() => setRemoveTarget(sp)}>
+                Убрать
+              </Button>
+            </li>
+          ))}
         </ul>
       )}
 
       {pickerOpen && (
         <SpellPickerModal
-          excludeIds={grantedSpells.map((cs) => cs.spell_id)}
+          drawer
+          excludeIds={grantedSpells.map((sp) => sp.id)}
           onPick={grantSpell}
           onClose={() => setPickerOpen(false)}
         />
@@ -1519,7 +1420,7 @@ function GrantedSpellsSection({ character, onError, reload }) {
             <>
               Вы точно хотите убрать{' '}
               <span className="font-semibold text-stone-100">
-                {removeTarget.spell?.name ? sentenceCase(removeTarget.spell.name) : `Заклинание #${removeTarget.spell_id}`}
+                {removeTarget.name ? sentenceCase(removeTarget.name) : `Заклинание #${removeTarget.id}`}
               </span>{' '}
               у персонажа? Это действие необратимо.
             </>
@@ -1532,39 +1433,11 @@ function GrantedSpellsSection({ character, onError, reload }) {
   )
 }
 
-function ItemGrantModal({ catalogItem, onConfirm, onClose }) {
-  const [qty, setQty] = useState('1')
-
-  return (
-    <Modal title="Выдать предмет" subtitle={catalogItem?.name && sentenceCase(catalogItem.name)} onClose={onClose} size="sm">
-      <Field label="Количество">
-        <Input
-          type="number"
-          min={1}
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onConfirm(Math.max(1, Number(qty) || 1))}
-          autoFocus
-        />
-      </Field>
-      <div className="mt-4 modal-actions">
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Отмена
-        </Button>
-        <Button type="button" onClick={() => onConfirm(Math.max(1, Number(qty) || 1))}>
-          Выдать
-        </Button>
-      </div>
-    </Modal>
-  )
-}
-
 function ItemsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: items = [] } = useCharacterItems(character.id)
   const [confirmTarget, setConfirmTarget] = useState(null)
   const [infoItemId, setInfoItemId] = useState(null)
-  const [addTarget, setAddTarget] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [qtyEdits, setQtyEdits] = useState({})
 
@@ -1616,19 +1489,14 @@ function ItemsSection({ character, onError, reload }) {
   }
 
   return (
-    <Section title="Снаряжение персонажа">
-      <div className="-mt-1 mb-3 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-400">
-          Инвентарь ({items.length})
-        </p>
-        <button
+    <Section title="Снаряжение персонажа" count={items.length} action={<Button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="my-[5px] rounded border border-stone-700 px-2 py-1 text-xs text-stone-300 transition hover:bg-stone-800"
+          size="sm" variant="ghost"
         >
-          + Выдать предмет
-        </button>
-      </div>
+          <PlusIcon />Выдать предмет
+        </Button>}>
+
 
       {items.length === 0 ? (
         <p className="text-sm text-stone-500">Снаряжения пока нет.</p>
@@ -1636,11 +1504,11 @@ function ItemsSection({ character, onError, reload }) {
         <ul className="space-y-2">
           {items.map((ci) => {
             return (
-              <li key={ci.id} className="flex items-center gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5">
+              <li key={ci.id} className="gm-ability-card gm-ability-card-header">
                 <button
                   type="button"
                   onClick={() => setInfoItemId(ci.item_id)}
-                  className="link-ember min-w-0 flex-1 truncate text-left font-display text-sm font-bold"
+                  className="gm-ability-name min-w-0 flex-1 text-left hover:text-ember"
                   title="Показать предмет"
                 >
                   {ci.item?.name ? sentenceCase(ci.item.name) : `Предмет #${ci.item_id}`}
@@ -1671,10 +1539,11 @@ function ItemsSection({ character, onError, reload }) {
 
       {pickerOpen && (
         <ItemPickerModal
+          drawer
           title="Выдать предмет"
           subtitle="Поиск и выбор предмета"
           excludeIds={new Set()}
-          onPick={(it) => setAddTarget(it)}
+          onPick={(it, qty) => addItem(it, qty)}
           onClose={() => setPickerOpen(false)}
         />
       )}
@@ -1703,46 +1572,31 @@ function ItemsSection({ character, onError, reload }) {
         />
       )}
 
-      {addTarget && (
-        <ItemGrantModal
-          catalogItem={addTarget}
-          onClose={() => setAddTarget(null)}
-          onConfirm={(qty) => {
-            const target = addTarget
-            setAddTarget(null)
-            addItem(target, qty)
-          }}
-        />
-      )}
     </Section>
   )
 }
 
 export default function GmCharacterPanel({ character, onError, reload }) {
+  const [tab, setTab] = useState('main')
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[45fr_55fr]">
-      <div className="min-w-0 space-y-4">
+    <div className="gm-character-panel">
+      <EditorTabs tabs={[['main', 'Основное'], ['stats', 'Характеристики'], ['abilities', 'Умения'], ['equipment', 'Снаряжение']]} value={tab} onChange={setTab} label="Разделы редактора персонажа" />
+      <div role="tabpanel" aria-label="Основное" hidden={tab !== 'main'} className="article-editor-panel gm-editor-sections">
         <LevelSection character={character} onError={onError} reload={reload} />
         <HpSection character={character} onError={onError} reload={reload} />
+      </div>
+      <div role="tabpanel" aria-label="Характеристики" hidden={tab !== 'stats'} className="article-editor-panel gm-editor-sections">
+        <StatsSection character={character} onError={onError} reload={reload} />
+        <ExpertiseSection character={character} onError={onError} reload={reload} />
         <ArmorProficienciesSection character={character} onError={onError} reload={reload} />
         <WeaponProficienciesSection character={character} onError={onError} reload={reload} />
       </div>
-      <div className="min-w-0">
-        <ExpertiseSection character={character} onError={onError} reload={reload} />
-      </div>
-      <div className="lg:col-span-2">
+      <div role="tabpanel" aria-label="Умения" hidden={tab !== 'abilities'} className="article-editor-panel gm-editor-sections">
         <FeatsSection character={character} onError={onError} reload={reload} />
-      </div>
-      <div className="lg:col-span-2">
         <FeaturesSection character={character} onError={onError} reload={reload} />
-      </div>
-      <div className="lg:col-span-2">
         <GrantedSpellsSection character={character} onError={onError} reload={reload} />
       </div>
-      <div className="lg:col-span-2">
-        <StatsSection character={character} onError={onError} reload={reload} />
-      </div>
-      <div className="lg:col-span-2">
+      <div role="tabpanel" aria-label="Снаряжение" hidden={tab !== 'equipment'} className="article-editor-panel gm-editor-sections">
         <ItemsSection character={character} onError={onError} reload={reload} />
       </div>
     </div>

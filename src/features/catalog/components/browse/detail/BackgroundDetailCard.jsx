@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { fieldLabel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Card, RichText } from '@/components/ui'
-import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue, SkillChips } from './detailHelpers.jsx'
+import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue, SkillChips, TagChips } from './detailHelpers.jsx'
 
 function itemCountPlural(n) {
   const n10 = n % 10
@@ -58,7 +58,7 @@ export default function BackgroundDetailCard({ bg }) {
   const extra = Object.entries(bg).filter(
     ([k]) =>
       !skipFields.has(k) &&
-      !['description', 'features', 'granted_skills', 'starting_items', 'suggestions', 'starting_choice_groups', 'starting_gold'].includes(k)
+      !['description', 'features', 'granted_skills', 'starting_items', 'suggestions', 'starting_choice_groups', 'starting_gold', 'tags'].includes(k)
   )
   const extraVisible = extra.filter(([, v]) => !isEmptyValue(v))
 
@@ -68,6 +68,7 @@ export default function BackgroundDetailCard({ bg }) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(bg.name)}</h1>
         </div>
+        <TagChips tags={bg.tags} className="mt-1.5" />
       </div>
 
       {bg.description && <RichText value={bg.description} className="description-blockquote" />}

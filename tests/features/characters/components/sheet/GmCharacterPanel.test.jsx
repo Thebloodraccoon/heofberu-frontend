@@ -5,6 +5,7 @@ import GmCharacterPanel from '@/features/characters/components/sheet/GmCharacter
 import { renderWithProviders } from '@tests/helpers/render.jsx'
 import { byText } from '@tests/helpers/byText.js'
 import { charactersApi } from '@/features/characters/api.js'
+import { catalogApi } from '@/features/catalog/api.js'
 import {
   useCharacterFeatures,
   useCharacterFeats,
@@ -40,6 +41,8 @@ vi.mock('@/features/characters/queries.js', () => ({
   useCharacterStats: vi.fn(() => ({ data: null })),
   useCharacterItems: vi.fn(() => ({ data: [] })),
   useCharacterMaxLevel: vi.fn(() => ({ data: {} })),
+  useCharacterProficiencies: vi.fn(() => ({ data: { armor: [] } })),
+  useCharacterGmSpells: vi.fn(() => ({ data: [] })),
 }))
 
 vi.mock('@/features/catalog/queries.js', () => ({
@@ -53,7 +56,7 @@ vi.mock('@/features/catalog/queries.js', () => ({
 
 vi.mock('@/features/characters/components/wizard/AsiChoiceModal.jsx', () => ({ default: () => null }))
 vi.mock('@/features/catalog/components/browse/FilterModal.jsx', () => ({ default: () => null }))
-vi.mock('@/features/catalog/components/browse/Pagination.jsx', () => ({ default: () => null }))
+vi.mock('@/components/ui/Pagination.jsx', () => ({ default: () => null }))
 vi.mock('@/features/catalog/components/browse/detail/ItemInfoModal.jsx', () => ({ default: () => null }))
 
 const character = {
@@ -84,10 +87,13 @@ const GRANTED_FEATURE = {
   feature: { id: 5, name: 'Печать древней клятвы', description: 'Особая печать.', source_type: 'OTHER' },
 }
 
-const renderPanel = () =>
-  renderWithProviders(
+const renderPanel = (tab = 'Умения') => {
+  const result = renderWithProviders(
     <GmCharacterPanel character={character} onError={vi.fn()} reload={vi.fn().mockResolvedValue()} />,
   )
+  fireEvent.click(screen.getByRole('tab', { name: tab }))
+  return result
+}
 
 const SECTION_TITLES = [
   'Уровень персонажа',
@@ -110,12 +116,53 @@ beforeEach(() => {
 })
 
 describe('GmCharacterPanel unified grid', () => {
-  it('shows every editor section at once without a tab bar', () => {
+  it('requires selection and an ability option in the feat grant drawer', async () => {
+    const feat = { id: 77, name: 'Дар силы', ability_score_increases: [{ id: 71, ability: 'STR', amount: 1 }, { id: 72, ability: 'DEX', amount: 1 }] }
+    const listSpy = vi.spyOn(catalogApi.feats, 'list').mockResolvedValue({ items: [feat], total: 1 })
+    useFeatDetail.mockReturnValue({ data: feat, isFetching: false })
+    const user = userEvent.setup()
     renderPanel()
+    await user.click(screen.getByRole('button', { name: 'Выдать черту' }))
+    const drawer = screen.getByRole('dialog', { name: 'Выдать черту' })
+    const confirm = within(drawer).getByRole('button', { name: 'Выдать черту' })
+    expect(confirm).toBeDisabled()
+    await user.click(await within(drawer).findByRole('button', { name: 'Дар силы' }))
+    expect(confirm).toBeDisabled()
+    expect(charactersApi.gmPanel.feats.add).not.toHaveBeenCalled()
+    await user.click(within(drawer).getAllByRole('radio')[0])
+    await user.click(confirm)
+    expect(charactersApi.gmPanel.feats.add).toHaveBeenCalledWith(7, { feat_id: 77, ability_score_increase_id: 71 })
+    listSpy.mockRestore()
+  })
+
+  it('confirms an explicitly selected feature in the grant drawer', async () => {
+    const listSpy = vi.spyOn(catalogApi.features, 'list').mockResolvedValue({ items: [OTHER_FEATURE], total: 1 })
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: 'Выдать особенность' }))
+    const drawer = screen.getByRole('dialog', { name: 'Выдать особенность' })
+    const confirm = within(drawer).getByRole('button', { name: 'Выдать особенность' })
+    expect(confirm).toBeDisabled()
+    await user.click(await within(drawer).findByRole('button', { name: OTHER_FEATURE.name }))
+    expect(charactersApi.gmPanel.features.add).not.toHaveBeenCalled()
+    await user.click(confirm)
+    expect(charactersApi.gmPanel.features.add).toHaveBeenCalledWith(7, { feature_id: 5 })
+    listSpy.mockRestore()
+  })
+  it('groups editor sections into tabs and preserves drafts on switching', () => {
+    renderPanel('Основное')
     for (const title of SECTION_TITLES) {
-      expect(screen.getByText(title)).toBeInTheDocument()
+      expect(screen.getAllByText(title).length).toBeGreaterThan(0)
     }
-    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(screen.getByRole('tablist')).toBeVisible()
+    expect(screen.getByRole('tabpanel', { name: 'Основное' })).toBeVisible()
+    const delta = screen.getByPlaceholderText('Введите число')
+    fireEvent.change(delta, { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('tab', { name: 'Характеристики' }))
+    expect(screen.getByRole('tabpanel', { name: 'Характеристики' })).toBeVisible()
+    expect(screen.queryByPlaceholderText('Введите число')).not.toBeVisible()
+    fireEvent.click(screen.getByRole('tab', { name: 'Основное' }))
+    expect(screen.getByPlaceholderText('Введите число')).toHaveValue(5)
   })
 })
 
@@ -142,8 +189,8 @@ describe('GmCharacterPanel feature management', () => {
     const user = userEvent.setup()
     renderPanel()
 
-    const featuresCard = screen.getByText('Особенности').closest('div')
-    await user.click(within(featuresCard).getByRole('button', { name: 'Добавить...' }))
+    const featuresCard = screen.getByText('Особенности').closest('section')
+    await user.click(within(featuresCard).getByRole('button', { name: 'Добавить' }))
     expect(useFeatures).toHaveBeenCalledWith({ size: 100, source_type: 'OTHER' })
 
     await user.click(screen.getByRole('button', { name: 'Печать древней клятвы' }))
@@ -170,7 +217,7 @@ describe('GmCharacterPanel feature management', () => {
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
 
     await waitFor(() => {
-      expect(charactersApi.gmPanel.features.update).toHaveBeenCalledWith(7, 10, { notes: '<p>Новая заметка</p>' })
+      expect(charactersApi.gmPanel.features.update).toHaveBeenCalledWith(7, 10, { notes: 'Новая заметка' })
     })
   })
 
@@ -189,10 +236,10 @@ describe('GmCharacterPanel feature management', () => {
 })
 
 describe('GmCharacterPanel feat granting', () => {
-  const featsCard = () => screen.getByText('Черты').closest('div')
+  const featsCard = () => screen.getByText('Черты').closest('section')
 
   const openFeatPicker = async (user) => {
-    await user.click(within(featsCard()).getByRole('button', { name: 'Добавить...' }))
+    await user.click(within(featsCard()).getByRole('button', { name: 'Добавить' }))
   }
 
   it('forces a feat choice: confirm disabled until a row is selected', async () => {
@@ -367,7 +414,7 @@ describe('GmCharacterPanel item stacks', () => {
       refetch: vi.fn(),
     })
     const user = userEvent.setup()
-    renderPanel()
+    renderPanel('Снаряжение')
 
     await user.click(within(document.getElementById('gm-item-picker-list')).getByRole('button', { name: /Меч/i }))
     const grantModal = screen.getByRole('heading', { name: 'Выдать предмет' }).closest('.bg-stone-900')
@@ -382,7 +429,7 @@ describe('GmCharacterPanel item stacks', () => {
   it('updates a stack via gm-panel PATCH pointing at the stack id', async () => {
     useCharacterItems.mockReturnValue({ data: [STACK] })
     const user = userEvent.setup()
-    renderPanel()
+    renderPanel('Снаряжение')
 
     await user.click(screen.getByRole('button', { name: /Изменить/i }))
     await user.clear(screen.getByLabelText('Количество'))
@@ -402,7 +449,7 @@ describe('GmCharacterPanel item stacks', () => {
   it('removes a stack via gm-panel DELETE pointing at the stack id', async () => {
     useCharacterItems.mockReturnValue({ data: [STACK] })
     const user = userEvent.setup()
-    renderPanel()
+    renderPanel('Снаряжение')
 
     await user.click(screen.getByRole('button', { name: /Убрать/i }))
     await user.click(screen.getByRole('button', { name: 'Да, удалить' }))

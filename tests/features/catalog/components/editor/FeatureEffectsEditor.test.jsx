@@ -19,9 +19,9 @@ vi.mock('@/features/catalog/api.js', async () => {
 })
 
 // Редактор управляемый: харнесс держит value в стейте, как это делают формы.
-function Harness({ initial = {} }) {
+function Harness({ initial = {}, inline = false }) {
   const [tree, setTree] = useState(initial)
-  return <FeatureEffectsEditor value={tree} onChange={setTree} />
+  return <FeatureEffectsEditor value={tree} onChange={setTree} inline={inline} />
 }
 
 const renderEditor = (initial) => renderWithProviders(<Harness initial={initial} />)
@@ -34,6 +34,47 @@ describe('FeatureEffectsEditor', () => {
     catalogApi.spells.list.mockResolvedValue({
       items: [{ id: 9, name: 'Огненный шар' }],
     })
+  })
+
+  it('edits effects and chooses a spell in place without opening another dialog', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<Harness inline />)
+    await user.click(screen.getByRole('button', { name: 'Добавить статичный эффект' }))
+    await user.click(screen.getByRole('button', { name: 'Заклинания' }))
+    await user.click(screen.getByRole('button', { name: 'Добавить заклинание' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Название или описание…')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Фильтр/i }))
+    expect(screen.getByRole('region', { name: 'Фильтры' })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^огненный шар/i }))
+    expect(screen.queryByPlaceholderText('Название или описание…')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Добавить заклинание' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(screen.getByText(/Заклинания/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'К эффектам' })).not.toBeInTheDocument()
+  })
+
+  it('returns to the correct choice option after picking a spell and preserves drafts on back', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<Harness inline />)
+    await user.click(screen.getByRole('button', { name: 'Добавить выбор эффектов' }))
+    await user.click(screen.getByRole('button', { name: 'Заклинания' }))
+    await user.click(screen.getByRole('button', { name: 'Добавить вариант' }))
+    await user.click(screen.getByRole('button', { name: 'Добавить вариант' }))
+    await user.click(screen.getAllByRole('button', { name: 'Добавить заклинание' })[1])
+    expect(screen.queryByText('Вариант 1')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^огненный шар/i }))
+    expect(screen.getByText('Вариант 2')).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Добавить заклинание' })[1])
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^огненный шар/i })).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'К эффекту' })).toHaveClass('article-back')
+    const closePicker = screen.getByRole('button', { name: 'Закрыть' })
+    expect(closePicker.closest('footer')).not.toBeNull()
+    await user.click(closePicker)
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(screen.getByText(/Заклинания · выбрать 1 из 2/)).toBeInTheDocument()
   })
 
   it('renders empty static effects and choice groups sections', async () => {
@@ -74,9 +115,9 @@ describe('FeatureEffectsEditor', () => {
     const user = userEvent.setup()
     renderEditor()
 
-    await user.click(screen.getByRole('button', { name: '+ Добавить статичный эффект' }))
+    await user.click(screen.getByRole('button', { name: 'Добавить статичный эффект' }))
     await user.click(await screen.findByRole('button', { name: 'Изменение характеристик' }))
-    await user.click(await screen.findByRole('button', { name: '+ Увеличение' }))
+    await user.click(await screen.findByRole('button', { name: 'Увеличение' }))
     await user.click(await screen.findByRole('button', { name: 'Сила' }))
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
 
@@ -100,9 +141,9 @@ describe('FeatureEffectsEditor', () => {
     const user = userEvent.setup()
     renderEditor()
 
-    await user.click(screen.getByRole('button', { name: '+ Добавить выбор эффектов' }))
+    await user.click(screen.getByRole('button', { name: 'Добавить выбор эффектов' }))
     await user.click(await screen.findByRole('button', { name: 'Владение навыками' }))
-    await user.click(await screen.findByRole('button', { name: '+ Добавить вариант' }))
+    await user.click(await screen.findByRole('button', { name: 'Добавить вариант' }))
 
     expect(screen.getByText('Вариант 1')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
@@ -126,16 +167,16 @@ describe('FeatureEffectsEditor', () => {
     expect(screen.getAllByText('Ловкость').length).toBeGreaterThan(0)
   })
 
-  it('adds a spell effect through the search-and-browse picker modal', async () => {
+  it('adds a spell effect through search in the same panel', async () => {
     const user = userEvent.setup()
     renderEditor()
 
-    await user.click(screen.getByRole('button', { name: '+ Добавить статичный эффект' }))
+    await user.click(screen.getByRole('button', { name: 'Добавить статичный эффект' }))
     await user.click(await screen.findByRole('button', { name: 'Заклинания' }))
-    await user.click(await screen.findByRole('button', { name: '+ Заклинание' }))
+    await user.click(await screen.findByRole('button', { name: 'Добавить заклинание' }))
 
-    expect(await screen.findByPlaceholderText('Поиск заклинания…')).toBeInTheDocument()
-    await user.click(await screen.findByRole('button', { name: 'Огненный шар' }))
+    expect(await screen.findByPlaceholderText('Название или описание…')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^огненный шар/i }))
 
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
     expect(await screen.findByText(/Заклинания/)).toBeInTheDocument()

@@ -1,3 +1,4 @@
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
 import { useCharacterItems } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
@@ -58,7 +59,7 @@ function ItemRow({ ci, open, onToggle }) {
         onClick={onToggle}
         className="flex w-full items-center gap-2 px-4 py-2.5 text-left"
       >
-        <span className={`text-stone-500 transition ${open ? 'rotate-90' : ''}`}>›</span>
+        <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
           {item.name ? sentenceCase(item.name) : `Предмет #${ci.item_id}`}
           {ci.quantity > 1 && <span className="ml-2 text-xs font-normal text-stone-400">×{ci.quantity}</span>}

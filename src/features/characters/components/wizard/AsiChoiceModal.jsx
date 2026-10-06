@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ABILITY_CAP, STATS, abilityName, mod } from '@/lib/utils/ability.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
 import { Button, Input, RichText, Select, Skeleton } from '@/components/ui'
@@ -222,9 +223,9 @@ export default function AsiChoiceModal({
         (!needsIncrease || effectiveIncreaseId != null) &&
         allOtherGroupsComplete
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm max-sm:p-2">
-      <div className="fantasy-panel w-full max-w-2xl rounded-lg max-sm:max-h-[90vh] max-sm:overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 z-[300] flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm max-sm:p-2">
+      <div className="fantasy-panel popup-panel w-full max-w-2xl rounded-lg max-sm:max-h-[90vh] max-sm:overflow-y-auto">
         <div className="px-6 py-4 max-sm:px-[10px] max-sm:py-[10px]">
           <h3 className="font-display text-lg font-bold text-stone-100">Улучшение характеристик</h3>
           <p className="mt-0.5 text-sm text-stone-400">Уровень {level}: вы на развилке — у вас есть выбор.</p>
@@ -533,6 +534,7 @@ export default function AsiChoiceModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
