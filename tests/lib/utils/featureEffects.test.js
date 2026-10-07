@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildChoiceGroupsPayload,
-  buildFixedEffectsPayload,
   effectBadges,
   effectSummaryLines,
   flattenEffectGroups,
   normalizeEffects,
   normalizeEffectsTree,
+  syncFeatureEffects,
 } from '@/lib/utils/featureEffects.js'
 
 describe('normalizeEffects', () => {
@@ -33,8 +32,6 @@ describe('normalizeEffects', () => {
   })
 })
 
-const items = (groups, type) => groups.find((g) => g.effect_type === type)?.items
-
 describe('flattenEffectGroups', () => {
   it('adds flat *_effects next to every nested effects: [{ effect_type, items }] and keeps effects', () => {
     const data = flattenEffectGroups({
@@ -60,128 +57,180 @@ describe('flattenEffectGroups', () => {
   })
 })
 
-describe('buildFixedEffectsPayload', () => {
-  it('normalizes amounts and preserves row ids from a GET-backed tree (backend diffs writes by id)', () => {
-    const { static_groups: groups } = buildFixedEffectsPayload({
-      ability_effects: [{ id: 1, ability: 'STR', amount: '2', new_cap: '' }],
-      skill_effects: [{ id: 4, skill_id: 7, grants_expertise: true }],
-      saving_throw_effects: [{ ability: 'DEX' }],
-      armor_effects: [{ armor_type: 'LIGHT' }],
-      weapon_effects: [{ weapon_category: 'MARTIAL', item_id: null }],
-      spell_effects: [{ spell_id: 9, always_prepared: true, counts_against_known_limit: false }],
-    })
-    expect(items(groups, 'ability')).toEqual([{ id: 1, ability: 'STR', amount: 2, new_cap: null }])
-    expect(items(groups, 'skill')).toEqual([{ id: 4, skill_id: 7, grants_expertise: true }])
-    // Строки без id (только что добавленные в редакторе) идут как id: null —
-    // бэк создаёт новую строку.
-    expect(items(groups, 'saving_throw')).toEqual([{ id: null, ability: 'DEX' }])
-    expect(items(groups, 'armor')).toEqual([{ id: null, armor_type: 'LIGHT' }])
-    expect(items(groups, 'weapon')).toEqual([{ id: null, weapon_category: 'MARTIAL' }])
-    expect(items(groups, 'spell')).toEqual([
-      {
-        id: null,
-        spell_id: 9,
-        spell_school: null,
-        spell_level_max: null,
-        always_prepared: true,
-        counts_against_known_limit: false,
+function mockOps() {
+  const calls = []
+  const rec = (name) => (...args) => {
+    calls.push([name, ...args])
+    return Promise.resolve()
+  }
+  return {
+    calls,
+    effects: { add: rec('effects.add'), patch: rec('effects.patch'), remove: rec('effects.remove') },
+    choiceGroups: {
+      create: rec('groups.create'),
+      patch: rec('groups.patch'),
+      remove: rec('groups.remove'),
+      options: {
+        create: rec('options.create'),
+        patch: rec('options.patch'),
+        remove: rec('options.remove'),
+        effects: {
+          add: rec('optionEffects.add'),
+          patch: rec('optionEffects.patch'),
+          remove: rec('optionEffects.remove'),
+        },
       },
+    },
+  }
+}
+
+const FEATURE_ID = 7
+
+describe('syncFeatureEffects: fixed effects', () => {
+  it('adds the rows the editor gained with one POST and without ids', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(ops, FEATURE_ID, {}, {
+      ability_effects: [{ ability: 'STR', amount: '2', new_cap: '' }],
+      armor_effects: [{ armor_type: 'LIGHT' }],
+    })
+    expect(ops.calls).toEqual([
+      ['effects.add', FEATURE_ID, {
+        static_groups: [
+          { effect_type: 'ability', items: [{ ability: 'STR', amount: 2, new_cap: null }] },
+          { effect_type: 'armor', items: [{ armor_type: 'LIGHT' }] },
+        ],
+      }],
     ])
   })
 
-  it('switches weapon effect to a concrete item when item_id is set', () => {
-    const { static_groups: groups } = buildFixedEffectsPayload({
-      weapon_effects: [{ weapon_category: null, item_id: 12 }],
+  it('sends a spell row as spell_id alone (the rest of the fields are rejected by the backend)', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(ops, FEATURE_ID, {}, {
+      spell_effects: [{ spell_id: 1, spell_school: 'EVOCATION', always_prepared: true }],
     })
-    expect(items(groups, 'weapon')).toEqual([{ id: null, item_id: 12 }])
-  })
-
-  it('always sends all six groups (empty items clears a type)', () => {
-    const payload = buildFixedEffectsPayload({})
-    expect(Object.keys(payload)).toEqual(['static_groups'])
-    expect(payload.static_groups.map((g) => g.effect_type)).toEqual([
-      'ability', 'skill', 'saving_throw', 'armor', 'weapon', 'spell',
+    expect(ops.calls).toEqual([
+      ['effects.add', FEATURE_ID, { static_groups: [{ effect_type: 'spell', items: [{ spell_id: 1 }] }] }],
     ])
-    expect(payload.static_groups.every((g) => g.items.length === 0)).toBe(true)
   })
 
-  it('round-trips a tree read through static_groups', () => {
-    const { static_groups: groups } = buildFixedEffectsPayload({
-      static_groups: [{ effect_type: 'armor', items: [{ id: 3, armor_type: 'HEAVY' }] }],
-    })
-    expect(items(groups, 'armor')).toEqual([{ id: 3, armor_type: 'HEAVY' }])
+  it('patches only the fields that changed on an existing row', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(
+      ops,
+      FEATURE_ID,
+      { ability_effects: [{ id: 3, ability: 'STR', amount: 1, new_cap: null }] },
+      { ability_effects: [{ id: 3, ability: 'STR', amount: 2, new_cap: null }] },
+    )
+    expect(ops.calls).toEqual([['effects.patch', FEATURE_ID, 'ability', 3, { amount: 2 }]])
+  })
+
+  it('nulls the field a row stopped using (weapon category -> concrete item)', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(
+      ops,
+      FEATURE_ID,
+      { weapon_effects: [{ id: 9, weapon_category: 'MARTIAL' }] },
+      { weapon_effects: [{ id: 9, item_id: 12 }] },
+    )
+    expect(ops.calls).toEqual([
+      ['effects.patch', FEATURE_ID, 'weapon', 9, { weapon_category: null, item_id: 12 }],
+    ])
+  })
+
+  it('deletes the row that disappeared and leaves the rest alone', async () => {
+    const ops = mockOps()
+    const kept = { id: 1, skill_id: 5, grants_expertise: false }
+    await syncFeatureEffects(
+      ops,
+      FEATURE_ID,
+      { skill_effects: [kept, { id: 2, skill_id: 6, grants_expertise: false }] },
+      { skill_effects: [kept] },
+    )
+    expect(ops.calls).toEqual([['effects.remove', FEATURE_ID, 'skill', 2]])
+  })
+
+  it('sends nothing at all when the tree did not change', async () => {
+    const ops = mockOps()
+    const tree = normalizeEffectsTree({ armor_effects: [{ id: 4, armor_type: 'HEAVY' }] })
+    await syncFeatureEffects(ops, FEATURE_ID, tree, tree)
+    expect(ops.calls).toEqual([])
   })
 })
 
-describe('buildChoiceGroupsPayload', () => {
-  it('preserves group/option/effect-row ids and sends only the group-type effects per option', () => {
-    const payload = buildChoiceGroupsPayload({
+describe('syncFeatureEffects: choice groups', () => {
+  it('creates a brand-new group with its options in one POST, with the choice_type the backend requires', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(ops, FEATURE_ID, {}, {
+      choice_groups: [
+        { pick_count: 1, options: [{ ability_effects: [{ ability: 'STR', amount: 1 }] }] },
+      ],
+    })
+    expect(ops.calls).toEqual([
+      ['groups.create', FEATURE_ID, {
+        choice_type: 'ABILITY_SCORE',
+        pick_count: 1,
+        sort_order: 0,
+        options: [
+          {
+            sort_order: 0,
+            effects: [{ effect_type: 'ability', items: [{ ability: 'STR', amount: 1, new_cap: null }] }],
+          },
+        ],
+      }],
+    ])
+  })
+
+  it('patches the group, edits an option effect, adds the new option and drops the removed one', async () => {
+    const ops = mockOps()
+    const prev = {
       choice_groups: [
         {
           id: 10,
-          feature_id: 1,
+          choice_type: 'SKILL',
           pick_count: 1,
           sort_order: 0,
           options: [
-            {
-              id: 77,
-              sort_order: 0,
-              ability_effects: [{ id: 3, ability: 'DEX', amount: 1, new_cap: null }],
-              skill_effects: [{ id: 8, skill_id: 5, grants_expertise: false }],
-            },
+            { id: 77, sort_order: 0, skill_effects: [{ id: 8, skill_id: 5, grants_expertise: false }] },
+            { id: 78, sort_order: 1, skill_effects: [] },
           ],
         },
       ],
-    })
-    expect(payload.choice_groups).toHaveLength(1)
-    const group = payload.choice_groups[0]
-    expect(group.id).toBe(10)
-    expect(group.feature_id).toBeUndefined()
-    expect(group.pick_count).toBe(1)
-    expect(group.sort_order).toBe(0)
-    // choice_type обязателен у ChoiceGroupPayload на бэке — определяется по
-    // первому непустому списку эффектов у опций (тут — ability).
-    expect(group.choice_type).toBe('ABILITY_SCORE')
-    const option = group.options[0]
-    expect(option.id).toBe(77)
-    expect(option.sort_order).toBe(0)
-    // Бэк отвечает 422 на тип эффекта, отличный от типа группы.
-    expect(option.effects).toEqual([
-      { effect_type: 'ability', items: [{ id: 3, ability: 'DEX', amount: 1, new_cap: null }] },
-    ])
-    expect(option.ability_effects).toBeUndefined()
-  })
-
-  it('sends id: null for a newly added group/option so the backend creates rather than diffs', () => {
-    const payload = buildChoiceGroupsPayload({
+    }
+    const next = {
       choice_groups: [
         {
-          pick_count: 1,
-          choice_type: 'ABILITY_SCORE',
-          options: [{ ability_effects: [{ ability: 'STR', amount: 1 }] }],
+          id: 10,
+          choice_type: 'SKILL',
+          pick_count: 2,
+          sort_order: 0,
+          options: [
+            { id: 77, sort_order: 0, skill_effects: [{ id: 8, skill_id: 5, grants_expertise: true }] },
+            { skill_effects: [{ skill_id: 9 }] },
+          ],
         },
       ],
-    })
-    const group = payload.choice_groups[0]
-    expect(group.id).toBeNull()
-    expect(group.options[0].id).toBeNull()
-    expect(group.options[0].effects[0].items[0].id).toBeNull()
+    }
+    await syncFeatureEffects(ops, FEATURE_ID, prev, next)
+    expect(ops.calls).toEqual([
+      ['groups.patch', FEATURE_ID, 10, { pick_count: 2 }],
+      ['optionEffects.patch', FEATURE_ID, 10, 77, 'skill', 8, { grants_expertise: true }],
+      ['options.create', FEATURE_ID, 10, {
+        sort_order: 1,
+        effects: [{ effect_type: 'skill', items: [{ skill_id: 9, grants_expertise: false }] }],
+      }],
+      ['options.remove', FEATURE_ID, 10, 78],
+    ])
   })
 
-  it('derives choice_type from the backend GET field on an existing group', () => {
-    const payload = buildChoiceGroupsPayload({
-      choice_groups: [
-        {
-          choice_type: 'SAVING_THROW',
-          pick_count: 1,
-          options: [{ saving_throw_effects: [{ ability: 'DEX' }] }, { saving_throw_effects: [{ ability: 'CON' }] }],
-        },
-      ],
-    })
-    expect(payload.choice_groups[0].choice_type).toBe('SAVING_THROW')
-    expect(payload.choice_groups[0].options[1].effects).toEqual([
-      { effect_type: 'saving_throw', items: [{ id: null, ability: 'CON' }] },
-    ])
+  it('deletes a group the editor removed', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(
+      ops,
+      FEATURE_ID,
+      { choice_groups: [{ id: 10, choice_type: 'ARMOR', pick_count: 1, options: [] }] },
+      { choice_groups: [] },
+    )
+    expect(ops.calls).toEqual([['groups.remove', FEATURE_ID, 10]])
   })
 })
 

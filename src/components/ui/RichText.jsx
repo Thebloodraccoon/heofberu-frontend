@@ -8,7 +8,10 @@ import { renderRichHtml } from '@/lib/utils/richText.js'
 export function RichText({ value, className = '', empty = '—', tail }) {
   const body = renderRichHtml(value)
   const tailHtml = tail ? renderRichHtml(tail) : ''
-  const html = body && tailHtml ? `${body}<p><br></p>${tailHtml}` : body + tailHtml
+  // Склеиваем встык, без разделяющего пустого абзаца: отступ между описанием и
+  // резюме эффектов и так даёт блочная вёрстка .rich-text, а лишний <p><br></p>
+  // рисовал пустую строку во всех карточках особенностей и черт.
+  const html = body + tailHtml
   if (!html) {
     return (
       <p className={className}>

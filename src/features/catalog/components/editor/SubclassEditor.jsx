@@ -29,7 +29,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
     try {
       if (featureModal.index == null) {
         const created = await api.features.create(featurePayload(next, source))
-        await persistFeatureEffects(created.id, next.effects)
+        await persistFeatureEffects(created.id, next.effects, {})
       } else {
         await api.features.update(next.id, featurePayload(next))
         await persistFeatureEffects(next.id, next.effects)
@@ -144,6 +144,7 @@ export default function SubclassEditor({ classId, detail, features, busy = false
             levelRequired
             levelHint={SUBFEATURE_LEVEL_HINT}
             onSave={saveFeature}
+            onSaved={onRefresh}
             onClose={() => setFeatureModal(null)}
           />
         )

@@ -164,7 +164,7 @@ export function Section({ title, count, empty, addControl, onHide, children }) {
   )
 }
 
-export function AbilityEffectsEditor({ rows = [], onChange, onHide }) {
+export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker }) {
   const used = new Set(rows.map((r) => r.ability))
   const options = Object.entries(abilityLabels).map(([k, v]) => ({
     key: k,
@@ -180,7 +180,14 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide }) {
       count={rows.length}
       empty="Увеличений нет"
       onHide={onHide}
-      addControl={<PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Увеличение" />}
+      addControl={
+        // В панели эффектов выбор уезжает на отдельный экран со списком
+        // (onOpenPicker); уже добавленную характеристику там выбрать нельзя —
+        // у строки своя величина и свой предел.
+        onOpenPicker
+          ? <AddButton onClick={onOpenPicker} title="+ Увеличение" />
+          : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Увеличение" />
+      }
     >
       {usedUp && rows.length > 0 && (
         <p className="pb-1 text-xs text-stone-500">
@@ -223,7 +230,7 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide }) {
   )
 }
 
-export function SkillEffectsEditor({ rows = [], onChange, onHide }) {
+export function SkillEffectsEditor({ rows = [], onChange, onHide, onOpenPicker }) {
   const skillsQ = useQuery({
     queryKey: ['catalog', 'skills', 'all'],
     queryFn: () => api.skills.list({ size: 100 }),
@@ -241,7 +248,11 @@ export function SkillEffectsEditor({ rows = [], onChange, onHide }) {
       empty="Навыков нет"
       onHide={onHide}
       addControl={
-        <PickerMenu options={options} onPick={add} disabled={skills.length === 0} addLabel="+ Навык" searchable />
+        // В панели эффектов выбор уезжает на отдельный экран со списком и
+        // поиском (onOpenPicker) — навыков много, в узком меню «+» тесно.
+        onOpenPicker
+          ? <AddButton onClick={onOpenPicker} title="+ Навык" />
+          : <PickerMenu options={options} onPick={add} disabled={skills.length === 0} addLabel="+ Навык" searchable />
       }
     >
       {skillsQ.isFetching && <p className="pb-1 text-xs text-stone-500">Загрузка списка навыков…</p>}
@@ -266,7 +277,7 @@ export function SkillEffectsEditor({ rows = [], onChange, onHide }) {
   )
 }
 
-export function SavingThrowEffectsEditor({ rows = [], onChange, onHide }) {
+export function SavingThrowEffectsEditor({ rows = [], onChange, onHide, onOpenPicker }) {
   const used = new Set(rows.map((r) => r.ability))
   const options = Object.entries(abilityLabels).map(([k, v]) => ({ key: k, label: v, disabled: used.has(k) }))
   const usedUp = options.every((o) => o.disabled)
@@ -278,7 +289,11 @@ export function SavingThrowEffectsEditor({ rows = [], onChange, onHide }) {
       count={rows.length}
       empty="Спасбросков нет"
       onHide={onHide}
-      addControl={<PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Спасбросок" />}
+      addControl={
+        onOpenPicker
+          ? <AddButton onClick={onOpenPicker} title="+ Спасбросок" />
+          : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Спасбросок" />
+      }
     >
       {usedUp && rows.length > 0 && (
         <p className="pb-1 text-xs text-stone-500">Все характеристики уже добавлены — повтор невозможен.</p>
@@ -296,7 +311,7 @@ export function SavingThrowEffectsEditor({ rows = [], onChange, onHide }) {
   )
 }
 
-export function ArmorEffectsEditor({ rows = [], onChange, onHide }) {
+export function ArmorEffectsEditor({ rows = [], onChange, onHide, onOpenPicker }) {
   const used = new Set(rows.map((r) => r.armor_type))
   const options = Object.entries(armorProficiencyLabels).map(([k, v]) => ({ key: k, label: v, disabled: used.has(k) }))
   const usedUp = options.every((o) => o.disabled)
@@ -308,7 +323,11 @@ export function ArmorEffectsEditor({ rows = [], onChange, onHide }) {
       count={rows.length}
       empty="Доспехов нет"
       onHide={onHide}
-      addControl={<PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Доспех" />}
+      addControl={
+        onOpenPicker
+          ? <AddButton onClick={onOpenPicker} title="+ Доспех" />
+          : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Доспех" />
+      }
     >
       {usedUp && rows.length > 0 && (
         <p className="pb-1 text-xs text-stone-500">Все типы доспехов уже добавлены — повтор невозможен.</p>
@@ -326,7 +345,7 @@ export function ArmorEffectsEditor({ rows = [], onChange, onHide }) {
   )
 }
 
-export function WeaponEffectsEditor({ rows = [], onChange, onHide }) {
+export function WeaponEffectsEditor({ rows = [], onChange, onHide, onOpenPicker }) {
   const usedCategories = new Set(rows.filter((r) => r.item_id == null).map((r) => r.weapon_category))
   const categoryOptions = Object.entries(weaponProficiencyLabels).map(([k, v]) => ({
     key: k,
@@ -342,12 +361,14 @@ export function WeaponEffectsEditor({ rows = [], onChange, onHide }) {
       empty="Оружия нет"
       onHide={onHide}
       addControl={
-        <PickerMenu
-          options={categoryOptions}
-          onPick={addCategory}
-          disabled={categoryOptions.every((o) => o.disabled)}
-          addLabel="+ Категория"
-        />
+        onOpenPicker
+          ? <AddButton onClick={onOpenPicker} title="+ Категория" />
+          : <PickerMenu
+              options={categoryOptions}
+              onPick={addCategory}
+              disabled={categoryOptions.every((o) => o.disabled)}
+              addLabel="+ Категория"
+            />
       }
     >
       {rows.map((row, i) => (

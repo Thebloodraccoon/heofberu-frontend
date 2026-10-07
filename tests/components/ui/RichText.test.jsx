@@ -51,16 +51,16 @@ describe('RichText', () => {
     expect(screen.getByText('Просто текст резюме')).toBeInTheDocument()
   })
 
-  it('inserts a blank paragraph before the tail when there is a body', () => {
+  it('joins the tail to the body without a blank paragraph between them', () => {
     const { container } = render(<RichText value="<p>Описание</p>" tail="Резюме" />)
     const paragraphs = container.querySelectorAll('p')
-    expect(paragraphs).toHaveLength(3)
-    expect(paragraphs[1]).toHaveTextContent('')
-    expect(paragraphs[1].querySelector('br')).toBeInTheDocument()
-    expect(paragraphs[2]).toHaveTextContent('Резюме')
+    expect(paragraphs).toHaveLength(2)
+    expect(paragraphs[0]).toHaveTextContent('Описание')
+    expect(paragraphs[1]).toHaveTextContent('Резюме')
+    expect(container.querySelector('br')).not.toBeInTheDocument()
   })
 
-  it('skips the blank paragraph when there is no body, just a tail', () => {
+  it('renders a tail without a body as a single paragraph', () => {
     const { container } = render(<RichText value="" tail="Резюме" />)
     const paragraphs = container.querySelectorAll('p')
     expect(paragraphs).toHaveLength(1)
