@@ -8,11 +8,12 @@ import {
   ErrorBox,
   Field,
   Input,
-  PageHeader,
   Select,
   Skeleton,
 } from '@/components/ui'
 import Pagination from '@/components/ui/Pagination.jsx'
+import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import { useAuth } from '@/features/auth/useAuth.js'
 import { useCreateUser, useDeleteUser, useFlushCache, useUpdateUser, useUsersPage } from '@/features/users/queries.js'
@@ -130,25 +131,34 @@ export default function UsersPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Админ-панель"
-        subtitle="Пользователи, роли и обслуживание"
-        actions={
-          <>
-            <Button variant="ghost" onClick={() => setConfirmFlush(true)}>Сбросить кеш</Button>
-            <Button onClick={() => setShowCreate((v) => !v)}>
-              {showCreate ? 'Отмена' : '+ Создать пользователя'}
-            </Button>
-          </>
-        }
-      />
+      <header className="lore-header lore-list-header">
+        <div>
+          <p className="lore-eyebrow">Управление миром</p>
+          <h1 className="heading-section">Админ-панель</h1>
+          <div className="lore-intro-row">
+            <p className="lore-intro">Пользователи, роли и обслуживание.</p>
+            <div className="ml-auto flex flex-wrap gap-2">
+              <Button variant="ghost" onClick={() => setConfirmFlush(true)}>Сбросить кеш</Button>
+              <Button onClick={() => setShowCreate((v) => !v)}>
+                {showCreate ? 'Отмена' : <><LoreIcon name="plus" />Создать пользователя</>}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
 
       {showCreate && <CreateUserForm onDone={() => setShowCreate(false)} />}
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <Field label="Поиск" className="min-w-56 flex-1">
-          <Input type="search" value={search} onChange={filter(setSearch)} placeholder="Имя или email" />
-        </Field>
+        <SearchToolbar
+          className="min-w-56 flex-1"
+          query={search}
+          onQueryChange={(value) => { setSearch(value); setPage(1) }}
+          onSearch={() => setPage(1)}
+          label="Поиск пользователей"
+          placeholder="Имя или email…"
+          submitLabel="Поиск"
+        />
         <Field label="Роль" className="w-48">
           <Select value={role} onChange={filter(setRole)}>
             <option value="">Все роли</option>
