@@ -185,7 +185,7 @@
 }
 
 .rich-editor {
-  @apply overflow-hidden rounded border border-stone-700 bg-stone-800/70 transition focus-within:border-ember;
+  @apply rounded border border-stone-700 bg-stone-800/70 transition focus-within:border-ember;
 }
 .rich-editor_disabled {
   @apply pointer-events-none opacity-60;
@@ -203,7 +203,11 @@
 }
 
 .rich-toolbar {
-  @apply flex flex-wrap items-center gap-0.5 border-b border-stone-700/70 bg-stone-900/40 p-1;
+  @apply flex flex-wrap items-center gap-0.5 border-b border-stone-700/70 bg-stone-900 p-1;
+  position: sticky;
+  top: var(--app-header-h, 0px);
+  z-index: 20;
+  border-radius: .25rem .25rem 0 0;
 }
 .rich-toolbar__btn {
   @apply flex size-7 shrink-0 items-center justify-center rounded text-xs font-medium text-stone-300 transition hover:bg-stone-700/70 hover:text-stone-100;
@@ -289,7 +293,7 @@
 /* Общая боковая панель */
 .ui-drawer-overlay { position: fixed; inset: 0; z-index: 200; display: flex; justify-content: flex-end; background: rgb(0 0 0 / 60%); }
 .ui-drawer { display: flex; flex-direction: column; width: min(30rem, 100%); height: 100dvh; min-height: 0; background: var(--color-stone-950); border-left: 1px solid var(--color-stone-700); animation: lore-drawer-enter 220ms ease-out; }
-.ui-drawer-header { display: flex; flex: none; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem 1.5rem; border-bottom: 1px solid var(--color-stone-800); }
+.ui-drawer-header { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 1rem; padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem 1.5rem; border-bottom: 1px solid var(--color-stone-800); }
 .ui-drawer-close { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; flex: none; color: var(--color-stone-200); }
 .ui-drawer-close:hover { background: var(--color-stone-900); }
 .ui-drawer-close svg { width: 1.5rem; height: 1.5rem; }
@@ -389,3 +393,23 @@
 .inline-catalog-filters-fields legend { font-size: .875rem; font-weight: 600; margin-bottom: .5rem; }
 .inline-catalog-filters-actions { display: flex; flex: none; gap: .5rem; padding: .75rem; border-top: 1px solid var(--color-stone-700); }
 .inline-catalog-filters-actions > button { flex: 1; min-width: 0; }
+
+[role="dialog"] .rich-toolbar { top: 0; }
+.rich-selection-menu {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .375rem;
+  max-width: calc(100vw - 1rem);
+  border: 1px solid var(--color-stone-700);
+  border-radius: .375rem;
+  background: var(--color-stone-900);
+  box-shadow: 0 2px 8px rgb(0 0 0 / .15);
+  z-index: 360;
+}
+.rich-selection-menu .rich-toolbar__btn { width: 2rem; height: 2rem; }
+@media (max-width: 768px) {
+  .rich-toolbar { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
+  .rich-toolbar__btn { width: 2.75rem; height: 2.75rem; }
+  .rich-toolbar__sep { flex-shrink: 0; }
+}

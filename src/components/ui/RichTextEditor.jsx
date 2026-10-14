@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { EditorContent, useEditor } from '@tiptap/react'
-import { Extension } from '@tiptap/core'
+import { useEffect, useId, useRef, useState } from 'react'
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
+import { Extension, isTextSelection, textInputRule } from '@tiptap/core'
+import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
@@ -8,6 +9,13 @@ import { Markdown } from '@tiptap/markdown'
 import { TableKit } from '@tiptap/extension-table'
 import { looksLikeHtml as looksLikeLegacy, toEditorContent } from '@/lib/utils/richText.js'
 import { TextArea } from './primitives.jsx'
+
+const EmDash = Extension.create({
+  name: 'emDash',
+  addInputRules() {
+    return [textInputRule({ find: /--$/, replace: '—' })]
+  },
+})
 
 // Липкое форматирование через абзацы: шаг split в ProseMirror сбрасывает
 // storedMarks, поэтому после Enter в конце жирной строки следующий абзац
@@ -49,6 +57,66 @@ function ToolbarButton({ active, disabled, onClick, title, children }) {
       {children}
     </button>
   )
+}
+
+function TextFormattingTools({ editor, setLink, extraTools = [], compact = false }) {
+  const marks = useEditorState({ editor, selector: ({ editor: ed }) => ({
+    bold: ed.isActive('bold'), italic: ed.isActive('italic'), underline: ed.isActive('underline'),
+    strike: ed.isActive('strike'), link: ed.isActive('link'),
+  }) })
+  return <>
+    <ToolbarButton title="Жирный" active={marks.bold} onClick={() => editor.chain().focus().toggleBold().run()}><b>Ж</b></ToolbarButton>
+    <ToolbarButton title="Курсив" active={marks.italic} onClick={() => editor.chain().focus().toggleItalic().run()}><i>К</i></ToolbarButton>
+    <ToolbarButton title="Зачёркнутый" active={marks.strike} onClick={() => editor.chain().focus().toggleStrike().run()}><s>С</s></ToolbarButton>
+    <ToolbarButton title="Подчёркнутый" active={marks.underline} onClick={() => editor.chain().focus().toggleUnderline().run()}><u>Ч</u></ToolbarButton>
+    {compact && <>
+      <ToolbarButton title="Ссылка" active={marks.link} onClick={setLink}><EditorIcon name="link" /></ToolbarButton>
+      {extraTools.map((tool) => <ToolbarButton key={tool.title} title={tool.title} onClick={() => tool.onClick(editor)}>{tool.label}</ToolbarButton>)}
+    </>}
+  </>
+}
+
+function SelectionFormattingMenu({ editor, setLink, extraTools }) {
+  const pluginKey = useId()
+  const menuRef = useRef(null)
+  const [enabled, setEnabled] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 769px) and (pointer: fine)')
+    const update = () => setEnabled(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  useEffect(() => {
+    if (!enabled) return
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape' || !menuRef.current?.isConnected || menuRef.current.style.visibility === 'hidden') return
+      event.preventDefault()
+      event.stopPropagation()
+      editor.commands.setMeta(pluginKey, 'hide')
+    }
+    const onBlur = ({ event }) => {
+      if (!menuRef.current?.contains(event?.relatedTarget)) editor.commands.setMeta(pluginKey, 'hide')
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    editor.on('blur', onBlur)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true)
+      editor.off('blur', onBlur)
+    }
+  }, [editor, enabled, pluginKey])
+  if (!enabled) return null
+  let scrollTarget = editor.view.dom.parentElement
+  while (scrollTarget && !/(auto|scroll)/.test(getComputedStyle(scrollTarget).overflowY)) scrollTarget = scrollTarget.parentElement
+  return <BubbleMenu editor={editor} pluginKey={pluginKey} ref={menuRef} updateDelay={100}
+    appendTo={() => editor.view.dom.closest('[role="dialog"]') ?? document.body}
+    options={{ strategy: 'fixed', placement: 'top', offset: 8, flip: { padding: 8 }, shift: { padding: 8 }, hide: true, scrollTarget: scrollTarget ?? window }}
+    shouldShow={({ editor: ed, state, from, to }) => ed.isEditable &&
+      (ed.isFocused || Boolean(menuRef.current?.contains(document.activeElement))) &&
+      isTextSelection(state.selection) && !state.selection.empty && Boolean(state.doc.textBetween(from, to).trim())}
+    role="toolbar" aria-label="Форматирование выделенного текста" className="rich-selection-menu">
+    <TextFormattingTools editor={editor} setLink={setLink} extraTools={extraTools} compact />
+  </BubbleMenu>
 }
 
 function EditorIcon({ name, className = '' }) {
@@ -130,6 +198,7 @@ export function RichTextEditor({
   const initial = toEditorContent(value)
   const editor = useEditor({
     extensions: [
+      EmDash,
       PersistMarksOnEnter,
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4] },
@@ -258,19 +327,9 @@ export function RichTextEditor({
 
   return (
     <div className={`rich-editor ${disabled ? 'rich-editor_disabled' : ''} ${className}`}>
+      {!showCode && !disabled && <SelectionFormattingMenu editor={editor} setLink={setLink} extraTools={extraTools} />}
       <div className="rich-toolbar" role="toolbar" aria-label="Форматирование текста">
-        <ToolbarButton title="Жирный" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
-          <b>Ж</b>
-        </ToolbarButton>
-        <ToolbarButton title="Курсив" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
-          <i>К</i>
-        </ToolbarButton>
-        <ToolbarButton title="Зачёркнутый" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
-          <s>С</s>
-        </ToolbarButton>
-        <ToolbarButton title="Подчёркнутый" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
-          <u>Ч</u>
-        </ToolbarButton>
+        <TextFormattingTools editor={editor} setLink={setLink} />
         <span className="rich-toolbar__sep" aria-hidden="true" />
         {[1, 2, 3, 4].map((level) => (
           <ToolbarButton
