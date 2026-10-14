@@ -70,6 +70,24 @@ afterEach(() => {
 })
 
 describe('Article editor workspace', () => {
+  it.each(['/gm/articles', '/gm/articles?id=new', '/gm/articles?id=1'])('opens and closes the writing guide from %s without losing drafts', async (url) => {
+    const user = setup(url)
+    if (url.endsWith('id=1')) await user.click(screen.getByRole('button', { name: 'Изменить текст статьи' }))
+    if (url.includes('id=')) await user.type(screen.getByRole('textbox', { name: 'Текст статьи' }), ' Новый черновик')
+    const draft = screen.queryByRole('textbox', { name: 'Текст статьи' })?.value
+    for (const close of ['footer', 'escape', 'cross']) {
+      await user.click(screen.getByRole('button', { name: 'Руководство' }))
+      const guide = screen.getByRole('dialog', { name: 'Руководство по написанию статьи' })
+      expect(within(guide).getByRole('heading', { name: 'Видимость и секреты мастера' })).toBeVisible()
+      if (close === 'escape') await user.keyboard('{Escape}')
+      else await user.click(within(guide).getByRole('button', { name: close === 'footer' ? 'Закрыть' : 'Закрыть руководство', exact: true }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      if (draft) expect(screen.getByRole('textbox', { name: 'Текст статьи' })).toHaveValue(draft)
+      expect(router.state.location.pathname + router.state.location.search).toBe(url)
+    }
+    expect(update).not.toHaveBeenCalled()
+  })
+
   it('marks articles with proposals awaiting a decision in the library', () => {
     setup('/gm/articles')
     const row = screen.getByRole('button', { name: /Летопись/ })

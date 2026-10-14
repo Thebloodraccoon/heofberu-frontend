@@ -1,3 +1,4 @@
+import ArticleWritingGuide from '@/features/articles/components/ArticleWritingGuide.jsx'
 import ArticleAuthor from '@/features/articles/components/ArticleAuthor.jsx'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -78,6 +79,7 @@ export default function GmArticlesPage() {
   const toasts = useToasts()
   const invalidate = useInvalidateArticles()
 
+  const [guideOpen, setGuideOpen] = useState(false)
   const [tagManagerOpen, setTagManagerOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [applied, setApplied] = useState('')
@@ -134,14 +136,17 @@ export default function GmArticlesPage() {
           <h1 className="heading-section">Статьи и теги</h1>
           <p className="lore-intro">Истории, места и герои вашего мира.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="ghost" onClick={() => setGuideOpen(true)}><LoreIcon name="book" />Руководство</Button>
           <Button variant="ghost" onClick={() => setTagManagerOpen(true)}>Теги</Button>
           <Button onClick={() => chooseArticle('new')}><LoreIcon name="plus" />Новая статья</Button>
         </div>
       </header>}
       {selected !== null && <div className="article-workspace-nav lore-reading-toolbar">
         <button type="button" className="article-back" onClick={() => setSelected(null)} aria-label="Вернуться к статьям"><LoreIcon name="back" />Ко всем статьям</button>
+        <Button type="button" variant="ghost" onClick={() => setGuideOpen(true)}><LoreIcon name="book" />Руководство</Button>
       </div>}
+      {guideOpen && <ArticleWritingGuide onClose={() => setGuideOpen(false)} />}
       {tagManagerOpen && <Drawer title="Теги" closeLabel="Закрыть теги" onClose={() => setTagManagerOpen(false)}><TagsManager /></Drawer>}
       <div>
         {selected === null && <section className="article-library">
