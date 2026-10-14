@@ -25,13 +25,18 @@ function ProfileContent({ user, roleLabel, roleTone, onSaved }) {
   const [form, setForm] = useState(() => fromUser(user))
   const { statuses, run, clear } = useSaveStatus()
   const busy = updateMe.isPending || statuses.profile?.state === 'saving'
+  const usernameError = form.username.length < 3 || form.username.length > 32
+    ? 'Ник должен содержать от 3 до 32 символов.'
+    : !/^[A-Za-z0-9А-Яа-яЁёІіЇїЄєҐґ_-]+$/.test(form.username)
+      ? 'Допустимы латинские, русские и украинские буквы, цифры, дефис и подчёркивание.'
+      : ''
   const changed = Object.keys(form).some((key) => form[key] !== fromUser(user)[key])
   const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }))
   const startEdit = () => { setForm(fromUser(user)); clear('profile'); setEdit(true) }
   const cancel = () => { setForm(fromUser(user)); clear('profile'); setEdit(false) }
   const save = (event) => {
     event.preventDefault()
-    if (!changed || busy) return
+    if (!changed || busy || usernameError) return
     run('profile', async () => {
       await updateMe.mutateAsync(form)
       setEdit(false)
@@ -61,6 +66,16 @@ function ProfileContent({ user, roleLabel, roleTone, onSaved }) {
         </dl>
       </aside>
       <form className="profile-content" onSubmit={save} aria-label="Профиль">
+        {edit && <section className="profile-section">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-label">Ник</span>
+            <Input value={form.username} onChange={set('username')} disabled={busy} autoComplete="username"
+              aria-invalid={Boolean(usernameError)} aria-describedby="profile-username-hint" />
+          </label>
+          <p id="profile-username-hint" className="mt-2 text-sm text-stone-400">
+            {usernameError || 'От 3 до 32 символов: буквы, цифры, дефис и подчёркивание.'}
+          </p>
+        </section>}
         <section className="profile-section">
           <h2 className="heading-sub">О себе</h2>
           {edit ? <fieldset disabled={busy} className="mt-3"><legend className="sr-only">О себе</legend><RichTextEditor rows={6} value={form.bio} onChange={set('bio')} placeholder="Расскажите о себе и своих героях…" /></fieldset>
@@ -77,7 +92,7 @@ function ProfileContent({ user, roleLabel, roleTone, onSaved }) {
         </section>
         <div className="profile-form-footer">
           <SaveStatus status={statuses.profile} />
-          {edit && <div className="flex gap-2"><Button type="button" variant="ghost" disabled={busy} onClick={cancel}>Отмена</Button><Button type="submit" disabled={!changed || busy}>Сохранить</Button></div>}
+          {edit && <div className="flex gap-2"><Button type="button" variant="ghost" disabled={busy} onClick={cancel}>Отмена</Button><Button type="submit" disabled={!changed || busy || Boolean(usernameError)}>Сохранить</Button></div>}
         </div>
       </form>
     </div>
