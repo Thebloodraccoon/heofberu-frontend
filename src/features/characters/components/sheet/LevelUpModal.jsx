@@ -5,7 +5,8 @@ import { useCharacterFeats } from '@/features/characters/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { ASI_LEVELS, mod, rollDie } from '@/lib/utils/ability.js'
-import { Button, Modal } from '@/components/ui'
+import { Button } from '@/components/ui'
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useClassDetail } from '@/features/catalog/queries.js'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
 import PendingChoicesModal from '@/features/characters/components/sheet/PendingChoicesModal.jsx'
@@ -68,11 +69,12 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
   const rollHp = () => {
     const value = rollDie(dieSides)
     setRolled(value)
-    onRollToast?.(`Хиты ур. ${targetLevel} · к${dieSides}`, value, conMod, Math.max(1, value + conMod))
-    recordRoll({
+    onRollToast?.(`Хиты ур. ${targetLevel} · к${dieSides}`, value, conMod, Math.max(1, value + conMod), dieSides)
+    if (!onRollToast) recordRoll({
       id: Date.now() + Math.random(),
       title: `Хиты ур. ${targetLevel}`,
-      detail: `к${dieSides}${conMod ? ` ${conMod >= 0 ? '+' : ''}${conMod}` : ''}`,
+      detail: `${value}${conMod ? ` ${conMod < 0 ? '−' : '+'} ${Math.abs(conMod)}` : ''}`,
+      dice: `к${dieSides}${conMod ? ` ${conMod < 0 ? '−' : '+'} ${Math.abs(conMod)}` : ''}`,
       total: Math.max(1, value + conMod),
       at: Date.now(),
     })
@@ -139,14 +141,20 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
 
   return (
     <>
-      <Modal title="Повышение уровня" onClose={onClose} size="sm">
+      {(phase === 'hp' || phase === 'done') && <SheetDrawer
+        title="Повышение уровня"
+        onClose={() => { if (!busy) onClose() }}
+        footer={phase === 'done' ? <Button onClick={onClose}>Закрыть</Button> : <>
+          <Button variant="ghost" disabled={busy} onClick={onClose}>Отмена</Button>
+          <Button disabled={busy || hpGain() == null} onClick={confirmHp}>
+            {busy ? 'Повышаем…' : needsAsi ? 'Далее' : 'Повысить уровень'}
+          </Button>
+        </>}
+      >
         {phase === 'done' ? (
           <div className="text-center">
             <p className="font-display text-3xl font-bold text-gold-light">Уровень {currentLevel}</p>
             <p className="mt-2 text-sm text-stone-400">Достигнут максимальный доступный уровень.</p>
-            <div className="mt-4">
-              <Button onClick={onClose}>Отлично</Button>
-            </div>
           </div>
         ) : (
           <>
@@ -159,6 +167,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
             <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <OptionCard
                 selected={hpMode === 'roll'}
+                disabled={busy}
                 onClick={() => chooseHpMode('roll')}
                 title={`Бросить к${dieSides}`}
                 subtitle={
@@ -169,31 +178,26 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
               ></OptionCard>
               <OptionCard
                 selected={hpMode === 'average'}
+                disabled={busy}
                 onClick={() => chooseHpMode('average')}
                 title="Среднее"
                 subtitle={`+${avgGain} HP`}
               />
             </div>
             {hpMode === 'roll' && rolled == null && (
-              <button type="button" className="sheet-btn sheet-btn_primary mt-3 w-full max-sm:w-auto" onClick={rollHp}>
+              <Button className="mt-3 w-full" disabled={busy} onClick={rollHp}>
                 Бросить кубик
-              </button>
+              </Button>
             )}
 
-            <button
-              type="button"
-              className="sheet-btn sheet-btn_primary mt-4 w-full max-sm:w-auto"
-              disabled={busy || hpGain() == null}
-              onClick={confirmHp}
-            >
-              {needsAsi && hpGain() != null ? 'Далее: улучшение характеристик' : 'Повыситься'}
-            </button>
           </>
         )}
-      </Modal>
+      </SheetDrawer>}
 
       {phase === 'asi' && (
         <AsiChoiceModal
+          presentation="drawer"
+          busy={busy}
           level={targetLevel}
           grantedFeatIds={charFeats.map((cf) => cf.feat_id ?? cf.feat?.id).filter(Boolean)}
           abilityTotals={{
@@ -211,6 +215,7 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
 
       {phase === 'choices' && (
         <PendingChoicesModal
+          presentation="drawer"
           character={character}
           onClose={() => setPhase(afterChoicesPhase ?? 'done')}
           onError={onError}

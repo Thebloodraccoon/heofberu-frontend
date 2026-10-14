@@ -1,10 +1,11 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { useSubclassesForClass, useSubracesForRace } from '@/features/catalog/queries.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
-import { Button, Input, Modal } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
 import BackgroundPickerModal from './BackgroundPickerModal.jsx'
 import SubracePickerModal from './SubracePickerModal.jsx'
 import SubclassPickerModal from './SubclassPickerModal.jsx'
@@ -81,50 +82,52 @@ export default function CharacterSettingsModal({ character, onClose, onError }) 
   }
 
   return (
-    <Modal title="Настройки персонажа" onClose={onClose} size="lg">
-      <div className="space-y-4">
-        <label className="flex flex-col gap-2 text-sm text-stone-300">
-          Имя
-          <Input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Имя персонажа" />
-        </label>
-
-        <Tile
-          title="Подраса"
-          present={!!character.subrace_id}
-          currentName={currentSub?.name && sentenceCase(currentSub.name)}
-          onClick={() => setPicking('subrace')}
-        />
-        <Tile
-          title="Подкласс"
-          present={!!character.subclass_id}
-          currentName={currentSubclass?.name && sentenceCase(currentSubclass.name)}
-          onClick={() => setPicking('subclass')}
-        />
-        {!character.background_id && (
+    <>
+      {!picking && !rebuilding && <SheetDrawer title="Настройки персонажа" onClose={onClose} footer={<>
+          <Button variant="ghost" onClick={onClose}>Отмена</Button>
+          <Button disabled={!name.trim() || saving} onClick={saveName}>Сохранить имя</Button></>}>
+        <div className="space-y-4">
+          <label className="flex flex-col gap-2 text-sm text-stone-300">
+            Имя
+            <Input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Имя персонажа" />
+          </label>
+  
           <Tile
-            title="Предыстория"
-            onClick={() => setPicking('background')}
+            title="Подраса"
+            present={!!character.subrace_id}
+            currentName={currentSub?.name && sentenceCase(currentSub.name)}
+            onClick={() => setPicking('subrace')}
           />
-        )}
-
-        {savingSection && <p className="text-xs text-stone-500">Сохранение…</p>}
-
-        <div className="rounded-lg border border-red-800/50 bg-red-950/20 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-stone-100">Полная переделка (ребилд)</p>
-              <p className="mt-0.5 text-xs text-stone-400">
-                Заново выбрать класс, расу, характеристики и навыки — как при создании персонажа.
-              </p>
+          <Tile
+            title="Подкласс"
+            present={!!character.subclass_id}
+            currentName={currentSubclass?.name && sentenceCase(currentSubclass.name)}
+            onClick={() => setPicking('subclass')}
+          />
+          {!character.background_id && (
+            <Tile
+              title="Предыстория"
+              onClick={() => setPicking('background')}
+            />
+          )}
+  
+          {savingSection && <p className="text-xs text-stone-500">Сохранение…</p>}
+  
+          <div className="rounded-lg border border-red-800/50 bg-red-950/20 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-stone-100">Полная переделка (ребилд)</p>
+                <p className="mt-0.5 text-xs text-stone-400">
+                  Заново выбрать класс, расу, характеристики и навыки — как при создании персонажа.
+                </p>
+              </div>
+              <Button variant="ghost" onClick={() => setRebuilding(true)}>Ребилд</Button>
             </div>
-            <Button variant="ghost" onClick={() => setRebuilding(true)}>Ребилд</Button>
           </div>
         </div>
-      </div>
-      <div className="mt-4 modal-actions">
-        <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button disabled={!name.trim() || saving} onClick={saveName}>Сохранить имя</Button>
-      </div>
+  
+  
+      </SheetDrawer>}
 
       {picking === 'subrace' && (
         <SubracePickerModal
@@ -170,6 +173,6 @@ export default function CharacterSettingsModal({ character, onClose, onError }) 
           }}
         />
       )}
-    </Modal>
+    </>
   )
 }

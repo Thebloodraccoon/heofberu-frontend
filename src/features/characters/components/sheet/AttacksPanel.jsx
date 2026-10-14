@@ -1,29 +1,15 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterAttacks } from '@/features/characters/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { useUiSet } from '@/lib/uiState.js'
-import { EmptyState, Skeleton } from '@/components/ui'
+import { Button, EmptyState, Skeleton } from '@/components/ui'
 import { RollButton } from '@/components/sheet/primitives.jsx'
 import { num } from './constants.js'
 import AttackModal from './AttackModal.jsx'
-
-const PencilIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-  </svg>
-)
-const TrashIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-  </svg>
-)
-const NoteIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M5 5h14M5 10h14M5 15h9" strokeLinecap="round" />
-  </svg>
-)
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import { label } from '@/lib/i18n/index.js'
 
 const fmtPlus = (n) => {
   const v = Number(n ?? 0)
@@ -43,30 +29,28 @@ const AttackActions = ({ open, onToggleNote, onEdit, onDelete }) => (
   <div className="flex items-center gap-1">
     <button
       type="button"
-      className={`relative rounded p-1.5 transition ${
-        open ? 'text-ember hover:bg-stone-800' : 'text-stone-400 hover:bg-stone-800 hover:text-ember'
-      }`}
+      className="character-icon-button"
+      aria-expanded={open}
       title={open ? 'Скрыть заметку' : 'Показать заметку'}
       onClick={onToggleNote}
     >
-      <NoteIcon />
-      {!open && <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-amber-400" />}
+      <LoreIcon name="note" />
     </button>
     <button
       type="button"
-      className="inline-flex h-[40px] w-[40px] items-center justify-center rounded text-stone-400 transition hover:bg-stone-800 hover:text-ember"
+      className="character-icon-button"
       title="Изменить"
       onClick={onEdit}
     >
-      <PencilIcon />
+      <LoreIcon name="edit" />
     </button>
     <button
       type="button"
-      className="inline-flex h-[40px] w-[40px] items-center justify-center rounded text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
+      className="catalog-delete-button"
       title="Удалить"
       onClick={onDelete}
     >
-      <TrashIcon />
+      <LoreIcon name="trash" />
     </button>
   </div>
 )
@@ -106,9 +90,7 @@ export default function AttacksPanel({ characterId, attackBonus, onRoll, onRollD
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="sheet-section-label sheet-section-label--flush self-center leading-none">Атаки персонажа</p>
-        <button type="button" className="sheet-btn sheet-btn_primary" onClick={() => setModal('new')}>
-          + Добавить
-        </button>
+        <Button onClick={() => setModal('new')}><LoreIcon name="plus" /> Добавить</Button>
       </div>
 
       {isLoading && (
@@ -130,126 +112,26 @@ export default function AttacksPanel({ characterId, attackBonus, onRoll, onRollD
       )}
       {!isLoading && attacks.length === 0 && <EmptyState text="Атак пока нет" />}
       {!isLoading && attacks.length > 0 && (
-        <>
-          <div className="hidden overflow-hidden rounded-lg border border-stone-700/60 sm:block">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="w-full px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-stone-500">Название</th>
-                  <th className="whitespace-nowrap px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-stone-500">Атака</th>
-                  <th className="whitespace-nowrap px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-stone-500">Урон</th>
-                  <th className="whitespace-nowrap px-3 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-stone-500">Настройки</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-800 bg-stone-900/60">
-                {attacks.map((a) => {
-                  const open = notesIds.includes(String(a.id))
-                  const attack = attackBonus(a)
-                  const dmg = num(a.bonus_damage) ?? 0
-                  return (
-                    <Fragment key={a.id}>
-                      <tr>
-                        <td className="w-full px-3 py-2 align-middle">
-                          <div className="flex min-w-0 items-baseline gap-2">
-                            <span className="truncate text-sm font-medium text-stone-100">{a.name}</span>
-                            {a.range ? <span className="shrink-0 text-xs text-stone-500">{a.range}</span> : null}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 align-middle">
-                          <RollButton
-                            bonus={attack}
-                            onClick={() => onRoll(`Атака: ${a.name}`, attack)}
-                            title={`Бросок атаки: ${a.name}`}
-                            className="!min-w-11"
-                          />
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 align-middle">
-                          <RollButton
-                            label={damageLabel(a)}
-                            onClick={() =>
-                              onRollDamage(
-                                `Урон: ${a.name}`,
-                                a.damage_dice_count && a.damage_dice_type ? a.damage_dice_count : 0,
-                                Number(String(a.damage_dice_type ?? '').replace(/D/i, '')) || 0,
-                                dmg,
-                              )
-                            }
-                            title={`Бросок урона: ${a.name} ${fmtPlus(dmg)}`}
-                            className="!min-w-[4.5rem]"
-                          />
-                        </td>
-                        <td className="px-3 py-2 align-middle">
-                          <div className="flex items-center justify-end gap-1">
-                            <AttackActions
-                              open={open}
-                              onToggleNote={() => toggleNotesId(String(a.id))}
-                              onEdit={() => setModal(a)}
-                              onDelete={() => remove(a.id)}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                      {open && (
-                        <tr>
-                          <td colSpan={4} className="border-t border-stone-800 bg-stone-900/40 px-3 py-3">
-                            <AttackNotes notes={a.notes} />
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="divide-y divide-stone-800 overflow-hidden rounded-lg border border-stone-700/60 bg-stone-900/60 sm:hidden">
-            {attacks.map((a) => {
-              const open = notesIds.includes(String(a.id))
-              const attack = attackBonus(a)
-              const dmg = num(a.bonus_damage) ?? 0
-              return (
-                <Fragment key={a.id}>
-                  <div className="flex items-center gap-2 px-3 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 items-baseline gap-2">
-                        <span className="truncate text-sm font-medium text-stone-100">{a.name}</span>
-                        {a.range ? <span className="shrink-0 text-xs text-stone-500">{a.range}</span> : null}
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        <RollButton
-                          bonus={attack}
-                          onClick={() => onRoll(`Атака: ${a.name}`, attack)}
-                          title={`Бросок атаки: ${a.name}`}
-                          className="!min-w-11"
-                        />
-                        <RollButton
-                          label={damageLabel(a)}
-                          onClick={() => onRoll(`Урон: ${a.name}`, dmg)}
-                          title={`Бросок урона: ${a.name} ${fmtPlus(dmg)}`}
-                          className="!min-w-[4.5rem]"
-                        />
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      <AttackActions
-                        open={open}
-                        onToggleNote={() => toggleNotesId(String(a.id))}
-                        onEdit={() => setModal(a)}
-                        onDelete={() => remove(a.id)}
-                      />
-                    </div>
-                  </div>
-                  {open && (
-                    <div className="border-t border-stone-800 bg-stone-900/40 px-3 py-3">
-                      <AttackNotes notes={a.notes} />
-                    </div>
-                  )}
-                </Fragment>
-              )
-            })}
-          </div>
-        </>
+        <div className="character-record-list">
+          {attacks.map((a) => {
+            const open = notesIds.includes(String(a.id))
+            const attack = attackBonus(a)
+            const dmg = num(a.bonus_damage) ?? 0
+            return (
+              <article key={a.id} className="character-record-card">
+                <div className="character-record-heading">
+                  <div><h3>{a.name}</h3><p>{[label(a.attack_type), a.damage_type && label(a.damage_type), a.range].filter(Boolean).join(' · ')}</p></div>
+                  <AttackActions open={open} onToggleNote={() => toggleNotesId(String(a.id))} onEdit={() => setModal(a)} onDelete={() => remove(a.id)} />
+                </div>
+                <div className="character-attack-rolls">
+                  <RollButton bonus={attack} label={`Атака ${fmtPlus(attack)}`} onClick={() => onRoll(`Атака: ${a.name}`, attack)} title={`Бросок атаки: ${a.name}`} />
+                  <RollButton label={`Урон ${damageLabel(a)}`} onClick={() => onRollDamage(`Урон: ${a.name}`, a.damage_dice_count && a.damage_dice_type ? a.damage_dice_count : 0, Number(String(a.damage_dice_type ?? '').replace(/D/i, '')) || 0, dmg)} title={`Бросок урона: ${a.name} ${fmtPlus(dmg)}`} />
+                </div>
+                {open && <div className="character-record-description"><AttackNotes notes={a.notes} /></div>}
+              </article>
+            )
+          })}
+        </div>
       )}
 
       {modal && (

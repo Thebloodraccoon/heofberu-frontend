@@ -1,6 +1,7 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
 import { skillLabels, sentenceCase } from '@/lib/i18n/index.js'
-import { Button, Modal, RichText, Skeleton } from '@/components/ui'
+import { Button, RichText, Skeleton } from '@/components/ui'
 import { useSubclassesForClass, useSubclassDetail } from '@/features/catalog/queries.js'
 
 function SubclassDetail({ classId, subclassId }) {
@@ -60,7 +61,10 @@ export default function SubclassPickerModal({ character, currentId, onPick, onCl
     })
 
   return (
-    <Modal title="Выбор подкласса" onClose={onClose} size="lg" scroll>
+    <SheetDrawer title="Выбор подкласса" onClose={onClose} footer={<>
+        <Button variant="ghost" onClick={onClose}>Отмена</Button>
+        <Button onClick={() => onPick(selected || null)}>Применить</Button>
+      </>}>
       <p className="mb-3 text-sm text-stone-400">
         Подкласс раскрывает специализацию класса персонажа и даёт свои способности.
       </p>
@@ -111,10 +115,7 @@ export default function SubclassPickerModal({ character, currentId, onPick, onCl
         })}
       </div>
 
-      <div className="mt-4 modal-actions">
-        <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button onClick={() => onPick(selected || null)}>Применить</Button>
-      </div>
-    </Modal>
+
+    </SheetDrawer>
   )
 }

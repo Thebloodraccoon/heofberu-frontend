@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useCharacterItems } from '@/features/characters/queries.js'
 import { useUiSet } from '@/lib/uiState.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
-import { EmptyState, RichText, Skeleton } from '@/components/ui'
+import { Button, EmptyState, RichText, Skeleton } from '@/components/ui'
 import MoneyModal from './MoneyModal.jsx'
 
 function ItemFacts({ item }) {
@@ -53,14 +53,15 @@ function ItemRow({ ci, open, onToggle }) {
   const description = item.description?.trim()
 
   return (
-    <li className="rounded-lg border border-stone-700/60 bg-stone-900/60">
+    <li className="character-record-card character-record-card--accordion">
       <button
         type="button"
         onClick={onToggle}
+        aria-expanded={open}
         className="flex w-full items-center gap-2 px-4 py-2.5 text-left"
       >
         <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
+        <span className="min-w-0 flex-1 break-words text-sm font-medium text-stone-100">
           {item.name ? sentenceCase(item.name) : `Предмет #${ci.item_id}`}
           {ci.quantity > 1 && <span className="ml-2 text-xs font-normal text-stone-400">×{ci.quantity}</span>}
         </span>
@@ -97,30 +98,11 @@ export default function EquipmentPanel({ character, onError }) {
 
   return (
     <div className="space-y-4">
-      <div className="w-fit">
-        <div className="sheet-boxed__box p-0 min-w-28">
-          <button
-            type="button"
-            className="h-full w-full rounded-[inherit] px-2 py-1 text-left text-stone-200"
-            onClick={() => setMoneyOpen(true)}
-            title="Изменить деньги"
-          >
-            <span className="flex items-center gap-2">
-              <span className="flex items-center gap-1">
-                <span className="text-yellow-300">⛁</span>
-                <span>{character.money_gold ?? 0}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-stone-300">⛀</span>
-                <span>{character.money_silver ?? 0}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-amber-700">⛁</span>
-                <span>{character.money_copper ?? 0}</span>
-              </span>
-            </span>
-          </button>
-        </div>
+      <div className="character-record-heading">
+        <h2 className="sheet-section-label">Снаряжение</h2>
+        <Button variant="ghost" onClick={() => setMoneyOpen(true)} title="Изменить деньги">
+          {character.money_gold ?? 0} зм · {character.money_silver ?? 0} см · {character.money_copper ?? 0} мм
+        </Button>
       </div>
       {isLoading ? (
         <ul className="space-y-2" aria-busy="true">
@@ -138,7 +120,7 @@ export default function EquipmentPanel({ character, onError }) {
       ) : items.length === 0 ? (
         <EmptyState text="Инвентарь пуст" />
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {items.map((ci) => (
             <ItemRow
               key={ci.id}

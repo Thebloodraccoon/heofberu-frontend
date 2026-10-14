@@ -16,14 +16,15 @@ const SOURCE_LABELS = {
 
 function AccordionItem({ name, badge, level, open, onToggle, children }) {
   return (
-    <div className="rounded-lg border border-stone-700/60 bg-stone-900/60">
+    <div className="character-record-card character-record-card--accordion">
       <button
         type="button"
         onClick={onToggle}
+        aria-expanded={open}
         className="flex w-full items-center gap-2 px-4 py-2.5 text-left"
       >
         <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">{name}</span>
+        <span className="min-w-0 flex-1 break-words text-sm font-medium text-stone-100">{name}</span>
         {level != null && (
           <span className="rounded bg-stone-800 px-1.5 py-0.5 text-xs text-stone-400">ур. {level}</span>
         )}
@@ -103,7 +104,7 @@ export default function FeaturesPanel({ character }) {
       ) : items.length === 0 ? (
         <p className="text-sm text-stone-500">Пока ничего нет</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {items.map((it) => (
             <li key={it.key}>
               <AccordionItem

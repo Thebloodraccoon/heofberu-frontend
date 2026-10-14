@@ -1,7 +1,8 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
 import { abilityName, bonusMap } from '@/lib/utils/ability.js'
 import { skillLabels, sentenceCase } from '@/lib/i18n/index.js'
-import { Button, Modal, RichText, Skeleton } from '@/components/ui'
+import { Button, RichText, Skeleton } from '@/components/ui'
 import { useSubracesForRace, useSubraceDetail } from '@/features/catalog/queries.js'
 
 const sizeLabel = (size) =>
@@ -92,7 +93,10 @@ export default function SubracePickerModal({ character, currentId, onPick, onClo
     })
 
   return (
-    <Modal title="Выбор подрасы" onClose={onClose} size="lg" scroll>
+    <SheetDrawer title="Выбор подрасы" onClose={onClose} footer={<>
+        <Button variant="ghost" onClick={onClose}>Отмена</Button>
+        <Button onClick={() => onPick(selected || null)}>Применить</Button>
+      </>}>
       <p className="mb-3 text-sm text-stone-400">
         Подраса уточняет расу персонажа и может давать свои бонусы и способности.
       </p>
@@ -143,10 +147,7 @@ export default function SubracePickerModal({ character, currentId, onPick, onClo
         })}
       </div>
 
-      <div className="mt-4 modal-actions">
-        <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button onClick={() => onPick(selected || null)}>Применить</Button>
-      </div>
-    </Modal>
+
+    </SheetDrawer>
   )
 }

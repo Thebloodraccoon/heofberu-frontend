@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
+import { useId, useState } from 'react'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterItems, useCharacterSpells } from '@/features/characters/queries.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { STATS } from '@/lib/utils/ability.js'
-import { Button, Field, Input, Modal, Select } from '@/components/ui'
+import { Button, Field, Input, Select } from '@/components/ui'
 import { ATTACK_TYPES, DAMAGE_TYPES, DICE_TYPES, num } from './constants.js'
 
 const SOURCES = [
@@ -76,6 +77,7 @@ function SpellAttackOption({ sp, onPick }) {
  * Fields can be prefilled from an inventory weapon or a known spell.
  */
 export default function AttackModal({ characterId, attack = null, onClose, onSaved, onError, classSpellcastingAbility }) {
+  const formId = useId()
   const editing = !!attack
   const [form, setForm] = useState(
     editing
@@ -158,7 +160,7 @@ export default function AttackModal({ characterId, attack = null, onClose, onSav
   }
 
   return (
-    <Modal title={editing ? 'Изменить атаку' : 'Новая атака'} onClose={onClose} size="lg">
+    <SheetDrawer title={editing ? 'Изменить атаку' : 'Новая атака'} onClose={onClose} footer={<><Button variant="ghost" onClick={onClose}>Отмена</Button><Button type="submit" form={formId} disabled={saving}>{saving ? 'Сохраняем…' : editing ? 'Сохранить' : 'Добавить атаку'}</Button></>}>
       <p className="-mt-1 mb-3 text-xs text-stone-500">
         Заполните поля вручную или подставьте данные из оружия в инвентаре либо из заклинания.
       </p>
@@ -202,7 +204,7 @@ export default function AttackModal({ characterId, attack = null, onClose, onSav
         )}
       </div>
 
-      <form onSubmit={submit} className="space-y-3">
+      <form id={formId} onSubmit={submit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <p className="col-span-full mt-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
             Основное
@@ -264,13 +266,8 @@ export default function AttackModal({ characterId, attack = null, onClose, onSav
             <Input value={form.notes} onChange={set('notes')} />
           </Field>
         </div>
-        <div className="modal-actions pt-3">
-          <Button type="button" variant="ghost" onClick={onClose}>Отмена</Button>
-          <Button type="submit" disabled={saving}>
-            {editing ? 'Сохранить' : 'Добавить атаку'}
-          </Button>
-        </div>
+
       </form>
-    </Modal>
+    </SheetDrawer>
   )
 }

@@ -1,6 +1,7 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
 import { skillLabels, sentenceCase } from '@/lib/i18n/index.js'
-import { Button, Modal, RichText, Skeleton } from '@/components/ui'
+import { Button, RichText, Skeleton } from '@/components/ui'
 import { useBackgrounds, useBackgroundDetail } from '@/features/catalog/queries.js'
 
 function BackgroundDetail({ backgroundId }) {
@@ -73,7 +74,10 @@ export default function BackgroundPickerModal({ currentId, onPick, onClose }) {
     })
 
   return (
-    <Modal title="Выбор предыстории" onClose={onClose} size="lg" scroll>
+    <SheetDrawer title="Выбор предыстории" onClose={onClose} footer={<>
+        <Button variant="ghost" onClick={onClose}>Отмена</Button>
+        <Button onClick={() => onPick(selected || null)}>Применить</Button>
+      </>}>
       <p className="mb-3 text-sm text-stone-400">
         Предыстория определяет, кем персонаж был до приключений, и даёт владение навыками и снаряжение.
       </p>
@@ -124,10 +128,6 @@ export default function BackgroundPickerModal({ currentId, onPick, onClose }) {
         })}
       </div>
 
-      <div className="mt-4 modal-actions">
-        <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button onClick={() => onPick(selected || null)}>Применить</Button>
-      </div>
-    </Modal>
+    </SheetDrawer>
   )
 }

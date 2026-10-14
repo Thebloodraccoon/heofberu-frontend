@@ -204,6 +204,7 @@ function DesktopNav() {
 export default function Layout() {
   const { pathname } = useLocation()
   const authPage = ['/login', '/register', '/forgot-password', '/reset-password'].includes(pathname.replace(/\/+$/, ''))
+  const characterSheetPage = /^\/characters\/(?!new\/?$)[^/]+\/?$/.test(pathname)
   const { authenticated, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const menuButtonRef = useRef(null)
@@ -319,7 +320,7 @@ export default function Layout() {
       </div>
 
       <div className="mx-auto flex w-full max-w-[80rem] flex-1 flex-col border-x border-stone-800/80 bg-stone-950/90">
-        <main className={`flex-1 px-5 py-5 sm:px-8 sm:py-8 ${authPage ? 'flex flex-col' : ''}`}>
+        <main className={`min-w-0 flex-1 px-5 py-5 sm:py-8 ${characterSheetPage ? 'sm:px-6 lg:px-8' : 'sm:px-8'} ${authPage ? 'flex flex-col' : ''}`}>
           <Outlet />
         </main>
 

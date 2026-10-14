@@ -1,5 +1,6 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
-import { Input, Modal } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
 import { num } from './constants.js'
 
 export default function ArmorModal({ character, onClose, onSave }) {
@@ -14,7 +15,7 @@ export default function ArmorModal({ character, onClose, onSave }) {
   }
 
   return (
-    <Modal title="Класс доспеха" onClose={onClose} size="sm">
+    <SheetDrawer title="Класс доспеха" onClose={onClose} footer={<><Button variant="ghost" onClick={onClose}>Отмена</Button><Button onClick={save}>Сохранить</Button></>}>
       <div className="text-center">
         <p className="font-display text-3xl font-bold text-stone-100">
           {(num(armorClass) ?? 0) + (num(shield) ?? 0)}
@@ -42,9 +43,7 @@ export default function ArmorModal({ character, onClose, onSave }) {
           />
         </label>
       </div>
-      <button type="button" className="sheet-btn sheet-btn_primary mt-4 w-full" onClick={save}>
-        Сохранить
-      </button>
-    </Modal>
+
+    </SheetDrawer>
   )
 }
