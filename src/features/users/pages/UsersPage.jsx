@@ -88,7 +88,7 @@ function RoleCell({ user, roles, editable }) {
   }
 
   return (
-    <Select value={user.role} onChange={change} disabled={updateUser.isPending} aria-label={`Роль ${user.username}`} className="w-40">
+    <Select value={user.role} onChange={change} disabled={updateUser.isPending} aria-label={`Роль ${user.username}`} className="w-full max-w-40">
       {roles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
     </Select>
   )
@@ -142,25 +142,23 @@ export default function UsersPage() {
 
   return (
     <div>
-      <header className="lore-header lore-list-header">
+      <header className="lore-header article-workspace-header">
         <div>
           <p className="lore-eyebrow">Управление миром</p>
           <h1 className="heading-section">Админ-панель</h1>
-          <div className="lore-intro-row">
-            <p className="lore-intro">Пользователи, роли и обслуживание.</p>
-            <div className="ml-auto flex flex-wrap gap-2">
-              <Button variant="ghost" onClick={() => setConfirmFlush(true)}>Сбросить кеш</Button>
-              <Button onClick={() => setShowCreate((v) => !v)}>
-                {showCreate ? 'Отмена' : <><LoreIcon name="plus" />Создать пользователя</>}
-              </Button>
-            </div>
-          </div>
+          <p className="lore-intro">Пользователи, роли и обслуживание.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setConfirmFlush(true)}>Сбросить кеш</Button>
+          <Button onClick={() => setShowCreate((v) => !v)}>
+            {showCreate ? 'Отмена' : <><LoreIcon name="plus" />Создать пользователя</>}
+          </Button>
         </div>
       </header>
 
       {showCreate && <CreateUserForm onDone={() => setShowCreate(false)} roles={assignableRoles} />}
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="mb-4 flex flex-wrap items-stretch gap-3">
         <SearchToolbar
           className="min-w-56 flex-1"
           query={search}
@@ -170,16 +168,16 @@ export default function UsersPage() {
           placeholder="Имя или email…"
           submitLabel="Поиск"
         />
-        <Field label="Роль" className="w-48">
-          <Select value={role} onChange={filter(setRole)}>
+        <div className="flex w-48">
+          <Select value={role} onChange={filter(setRole)} aria-label="Фильтр по роли" matchTriggerWidth className="w-full [&>button]:h-full [&>button]:min-h-12">
             <option value="">Все роли</option>
             {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
-        </Field>
-        {data && <p className="pb-2 text-sm text-stone-500">Всего: {data.total}</p>}
+        </div>
       </div>
 
       {error && <ErrorBox error={error} onRetry={refetch} />}
+      {!error && !isLoading && data && <p className="mb-3 text-sm text-stone-500">Найдено пользователей: {data.total}</p>}
       {!error && isLoading && (
         <Card>
           <div aria-busy="true">
@@ -198,7 +196,7 @@ export default function UsersPage() {
       {!error && !isLoading && users.length === 0 && <EmptyState text="Никого не нашли" />}
       {users.length > 0 && (
         <Card>
-          <table className="w-full text-left text-sm">
+          <table className="w-full table-fixed text-left text-sm [&_td]:break-words [&_th]:break-words">
             <thead>
               <tr className="border-b border-stone-700/70 text-xs uppercase tracking-wide text-stone-500">
                 <th className="px-4 py-3">Имя</th>
