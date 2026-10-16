@@ -201,6 +201,10 @@ export const usePresetOptions = (options = {}) =>
 export const usePublicCampaign = (slug) =>
   useQuery({ queryKey: queryKeys.publicCampaigns.bySlug(slug), queryFn: () => publicCampaignsApi.getBySlug(slug), enabled: !!slug })
 
+// Подвязанные статьи — отдельным запросом (в ответе самой публичной кампании их нет); только ГМ.
+export const usePublicCampaignArticles = (id) =>
+  useQuery({ queryKey: queryKeys.publicCampaigns.articles(id), queryFn: () => publicCampaignsApi.articles.list(id), enabled: !!id })
+
 export const usePublicCampaignCharacters = (id, params) =>
   useQuery({
     queryKey: queryKeys.publicCampaigns.characters(Number(id), params),

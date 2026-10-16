@@ -10,7 +10,7 @@ const QUEST = { id: 2, slug: 'smotritel', title: 'Пропавший смотр�
 const LORE = { id: 1, slug: 'lestnica', title: 'Лестница', article_type: 'location', author: { id: 7, username: 'Бран' }, excerpt: 'Спуск к воде.', tags: [], body_markdown: 'Сто ступеней вниз.' }
 vi.mock('@/features/articles/api.js', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, articlesApi: { ...actual.articlesApi, get: (id) => Promise.resolve(id === 2 ? QUEST : LORE), list: () => Promise.resolve({ items: [{ id: 1, pending_proposals: 2 }] }) } }
+  return { ...actual, articlesApi: { ...actual.articlesApi, get: (id) => Promise.resolve(id === 2 ? QUEST : LORE) } }
 })
 vi.mock('@/components/ToastProvider.jsx', () => ({ useToasts: () => ({ push: vi.fn() }) }))
 vi.mock('@/features/auth/useAuth.js', () => ({ useAuth: () => ({ user: { id: 5 }, isFounder: false }) }))
@@ -19,13 +19,13 @@ vi.mock('@/features/campaigns/queries.js', () => ({
   usePublicCampaign: () => ({ data: {
     id: 9, slug: 'mayak', title: 'Проклятие маяка', author: { id: 5 }, tags: [{ id: 3, name: 'море' }],
     description_markdown: 'Старый маяк.\n:::gm\nКлад под лестницей.\n:::',
-    articles: [
-      { article_id: 1, slug: 'lestnica', title: 'Лестница', article_type: 'location', position: 0, note: 'Читать до первой сессии' },
-      { article_id: 2, slug: 'smotritel', title: 'Пропавший смотритель', article_type: 'quest', position: 1, note: null },
-    ],
   }, isLoading: false, refetch: vi.fn() }),
+  usePublicCampaignArticles: () => ({ data: [
+    { article_id: 1, slug: 'lestnica', title: 'Лестница', article_type: 'location', position: 0, note: 'Читать до первой сессии' },
+    { article_id: 2, slug: 'smotritel', title: 'Пропавший смотритель', article_type: 'quest', position: 1, note: null },
+  ], isLoading: false }),
   useReplacePublicCampaignArticles: () => ({ mutateAsync: state.replace, isPending: false }),
-  useCampaignMaterials: () => ({ data: { items: [] }, isLoading: false }),
+  useCampaignMaterials: (params) => ({ data: { items: params?.has_pending_proposals ? [{ id: 2, pending_proposals: 2 }] : [] }, isLoading: false }),
 }))
 vi.mock('@/features/articles/queries.js', () => ({
   useTagSearch: () => ({ data: { items: [] }, isLoading: false }),
@@ -56,12 +56,12 @@ describe('public campaign knowledge base', () => {
     const row = await list().findByRole('link', { name: /Лестница/ })
     await waitFor(() => expect(row).toHaveTextContent('@Бран'))
     expect(row).toHaveTextContent('Спуск к воде.')
-    expect(await within(row).findByText('Ждут решения: 2')).toBeVisible()
+    expect(within(list().getByRole('link', { name: /Пропавший смотритель/ })).getByText('Ждут решения: 2')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Фильтры' }))
     await user.click(screen.getByRole('button', { name: 'Ждут правок' }))
     await user.click(screen.getByRole('button', { name: 'Применить' }))
-    expect(list().getByRole('link', { name: /Лестница/ })).toBeVisible()
-    expect(list().queryByRole('link', { name: /Пропавший смотритель/ })).not.toBeInTheDocument()
+    expect(list().getByRole('link', { name: /Пропавший смотритель/ })).toBeVisible()
+    expect(list().queryByRole('link', { name: /Лестница/ })).not.toBeInTheDocument()
   })
 
   it('filters by article type in the filters drawer', async () => {

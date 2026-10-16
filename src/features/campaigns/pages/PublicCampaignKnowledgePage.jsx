@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Badge, ErrorBox, Skeleton, SkeletonCard, TextField } from '@/components/ui'
 import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
@@ -15,7 +15,7 @@ import { queryKeys } from '@/lib/api/queryKeys.js'
 import { articleTypeLabels } from '@/lib/i18n/index.js'
 import { toCampaignError } from '@/features/campaigns/errors.js'
 import { isCampaignMaterial, useKnowledgeLinks } from '@/features/campaigns/knowledgeLinks.js'
-import { useCampaignMaterials, usePublicCampaign } from '@/features/campaigns/queries.js'
+import { useCampaignMaterials, usePublicCampaign, usePublicCampaignArticles } from '@/features/campaigns/queries.js'
 import ActiveFilters from '../components/ActiveFilters.jsx'
 import FilterDrawer from '../components/FilterDrawer.jsx'
 import AttachArticleDrawer, { NewMaterialForm } from '../components/KnowledgeBaseTools.jsx'
@@ -56,10 +56,9 @@ function KnowledgeList({ preset, links }) {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const details = useQueries({ queries: links.map((link) => ({ queryKey: queryKeys.articles.detail(link.article_id), queryFn: () => articlesApi.get(link.article_id) })) })
   const byId = new Map(details.map((q) => q.data).filter(Boolean).map((article) => [article.id, article]))
-  // «Ждут правок» — те же списки, что у фильтра редактора статей, лор и материалы кампаний отдельно.
-  const pendingLore = useQuery({ queryKey: queryKeys.articles.list(PENDING_PARAMS), queryFn: () => articlesApi.list(PENDING_PARAMS) })
+  // «Ждут правок» — только материалы кампаний: правятся здесь лишь квесты и сессии.
   const pendingMaterials = useCampaignMaterials(PENDING_PARAMS)
-  const pending = new Map([...(pendingLore.data?.items ?? []), ...(pendingMaterials.data?.items ?? [])].map((article) => [article.id, article.pending_proposals ?? 0]))
+  const pending = new Map((pendingMaterials.data?.items ?? []).map((article) => [article.id, article.pending_proposals ?? 0]))
   const present = [...new Set(links.map((link) => link.article_type))]
   const needle = applied.toLowerCase()
   const shown = links.filter((link) => {
@@ -74,7 +73,7 @@ function KnowledgeList({ preset, links }) {
   ].filter(Boolean)
   const filtered = Boolean(applied || chips.length)
   const sections = [
-    { key: 'pending', legend: 'Правки', hint: 'Статьи, к которым другие ГМ предложили изменения.', options: [['', 'Все статьи'], ['1', 'Ждут правок']] },
+    { key: 'pending', legend: 'Правки', hint: 'Квесты и сессии, к которым другие ГМ предложили изменения.', options: [['', 'Все статьи'], ['1', 'Ждут правок']] },
     { key: 'types', legend: 'Тип', hint: 'Без выбора — все статьи.', multiple: true, options: present.map((type) => [type, typeLabel(type)]) },
   ]
   return (
@@ -119,13 +118,13 @@ function ArticleReading({ link, kb, canEditBase }) {
   )
 }
 
-function KnowledgeBase({ preset, canEdit }) {
+function KnowledgeBase({ preset, articles, canEdit }) {
   const { user, isFounder } = useAuth()
   const queryClient = useQueryClient()
   const invalidate = useInvalidateArticles()
   const [params, setParams] = useSearchParams()
   const [attaching, setAttaching] = useState(false)
-  const kb = useKnowledgeLinks(preset)
+  const kb = useKnowledgeLinks(preset, articles)
   const current = params.get('article')
   const editing = params.get('edit') === '1'
   const link = kb.links.find((item) => item.slug === current)
@@ -177,7 +176,9 @@ export default function PublicCampaignKnowledgePage() {
   const { slug } = useParams()
   const { user, isFounder } = useAuth()
   const { data: preset, isLoading, error, refetch } = usePublicCampaign(slug)
-  if (error) return <div className="lore-page"><ErrorBox error={toCampaignError(error)} onRetry={refetch} /></div>
-  if (isLoading || !preset) return <div className="lore-page" aria-busy="true"><Skeleton className="mb-6 h-10 w-80" /><SkeletonCard className="min-h-[20rem]" /></div>
-  return <KnowledgeBase key={preset.id} preset={preset} canEdit={isFounder || preset.author?.id === user?.id} />
+  const linksQ = usePublicCampaignArticles(preset?.id)
+  const failure = error || linksQ.error
+  if (failure) return <div className="lore-page"><ErrorBox error={toCampaignError(failure)} onRetry={error ? refetch : linksQ.refetch} /></div>
+  if (isLoading || !preset || linksQ.isLoading || !linksQ.data) return <div className="lore-page" aria-busy="true"><Skeleton className="mb-6 h-10 w-80" /><SkeletonCard className="min-h-[20rem]" /></div>
+  return <KnowledgeBase key={preset.id} preset={preset} articles={linksQ.data} canEdit={isFounder || preset.author?.id === user?.id} />
 }

@@ -4,7 +4,7 @@ import { CAMPAIGN_ARTICLE_TYPES } from '@/features/articles/api.js'
 import { toCampaignError } from '@/features/campaigns/errors.js'
 import { useReplacePublicCampaignArticles } from '@/features/campaigns/queries.js'
 
-const fromPreset = (preset) => (preset.articles ?? []).map(({ article_id, slug, title, article_type, note }) => ({ article_id, slug, title, article_type, note: note ?? '' }))
+const fromLinks = (articles) => (articles ?? []).map(({ article_id, slug, title, article_type, note }) => ({ article_id, slug, title, article_type, note: note ?? '' }))
 const toEntries = (links) => links.map((link, position) => ({ article_id: link.article_id, position, note: link.note.trim() || null }))
 const toLink = (article) => ({ article_id: article.id, slug: article.slug, title: article.title, article_type: article.article_type, note: '' })
 
@@ -12,12 +12,13 @@ const toLink = (article) => ({ article_id: article.id, slug: article.slug, title
 export const isCampaignMaterial = (articleType) => CAMPAIGN_ARTICLE_TYPES.includes(articleType)
 
 // Подвязанные статьи в режиме правки: каждое изменение сохраняется сразу (PUT всего списка), запросы — по очереди.
-export function useKnowledgeLinks(preset) {
+// articles — ответ GET /public-campaigns/{id}/articles.
+export function useKnowledgeLinks(preset, articles) {
   const { push } = useToasts()
-  const [links, setLinks] = useState(() => fromPreset(preset))
+  const [links, setLinks] = useState(() => fromLinks(articles))
   const replace = useReplacePublicCampaignArticles()
   const queue = useRef(Promise.resolve())
-  const saved = useRef(JSON.stringify(toEntries(fromPreset(preset))))
+  const saved = useRef(JSON.stringify(toEntries(fromLinks(articles))))
   const commit = (next) => {
     setLinks(next)
     const entries = JSON.stringify(toEntries(next))
