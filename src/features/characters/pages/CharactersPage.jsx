@@ -35,7 +35,7 @@ function CharacterCard({ character, identity, table, pastTables, nextSession, on
       <div className="player-character-game">
         {table
           ? <><p className="text-sm"><span className="text-stone-400">Играет в </span><Link className="link-ember" to={`/campaigns/${table.id}`}>«{table.title}»</Link><span className="text-stone-400"> · ГМ {table.owner?.username ?? 'аккаунт удалён'}</span></p>
-            <p className="text-hint">{nextSession ? <>Следующая сессия: <Link className="link-ember" to={`/campaigns/${table.id}?tab=sessions`}>{formatDateTime(nextSession.scheduled_at)}{nextSession.title && ` · ${nextSession.title}`}</Link></> : 'Дата следующей сессии пока не назначена.'}</p></>
+            <p className="text-hint">{nextSession ? <>Следующая сессия: <Link className="link-ember" to={`/campaigns/${table.id}/sessions/${nextSession.id}`}>{formatDateTime(nextSession.scheduled_at)}{nextSession.title && ` · ${nextSession.title}`}</Link></> : 'Дата следующей сессии пока не назначена.'}</p></>
           : <p className="text-hint">Свободен: ни в одной кампании. Добавить его в игру может ГМ стола.</p>}
         {pastTables.length > 0 && <p className="text-hint">Раньше: {pastTables.map(({ campaign, status }, index) => <span key={campaign.id}>{index > 0 && ', '}<Link className="link-ember" to={`/campaigns/${campaign.id}`}>«{campaign.title}»</Link> ({campaignCharacterStatusLabels[status].toLowerCase()})</span>)}</p>}
       </div>

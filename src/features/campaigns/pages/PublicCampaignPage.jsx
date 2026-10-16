@@ -48,8 +48,8 @@ function Reviews({ preset }) {
 }
 
 // Страница публичной кампании всегда такая, какой её видят игроки: зазывалка, описание без секретов мастера,
-// витрина персонажей и отзывы. ГМ получает полосу действий: начать свой стол и перейти в редактор
-// публичных кампаний, где правка, секреты, база знаний и смена статуса.
+// витрина персонажей и отзывы. ГМ получает полосу действий: начать свой стол, читать базу знаний
+// (описание с секретами и подвязанные статьи) и перейти в редактор — правка, подвязка статей, статус.
 export default function PublicCampaignPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -67,10 +67,9 @@ export default function PublicCampaignPage() {
 
   return (
     <div className="lore-page preset-page">
-      <nav className="campaign-breadcrumbs" aria-label="Навигация"><Link to="/public-campaigns"><LoreIcon name="back" />Кампании</Link></nav>
+      <nav className="campaign-breadcrumbs" aria-label="Навигация"><Link to="/public-campaigns"><LoreIcon name="back" />Доска приключений</Link></nav>
       <header className="lore-header article-workspace-header preset-hero">
         <div>
-          <p className="lore-eyebrow">Кампания</p>
           <h1 className="heading-section">{preset.title}</h1>
           {asPlayer(preset.pitch) && <p className="lore-intro preset-pitch">{asPlayer(preset.pitch)}</p>}
           <div className="campaign-header-meta">{preset.status !== 'published' && <StatusBadge kind="preset" status={preset.status} />}<span>{preset.author ? `Автор: ${preset.author.username}` : 'Автор удалён'}</span><span>{preset.campaign_count > 0 ? `Сыграно столов: ${preset.campaign_count}` : 'Ещё не играли'}</span>{preset.tags.map((tag) => <Badge key={tag.id}>#{tag.name}</Badge>)}</div>
@@ -80,6 +79,7 @@ export default function PublicCampaignPage() {
         <p className="text-hint"><LoreIcon name="eye" /> Так страницу видят игроки.</p>
         <div className="flex flex-wrap gap-2">
           {canStart && <Button size="sm" onClick={() => setStarting(true)}><LoreIcon name="plus" />Начать кампанию</Button>}
+          <Button size="sm" variant="ghost" onClick={() => navigate(`/public-campaigns/${preset.slug}/knowledge`)}><LoreIcon name="book" />База знаний</Button>
           <Button size="sm" variant="ghost" onClick={() => navigate(`/gm/public-campaigns?slug=${encodeURIComponent(preset.slug)}`)}><LoreIcon name="settings" />В редактор</Button>
         </div>
       </div>}

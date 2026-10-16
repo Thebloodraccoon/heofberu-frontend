@@ -3,14 +3,14 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Badge, Button, ConfirmDialog, ErrorBox, Skeleton, SkeletonCard } from '@/components/ui'
 import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import { useToasts } from '@/components/ToastProvider.jsx'
-import ArticleText from '@/features/articles/components/ArticleText.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { campaignCharacterStatusLabels } from '@/lib/i18n/index.js'
 import { isCampaignClosed, isCampaignGm } from '@/features/campaigns/api.js'
 import { toCampaignError } from '@/features/campaigns/errors.js'
-import { useArchiveCampaign, useCampaign, useRestoreCampaign } from '@/features/campaigns/queries.js'
+import { useArchiveCampaign, useCampaign, useRestoreCampaign, useUpdateCampaign } from '@/features/campaigns/queries.js'
 import { useAuth } from '@/features/auth/useAuth.js'
 import CampaignFormDrawer from '../components/CampaignFormDrawer.jsx'
+import DescriptionField from '../components/DescriptionField.jsx'
 import NotesPanel from '../components/NotesPanel.jsx'
 import ReviewsPanel from '../components/ReviewsPanel.jsx'
 import RosterPanel from '../components/RosterPanel.jsx'
@@ -27,6 +27,7 @@ export default function CampaignDetailPage() {
   const { data: campaign, isLoading, error, refetch } = useCampaign(id)
   const archive = useArchiveCampaign()
   const restore = useRestoreCampaign()
+  const update = useUpdateCampaign()
   const [editing, setEditing] = useState(false)
   const [confirmingArchive, setConfirmingArchive] = useState(false)
   const isGm = isCampaignGm(campaign)
@@ -46,28 +47,37 @@ export default function CampaignDetailPage() {
 
   return (
     <div className="lore-page campaign-page">
-      <nav className="campaign-breadcrumbs" aria-label="Навигация">{isGm ? <Link to="/gm/campaigns"><LoreIcon name="back" />Игровые столы</Link> : <Link to="/characters"><LoreIcon name="back" />Мои персонажи и игры</Link>}</nav>
+      {/* Как в лоре: слева — назад, справа — действия; архив живёт в настройках. */}
+      <div className="lore-reading-toolbar">
+        {isGm ? <Link to="/gm/campaigns"><LoreIcon name="back" />Игровые столы</Link> : <Link to="/characters"><LoreIcon name="back" />Мои персонажи и игры</Link>}
+        {isGm && <div className="lore-reading-actions"><button type="button" onClick={() => setEditing(true)}><LoreIcon name="settings" />Настройки</button></div>}
+      </div>
       <header className="lore-header article-workspace-header campaign-header">
         <div>
-          <p className="lore-eyebrow">{campaign.owner?.id === user?.id ? 'Вы ведёте эту кампанию' : isGm ? 'Вы смотрите как основатель' : 'Вы играете в этой кампании'}</p>
+          <div className="campaign-header-meta campaign-header-status"><StatusBadge kind="campaign" status={campaign.status} />{campaign.archived_at && <Badge tone="violet">В архиве</Badge>}<span>{campaign.owner ? `Ведёт ${campaign.owner.username}${campaign.owner.id === user?.id ? ' (вы)' : ''}` : 'ГМ удалил аккаунт'}</span></div>
           <h1 className="heading-section">{campaign.title}</h1>
-          <div className="campaign-header-meta"><StatusBadge kind="campaign" status={campaign.status} />{campaign.archived_at && <Badge tone="violet">В архиве</Badge>}<span>ГМ: {campaign.owner?.username ?? 'аккаунт удалён'}</span>{campaign.public_campaign && <Link className="link-ember" to={`/public-campaigns/${campaign.public_campaign.slug}`}>По мотивам «{campaign.public_campaign.title}»</Link>}</div>
+          {campaign.public_campaign && <div className="campaign-header-meta"><Link className="link-ember" to={`/public-campaigns/${campaign.public_campaign.slug}`}>По мотивам «{campaign.public_campaign.title}»</Link></div>}
           {campaign.my_characters?.length > 0 && <div className="campaign-card-characters mt-3" aria-label="Ваши персонажи"><span className="text-hint">Ваши персонажи:</span>{campaign.my_characters.map((character) => <Link key={character.participation_id} className="lore-chip" to={`/characters/${character.character_id}`}>{character.name}<span className="text-hint">· {campaignCharacterStatusLabels[character.status].toLowerCase()}</span></Link>)}</div>}
         </div>
-        {isGm && <div className="flex flex-wrap gap-2"><Button variant="ghost" onClick={() => setEditing(true)}><LoreIcon name="settings" />Настройки</Button>{campaign.archived_at ? <Button variant="ghost" disabled={restore.isPending} onClick={doRestore}><LoreIcon name="undo" />Вернуть из архива</Button> : <Button variant="ghost" onClick={() => setConfirmingArchive(true)}>В архив</Button>}</div>}
       </header>
       {isCampaignClosed(campaign) && <p className="lore-preview-notice">{campaign.archived_at ? 'Кампания в архиве: её можно читать, но состав больше не меняется.' : 'Кампания закрыта: состав больше не меняется.'}</p>}
 
       <EditorTabs tabs={tabs} value={tab} onChange={setTab} label="Разделы кампании" />
       <div className="campaign-tabpanels">
-        <div role="tabpanel" aria-label="Обзор" hidden={tab !== 'overview'}>{tab === 'overview' && <section className="campaign-panel" aria-label="Описание кампании"><ArticleText value={campaign.description_markdown} empty={isGm ? 'Описание пока не написано. Добавьте его в настройках.' : 'ГМ пока не написал описание.'} /></section>}</div>
+        <div role="tabpanel" aria-label="Обзор" hidden={tab !== 'overview'}>{tab === 'overview' && <section className="campaign-panel mx-auto w-full max-w-3xl" aria-label="Описание кампании"><DescriptionField value={campaign.description_markdown} framed={false} ariaLabel="Описание кампании" placeholder="Завязка, тон, правила стола…" empty={isGm ? 'Описание пока не написано.' : 'ГМ пока не написал описание.'} onSave={isGm ? async (description_markdown) => { await update.mutateAsync({ id: campaign.id, description_markdown }); push('Описание сохранено', undefined, 'success') } : undefined} /></section>}</div>
         <div role="tabpanel" aria-label="Состав" hidden={tab !== 'roster'}>{tab === 'roster' && <RosterPanel campaign={campaign} />}</div>
         <div role="tabpanel" aria-label="Сессии" hidden={tab !== 'sessions'}>{tab === 'sessions' && <SessionsPanel campaign={campaign} />}</div>
         {isGm && <div role="tabpanel" aria-label="Заметки" hidden={tab !== 'notes'}>{tab === 'notes' && <NotesPanel campaign={campaign} />}</div>}
         <div role="tabpanel" aria-label="Отзывы" hidden={tab !== 'reviews'}>{tab === 'reviews' && <ReviewsPanel campaign={campaign} />}</div>
       </div>
 
-      {editing && <CampaignFormDrawer campaign={campaign} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); push('Кампания сохранена', undefined, 'success') }} />}
+      {editing && <CampaignFormDrawer campaign={campaign} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); push('Кампания сохранена', undefined, 'success') }} extra={
+        <section className="campaign-settings-archive" aria-label="Архив">
+          <h3 className="text-label">Архив</h3>
+          <p className="text-hint">{campaign.archived_at ? 'Стол в архиве. Вернуть можно, но персонажей придётся добавить заново.' : 'Игроки смогут читать кампанию, но активные персонажи будут сняты с игры.'}</p>
+          {campaign.archived_at ? <Button variant="ghost" disabled={restore.isPending} onClick={doRestore}><LoreIcon name="undo" />Вернуть из архива</Button> : <Button variant="danger" onClick={() => { setEditing(false); setConfirmingArchive(true) }}>В архив</Button>}
+        </section>
+      } />}
       {confirmingArchive && <ConfirmDialog title="Отправить кампанию в архив?" message="Игроки по-прежнему смогут её читать, но активные персонажи будут сняты с игры и станут свободны для других кампаний." confirmText="В архив" busyText="Архивируем…" busy={archive.isPending} error={archive.error && toCampaignError(archive.error)} onCancel={() => { setConfirmingArchive(false); archive.reset() }} onConfirm={doArchive} />}
     </div>
   )

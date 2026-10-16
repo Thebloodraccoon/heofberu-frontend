@@ -19,7 +19,8 @@ const fromSession = (session) => ({
 
 // ГМ планирует сессию (дата попадает в расписание игроков), потом отмечает, кто был, и пишет хронику.
 // Хроника остаётся черновиком, пока её не опубликуют из карточки сессии.
-export default function SessionFormDrawer({ campaign, session, onClose, onSaved }) {
+// extra — блок под формой (страница сессии кладёт туда удаление).
+export default function SessionFormDrawer({ campaign, session, onClose, onSaved, extra }) {
   const editing = Boolean(session)
   const { push } = useToasts()
   const [form, setForm] = useState(() => fromSession(session))
@@ -91,6 +92,7 @@ export default function SessionFormDrawer({ campaign, session, onClose, onSaved 
         </div>
         {failure && <ErrorBox error={failure} onRetry={() => setFailure(null)} />}
       </form>
+      {extra}
     </Drawer>
   )
 }

@@ -21,13 +21,13 @@ vi.mock('@/features/campaigns/queries.js', () => ({
 describe('player schedule page', () => {
   beforeEach(() => { state.params = [] })
 
-  it('groups sessions by local day, names the playing character and links into the campaign', () => {
+  it('groups sessions by local day, names the playing character and links to the session page', () => {
     render(<MemoryRouter><SchedulePage /></MemoryRouter>)
     const days = screen.getAllByRole('region')
     expect(days).toHaveLength(2)
     const first = within(days[0])
     expect(first.getAllByRole('link')).toHaveLength(2)
-    expect(first.getByRole('link', { name: /Нова/ })).toHaveAttribute('href', '/campaigns/1?tab=sessions')
+    expect(first.getByRole('link', { name: /Нова/ })).toHaveAttribute('href', '/campaigns/1/sessions/1')
     expect(first.getByText(/играет Гурн/)).toBeVisible()
   })
 

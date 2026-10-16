@@ -25,11 +25,10 @@ async function applyFilter(user, option) {
 describe('game tables (GM workspace)', () => {
   beforeEach(() => { state.params = []; state.schedule = []; state.auth = { isFounder: false } })
 
-  it('lists the tables the GM runs and their own upcoming sessions', async () => {
+  it('lists the tables the GM runs', async () => {
     const user = userEvent.setup()
     render(<MemoryRouter><GmCampaignsPage /></MemoryRouter>)
     expect(lastParams()).toMatchObject({ role: 'gm' })
-    expect(state.schedule.at(-1)).toMatchObject({ role: 'gm' })
     expect(screen.getByRole('link', { name: /Нова/ })).toHaveAttribute('href', '/campaigns/1')
     expect(screen.getByRole('button', { name: /Создать кампанию/ })).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Фильтры' }))

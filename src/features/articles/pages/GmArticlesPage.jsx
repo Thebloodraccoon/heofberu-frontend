@@ -6,6 +6,7 @@ import {
   articlePath,
   articlesApi,
   ARTICLE_TYPES,
+  CAMPAIGN_ARTICLE_TYPES,
   ARTICLE_VISIBILITY,
   canEditArticle,
   validateImageFile,
@@ -389,13 +390,14 @@ function ArticleForm({ article, ...props }) {
 }
 
 // Выпадающие списки общие для создания и правки; onChange(patch) решает, что с ними делать.
-function ArticleSelects({ values, articleId, onChange, disabled = false, statuses }) {
+// campaignMaterial — квест или сессия кампании: тип только из них, без видимости и родителя.
+function ArticleSelects({ values, articleId, onChange, disabled = false, statuses, campaignMaterial = false }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       <div className="space-y-2">
       <Field label="Тип">
         <Select value={values.article_type} disabled={disabled || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value, ...(values.subtype_id ? { subtype_id: null } : {}) }, 'Тип')}>
-          {ARTICLE_TYPES.map((t) => (
+          {(campaignMaterial ? CAMPAIGN_ARTICLE_TYPES : ARTICLE_TYPES).map((t) => (
             <option key={t} value={t}>
               {articleTypeLabels[t]}
             </option>
@@ -406,7 +408,7 @@ function ArticleSelects({ values, articleId, onChange, disabled = false, statuse
       <SubtypeSelect articleType={values.article_type} value={values.subtype_id} disabled={disabled || statuses?.subtype_id?.state === 'saving'} onChange={(id) => onChange({ subtype_id: id })} />
       {statuses && <SaveStatus status={statuses.subtype_id} />}
       </div>
-      <Field label="Видимость">
+      {!campaignMaterial && <><Field label="Видимость">
         <Select
           value={values.visibility}
           disabled={disabled || statuses?.visibility?.state === 'saving'}
@@ -423,7 +425,7 @@ function ArticleSelects({ values, articleId, onChange, disabled = false, statuse
       <div>
         <ParentArticlePicker articleId={articleId} value={values.parent_id} disabled={disabled || statuses?.parent_id?.state === 'saving'} onChange={(id) => onChange({ parent_id: id }, 'Родительская статья')} />
         {statuses && <SaveStatus status={statuses.parent_id} />}
-      </div>
+      </div></>}
     </div>
   )
 }
@@ -506,7 +508,9 @@ function ArticleCreateForm({ onSaved, toasts }) {
 // Текстовые поля — «Изменить» → «Сохранить» (PATCH только этого поля); списки и теги
 // сохраняются сразу при изменении. Все запросы идут по очереди (queueRef), чтобы
 // ответы не приходили вперемешку, а на экране — последнее выбранное значение.
-function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts }) {
+// Экспортируется для базы знаний публичной кампании: там квест/сессия правится этим же конструктором
+// (campaignMaterial) — без связей, статуса, видимости, родителя и тегов, тип — только квест или сессия.
+export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts, campaignMaterial = false }) {
   const { user, isFounder } = useAuth()
   const canEdit = canEditArticle(article, user, isFounder)
   // Основатель правит любую статью напрямую, но к чужой может и предложить правку — пусть решает автор.
@@ -754,10 +758,10 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
         {[
           ['text', 'Текст'],
           ['images', 'Изображения'],
-          ['relations', 'Связи'],
+          !campaignMaterial && ['relations', 'Связи'],
           ['proposals', pendingCount ? `Предложения (${pendingCount})` : 'Предложения'],
           ['history', 'История'],
-        ].map(([key, label]) => (
+        ].filter(Boolean).map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -863,9 +867,9 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       />
 
       </div>
-      <div hidden={activePanel !== 'relations'} className="article-editor-panel">
+      {!campaignMaterial && <div hidden={activePanel !== 'relations'} className="article-editor-panel">
       <ArticleRelations articleId={article.id} articleTitle={values.title} readOnly={!canEdit} />
-      </div>
+      </div>}
       <div hidden={activePanel !== 'proposals'} className="article-editor-panel">
         {activePanel === 'proposals' && (
           <ArticleProposals articleId={article.id} canReview={canEdit} onAccepted={(saved) => onRestored(saved, 'Предложение принято')} />
@@ -880,11 +884,11 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       {canEdit && <EditorSettings>
         <div className="space-y-3">
           <ul><AuthorRow article={article} /></ul>
-          <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />
-          <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} />
-          <TagInput value={values.tags} onChange={saveTags} />
-          <SaveStatus status={statuses.tags} />
-          <p className="text-xs text-stone-500">Параметры и теги сохраняются сразу. Для текста используйте кнопку «Сохранить».</p>
+          {!campaignMaterial && <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />}
+          <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} campaignMaterial={campaignMaterial} />
+          {!campaignMaterial && <><TagInput value={values.tags} onChange={saveTags} />
+          <SaveStatus status={statuses.tags} /></>}
+          <p className="text-xs text-stone-500">{campaignMaterial ? 'Параметры сохраняются сразу.' : 'Параметры и теги сохраняются сразу.'} Для текста используйте кнопку «Сохранить».</p>
         </div>
       </EditorSettings>}
       {!canEdit && <EditorSettings><ArticleFacts article={article} values={values} /></EditorSettings>}

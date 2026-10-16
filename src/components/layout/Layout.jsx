@@ -21,10 +21,10 @@ const personalLinks = [
 ]
 
 const gmLinks = [
-  { to: '/gm/campaigns', label: 'Игровые столы' },
   { to: '/gm/public-campaigns', label: 'Редактор публичных кампаний' },
   { to: '/gm/articles', label: 'Редактор статей и тегов' },
   { to: '/gm/editor', label: 'Редактор справочников' },
+  { to: '/gm/campaigns', label: 'Игровые столы' },
 ]
 
 const founderLinks = [{ to: '/users', label: 'Админ-панель' }]

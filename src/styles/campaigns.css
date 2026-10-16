@@ -3,13 +3,14 @@
 
 .campaign-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .campaign-filters .lore-chip:disabled { opacity: 0.5; cursor: not-allowed; }
-.campaign-list, .preset-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 0.75rem; margin-top: 1.25rem; }
+.campaign-list { display: grid; gap: 0.6rem; margin-top: 1.25rem; }
+.preset-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 0.75rem; margin-top: 1.25rem; }
 .campaign-card, .preset-card { margin: 0; padding: 0; }
 .campaign-card-link, .preset-card-link { display: grid; gap: 0.5rem; height: 100%; padding: 1rem; color: inherit; }
 .campaign-card-link:focus-visible, .preset-card-link:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
 .campaign-card-title, .preset-card-title { color: var(--color-stone-100); font-size: 1.15rem; font-weight: 700; line-height: 1.3; }
 .campaign-card-meta { color: var(--color-stone-400); font-size: 0.85rem; }
-.campaign-card-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.campaign-card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
 .preset-card-pitch { color: var(--color-stone-300); font-size: 0.9rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .preset-card-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .preset-card-tags .lore-chip { min-height: 1.9rem; padding: 0.2rem 0.55rem; font-size: 0.78rem; }
@@ -76,9 +77,6 @@
 
 .campaign-card-characters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 .campaign-card-characters .lore-chip { min-height: 1.9rem; padding: 0.2rem 0.55rem; font-size: 0.78rem; }
-.gm-campaigns-layout { display: grid; gap: 1.5rem; align-items: start; }
-@media (min-width: 1024px) { .gm-campaigns-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 20rem); } .gm-campaigns-upcoming { position: sticky; top: 8rem; } }
-.gm-campaigns-upcoming .schedule-entry .badge, .gm-campaigns-upcoming [data-tone] { white-space: nowrap; }
 .preset-gm-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.25rem; padding: 0.7rem 1rem; border-left: 2px solid var(--color-gold); background: var(--color-stone-900); }
 .preset-gm-bar .lore-icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -0.15rem; }
 .preset-workspace-card { display: grid; gap: 0.25rem; margin: 0; text-align: left; }
@@ -104,3 +102,19 @@
   .public-character-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .preset-section { padding: 1rem; }
 }
+
+
+/* Страница сессии: хроника слева, явка столбиком справа; отзывы и персонажи сессии ниже. */
+.session-page .campaign-session-reviews { padding-top: 0; border-top: 0; }
+.campaign-settings-archive { display: grid; justify-items: start; gap: 0.5rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--color-stone-800); }
+.campaign-header-status { margin-top: 0; margin-bottom: 0.5rem; }
+.campaign-header-status .lore-eyebrow { margin-bottom: 0; }
+.session-layout { display: grid; gap: 1.5rem; align-items: start; margin-top: 1.25rem; }
+@media (min-width: 1024px) { .session-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 18rem); } .session-attendance { position: sticky; top: calc(var(--app-header-h) + 1.5rem); } }
+.session-attendance-list { display: grid; gap: 0.4rem; }
+.session-attendance-list .lore-chip { justify-content: flex-start; width: 100%; }
+.session-characters { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: 0.6rem; }
+.session-character { display: flex; align-items: center; gap: 0.9rem; margin: 0; }
+.session-character .sheet-avatar { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--color-stone-700); border-radius: 0.4rem; background: color-mix(in srgb, var(--color-gold) 10%, var(--color-stone-900)); color: var(--color-gold-light); font: 700 1.2rem/1 var(--font-display); }
+.session-character .lore-chip { min-height: 2rem; padding: 0.25rem 0.55rem; font-size: 0.78rem; }
+.session-character .lore-icon { width: 1rem; height: 1rem; }

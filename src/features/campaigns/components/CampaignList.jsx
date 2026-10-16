@@ -15,8 +15,7 @@ function CampaignCard({ campaign }) {
     <article className="catalog-record-card campaign-card">
       <Link to={`/campaigns/${campaign.id}`} className="campaign-card-link">
         <span className="campaign-card-title font-display">{campaign.title}</span>
-        <span className="campaign-card-meta">{campaign.owner ? `Ведёт ${campaign.owner.username}` : 'ГМ удалил аккаунт'}{campaign.public_campaign && ` · по мотивам «${campaign.public_campaign.title}»`}</span>
-        <span className="campaign-card-badges"><StatusBadge kind="campaign" status={campaign.status} />{campaign.archived_at && <Badge tone="violet">В архиве</Badge>}</span>
+        <span className="campaign-card-badges"><StatusBadge kind="campaign" status={campaign.status} />{campaign.archived_at && <Badge tone="violet">В архиве</Badge>}<span className="campaign-card-meta">{campaign.owner ? `Ведёт ${campaign.owner.username}` : 'ГМ удалил аккаунт'}{campaign.public_campaign && ` · по мотивам «${campaign.public_campaign.title}»`}</span></span>
         <span className="text-hint">Обновлено {formatDateTime(campaign.updated_at)}</span>
       </Link>
     </article>

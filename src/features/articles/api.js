@@ -75,7 +75,7 @@ export const tagsApi = {
 }
 
 // Типы статей лора (фильтры, редактор статей). Квесты и сессии сюда не входят: это материалы
-// конкретной публичной кампании — пишутся и подвязываются во вкладке «База знаний» её редактора.
+// конкретной публичной кампании — пишутся и подвязываются на странице её базы знаний (/public-campaigns/:slug/knowledge).
 export const ARTICLE_TYPES = [
   'lore', 'region', 'location', 'faction', 'npc', 'event', 'artifact',
   'deity', 'religion', 'creature', 'culture', 'language', 'document', 'condition',

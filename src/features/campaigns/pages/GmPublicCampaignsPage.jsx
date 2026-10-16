@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Button, ErrorBox, Skeleton } from '@/components/ui'
 import Pagination from '@/components/ui/Pagination.jsx'
 import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
@@ -53,6 +53,7 @@ export default function GmPublicCampaignsPage() {
       </header>}
       {selected !== null && <div className="article-workspace-nav lore-reading-toolbar">
         <button type="button" className="article-back" onClick={() => select(null)} aria-label="Вернуться к публичным кампаниям"><LoreIcon name="back" />Ко всем публичным кампаниям</button>
+        {selected !== 'new' && <div className="lore-reading-actions"><Link to={`/public-campaigns/${selected}/knowledge`}><LoreIcon name="book" />База знаний</Link><Link to={`/public-campaigns/${selected}`}><LoreIcon name="eye" />Страница</Link></div>}
       </div>}
 
       {selected === null && <section className="article-library">
@@ -82,7 +83,7 @@ export default function GmPublicCampaignsPage() {
         <Pagination page={page} total={data?.total ?? 0} size={PAGE_SIZE} onPage={setPage} />
       </section>}
 
-      {selected === 'new' && <PresetCreateForm onSaved={(preset) => { push('Черновик создан', 'Опубликуйте, когда будет готово. Базу знаний подвяжете во вкладке рядом.', 'success'); select(preset.slug) }} onCancel={() => select(null)} />}
+      {selected === 'new' && <PresetCreateForm onSaved={(preset) => { push('Черновик создан', 'Опубликуйте, когда будет готово. Статьи подвяжете на странице «База знаний».', 'success'); select(preset.slug) }} onCancel={() => select(null)} />}
       {selected !== null && selected !== 'new' && <PresetWorkspace key={selected} slug={selected} />}
     </div>
   )

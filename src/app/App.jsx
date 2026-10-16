@@ -30,7 +30,9 @@ const PublicCampaignPage = lazy(() => import('@/features/campaigns/pages/PublicC
 const PublicCharacterPage = lazy(() => import('@/features/campaigns/pages/PublicCharacterPage.jsx'))
 const GmCampaignsPage = lazy(() => import('@/features/campaigns/pages/GmCampaignsPage.jsx'))
 const SchedulePage = lazy(() => import('@/features/campaigns/pages/SchedulePage.jsx'))
+const SessionPage = lazy(() => import('@/features/campaigns/pages/SessionPage.jsx'))
 const GmPublicCampaignsPage = lazy(() => import('@/features/campaigns/pages/GmPublicCampaignsPage.jsx'))
+const PublicCampaignKnowledgePage = lazy(() => import('@/features/campaigns/pages/PublicCampaignKnowledgePage.jsx'))
 
 function RootRedirect() {
   const { authenticated } = useAuth()
@@ -95,6 +97,7 @@ function AppRoutes() {
               {/* Кампании игрока живут на «Мои персонажи и игры», расписание — своей страницей. */}
               <Route path="campaigns" element={<Navigate to="/characters" replace />} />
               <Route path="campaigns/:id" element={<CampaignDetailPage />} />
+              <Route path="campaigns/:id/sessions/:sessionId" element={<SessionPage />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route
                 path="users"
@@ -125,6 +128,14 @@ function AppRoutes() {
                 element={
                   <GMRoute>
                     <GmCampaignsPage />
+                  </GMRoute>
+                }
+              />
+              <Route
+                path="public-campaigns/:slug/knowledge"
+                element={
+                  <GMRoute>
+                    <PublicCampaignKnowledgePage />
                   </GMRoute>
                 }
               />

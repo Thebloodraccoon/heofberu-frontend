@@ -15,14 +15,13 @@ const PAGE_SIZE = 12
 const EMPTY_FILTERS = { tags: [] }
 const FILTER_SECTIONS = [{ key: 'tags', legend: 'Теги', type: 'tags', hint: 'Будут показаны кампании с любым из выбранных тегов.' }]
 
-// Строка каталога — как строка статьи в лоре: метаданные, заголовок со стрелкой, зазывалка.
+// Строка каталога — как строка статьи в лоре: метаданные, заголовок со стрелкой, зазывалка. Теги — на странице кампании.
 function PresetRow({ preset }) {
   const pitch = stripGmBlocks(preset.pitch ?? '').trim()
   return (
     <Link to={`/public-campaigns/${preset.slug}`} className="lore-article-row">
       <div className="lore-article-meta">
         <span className="lore-article-type">{preset.campaign_count > 0 ? `Сыграно столов: ${preset.campaign_count}` : 'Ещё не играли'}</span>
-        {preset.tags.map((tag) => <span key={tag.id} className="text-xs text-stone-500">#{tag.name}</span>)}
         {preset.author && <span className="text-xs text-stone-500">автор {preset.author.username}</span>}
       </div>
       <div className="lore-article-heading"><h2>{preset.title}</h2><LoreIcon name="arrow" /></div>
@@ -49,7 +48,7 @@ export default function PublicCampaignsPage() {
 
   return (
     <div className="lore-page public-campaigns-page">
-      <header className="lore-header article-workspace-header"><div><p className="lore-eyebrow">Библиотека мира</p><h1 className="heading-section">Кампании</h1><p className="lore-intro">Готовые завязки: выберите историю — ГМ соберёт по ней свой стол.</p></div>{isGM && <Button variant="ghost" onClick={() => navigate('/gm/public-campaigns')}><LoreIcon name="settings" />Редактор</Button>}</header>
+      <header className="lore-header article-workspace-header"><div><p className="lore-eyebrow">Доска приключений</p><h1 className="heading-section">Кампании</h1><p className="lore-intro">Готовые завязки: выберите историю — ГМ соберёт по ней свой стол.</p></div>{isGM && <Button variant="ghost" onClick={() => navigate('/gm/public-campaigns')}><LoreIcon name="settings" />Редактор</Button>}</header>
       <div className="lore-search-panel">
         <SearchToolbar className="lore-search-toolbar" query={query} onQueryChange={setQuery} onSearch={() => { setAppliedQuery(query.trim()); setPage(1) }} onFilters={() => setFiltersOpen(true)} filterCount={chips.length} filtersOpen={filtersOpen} label="Поиск кампаний" placeholder="Название или зазывалка…" />
         <ActiveFilters chips={chips} onReset={() => applyFilters(EMPTY_FILTERS)} />
