@@ -16,13 +16,15 @@ const catalogLinks = [
 
 const personalLinks = [
   { to: '/profile', label: 'Профиль' },
-  { to: '/characters', label: 'Мои персонажи' },
+  { to: '/characters', label: 'Мои персонажи и игры' },
+  { to: '/schedule', label: 'Расписание' },
 ]
 
 const gmLinks = [
+  { to: '/gm/campaigns', label: 'Игровые столы' },
+  { to: '/gm/public-campaigns', label: 'Редактор публичных кампаний' },
   { to: '/gm/articles', label: 'Редактор статей и тегов' },
   { to: '/gm/editor', label: 'Редактор справочников' },
-  { to: '/gm/characters', label: 'Персонажи игроков' },
 ]
 
 const founderLinks = [{ to: '/users', label: 'Админ-панель' }]
@@ -66,6 +68,7 @@ function SidebarContent({ onClick }) {
       <SidebarLink to="/" end label="Главная" onClick={onClick} />
       <SidebarLink to="/guide" label="Руководство" onClick={onClick} />
       <SidebarLink to="/lore" label="Лор" onClick={onClick} />
+      <SidebarLink to="/public-campaigns" label="Кампании" onClick={onClick} />
 
       <SectionTitle>Справочники</SectionTitle>
       {catalogLinks.map((l) => (
@@ -184,6 +187,7 @@ function DesktopNav() {
     { label: 'Главная', to: '/' },
     { label: 'Руководство', to: '/guide' },
     { label: 'Лор', to: '/lore' },
+    { label: 'Кампании', to: '/public-campaigns' },
     { label: 'Справочники', children: catalogLinks },
     authenticated && { label: 'Личное', children: personalLinks },
     authenticated && isGM && { label: 'Для ГМ', children: gmLinks },

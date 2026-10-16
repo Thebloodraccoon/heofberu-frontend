@@ -455,3 +455,38 @@ export const relationCaptionLabels = {
 
 export const articleChildCaption = 'Вложенная статья'
 export const relatedArticlesLabel = 'Связанные статьи'
+
+// Кампании: статусы игровой кампании, участия персонажа и сессии, публичной кампании (пресета).
+export const campaignStatusLabels = {
+  planning: 'Подготовка',
+  active: 'Идёт',
+  paused: 'На паузе',
+  finished: 'Завершена',
+  abandoned: 'Заброшена',
+}
+
+export const campaignCharacterStatusLabels = {
+  active: 'В игре',
+  dead: 'Погиб',
+  retired: 'Ушёл на покой',
+  removed: 'Исключён',
+}
+
+export const campaignSessionStatusLabels = {
+  planned: 'Запланирована',
+  played: 'Сыграна',
+  cancelled: 'Отменена',
+}
+
+export const publicCampaignStatusLabels = {
+  draft: 'Черновик',
+  published: 'Опубликована',
+  archived: 'В архиве',
+}
+
+// Насколько персонаж виден публично (карточка и витрина публичной кампании).
+export const characterVisibilityLabels = {
+  hidden: 'Скрыт',
+  concept: 'Концепт',
+  full: 'Полностью',
+}

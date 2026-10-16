@@ -9,7 +9,6 @@ export const queryKeys = {
   characters: {
     all: ['characters'],
     mine: ['characters', 'mine'],
-    allCharacters: ['characters', 'all-users'],
     detail: (id) => ['characters', id],
     spells: (id) => ['characters', id, 'spells'],
     attacks: (id) => ['characters', id, 'attacks'],
@@ -59,5 +58,30 @@ export const queryKeys = {
     list: (params) => ['tags', 'list', params ?? {}],
     detail: (id) => ['tags', 'detail', id],
     page: (params) => ['tags', 'page', params ?? {}],
+  },
+  campaigns: {
+    all: ['campaigns'],
+    list: (params) => ['campaigns', 'list', params ?? {}],
+    detail: (id) => ['campaigns', id],
+    roster: (id, params) => ['campaigns', id, 'roster', params ?? {}],
+    candidates: (id, params) => ['campaigns', id, 'candidates', params ?? {}],
+    sessions: (id, params) => ['campaigns', id, 'sessions', params ?? {}],
+    session: (id, sessionId) => ['campaigns', id, 'session', sessionId],
+    notes: (id, params) => ['campaigns', id, 'notes', params ?? {}],
+    reviews: (id, params) => ['campaigns', id, 'reviews', params ?? {}],
+    sessionReviews: (id, sessionId, params) => ['campaigns', id, 'session', sessionId, 'reviews', params ?? {}],
+    schedule: (params) => ['campaigns', 'schedule', params ?? {}],
+  },
+  publicCampaigns: {
+    all: ['public-campaigns'],
+    list: (params) => ['public-campaigns', 'list', params ?? {}],
+    bySlug: (slug) => ['public-campaigns', 'slug', slug],
+    articles: (id) => ['public-campaigns', id, 'articles'],
+    characters: (id, params) => ['public-campaigns', id, 'characters', params ?? {}],
+    reviews: (id, params) => ['public-campaigns', id, 'reviews', params ?? {}],
+  },
+  campaignMaterials: {
+    all: ['campaign-materials'],
+    list: (params) => ['campaign-materials', 'list', params ?? {}],
   },
 }

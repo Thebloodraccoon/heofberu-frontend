@@ -1,0 +1,106 @@
+/* Кампании: игровые (состав, сессии, заметки, отзывы), расписание, публичные кампании и карточка героя.
+   Только токены темы — светлая тема переопределяет их сама. */
+
+.campaign-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.campaign-filters .lore-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+.campaign-list, .preset-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: 0.75rem; margin-top: 1.25rem; }
+.campaign-card, .preset-card { margin: 0; padding: 0; }
+.campaign-card-link, .preset-card-link { display: grid; gap: 0.5rem; height: 100%; padding: 1rem; color: inherit; }
+.campaign-card-link:focus-visible, .preset-card-link:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+.campaign-card-title, .preset-card-title { color: var(--color-stone-100); font-size: 1.15rem; font-weight: 700; line-height: 1.3; }
+.campaign-card-meta { color: var(--color-stone-400); font-size: 0.85rem; }
+.campaign-card-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.preset-card-pitch { color: var(--color-stone-300); font-size: 0.9rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.preset-card-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.preset-card-tags .lore-chip { min-height: 1.9rem; padding: 0.2rem 0.55rem; font-size: 0.78rem; }
+
+.campaign-breadcrumbs { margin-bottom: 1rem; }
+.campaign-breadcrumbs a { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--color-stone-400); font-size: 0.85rem; }
+.campaign-breadcrumbs a:hover { color: var(--color-stone-100); }
+.campaign-breadcrumbs .lore-icon { width: 1rem; height: 1rem; }
+.campaign-header-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem; margin-top: 0.75rem; color: var(--color-stone-400); font-size: 0.85rem; }
+.campaign-tabpanels { margin-top: 1.25rem; }
+.campaign-panel { display: grid; gap: 1rem; }
+.campaign-panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; }
+.campaign-panel-header > p { max-width: 42rem; }
+.campaign-warning { padding: 0.7rem 1rem; border-left: 2px solid var(--color-ember); background: var(--color-stone-900); color: var(--color-stone-300); font-size: 0.85rem; }
+
+.campaign-roster, .campaign-sessions, .campaign-notes, .campaign-reviews { display: grid; gap: 0.6rem; }
+.campaign-roster-card { display: flex; align-items: center; gap: 0.9rem; margin: 0; }
+.campaign-roster-card[data-status="removed"], .campaign-roster-card[data-status="dead"] { opacity: 0.75; }
+.campaign-roster-card .sheet-avatar, .preset-showcase-card .sheet-avatar { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--color-stone-700); border-radius: 0.4rem; background: color-mix(in srgb, var(--color-gold) 10%, var(--color-stone-900)); color: var(--color-gold-light); font: 700 1.2rem/1 var(--font-display); }
+.campaign-roster-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+.campaign-roster-actions .lore-icon, .campaign-session-card > .lore-icon { width: 1rem; height: 1rem; }
+.campaign-candidate-search { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: end; gap: 0.75rem; margin: 1rem 0; }
+.campaign-candidates { display: grid; gap: 0.5rem; }
+.campaign-candidate { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0.8rem; border: 1px solid var(--color-stone-800); border-radius: 0.4rem; background: var(--color-stone-950); }
+
+.campaign-session-card { display: flex; align-items: center; gap: 0.9rem; margin: 0; text-align: left; }
+.campaign-session-number { display: grid; place-items: center; flex: 0 0 2.75rem; height: 2.75rem; border: 1px solid color-mix(in srgb, var(--color-gold) 40%, var(--color-stone-700)); border-radius: 0.4rem; color: var(--color-gold-light); font-size: 1.15rem; font-weight: 700; }
+.campaign-attendance { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+.campaign-attendance .text-hint { margin-left: 0.25rem; }
+.campaign-session-reviews { display: grid; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--color-stone-800); }
+
+.campaign-note-card { display: grid; gap: 0.35rem; margin: 0; text-align: left; }
+.campaign-note-excerpt { color: var(--color-stone-400); font-size: 0.85rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.campaign-review { padding: 0.9rem 1rem; border: 1px solid var(--color-stone-800); border-radius: 0.4rem; background: var(--color-stone-950); }
+.campaign-review[data-hidden="true"] { border-style: dashed; opacity: 0.7; }
+.campaign-review--mine { border-color: color-mix(in srgb, var(--color-gold) 40%, var(--color-stone-800)); }
+.campaign-review--form { display: grid; gap: 0.6rem; }
+.campaign-review-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; margin-bottom: 0.4rem; color: var(--color-stone-500); font-size: 0.8rem; }
+
+.schedule-days { display: grid; gap: 1.5rem; margin-top: 1.25rem; }
+.schedule-day { display: grid; gap: 0.6rem; }
+.schedule-day > h2 { color: var(--color-gold-light); }
+.schedule-entries { display: grid; gap: 0.5rem; }
+.schedule-entry { display: flex; align-items: center; gap: 1rem; margin: 0; color: inherit; }
+.schedule-entry[data-status="cancelled"] { opacity: 0.65; }
+.schedule-entry[data-status="cancelled"] .schedule-time { text-decoration: line-through; }
+.schedule-time { flex: 0 0 4rem; color: var(--color-stone-100); font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.preset-pitch { max-width: 46rem; font-size: 1.05rem; color: var(--color-stone-300); }
+.preset-layout, .public-character-layout { display: grid; gap: 1.5rem; margin-top: 1.25rem; }
+.preset-section { display: grid; gap: 0.75rem; padding: 1.25rem; border: 1px solid var(--color-stone-800); border-radius: 0.5rem; background: var(--color-stone-900); }
+.preset-showcase { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: 0.6rem; }
+.preset-showcase-card { display: flex; align-items: center; gap: 0.75rem; margin: 0; color: inherit; }
+.preset-article-links { display: grid; gap: 0.5rem; counter-reset: preset-article; }
+.preset-article-link { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.7rem 0.8rem; border: 1px solid var(--color-stone-800); border-radius: 0.4rem; background: var(--color-stone-950); }
+.preset-article-link .lore-chip { min-height: 2rem; padding: 0.25rem 0.45rem; }
+.preset-article-link .lore-icon { width: 1rem; height: 1rem; }
+
+.public-character-abilities { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.5rem; }
+.public-character-abilities > div { display: grid; justify-items: center; gap: 0.2rem; padding: 0.6rem 0.4rem; border: 1px solid var(--color-stone-800); border-radius: 0.4rem; background: var(--color-stone-950); }
+.public-character-abilities dt { color: var(--color-stone-400); font-size: 0.72rem; text-align: center; }
+.public-character-abilities dd { color: var(--color-stone-100); font-size: 1.35rem; font-weight: 700; }
+
+.campaign-card-characters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.campaign-card-characters .lore-chip { min-height: 1.9rem; padding: 0.2rem 0.55rem; font-size: 0.78rem; }
+.gm-campaigns-layout { display: grid; gap: 1.5rem; align-items: start; }
+@media (min-width: 1024px) { .gm-campaigns-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 20rem); } .gm-campaigns-upcoming { position: sticky; top: 8rem; } }
+.gm-campaigns-upcoming .schedule-entry .badge, .gm-campaigns-upcoming [data-tone] { white-space: nowrap; }
+.preset-gm-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.25rem; padding: 0.7rem 1rem; border-left: 2px solid var(--color-gold); background: var(--color-stone-900); }
+.preset-gm-bar .lore-icon { display: inline-block; width: 1rem; height: 1rem; vertical-align: -0.15rem; }
+.preset-workspace-card { display: grid; gap: 0.25rem; margin: 0; text-align: left; }
+.preset-workspace.fantasy-panel { background: var(--color-stone-950); box-shadow: none; border-radius: 0.65rem; }
+/* «Мои персонажи и игры»: персонажи вместе с их столами и ближайшими сессиями. */
+.player-upcoming { margin-bottom: 1.25rem; }
+.player-characters { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr)); gap: 0.75rem; margin-top: 1.25rem; }
+.player-characters > .lore-empty { grid-column: 1 / -1; }
+.player-character-card { display: grid; gap: 0.75rem; margin: 0; padding: 1rem; }
+.player-character-card .sheet-avatar { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border: 1px solid var(--color-stone-700); border-radius: 0.4rem; background: color-mix(in srgb, var(--color-gold) 10%, var(--color-stone-900)); color: var(--color-gold-light); font: 700 1.2rem/1 var(--font-display); }
+.player-character-card .lore-chip { min-height: 2.25rem; padding: 0.3rem 0.5rem; }
+.player-character-card .lore-icon { width: 1rem; height: 1rem; }
+.player-character-game { display: grid; gap: 0.3rem; padding-top: 0.75rem; border-top: 1px solid var(--color-stone-800); }
+.player-upcoming .schedule-time { flex-basis: auto; font-size: 0.95rem; }
+.character-visibility .lore-chip:disabled { opacity: 0.6; cursor: wait; }
+
+@media (max-width: 639px) {
+  .campaign-candidate-search { grid-template-columns: minmax(0, 1fr); }
+  .campaign-roster-card { flex-wrap: wrap; }
+  .campaign-roster-actions { width: 100%; justify-content: flex-start; }
+  .campaign-roster-actions .lore-chip, .campaign-filters .lore-chip { min-height: 2.75rem; }
+  .schedule-entry { flex-wrap: wrap; gap: 0.5rem 0.9rem; }
+  .public-character-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .preset-section { padding: 1rem; }
+}

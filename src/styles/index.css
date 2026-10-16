@@ -8,6 +8,7 @@
 @import "./editor.css";
 @import "./wizard.css";
 @import "./character-sheet.css";
+@import "./campaigns.css";
 
 @theme {
   --font-sans: "Segoe UI", system-ui, Roboto, sans-serif;

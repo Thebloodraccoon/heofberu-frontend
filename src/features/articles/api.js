@@ -74,10 +74,13 @@ export const tagsApi = {
   remove: (id) => request(`/tags/${id}`, { method: 'DELETE' }),
 }
 
+// Типы статей лора (фильтры, редактор статей). Квесты и сессии сюда не входят: это материалы
+// конкретной публичной кампании — пишутся и подвязываются во вкладке «База знаний» её редактора.
 export const ARTICLE_TYPES = [
   'lore', 'region', 'location', 'faction', 'npc', 'event', 'artifact',
-  'deity', 'religion', 'creature', 'culture', 'language', 'document', 'condition', 'quest', 'session',
+  'deity', 'religion', 'creature', 'culture', 'language', 'document', 'condition',
 ]
+export const CAMPAIGN_ARTICLE_TYPES = ['quest', 'session']
 export const ARTICLE_STATUSES = ['draft', 'in_review', 'published', 'archived']
 export const ARTICLE_VISIBILITY = ['public', 'gm_only']
 

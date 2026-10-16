@@ -15,7 +15,6 @@ const LandingPage = lazy(() => import('@/features/landing/pages/LandingPage.jsx'
 const CharactersPage = lazy(() => import('@/features/characters/pages/CharactersPage.jsx'))
 const CharacterCreatePage = lazy(() => import('@/features/characters/pages/CharacterCreatePage.jsx'))
 const CharacterDetailPage = lazy(() => import('@/features/characters/pages/CharacterDetailPage.jsx'))
-const GmCharactersPage = lazy(() => import('@/features/characters/pages/GmCharactersPage.jsx'))
 const CatalogListPage = lazy(() => import('@/features/catalog/pages/CatalogPage.jsx'))
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage.jsx'))
 const ProfilePage = lazy(() => import('@/features/profile/pages/ProfilePage.jsx'))
@@ -25,6 +24,13 @@ const LoreLayout = lazy(() => import('@/features/articles/pages/LoreLayout.jsx')
 const LorePage = lazy(() => import('@/features/articles/pages/LorePage.jsx'))
 const ArticleDetailPage = lazy(() => import('@/features/articles/pages/ArticleDetailPage.jsx'))
 const GuidePage = lazy(() => import('@/features/guide/pages/GuidePage.jsx'))
+const CampaignDetailPage = lazy(() => import('@/features/campaigns/pages/CampaignDetailPage.jsx'))
+const PublicCampaignsPage = lazy(() => import('@/features/campaigns/pages/PublicCampaignsPage.jsx'))
+const PublicCampaignPage = lazy(() => import('@/features/campaigns/pages/PublicCampaignPage.jsx'))
+const PublicCharacterPage = lazy(() => import('@/features/campaigns/pages/PublicCharacterPage.jsx'))
+const GmCampaignsPage = lazy(() => import('@/features/campaigns/pages/GmCampaignsPage.jsx'))
+const SchedulePage = lazy(() => import('@/features/campaigns/pages/SchedulePage.jsx'))
+const GmPublicCampaignsPage = lazy(() => import('@/features/campaigns/pages/GmPublicCampaignsPage.jsx'))
 
 function RootRedirect() {
   const { authenticated } = useAuth()
@@ -75,6 +81,10 @@ function AppRoutes() {
             </Route>
             <Route path="catalog/:resource" element={<CatalogListPage />} />
             <Route path="catalog/:resource/:id" element={<CatalogListPage />} />
+            {/* Публичные кампании и карточки героев открыты и гостям. */}
+            <Route path="public-campaigns" element={<PublicCampaignsPage />} />
+            <Route path="public-campaigns/:slug" element={<PublicCampaignPage />} />
+            <Route path="characters/:id/public" element={<PublicCharacterPage />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>
@@ -82,6 +92,10 @@ function AppRoutes() {
               <Route path="characters" element={<CharactersPage />} />
               <Route path="characters/new" element={<CharacterCreatePage />} />
               <Route path="characters/:id" element={<CharacterDetailPage />} />
+              {/* Кампании игрока живут на «Мои персонажи и игры», расписание — своей страницей. */}
+              <Route path="campaigns" element={<Navigate to="/characters" replace />} />
+              <Route path="campaigns/:id" element={<CampaignDetailPage />} />
+              <Route path="schedule" element={<SchedulePage />} />
               <Route
                 path="users"
                 element={
@@ -107,10 +121,18 @@ function AppRoutes() {
                 }
               />
               <Route
-                path="gm/characters"
+                path="gm/campaigns"
                 element={
                   <GMRoute>
-                    <GmCharactersPage />
+                    <GmCampaignsPage />
+                  </GMRoute>
+                }
+              />
+              <Route
+                path="gm/public-campaigns"
+                element={
+                  <GMRoute>
+                    <GmPublicCampaignsPage />
                   </GMRoute>
                 }
               />

@@ -6,6 +6,8 @@ import { queryKeys } from '@/lib/api/queryKeys.js'
 import { useSubclassesForClass, useSubracesForRace } from '@/features/catalog/queries.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
 import { Button, Input } from '@/components/ui'
+import { useAuth } from '@/features/auth/useAuth.js'
+import CharacterVisibilityControl from '@/features/campaigns/components/CharacterVisibilityControl.jsx'
 import BackgroundPickerModal from './BackgroundPickerModal.jsx'
 import SubracePickerModal from './SubracePickerModal.jsx'
 import SubclassPickerModal from './SubclassPickerModal.jsx'
@@ -39,6 +41,9 @@ function Tile({ title, present, currentName, onClick, editable = true }) {
 
 export default function CharacterSettingsModal({ character, onClose, onError }) {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
+  // Публичность меняет только владелец (бэк отвечает 403 даже ГМ кампании и основателю).
+  const isOwner = Number(user?.id) === Number(character.owner_id)
   const [name, setName] = useState(character.name || '')
   const [saving, setSaving] = useState(false)
   const [savingSection, setSavingSection] = useState(false)
@@ -112,7 +117,9 @@ export default function CharacterSettingsModal({ character, onClose, onError }) 
           )}
   
           {savingSection && <p className="text-xs text-stone-500">Сохранение…</p>}
-  
+
+          {isOwner && <CharacterVisibilityControl character={character} />}
+
           <div className="rounded-lg border border-red-800/50 bg-red-950/20 p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
