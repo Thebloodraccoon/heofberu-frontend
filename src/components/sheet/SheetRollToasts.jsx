@@ -1,123 +1,74 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 
-const LIFETIME = 6000
+const LIFETIME = 8000
 const TICK = 100
 
-/**
- * Toast stack for dice rolls on the character sheet — same look and
- * lifetime behaviour as the creation wizard's RollToasts.
- */
 export default function SheetRollToasts({ toasts, onDismiss }) {
-  return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-72 flex-col gap-2">
-      {toasts.map((t) => (
-        <Toast key={t.id} toast={t} onDismiss={onDismiss} />
+  return createPortal(
+    <div className="sheet-roll-results" aria-label="Результаты бросков">
+      {[...toasts].reverse().map((toast, index) => (
+        <Toast key={toast.id} toast={toast} compact={index > 0} onDismiss={onDismiss} />
       ))}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
-function Toast({ toast, onDismiss }) {
+function Toast({ toast, compact, onDismiss }) {
   const onDismissRef = useRef(onDismiss)
-  useEffect(() => {
-    onDismissRef.current = onDismiss
-  }, [onDismiss])
-
+  useEffect(() => { onDismissRef.current = onDismiss }, [onDismiss])
   const [remaining, setRemaining] = useState(LIFETIME)
-  const [paused, setPaused] = useState(false)
-  const [reduceMotion] = useState(
-    () =>
-      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        : false,
-  )
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const paused = hovered || focused
 
   useEffect(() => {
     if (paused) return undefined
-    const id = setInterval(() => {
-      setRemaining((r) => {
-        const next = r - TICK
-        return next <= 0 ? 0 : next
-      })
+    let lastTick = Date.now()
+    const timer = setInterval(() => {
+      const now = Date.now()
+      const elapsed = now - lastTick
+      lastTick = now
+      setRemaining((value) => Math.max(0, value - elapsed))
     }, TICK)
-    return () => clearInterval(id)
-  }, [paused, toast.id])
+    return () => clearInterval(timer)
+  }, [paused])
 
-  // Скрываем тост, когда таймер дожил до нуля. Вызов onDismiss вынесен из
-  // апдейтера setRemaining, чтобы не мутировать родительское состояние
-  // во время рендера другого компонента.
   useEffect(() => {
-    if (remaining <= 0) {
-      onDismissRef.current(toast.id)
-    }
+    if (remaining === 0) onDismissRef.current(toast.id)
   }, [remaining, toast.id])
 
-  const opacity = paused || reduceMotion ? 1 : remaining / LIFETIME
   const rolls = Array.isArray(toast.rolls) ? toast.rolls : null
-  const isNat20 = !rolls && toast.d20 === 20
-  const isNat1 = !rolls && toast.d20 === 1
+  const bonus = Number(toast.bonus) || 0
+  const natural = !rolls && (toast.d20 === 20 || toast.d20 === 1) ? toast.d20 : null
+  const detail = rolls ? rolls.join(' + ') || '0' : String(toast.d20)
+  const modifier = bonus ? ` ${bonus > 0 ? '+' : '−'} ${Math.abs(bonus)}` : ''
 
   return (
-    <div
-      role="status"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      style={{ opacity, transition: reduceMotion ? 'none' : 'opacity 120ms linear' }}
-      className="pointer-events-auto rounded-lg border border-stone-600 bg-stone-900/95 p-3 shadow-lg shadow-black/40 transition hover:border-ember/60 hover:bg-stone-900"
+    <article
+      className={`sheet-roll-result ${compact ? 'sheet-roll-result--compact' : ''}`}
+      aria-label={toast.title}
+      data-natural={natural ?? undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false)
+      }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-stone-100">{toast.title}</p>
-        <button
-          type="button"
-          onClick={() => onDismiss(toast.id)}
-          className="text-xs text-stone-500 hover:text-stone-300"
-          aria-label="Закрыть"
-        >
-          ✕
-        </button>
+      <div role="status" className="sheet-roll-result-content">
+        {!compact && <p className="sheet-roll-result-title">{toast.title}</p>}
+        <strong className="sheet-roll-result-total">{toast.total}</strong>
+        {!compact && <p className="sheet-roll-result-detail">{detail}{modifier}</p>}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {rolls ? (
-          <>
-            {rolls.map((r, i) => (
-              <span
-                key={i}
-                className={`flex size-6 items-center justify-center rounded font-mono text-xs ${
-                  r === 1 ? 'bg-red-800/60 text-red-200' : 'bg-stone-700 text-stone-100'
-                }`}
-              >
-                {r}
-              </span>
-            ))}
-            {toast.bonus ? (
-              <span className="text-xs text-stone-500">{toast.bonus >= 0 ? `+${toast.bonus}` : toast.bonus}</span>
-            ) : null}
-            <span className="w-[8ch] rounded bg-ember px-1.5 py-0.5 text-center font-mono text-xs font-bold text-white">
-              = {toast.total}
-            </span>
-          </>
-        ) : (
-          <>
-            <span
-              className={`flex size-6 items-center justify-center rounded font-mono text-xs ${
-                isNat20
-                  ? 'bg-emerald-700/60 text-emerald-200'
-                  : isNat1
-                    ? 'bg-red-800/60 text-red-200'
-                    : 'bg-stone-700 text-stone-100'
-              }`}
-            >
-              {toast.d20}
-            </span>
-            {toast.bonus ? <span className="text-xs text-stone-500">+{toast.bonus}</span> : null}
-            <span className="w-[8ch] rounded bg-ember px-1.5 py-0.5 text-center font-mono text-xs font-bold text-white">
-              = {toast.total}
-            </span>
-            {isNat20 && <span className="text-xs text-emerald-300">крит!</span>}
-            {isNat1 && <span className="text-xs text-red-300">провал</span>}
-          </>
-        )}
+      <button type="button" className="sheet-roll-result-close" onClick={() => onDismiss(toast.id)} aria-label="Закрыть">
+        <LoreIcon name="close" />
+      </button>
+      <div className="sheet-roll-result-progress" role="progressbar" aria-label="Время до скрытия результата" aria-valuemin={0} aria-valuemax={8} aria-valuenow={Math.ceil(remaining / 1000)} aria-valuetext={paused ? 'Таймер приостановлен' : `Осталось ${Math.ceil(remaining / 1000)} с`}>
+        <span style={{ transform: `scaleX(${remaining / LIFETIME})`, animationPlayState: paused ? 'paused' : 'running' }} />
       </div>
-    </div>
+    </article>
   )
 }

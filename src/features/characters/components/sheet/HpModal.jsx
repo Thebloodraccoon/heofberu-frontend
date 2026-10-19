@@ -1,5 +1,6 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
-import { Input, Modal } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
 import { num } from './constants.js'
 
 export default function HpModal({ character, onClose, onDelta, onTempHp, onRest }) {
@@ -14,7 +15,7 @@ export default function HpModal({ character, onClose, onDelta, onTempHp, onRest 
     onTempHp(Math.max(0, num(temp) ?? 0))
   }
   return (
-    <Modal title="Хиты и отдых" onClose={onClose} size="sm">
+    <SheetDrawer title="Хиты и отдых" onClose={onClose}>
       <div className="flex flex-col items-center">
         <p className="font-display text-3xl font-bold text-stone-100">
           {character.current_hp}
@@ -22,18 +23,19 @@ export default function HpModal({ character, onClose, onDelta, onTempHp, onRest 
         </p>
         <p className="mt-1 text-xs text-stone-500">Кость хитов: {character.hit_dice || '—'}</p>
       </div>
-      <div className="mt-4 flex gap-2">
+      <form className="character-hp-controls mt-4" aria-label="Изменение хитов" onSubmit={(event) => { event.preventDefault(); apply() }}>
         <Input
           type="number"
+          aria-label="Изменение хитов"
           placeholder="Введите число"
           value={delta}
           onChange={(e) => setDelta(e.target.value)}
           title="Положительное — лечение, отрицательное — урон"
         />
-        <button type="button" className="sheet-btn sheet-btn_primary" onClick={apply}>
+        <Button type="submit" disabled={delta === ''}>
           Применить
-        </button>
-      </div>
+        </Button>
+      </form>
       <div className="mt-4 grid grid-cols-2 gap-2 pt-4">
         <button type="button" className="sheet-btn" onClick={() => onRest('short')}>
           Короткий отдых
@@ -42,17 +44,15 @@ export default function HpModal({ character, onClose, onDelta, onTempHp, onRest 
           Длинный отдых
         </button>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+      <div className="mt-4 flex flex-col gap-3 rounded-lg border border-stone-700/60 bg-stone-900 p-3">
         <p className="sheet-section-label !mt-0 !mb-0 self-center leading-none whitespace-nowrap">
           Временные хиты
         </p>
-        <div className="flex items-center gap-2">
-          <Input type="number" min="0" value={temp} onChange={(e) => setTemp(e.target.value)} />
-          <button type="button" className="sheet-btn !py-1.5 text-xs whitespace-nowrap" onClick={applyTemp}>
-            Задать
-          </button>
-        </div>
+        <form className="character-hp-controls" aria-label="Временные хиты" onSubmit={(event) => { event.preventDefault(); applyTemp() }}>
+          <Input className="min-w-0 flex-1" aria-label="Временные хиты" type="number" min="0" value={temp} onChange={(e) => setTemp(e.target.value)} />
+          <Button type="submit" variant="ghost">Применить</Button>
+        </form>
       </div>
-    </Modal>
+    </SheetDrawer>
   )
 }

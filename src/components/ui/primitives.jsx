@@ -116,7 +116,7 @@ export function TextArea({ value, onChange, rows, ...props }) {
   )
 }
 
-export function Select({ value, onChange, children, className = '', disabled, placeholder, dropdownClassName = '', ...rest }) {
+export function Select({ value, onChange, children, className = '', disabled, placeholder, dropdownClassName = '', matchTriggerWidth = false, ...rest }) {
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
   const [pos, setPos] = useState(null)
@@ -152,10 +152,10 @@ export function Select({ value, onChange, children, className = '', disabled, pl
     setPos({
       top: up ? r.top - dropH : r.bottom + 4,
       left: r.left,
-      width: Math.max(r.width, 200),
+      width: matchTriggerWidth ? r.width : Math.max(r.width, 200),
       up,
     })
-  }, [options.length])
+  }, [options.length, matchTriggerWidth])
 
   const toggle = () => {
     if (disabled) return

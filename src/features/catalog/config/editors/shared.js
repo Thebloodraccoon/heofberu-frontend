@@ -1,6 +1,6 @@
 import { catalogApi as api } from '../../api.js'
 import { queryClient } from '@/lib/api/queryClient.js'
-import { buildChoiceGroupsPayload, buildFixedEffectsPayload } from '@/lib/utils/featureEffects.js'
+import { normalizeEffectsTree, syncFeatureEffects } from '@/lib/utils/featureEffects.js'
 
 export const opt = (map) => Object.entries(map).map(([value, label]) => ({ value, label }))
 export const optOptional = (map) => [{ value: '', label: '—' }, ...opt(map)]
@@ -60,14 +60,14 @@ const byLevelThenName = (a, b) => {
   return (a.name ?? '').localeCompare(b.name ?? '', 'ru')
 }
 
-// Сохраняет дерево эффектов особенности целиком: фиксированные эффекты (все
-// шесть типов) + группы выбора. Единый путь сохранения для всех редакторов.
-// Бэк diff-ит эти списки по id строки (не full-replace) — билдеры пробрасывают
-// id существующих строк, поэтому здесь ничего дополнительно делать не нужно,
-// просто шлём всё дерево целиком каждый раз.
-export const persistFeatureEffects = async (featureId, effects = {}) => {
-  await api.features.effects.set(featureId, buildFixedEffectsPayload(effects))
-  await api.features.choiceGroups.set(featureId, buildChoiceGroupsPayload(effects))
+// Сохраняет дерево эффектов особенности: фиксированные эффекты (все шесть
+// типов) + группы выбора. Единый путь сохранения для всех редакторов. Бэк
+// принимает только точечные правки (строка/группа/вариант), поэтому считаем
+// дифф от серверного состояния: prev приходит из редактора, а если его нет —
+// перечитываем дерево с бэка, иначе всё существующее уедет как «новое».
+export const persistFeatureEffects = async (featureId, effects = {}, prev) => {
+  const before = prev ?? normalizeEffectsTree(await api.features.effects.get(featureId))
+  await syncFeatureEffects(api.features, featureId, before, effects)
   // Иначе повторное открытие модалки «Изменить» этой же особенности подхватит
   // закешированный react-query'ем ответ GET /features/{id} с ДО правки —
   // FeaturesModal держит дерево эффектов под этим же ключом.

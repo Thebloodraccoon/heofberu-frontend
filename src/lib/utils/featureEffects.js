@@ -136,13 +136,12 @@ const toWeaponEffect = ({ id, weapon_category, item_id }) =>
     ? { id: id ?? null, item_id: Number(item_id) }
     : { id: id ?? null, weapon_category }
 
-const toSpellEffect = ({ id, spell_id, spell_school, spell_level_max, always_prepared, counts_against_known_limit }) => ({
+// У SpellEffectItem остались только id и spell_id: школа, предел уровня,
+// always_prepared и counts_against_known_limit из схемы убраны, и бэк отвечает
+// 422 extra_forbidden, если прислать их вместе с заклинанием.
+const toSpellEffect = ({ id, spell_id }) => ({
   id: id ?? null,
   spell_id: toNumOr(spell_id, null),
-  spell_school: spell_school ?? null,
-  spell_level_max: spell_level_max ?? null,
-  always_prepared: always_prepared ?? true,
-  counts_against_known_limit: counts_against_known_limit ?? false,
 })
 
 const TO_ITEM = {
@@ -154,50 +153,165 @@ const TO_ITEM = {
   spell: toSpellEffect,
 }
 
-// Плоские списки -> [{ effect_type, items }] по всем шести типам (пустые
-// items — «очистить тип»), с сохранением id существующих строк.
-function toEffectGroups(effects = {}) {
-  const fixed = normalizeEffects(effects)
-  return Object.entries(STATIC_GROUP_TYPE_TO_KEY).map(([effectType, key]) => ({
-    effect_type: effectType,
-    items: fixed[key].map(TO_ITEM[effectType]),
-  }))
+const withoutId = (row) => {
+  const copy = { ...row }
+  delete copy.id
+  return copy
 }
 
-// Фиксированные эффекты для PUT /features/{id}/effects: бэк diff-ит по id;
-// шлём все шесть групп, чтобы удалённые в редакторе типы очищались.
-export function buildFixedEffectsPayload(effects = {}) {
-  return { static_groups: toEffectGroups(effects) }
+// Плоские списки -> [{ effect_type, items }] для POST (добавление строк):
+// пустые типы не шлём вовсе, id новых строк не существует. onlyKey нужен для
+// вариантов группы выбора — там разрешён ровно один тип эффекта.
+function newEffectGroups(bundle = {}, onlyKey = null) {
+  const fixed = normalizeEffects(bundle)
+  return Object.entries(STATIC_GROUP_TYPE_TO_KEY)
+    .filter(([, key]) => (onlyKey == null || key === onlyKey) && fixed[key].length > 0)
+    .map(([effectType, key]) => ({
+      effect_type: effectType,
+      items: fixed[key].map(TO_ITEM[effectType]).map(withoutId),
+    }))
 }
 
-// Группы выбора для PUT /features/{id}/choice-groups: бэк diff-ит группы и
-// опции по id (создаёт без id, обновляет с существующим, удаляет то, что
-// пропало из списка) — group.id/option.id обязательно нужно пробрасывать
-// для уже существующих строк, иначе каждое сохранение будет удалять и
-// пересоздавать вообще все группы/опции, сбрасывая в pending все уже
-// отвеченные игроками выборы, которые на них указывали. choice_type
-// обязателен у ChoiceGroupPayload (без дефолта на бэке) — без него запрос
-// падает с 422 "Field required" на body.choice_groups.N.choice_type.
-// Вариант несёт только группу типа своей группы выбора — другой тип бэк
-// отклоняет с 422.
-export function buildChoiceGroupsPayload(tree = {}) {
-  return {
-    choice_groups: (tree.choice_groups ?? []).map((group, gi) => {
-      const key = inferGroupEffectType(group)
-      return {
-        id: group.id ?? null,
-        choice_type: KEY_TO_CHOICE_TYPE[key],
-        pick_count: toNumOr(group.pick_count, 1) || 1,
-        sort_order: gi,
-        options: (group.options ?? []).map((option, oi) => ({
-          id: option.id ?? null,
-          sort_order: oi,
-          effects: toEffectGroups(option).filter((g) => STATIC_GROUP_TYPE_TO_KEY[g.effect_type] === key),
-        })),
+// Какие поля строки реально изменились: объединяем ключи «до» и «после», чтобы
+// переключение вида строки тоже доехало (например, у оружия item_id <->
+// weapon_category — пропавшее поле надо явно занулить, а не просто не прислать).
+function effectChanges(before, after) {
+  const changes = {}
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (key === 'id') continue
+    const from = before[key] ?? null
+    const to = after[key] ?? null
+    if (JSON.stringify(from) !== JSON.stringify(to)) changes[key] = to
+  }
+  return changes
+}
+
+// Дифф одного набора эффектов (шесть списков) — что удалить, что изменить и
+// что добавить. Строки сопоставляются по id: его несут только те, что уже
+// лежат в базе, всё остальное — новое.
+function diffEffectBundle(prevBundle, nextBundle, onlyKey = null) {
+  const prev = normalizeEffects(prevBundle)
+  const next = normalizeEffects(nextBundle)
+  const removed = []
+  const changed = []
+  const added = []
+  for (const [effectType, key] of Object.entries(STATIC_GROUP_TYPE_TO_KEY)) {
+    if (onlyKey != null && key !== onlyKey) continue
+    const toItem = TO_ITEM[effectType]
+    const prevRows = prev[key].map(toItem)
+    const nextRows = next[key].map(toItem)
+    const prevById = new Map(prevRows.filter((r) => r.id != null).map((r) => [r.id, r]))
+    const kept = new Set()
+    const newItems = []
+    for (const row of nextRows) {
+      const before = row.id != null ? prevById.get(row.id) : undefined
+      if (!before) {
+        newItems.push(withoutId(row))
+        continue
       }
-    }),
+      kept.add(row.id)
+      const changes = effectChanges(before, row)
+      if (Object.keys(changes).length > 0) changed.push({ effectType, id: row.id, changes })
+    }
+    for (const row of prevRows) {
+      if (row.id != null && !kept.has(row.id)) removed.push({ effectType, id: row.id })
+    }
+    if (newItems.length > 0) added.push({ effect_type: effectType, items: newItems })
+  }
+  return { removed, changed, added }
+}
+
+// Тело POST /choice-groups для новой группы: choice_type обязателен (без
+// дефолта на бэке), варианты уезжают вместе с группой одним запросом.
+function choiceGroupPayload(group, sortOrder) {
+  const key = inferGroupEffectType(group)
+  return {
+    choice_type: KEY_TO_CHOICE_TYPE[key],
+    pick_count: toNumOr(group.pick_count, 1) || 1,
+    sort_order: sortOrder,
+    options: (group.options ?? []).map((option, oi) => ({
+      sort_order: oi,
+      effects: newEffectGroups(option, key),
+    })),
   }
 }
+
+// Правки строк одного набора эффектов. Сначала удаление (освобождает
+// уникальные пары вроде «та же характеристика дважды»), потом правки, потом
+// добавления одним POST.
+async function applyBundleDiff(diff, { add, patch, remove }) {
+  for (const row of diff.removed) await remove(row.effectType, row.id)
+  for (const row of diff.changed) await patch(row.effectType, row.id, row.changes)
+  if (diff.added.length > 0) await add({ static_groups: diff.added })
+}
+
+async function syncChoiceGroups(ops, featureId, prevGroups, nextGroups) {
+  const prevById = new Map((prevGroups ?? []).filter((g) => g.id != null).map((g) => [g.id, g]))
+  const kept = new Set()
+
+  for (const [gi, group] of (nextGroups ?? []).entries()) {
+    const before = group.id != null ? prevById.get(group.id) : undefined
+    if (!before) {
+      await ops.choiceGroups.create(featureId, choiceGroupPayload(group, gi))
+      continue
+    }
+    kept.add(group.id)
+    const key = inferGroupEffectType(before)
+    const pickCount = toNumOr(group.pick_count, 1) || 1
+    const groupPatch = {}
+    if (pickCount !== before.pick_count) groupPatch.pick_count = pickCount
+    if (gi !== (before.sort_order ?? 0)) groupPatch.sort_order = gi
+    if (Object.keys(groupPatch).length > 0) await ops.choiceGroups.patch(featureId, group.id, groupPatch)
+
+    const prevOptions = new Map((before.options ?? []).filter((o) => o.id != null).map((o) => [o.id, o]))
+    const keptOptions = new Set()
+    for (const [oi, option] of (group.options ?? []).entries()) {
+      const prevOption = option.id != null ? prevOptions.get(option.id) : undefined
+      if (!prevOption) {
+        await ops.choiceGroups.options.create(featureId, group.id, {
+          sort_order: oi,
+          effects: newEffectGroups(option, key),
+        })
+        continue
+      }
+      keptOptions.add(option.id)
+      if (oi !== (prevOption.sort_order ?? 0)) {
+        await ops.choiceGroups.options.patch(featureId, group.id, option.id, { sort_order: oi })
+      }
+      await applyBundleDiff(diffEffectBundle(prevOption, option, key), {
+        add: (body) => ops.choiceGroups.options.effects.add(featureId, group.id, option.id, body),
+        patch: (effectType, effectId, body) =>
+          ops.choiceGroups.options.effects.patch(featureId, group.id, option.id, effectType, effectId, body),
+        remove: (effectType, effectId) =>
+          ops.choiceGroups.options.effects.remove(featureId, group.id, option.id, effectType, effectId),
+      })
+    }
+    for (const option of before.options ?? []) {
+      if (option.id != null && !keptOptions.has(option.id)) {
+        await ops.choiceGroups.options.remove(featureId, group.id, option.id)
+      }
+    }
+  }
+
+  for (const group of prevGroups ?? []) {
+    if (group.id != null && !kept.has(group.id)) await ops.choiceGroups.remove(featureId, group.id)
+  }
+}
+
+// Переносит дерево эффектов особенности из состояния prev в next точечными
+// запросами: бэк больше не принимает замену всего дерева одним PUT, у него
+// отдельные POST/PATCH/DELETE на строку эффекта, группу выбора и вариант.
+// ops — api.features или api.feats (набор одинаковый, см. effectTreeOps).
+export async function syncFeatureEffects(ops, featureId, prev = {}, next = {}) {
+  await applyBundleDiff(diffEffectBundle(prev, next), {
+    add: (body) => ops.effects.add(featureId, body),
+    patch: (effectType, effectId, body) => ops.effects.patch(featureId, effectType, effectId, body),
+    remove: (effectType, effectId) => ops.effects.remove(featureId, effectType, effectId),
+  })
+  await syncChoiceGroups(ops, featureId, prev.choice_groups ?? [], next.choice_groups ?? [])
+}
+
+export { diffEffectBundle, newEffectGroups }
 
 const label = (map, value, fallback) =>
   value != null ? (map[value] ?? String(value)) : fallback

@@ -1,8 +1,9 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { Button, Input, Modal } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
 
 // Пропускаем только цифры и не даём уйти ниже нуля.
 const sanitizeMoney = (raw) => {
@@ -34,7 +35,10 @@ export default function MoneyModal({ character, onClose, onError }) {
   }
 
   return (
-    <Modal title="Деньги" onClose={onClose} size="xs">
+    <SheetDrawer title="Деньги" onClose={onClose} footer={<>
+        <Button variant="ghost" onClick={onClose}>Отмена</Button>
+        <Button onClick={save}>Сохранить</Button>
+      </>}>
       <div className="flex items-end gap-3">
         <label className="flex flex-col gap-2.5 text-xs text-stone-500">
           Золото
@@ -49,10 +53,7 @@ export default function MoneyModal({ character, onClose, onError }) {
           <Input type="text" inputMode="numeric" min="0" value={money.copper} onChange={(e) => setMoney({ ...money, copper: sanitizeMoney(e.target.value) })} />
         </label>
       </div>
-      <div className="mt-4 modal-actions">
-        <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button onClick={save}>Сохранить</Button>
-      </div>
-    </Modal>
+
+    </SheetDrawer>
   )
 }

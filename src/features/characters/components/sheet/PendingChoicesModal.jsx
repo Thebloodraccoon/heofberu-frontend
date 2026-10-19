@@ -6,6 +6,7 @@ import { useSkills, useSpells } from '@/features/catalog/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { describeEffectBundle } from '@/lib/utils/effectBundle.js'
 import { Button, Modal, Select, Skeleton } from '@/components/ui'
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 
 const CHOICE_TYPE_LABELS = {
   ABILITY_SCORE: 'Характеристика',
@@ -19,7 +20,8 @@ const CHOICE_TYPE_LABELS = {
 // Форма ответа на группы выбора ОДНОГО granted-фичи — ключуется по
 // character_feature_id снаружи, поэтому стейт черновика ответов сам
 // сбрасывается при переходе к следующему гранту (без лишнего useEffect).
-function GrantChoicesForm({ character, grant, otherFeatureNames, onClose, onError }) {
+function GrantChoicesForm({ character, grant, otherFeatureNames, onClose, onError, presentation }) {
+  const Surface = presentation === 'drawer' ? SheetDrawer : Modal
   const queryClient = useQueryClient()
   const { data: skillsCatalog = [] } = useSkills({ size: 100 })
   const { data: spellsCatalog = [] } = useSpells({ size: 100 })
@@ -109,7 +111,7 @@ function GrantChoicesForm({ character, grant, otherFeatureNames, onClose, onErro
   }
 
   return (
-    <Modal
+    <Surface
       title="Выборы"
       onClose={onClose}
       size="md"
@@ -215,7 +217,7 @@ function GrantChoicesForm({ character, grant, otherFeatureNames, onClose, onErro
           )
         })}
       </div>
-    </Modal>
+    </Surface>
   )
 }
 
@@ -224,31 +226,32 @@ function GrantChoicesForm({ character, grant, otherFeatureNames, onClose, onErro
 // неотвеченные группы выбора (GET /grants/pending), отвечая через
 // PATCH /features/{character_feature_id}/choices. Как только у текущего
 // гранта не осталось групп, бэк отдаёт следующий грант в очереди.
-export default function PendingChoicesModal({ character, onClose, onError }) {
+export default function PendingChoicesModal({ character, onClose, onError, presentation = 'modal' }) {
+  const Surface = presentation === 'drawer' ? SheetDrawer : Modal
   const { data: pending = [], isLoading } = useCharacterPendingChoices(character.id)
   const current = pending[0] ?? null
 
   if (isLoading) {
     return (
-      <Modal title="Выборы" onClose={onClose} size="sm">
+      <Surface title="Выборы" onClose={onClose} size="sm">
         <div className="space-y-2" aria-busy="true">
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-16 w-full" />
         </div>
-      </Modal>
+      </Surface>
     )
   }
 
   if (!current) {
     return (
-      <Modal title="Выборы" onClose={onClose} size="sm">
+      <Surface title="Выборы" onClose={onClose} size="sm" footer={presentation === 'drawer' ? <Button onClick={onClose}>Готово</Button> : undefined}>
         <p className="text-sm text-stone-400">Все выборы сделаны.</p>
-        <div className="modal-actions pt-3 mt-4">
+        {presentation !== 'drawer' && <div className="modal-actions pt-3 mt-4">
           <Button type="button" onClick={onClose}>
             Готово
           </Button>
-        </div>
-      </Modal>
+        </div>}
+      </Surface>
     )
   }
 
@@ -260,6 +263,7 @@ export default function PendingChoicesModal({ character, onClose, onError }) {
       otherFeatureNames={pending.slice(1).map((g) => g.feature_name)}
       onClose={onClose}
       onError={onError}
+      presentation={presentation}
     />
   )
 }

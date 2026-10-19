@@ -1,5 +1,50 @@
 import request from '@/lib/api/httpClient.js'
 
+// Дерево эффектов особенности правится точечно: одна правка — один запрос по
+// конкретной строке (POST — добавить, PATCH — изменить, DELETE — удалить).
+// Полной замены дерева (PUT /effects и PUT /choice-groups) на бэке больше нет.
+// Набор одинаков у /features и у /feats, поэтому собираем его фабрикой.
+const effectTreeOps = (base) => ({
+  effects: {
+    get: (id) => request(`${base}/${id}/effects`),
+    add: (id, body) => request(`${base}/${id}/effects`, { method: 'POST', body }),
+    patch: (id, effectType, effectId, body) =>
+      request(`${base}/${id}/effects/${effectType}/${effectId}`, { method: 'PATCH', body }),
+    remove: (id, effectType, effectId) =>
+      request(`${base}/${id}/effects/${effectType}/${effectId}`, { method: 'DELETE' }),
+  },
+  choiceGroups: {
+    get: (id) => request(`${base}/${id}/choice-groups`),
+    create: (id, body) => request(`${base}/${id}/choice-groups`, { method: 'POST', body }),
+    patch: (id, groupId, body) =>
+      request(`${base}/${id}/choice-groups/${groupId}`, { method: 'PATCH', body }),
+    remove: (id, groupId) =>
+      request(`${base}/${id}/choice-groups/${groupId}`, { method: 'DELETE' }),
+    options: {
+      create: (id, groupId, body) =>
+        request(`${base}/${id}/choice-groups/${groupId}/options`, { method: 'POST', body }),
+      patch: (id, groupId, optionId, body) =>
+        request(`${base}/${id}/choice-groups/${groupId}/options/${optionId}`, { method: 'PATCH', body }),
+      remove: (id, groupId, optionId) =>
+        request(`${base}/${id}/choice-groups/${groupId}/options/${optionId}`, { method: 'DELETE' }),
+      effects: {
+        add: (id, groupId, optionId, body) =>
+          request(`${base}/${id}/choice-groups/${groupId}/options/${optionId}/effects`, { method: 'POST', body }),
+        patch: (id, groupId, optionId, effectType, effectId, body) =>
+          request(
+            `${base}/${id}/choice-groups/${groupId}/options/${optionId}/effects/${effectType}/${effectId}`,
+            { method: 'PATCH', body },
+          ),
+        remove: (id, groupId, optionId, effectType, effectId) =>
+          request(
+            `${base}/${id}/choice-groups/${groupId}/options/${optionId}/effects/${effectType}/${effectId}`,
+            { method: 'DELETE' },
+          ),
+      },
+    },
+  },
+})
+
 export const catalogApi = {
   races: {
     list: (params) => request('/races', { params }),
@@ -169,16 +214,9 @@ export const catalogApi = {
     get: (id) => request(`/feats/${id}`),
     update: (id, body) => request(`/feats/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/feats/${id}`, { method: 'DELETE' }),
-    // Черта — подтип особенности: полное дерево эффектов + группы выбора
-    // сохраняются теми же дифф-эндпоинтами, что и у /features.
-    effects: {
-      get: (id) => request(`/feats/${id}/effects`),
-      set: (id, body) => request(`/feats/${id}/effects`, { method: 'PUT', body }),
-    },
-    choiceGroups: {
-      get: (id) => request(`/feats/${id}/choice-groups`),
-      set: (id, body) => request(`/feats/${id}/choice-groups`, { method: 'PUT', body }),
-    },
+    // Черта — подтип особенности: эффекты и группы выбора правятся теми же
+    // точечными эндпоинтами, что и у /features.
+    ...effectTreeOps('/feats'),
   },
 
   features: {
@@ -187,17 +225,9 @@ export const catalogApi = {
     get: (id) => request(`/features/${id}`),
     update: (id, body) => request(`/features/${id}`, { method: 'PATCH', body }),
     remove: (id) => request(`/features/${id}`, { method: 'DELETE' }),
-    // Двигатель особенностей: полное дерево эффектов + группы выбора.
-    // GET уже отдаётся вместе с самой особенностью (ability_effects), этот
-    // блок нужен для записи и для остальных 5 типов эффектов/групп выбора.
-    effects: {
-      get: (id) => request(`/features/${id}/effects`),
-      set: (id, body) => request(`/features/${id}/effects`, { method: 'PUT', body }),
-    },
-    choiceGroups: {
-      get: (id) => request(`/features/${id}/choice-groups`),
-      set: (id, body) => request(`/features/${id}/choice-groups`, { method: 'PUT', body }),
-    },
+    // Двигатель особенностей: всё дерево эффектов доезжает вместе с самой
+    // особенностью (GET /features/{id}), а правки идут построчно.
+    ...effectTreeOps('/features'),
   },
 
   items: {

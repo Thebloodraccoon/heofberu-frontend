@@ -709,20 +709,22 @@ export default function GmEditorPage() {
     const effects = next.effects ?? { ...(next.ability_effects ? { ability_effects: next.ability_effects } : {}) }
     if (index == null) {
       const created = await api.features.create(featurePayload(next, source))
-      await saveFeatureEffects(created.id, effects)
+      // Особенность только что создана — эффектов в базе ещё нет, дифф считаем
+      // от пустого дерева (без лишнего GET).
+      await saveFeatureEffects(created.id, effects, {})
     } else {
       await api.features.update(next.id, featurePayload(next))
       await saveFeatureEffects(next.id, effects)
     }
   }
 
-  const saveFeatureEffects = async (featureId, effects = {}) => {
-    // Бэк diff-ит по id: persistFeatureEffects всегда шлёт все шесть списков +
-    // группы выбора целиком (с сохранёнными id существующих строк), чтобы ни
-    // один тип не был случайно затёрт и уже отвеченные игроками выборы не
-    // сбросились в pending без необходимости. Кеш react-query для дерева
-    // эффектов этой особенности инвалидируется внутри persistFeatureEffects.
-    await persistFeatureEffects(featureId, effects)
+  const saveFeatureEffects = async (featureId, effects = {}, prev) => {
+    // Бэк принимает только точечные правки дерева (строка эффекта, группа
+    // выбора, вариант), поэтому persistFeatureEffects считает дифф от prev —
+    // или перечитывает текущее дерево, если prev не передан. Так уже отвеченные
+    // игроками выборы не сбрасываются в pending без необходимости. Кеш
+    // react-query по этой особенности инвалидируется внутри.
+    await persistFeatureEffects(featureId, effects, prev)
   }
 
   const removeFeature = async (f) => {
@@ -1702,6 +1704,7 @@ onClick={() => {
             levelRequired={cfg.featuresModal.levelRequired}
             levelHint={cfg.featuresModal.levelHint}
             onSave={saveFeature}
+            onSaved={() => reloadFeatures()}
             onClose={() => setFeatureModal(null)}
           />
         )

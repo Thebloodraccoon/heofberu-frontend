@@ -1,11 +1,13 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
+import { catalogApi } from '@/features/catalog/api.js'
 import { useMemo, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterSpells, useCharacterSpellSlots } from '@/features/characters/queries.js'
-import { useSpells, useSpellDetail } from '@/features/catalog/queries.js'
+import { useSpellDetail } from '@/features/catalog/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { label, diceTypeLabels, sentenceCase } from '@/lib/i18n/index.js'
-import { Button, Modal, RichText, Skeleton } from '@/components/ui'
+import { Button, ErrorBox, RichText, Skeleton } from '@/components/ui'
 import { SPELL_LEVEL_ORDER } from './constants.js'
 
 const LEVEL_TITLE = (lv) => (lv === 'CANTRIP' ? 'Заговоры' : label(lv))
@@ -108,10 +110,18 @@ function SpellDetail({ sp }) {
 export default function SpellPickerModal({ character, onClose, onError }) {
   const queryClient = useQueryClient()
   const characterId = character.id
-  const { data: catalog = [] } = useSpells({ size: 100 })
   const { data: known = [] } = useCharacterSpells(characterId)
   const { data: slots = [] } = useCharacterSpellSlots(characterId)
   const [selectedLevel, setSelectedLevel] = useState(null)
+  const spellsQ = useInfiniteQuery({
+    queryKey: ['catalog', 'character-spell-picker', characterId, selectedLevel],
+    enabled: selectedLevel !== null,
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => catalogApi.spells.list({ page: pageParam, size: 100, level: selectedLevel }),
+    getNextPageParam: (lastPage, pages) => pages.reduce((total, page) => total + page.items.length, 0) < lastPage.total
+      ? pages.length + 1 : undefined,
+  })
+  const catalog = useMemo(() => spellsQ.data?.pages.flatMap((page) => page.items) ?? [], [spellsQ.data])
   const [selected, setSelected] = useState(() => new Set())
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState(() => new Set())
@@ -162,9 +172,9 @@ export default function SpellPickerModal({ character, onClose, onError }) {
     () =>
       SPELL_LEVEL_ORDER.filter((lv) => {
         const cap = capacityByLevel[lv] ?? 0
-        return cap > 0 && (groups[lv] ?? []).length > 0
+        return cap > 0
       }),
-    [capacityByLevel, groups],
+    [capacityByLevel],
   )
 
   const levelCap = selectedLevel != null ? capacityByLevel[selectedLevel] ?? 0 : 0
@@ -191,6 +201,7 @@ export default function SpellPickerModal({ character, onClose, onError }) {
     })
 
   const pickLevel = (lv) => {
+    queryClient.removeQueries({ queryKey: ['catalog', 'character-spell-picker', characterId, lv], exact: true })
     setSelected(new Set())
     setExpanded(new Set())
     setSelectedLevel(lv)
@@ -222,14 +233,14 @@ export default function SpellPickerModal({ character, onClose, onError }) {
   }
 
   return (
-    <Modal title="Заклинания" onClose={onClose} size="lg">
+    <SheetDrawer title="Заклинания" onClose={onClose} footer={selectedLevel == null ? <Button variant="ghost" onClick={onClose}>Отмена</Button> : <><Button variant="ghost" onClick={back}>Назад</Button><Button onClick={learnCell} disabled={saving || selected.size === 0}>{saving ? 'Сохраняем…' : 'Выучить ячейку'}</Button></>}>
       {selectedLevel == null ? (
         <>
           <p className="-mt-1 text-xs text-stone-500">
             Выберите ячейку, которую хотите заполнить.
           </p>
           {fillableLevels.length === 0 ? (
-            <p className="mt-4 text-sm text-stone-500">Все ячейки заполнены или доступных заклинаний нет.</p>
+            <p className="mt-4 text-sm text-stone-500">Нет свободных ячеек для изучения заклинаний.</p>
           ) : (
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {fillableLevels.map((lv) => {
@@ -252,9 +263,7 @@ export default function SpellPickerModal({ character, onClose, onError }) {
               })}
             </div>
           )}
-          <div className="modal-actions pt-3 mt-4">
-            <Button variant="ghost" onClick={onClose}>Отмена</Button>
-          </div>
+
         </>
       ) : (
         <>
@@ -264,11 +273,13 @@ export default function SpellPickerModal({ character, onClose, onError }) {
             </button>
             <span><span className="text-stone-300">{LEVEL_TITLE(selectedLevel)}</span> (свободно {levelCap})</span>
           </p>
-          <div className="mt-3 max-h-[55vh] space-y-1 overflow-y-auto pr-1">
-            {(groups[selectedLevel] ?? []).length === 0 && (
-              <p className="text-sm text-stone-500">Для этой ячейки нет доступных заклинаний.</p>
+          <div className="mt-4 space-y-3">
+            {spellsQ.isPending && <Skeleton className="h-24 w-full" />}
+            {spellsQ.isError && <ErrorBox error={spellsQ.error} onRetry={() => spellsQ.isFetchNextPageError ? spellsQ.fetchNextPage() : spellsQ.refetch()} />}
+            {!spellsQ.isPending && !spellsQ.isError && (groups[selectedLevel] ?? []).length === 0 && (
+              <p className="text-sm text-stone-500">{spellsQ.hasNextPage ? 'Среди загруженных заклинаний нет доступных. Загрузите следующую страницу.' : 'Для этой ячейки нет доступных заклинаний.'}</p>
             )}
-            <ul className="space-y-1">
+            <ul className="space-y-3">
               {groups[selectedLevel]?.map((sp) => {
                 const checked = selected.has(sp.id)
                 const isOpen = expanded.has(sp.id)
@@ -333,19 +344,14 @@ export default function SpellPickerModal({ character, onClose, onError }) {
                 )
               })}
             </ul>
+            {spellsQ.hasNextPage && <Button type="button" variant="ghost" className="mt-3 w-full"
+              disabled={spellsQ.isFetching} onClick={() => spellsQ.fetchNextPage()}>
+              {spellsQ.isFetchingNextPage ? 'Загружаем…' : 'Показать ещё'}
+            </Button>}
           </div>
-          <div className="modal-actions pt-3 mt-4">
-            <Button variant="ghost" onClick={back}>Назад</Button>
-            <Button onClick={learnCell} disabled={saving || selected.size === 0}>
-              {saving
-                ? 'Сохраняем…'
-                : selected.size > 0
-                  ? `Выучить ячейку`
-                  : 'Выучить ячейку'}
-            </Button>
-          </div>
+
         </>
       )}
-    </Modal>
+    </SheetDrawer>
   )
 }

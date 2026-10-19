@@ -35,10 +35,10 @@ const buildSpellBase = (f) => {
     attack_type: f.attack_type || null,
     save_stat: f.save_stat || null,
     damage_type: f.damage_type || null,
-    damage_dice_count: toNum(f.damage_dice_count),
+    damage_dice_count: toNum(f.damage_dice_count) || null,
     damage_dice_type: f.damage_dice_type || null,
     healing_target: f.healing_target || null,
-    healing_dice_count: toNum(f.healing_dice_count),
+    healing_dice_count: toNum(f.healing_dice_count) || null,
     healing_dice_type: f.healing_dice_type || null,
     description: f.description,
     higher_levels: f.higher_levels,
@@ -48,12 +48,12 @@ const buildSpellBase = (f) => {
     base.attack_type = null
     base.save_stat = null
     base.damage_type = null
-    base.damage_dice_count = 0
+    base.damage_dice_count = null
     base.damage_dice_type = null
   }
   if (hasDamage(f)) {
     base.healing_target = null
-    base.healing_dice_count = 0
+    base.healing_dice_count = null
     base.healing_dice_type = null
   }
   return base

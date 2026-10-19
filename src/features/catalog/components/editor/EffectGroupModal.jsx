@@ -4,13 +4,15 @@ import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
 import { Button, Input, Modal } from '@/components/ui'
 import { AddButton, EFFECT_TYPES, EMPTY_OPTION_EFFECTS } from './effectTypeEditors.jsx'
+import EffectRowsPicker from './EffectRowsPicker.jsx'
+import { hasRowsPicker } from './effectRowPickers.js'
 import { TrashIcon } from './editorShared.jsx'
 
 // Один вариант внутри группы выбора: у опции нет названия (ChoiceOptionPayload
 // не поддерживает label) — только порядковый номер и строки эффекта того же
 // типа, что и вся группа (например, у группы «Характеристики» каждый вариант —
 // это набор строк ability_effects).
-function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, onSelectSpell }) {
+function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, onSelectSpell, onOpenPicker }) {
   return (
     <div className="space-y-2 rounded-lg border border-stone-700/60 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -24,7 +26,7 @@ function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, o
           <TrashIcon />
         </button>
       </div>
-      <Editor onSelectSpell={onSelectSpell} rows={option[effectType] ?? []} onChange={(rows) => onChange({ ...option, [effectType]: rows })} />
+      <Editor onSelectSpell={onSelectSpell} onOpenPicker={onOpenPicker} rows={option[effectType] ?? []} onChange={(rows) => onChange({ ...option, [effectType]: rows })} />
     </div>
   )
 }
@@ -55,13 +57,28 @@ export default function EffectGroupModal({
   onSave,
   onClose,
 }) {
-  const [spellTarget, setSpellTarget] = useState(null)
-  const navigating = spellTarget !== null
+  // Выбор «во весь экран панели»: либо заклинание, либо список навыков/
+  // спасбросков. target — 'static' или индекс варианта группы выбора.
+  const [picker, setPicker] = useState(null)
+  const navigating = picker !== null
   const [effectType, setEffectType] = useState(initialType)
   const [rows, setRows] = useState(initialRows)
   const [group, setGroup] = useState(() => initialGroup ?? { pick_count: 1, options: [] })
 
   const Container = inline ? EffectScreen : drawer ? Drawer : Modal
+
+  const rowsFor = (target) => (target === 'static' ? rows : group.options[target]?.[effectType] ?? [])
+  const setRowsFor = (target, next) =>
+    target === 'static'
+      ? setRows(next)
+      : setGroup((current) => ({
+          ...current,
+          options: current.options.map((option, index) =>
+            index === target ? { ...option, [effectType]: next } : option,
+          ),
+        }))
+  const openPickerFor = (target) =>
+    hasRowsPicker(effectType) ? () => setPicker({ kind: 'rows', target }) : undefined
 
   if (!effectType) {
     return (
@@ -115,7 +132,7 @@ export default function EffectGroupModal({
       onClose={onClose}
       size="lg"
       scroll
-      footer={navigating ? <Button type="button" variant="ghost" onClick={() => setSpellTarget(null)}>Закрыть</Button> :
+      footer={navigating ? <Button type="button" variant={picker.kind === 'rows' ? undefined : 'ghost'} onClick={() => setPicker(null)}>{picker.kind === 'rows' ? 'Готово' : 'Закрыть'}</Button> :
         <>
           <Button type="button" variant="ghost" onClick={onClose}>
             Отмена
@@ -127,23 +144,23 @@ export default function EffectGroupModal({
       }
     >
       {navigating ? (
-        <SpellPickerModal
-          inline
-          excludeIds={(spellTarget === 'static' ? rows : group.options[spellTarget].spell_effects ?? []).map((row) => row.spell_id)}
-          onClose={() => setSpellTarget(null)}
-          onPick={(spell) => {
-            const effect = { spell_id: spell.id }
-            if (spellTarget === 'static') setRows((current) => [...current, effect])
-            else setGroup((current) => ({
-              ...current,
-              options: current.options.map((option, index) => index === spellTarget
-                ? { ...option, spell_effects: [...(option.spell_effects ?? []), effect] }
-                : option),
-            }))
-          }}
-        />
+        picker.kind === 'rows' ? (
+          <EffectRowsPicker
+            effectType={effectType}
+            rows={rowsFor(picker.target)}
+            onChange={(next) => setRowsFor(picker.target, next)}
+            onClose={() => setPicker(null)}
+          />
+        ) : (
+          <SpellPickerModal
+            inline
+            excludeIds={rowsFor(picker.target).map((row) => row.spell_id)}
+            onClose={() => setPicker(null)}
+            onPick={(spell) => setRowsFor(picker.target, [...rowsFor(picker.target), { spell_id: spell.id }])}
+          />
+        )
       ) : mode === 'static' ? (
-        <Editor onSelectSpell={() => setSpellTarget('static')} rows={rows} onChange={setRows} />
+        <Editor onSelectSpell={() => setPicker({ kind: 'spell', target: 'static' })} onOpenPicker={openPickerFor('static')} rows={rows} onChange={setRows} />
       ) : (
         <div className="space-y-3">
           <label className="flex items-center gap-2 text-sm text-stone-300">
@@ -162,7 +179,8 @@ export default function EffectGroupModal({
             {group.options.map((option, oi) => (
               <ChoiceOption
                 key={oi}
-                onSelectSpell={() => setSpellTarget(oi)}
+                onSelectSpell={() => setPicker({ kind: 'spell', target: oi })}
+                onOpenPicker={openPickerFor(oi)}
                 index={oi}
                 option={option}
                 effectType={effectType}

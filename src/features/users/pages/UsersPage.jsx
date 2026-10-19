@@ -8,25 +8,35 @@ import {
   ErrorBox,
   Field,
   Input,
-  PageHeader,
   Select,
   Skeleton,
 } from '@/components/ui'
 import Pagination from '@/components/ui/Pagination.jsx'
+import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import { useAuth } from '@/features/auth/useAuth.js'
 import { useCreateUser, useDeleteUser, useFlushCache, useUpdateUser, useUsersPage } from '@/features/users/queries.js'
 
 const ROLE_LABELS = { player: 'Игрок', gm: 'Гейм-мастер', found_father: 'Основатель' }
 const ROLE_TONES = { found_father: 'good', gm: 'accent' }
-// В UI основатель повышает максимум до ГМ; основателей назначает только
-// супер-админ на бэке. Удалять себя и предустановленного админа бэк не даёт.
+// Обычный основатель повышает максимум до ГМ; основателей назначает только
+// супер-админ — предустановленный админский аккаунт. Удалять себя и этот
+// аккаунт бэк не даёт, права всё равно проверяются на бэке.
 const ASSIGNABLE_ROLES = ['player', 'gm']
+const SUPER_ADMIN_ROLES = ['player', 'gm', 'found_father']
+const SUPER_ADMIN_EMAIL = (import.meta.env.VITE_SUPER_ADMIN_EMAIL || 'tuttamus@admin.com').toLowerCase()
+
+const isSuperAdmin = (user) =>
+  Boolean(user) &&
+  (user.is_superuser === true ||
+    user.is_super_admin === true ||
+    user.email?.toLowerCase() === SUPER_ADMIN_EMAIL)
 
 const EMPTY_FORM = { username: '', email: '', password: '', role: 'player' }
 const PAGE_SIZE = 20
 
-function CreateUserForm({ onDone }) {
+function CreateUserForm({ onDone, roles }) {
   const createUser = useCreateUser()
   const [form, setForm] = useState(EMPTY_FORM)
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
@@ -45,7 +55,7 @@ function CreateUserForm({ onDone }) {
         <Field label="Пароль *"><Input type="password" required value={form.password} onChange={set('password')} /></Field>
         <Field label="Роль">
           <Select value={form.role} onChange={set('role')}>
-            {ASSIGNABLE_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            {roles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </Select>
         </Field>
         {createUser.error && <ErrorBox className="sm:col-span-2 lg:col-span-4" error={createUser.error} />}
@@ -57,11 +67,11 @@ function CreateUserForm({ onDone }) {
   )
 }
 
-function RoleCell({ user }) {
+function RoleCell({ user, roles, editable }) {
   const updateUser = useUpdateUser()
   const { push } = useToasts()
 
-  if (!ASSIGNABLE_ROLES.includes(user.role)) {
+  if (!editable || !roles.includes(user.role)) {
     return <Badge tone={ROLE_TONES[user.role] ?? 'default'}>{ROLE_LABELS[user.role] ?? user.role}</Badge>
   }
 
@@ -78,8 +88,8 @@ function RoleCell({ user }) {
   }
 
   return (
-    <Select value={user.role} onChange={change} disabled={updateUser.isPending} aria-label={`Роль ${user.username}`} className="w-40">
-      {ASSIGNABLE_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+    <Select value={user.role} onChange={change} disabled={updateUser.isPending} aria-label={`Роль ${user.username}`} className="w-full max-w-40">
+      {roles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
     </Select>
   )
 }
@@ -97,6 +107,8 @@ export default function UsersPage() {
   const deleteUser = useDeleteUser()
   const { user: me } = useAuth()
   const { push } = useToasts()
+  const amSuperAdmin = isSuperAdmin(me)
+  const assignableRoles = amSuperAdmin ? SUPER_ADMIN_ROLES : ASSIGNABLE_ROLES
 
   const params = { page, size: PAGE_SIZE, ...(search.trim() && { search: search.trim() }), ...(role && { role }) }
   const { data, isLoading, error, refetch } = useUsersPage(params)
@@ -130,35 +142,42 @@ export default function UsersPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Админ-панель"
-        subtitle="Пользователи, роли и обслуживание"
-        actions={
-          <>
-            <Button variant="ghost" onClick={() => setConfirmFlush(true)}>Сбросить кеш</Button>
-            <Button onClick={() => setShowCreate((v) => !v)}>
-              {showCreate ? 'Отмена' : '+ Создать пользователя'}
-            </Button>
-          </>
-        }
-      />
+      <header className="lore-header article-workspace-header">
+        <div>
+          <p className="lore-eyebrow">Управление миром</p>
+          <h1 className="heading-section">Админ-панель</h1>
+          <p className="lore-intro">Пользователи, роли и обслуживание.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setConfirmFlush(true)}>Сбросить кеш</Button>
+          <Button onClick={() => setShowCreate((v) => !v)}>
+            {showCreate ? 'Отмена' : <><LoreIcon name="plus" />Создать пользователя</>}
+          </Button>
+        </div>
+      </header>
 
-      {showCreate && <CreateUserForm onDone={() => setShowCreate(false)} />}
+      {showCreate && <CreateUserForm onDone={() => setShowCreate(false)} roles={assignableRoles} />}
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <Field label="Поиск" className="min-w-56 flex-1">
-          <Input type="search" value={search} onChange={filter(setSearch)} placeholder="Имя или email" />
-        </Field>
-        <Field label="Роль" className="w-48">
-          <Select value={role} onChange={filter(setRole)}>
+      <div className="mb-4 flex flex-wrap items-stretch gap-3">
+        <SearchToolbar
+          className="min-w-56 flex-1"
+          query={search}
+          onQueryChange={(value) => { setSearch(value); setPage(1) }}
+          onSearch={() => setPage(1)}
+          label="Поиск пользователей"
+          placeholder="Имя или email…"
+          submitLabel="Поиск"
+        />
+        <div className="flex w-48">
+          <Select value={role} onChange={filter(setRole)} aria-label="Фильтр по роли" matchTriggerWidth className="w-full [&>button]:h-full [&>button]:min-h-12">
             <option value="">Все роли</option>
             {Object.entries(ROLE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
-        </Field>
-        {data && <p className="pb-2 text-sm text-stone-500">Всего: {data.total}</p>}
+        </div>
       </div>
 
       {error && <ErrorBox error={error} onRetry={refetch} />}
+      {!error && !isLoading && data && <p className="mb-3 text-sm text-stone-500">Найдено пользователей: {data.total}</p>}
       {!error && isLoading && (
         <Card>
           <div aria-busy="true">
@@ -177,7 +196,7 @@ export default function UsersPage() {
       {!error && !isLoading && users.length === 0 && <EmptyState text="Никого не нашли" />}
       {users.length > 0 && (
         <Card>
-          <table className="w-full text-left text-sm">
+          <table className="w-full table-fixed text-left text-sm [&_td]:break-words [&_th]:break-words">
             <thead>
               <tr className="border-b border-stone-700/70 text-xs uppercase tracking-wide text-stone-500">
                 <th className="px-4 py-3">Имя</th>
@@ -193,7 +212,13 @@ export default function UsersPage() {
                 <tr key={u.id} className="border-b border-stone-800/60 last:border-0">
                   <td className="px-4 py-3 font-medium text-stone-200">{u.username}</td>
                   <td className="px-4 py-3 text-stone-400 max-md:hidden">{u.email}</td>
-                  <td className="px-4 py-3"><RoleCell user={u} /></td>
+                  <td className="px-4 py-3">
+                    <RoleCell
+                      user={u}
+                      roles={assignableRoles}
+                      editable={u.id !== me?.id && !isSuperAdmin(u)}
+                    />
+                  </td>
                   <td className="px-4 py-3 text-stone-500 max-lg:hidden">{fmtDate(u.created_at)}</td>
                   <td className="px-4 py-3 text-stone-500 max-lg:hidden">{fmtDate(u.last_login)}</td>
                   <td className="px-4 py-3 text-right">

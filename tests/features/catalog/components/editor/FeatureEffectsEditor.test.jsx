@@ -118,7 +118,11 @@ describe('FeatureEffectsEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Добавить статичный эффект' }))
     await user.click(await screen.findByRole('button', { name: 'Изменение характеристик' }))
     await user.click(await screen.findByRole('button', { name: 'Увеличение' }))
+    // Характеристики выбираются экраном-списком внутри той же панели.
     await user.click(await screen.findByRole('button', { name: 'Сила' }))
+    // Уже добавленную характеристику повторно выбрать нельзя.
+    expect(screen.getByRole('button', { name: /^Сила/ })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Готово' }))
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
 
     expect(await screen.findByText(/Изменение характеристик/)).toBeInTheDocument()
@@ -165,6 +169,37 @@ describe('FeatureEffectsEditor', () => {
     expect(await screen.findByText('Вариант 1')).toBeInTheDocument()
     // Значение группы (спасбросок ДЕХ) видно в форме варианта.
     expect(screen.getAllByText('Ловкость').length).toBeGreaterThan(0)
+  })
+
+  it('picks skills on a list screen inside the panel, several at once', async () => {
+    const user = userEvent.setup()
+    catalogApi.skills.list.mockResolvedValue({
+      items: [
+        { id: 5, key: 'stealth', name: 'Скрытность' },
+        { id: 6, key: 'athletics', name: 'Атлетика' },
+      ],
+    })
+    renderWithProviders(<Harness inline />)
+
+    await user.click(screen.getByRole('button', { name: 'Добавить статичный эффект' }))
+    await user.click(await screen.findByRole('button', { name: 'Владение навыками' }))
+    await user.click(await screen.findByRole('button', { name: 'Навык' }))
+
+    // Экран выбора живёт внутри той же панели — второго диалога нет.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const stealth = await screen.findByRole('button', { name: 'Скрытность', pressed: false })
+    await user.click(stealth)
+    await user.click(screen.getByRole('button', { name: 'Атлетика', pressed: false }))
+    expect(screen.getByRole('button', { name: 'Скрытность', pressed: true })).toBeInTheDocument()
+    // Повторный клик снимает выбор.
+    await user.click(screen.getByRole('button', { name: 'Атлетика', pressed: true }))
+
+    await user.click(screen.getByRole('button', { name: 'Готово' }))
+    expect(screen.getAllByText('Скрытность').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Атлетика')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(await screen.findByText(/Владение навыками/)).toBeInTheDocument()
   })
 
   it('adds a spell effect through search in the same panel', async () => {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { recordRoll } from '@/lib/rollHistory.js'
@@ -14,18 +14,14 @@ import {
 } from '@/features/catalog/queries.js'
 import { sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { STATS, mod } from '@/lib/utils/ability.js'
-import { ErrorBox, Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui'
-import {
-  PassiveSenses,
-  ProficiencyList,
-  SheetSectionLabel,
-  SheetTabs,
-} from '@/components/sheet/primitives.jsx'
+import { ErrorBox, Skeleton } from '@/components/ui'
+import { SheetTabs } from '@/components/sheet/primitives.jsx'
 import SheetRollToasts from '@/components/sheet/SheetRollToasts.jsx'
 import SheetHeader from '@/features/characters/components/sheet/SheetHeader.jsx'
-import AbilityBlock from '@/features/characters/components/sheet/AbilityBlock.jsx'
+import AbilitiesPanel from '@/features/characters/components/sheet/AbilitiesPanel.jsx'
 import AttacksPanel from '@/features/characters/components/sheet/AttacksPanel.jsx'
 import QuickStatsPanel from '@/features/characters/components/sheet/QuickStatsPanel.jsx'
+import AbilityScores from '@/features/characters/components/sheet/AbilityScores.jsx'
 import FeaturesPanel from '@/features/characters/components/sheet/FeaturesPanel.jsx'
 import EquipmentPanel from '@/features/characters/components/sheet/EquipmentPanel.jsx'
 import ConditionsPanel from '@/features/characters/components/sheet/ConditionsPanel.jsx'
@@ -45,27 +41,6 @@ import AnsweredChoicesSection from '@/features/characters/components/sheet/Answe
 import CharacterSettingsModal from '@/features/characters/components/sheet/CharacterSettingsModal.jsx'
 import { ARMOR_OPTIONS, num } from '@/features/characters/components/sheet/constants.js'
 
-const EyeIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-)
-const FaceIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M8 15h8" />
-    <path d="M8 9h2" />
-    <path d="M14 9h2" />
-  </svg>
-)
-const SearchIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m21 21-4.34-4.34" />
-    <circle cx="11" cy="11" r="8" />
-  </svg>
-)
-
 export default function CharacterDetailPage() {
   const { id } = useParams()
   const { data: character, error, refetch } = useCharacter(id)
@@ -82,11 +57,19 @@ export default function CharacterDetailPage() {
   const { data: proficienciesData } = useCharacterProficiencies(id)
 
   const [tab, setTab] = useState('attacks')
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)')
+    const restoreMainTab = () => {
+      if (desktop.matches) setTab((current) => current === 'abilities' ? 'attacks' : current)
+    }
+    desktop.addEventListener('change', restoreMainTab)
+    return () => desktop.removeEventListener('change', restoreMainTab)
+  }, [])
   const [rollToasts, setRollToasts] = useState([])
   const [hpModal, setHpModal] = useState(false)
   const [armorModal, setArmorModal] = useState(false)
   const [inspirationModal, setInspirationModal] = useState(false)
-const [levelUpOpen, setLevelUpOpen] = useState(false)
+  const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { data: canLevelUpData } = useCanLevelUp(id)
   const [choicesOpen, setChoicesOpen] = useState(false)
   const { data: pendingChoices = [] } = useCharacterPendingChoices(id)
@@ -109,10 +92,12 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
     [id, load]
   )
 
-  const pushToast = useCallback((title, d20, bonus, total) => {
+  const pushToast = useCallback((title, die, bonus, total, diceSides = 20) => {
     const toastId = Date.now() + Math.random()
-    setRollToasts((prev) => [...prev.slice(-3), { id: toastId, title, d20, bonus, total }])
-    recordRoll({ id: toastId, title, detail: bonus ? `d20 ${fmtBonus(bonus)}` : 'd20', total, at: Date.now() })
+    const dieResult = diceSides === 20 ? { d20: die } : { rolls: [die] }
+    const modifier = bonus ? ` ${Number(bonus) < 0 ? '−' : '+'} ${Math.abs(Number(bonus))}` : ''
+    setRollToasts((prev) => [...prev.slice(-3), { id: toastId, title, ...dieResult, bonus, total }])
+    recordRoll({ id: toastId, title, ...dieResult, detail: `${die}${modifier}`, dice: `к${diceSides}${modifier}`, total, at: Date.now() })
   }, [])
 
   const rollDice = useCallback(
@@ -139,7 +124,7 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
       const idv = Date.now() + Math.random()
       const title = entries.map(([s, q]) => `${q}к${s}`).join(' + ')
       setRollToasts((prev) => [...prev.slice(-3), { id: idv, title, rolls, total }])
-      recordRoll({ id: idv, title, detail: rolls.join(' + '), total, at: Date.now() })
+      recordRoll({ id: idv, title, detail: rolls.join(' + '), dice: title, total, at: Date.now() })
     },
     []
   )
@@ -163,13 +148,12 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
         : rolls.join(' + ')
       : fmtBonus(bonusNum)
     setRollToasts((prev) => [...prev.slice(-3), { id: idv, title, rolls, bonus: bonusNum, total }])
-    recordRoll({ id: idv, title, detail, total, at: Date.now() })
+    recordRoll({ id: idv, title, detail, dice: `${count}к${sides}${bonusNum ? ` ${bonusNum < 0 ? '−' : '+'} ${Math.abs(bonusNum)}` : ''}`, total, at: Date.now() })
   }, [])
 
   const dismissToast = useCallback((toastId) => {
     setRollToasts((prev) => prev.filter((t) => t.id !== toastId))
   }, [])
-
 
   const level = Number(character?.level) || 1
   const pb = 2 + Math.floor((level - 1) / 4)
@@ -182,12 +166,6 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
   }, [character])
 
   const modFor = useCallback((code) => mod(totals[code] ?? 10), [totals])
-
-  const skillMap = useMemo(() => {
-    const m = new Map()
-    for (const sk of skillsCatalog) m.set(Number(sk.id), sk)
-    return m
-  }, [skillsCatalog])
 
   const { profSet, expertiseSet } = useMemo(() => {
     const profs = new Set()
@@ -206,41 +184,9 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
     [proficienciesData?.saving_throws]
   )
 
-  const skillsByAbility = useMemo(() => {
-    const groups = Object.fromEntries(STATS.map((s) => [s.code, []]))
-    groups.other = []
-    for (const sk of skillsCatalog) {
-      const code = sk.ability && groups[sk.ability] ? sk.ability : 'other'
-      groups[code].push(sk)
-    }
-    const displayName = (sk) => {
-      const raw = sk.name ?? ''
-      return skillLabels[raw] ?? sentenceCase(raw)
-    }
-    for (const code of Object.keys(groups)) {
-      groups[code].sort((a, b) => displayName(a).localeCompare(displayName(b), 'ru'))
-    }
-    return groups
-  }, [skillsCatalog])
-
-  const passiveSenses = useMemo(() => {
-    const findSkill = (key) => {
-      const target = (skillLabels[key] ?? key).toLowerCase()
-      return skillsCatalog.find((s) =>
-        [s.key, s.slug, s.name].some((v) => String(v ?? '').toLowerCase() === key || String(v ?? '').toLowerCase() === target),
-      )
-    }
-    const build = (key, icon) => {
-      const sk = findSkill(key)
-      if (!sk) return null
-      const prof = profSet.has(Number(sk.id))
-      const expertise = expertiseSet.has(Number(sk.id))
-      const value = 10 + modFor(sk.ability) + (prof ? pb : 0) + (expertise ? pb : 0)
-      return { name: skillLabels[key] ?? sentenceCase(sk.name), value, icon }
-    }
-    return [build('perception', <EyeIcon />), build('insight', <FaceIcon />), build('investigation', <SearchIcon />)]
-      .filter(Boolean)
-  }, [skillsCatalog, profSet, expertiseSet, pb, modFor])
+  const sortedSkills = useMemo(() => [...skillsCatalog].sort((a, b) =>
+    (skillLabels[a.name] ?? sentenceCase(a.name)).localeCompare(skillLabels[b.name] ?? sentenceCase(b.name), 'ru'),
+  ), [skillsCatalog])
 
   const armorProfs = useMemo(() => {
     const raw = proficienciesData?.armor ?? classDetail?.armor_proficiencies ?? []
@@ -256,57 +202,12 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
   if (error || mutationError) return <ErrorBox error={error ?? mutationError} onRetry={load} />
   if (!character) {
     return (
-      <div className="flex flex-col gap-4" aria-busy="true">
-        <div className="fantasy-panel rounded-lg p-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-2">
-              <Skeleton className="h-7 w-56" />
-              <Skeleton className="h-4 w-72" />
-              <Skeleton className="h-3.5 w-48" />
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {Array.from({ length: 3 }, (_, i) => (
-                <div key={i} className="space-y-1.5">
-                  <Skeleton className="h-3.5 w-12" />
-                  <Skeleton className="h-5 w-14" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="sheet-body">
-          <div className="sheet-col-left">
-            <aside className="sheet-left fantasy-panel rounded-lg p-4">
-              <div className="grid grid-cols-2 gap-4">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <div key={i} className="space-y-2 rounded border border-stone-700/60 bg-stone-900/60 p-3">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="mx-auto h-8 w-12" />
-                    <Skeleton className="h-3.5 w-full" />
-                    <Skeleton className="h-3.5 w-4/5" />
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 space-y-2">
-                {Array.from({ length: 3 }, (_, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <SkeletonCircle size="size-7" />
-                    <Skeleton className="h-4 flex-1" />
-                  </div>
-                ))}
-              </div>
-            </aside>
-          </div>
-          <section className="sheet-right fantasy-panel rounded-lg p-4 max-sm:p-2.5">
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 8 }, (_, i) => (
-                <Skeleton key={i} className="h-8 w-24" />
-              ))}
-            </div>
-            <div className="pt-4">
-              <SkeletonCard />
-            </div>
-          </section>
+      <div className="character-sheet" aria-busy="true" aria-label="Загрузка листа персонажа">
+        <div className="space-y-3"><Skeleton className="h-4 w-32" /><Skeleton className="h-12 w-72 max-w-full" /><Skeleton className="h-4 w-56" /></div>
+        <div className="character-stats">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-28 rounded-lg" />)}</div>
+        <div className="character-sheet-body">
+          <div className="character-sheet-sidebar"><Skeleton className="h-96 rounded-lg" /></div>
+          <div className="space-y-4"><Skeleton className="h-12" /><Skeleton className="h-36 rounded-lg" /><Skeleton className="h-36 rounded-lg" /></div>
         </div>
       </div>
     )
@@ -324,13 +225,6 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
 
   const initiativeBonus = modFor('DEX') + (num(character.initiative_bonus) ?? 0)
   const initiativeKey = `heofberu:initiative:${id}`
-  let initiativeLast = null
-  try {
-    const raw = window.localStorage.getItem(initiativeKey)
-    if (raw !== null && !Number.isNaN(Number(raw))) initiativeLast = Number(raw)
-  } catch {
-    initiativeLast = null
-  }
 
   const rollInitiative = () => {
     const d20 = 1 + Math.floor(Math.random() * 20)
@@ -395,69 +289,43 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
   const tabs = [
     ['abilities', 'Характеристики', 'lg:hidden'],
     ['attacks', 'Атаки'],
+    ['spells', 'Заклинания'],
     ['features', 'Способности'],
     ['equipment', 'Снаряжение'],
     ['conditions', 'Состояния'],
     ['personality', 'Личность'],
     ['notes', 'Заметки'],
-    ['spells', 'Заклинания'],
     ['calculator', 'Развитие персонажа'],
   ]
 
-  const renderAbilities = () => {
-    const makeProps = (s) => ({
-      stat: s,
-      total: totals[s.code],
-      saveBonus: saveBonus(s.code),
-      saveProf: saveSet.has(s.code),
-      skills: skillsByAbility[s.code],
-      skillMap,
-      skillBonus,
-      skillChecked: (sk) => profSet.has(Number(sk.id)),
-      skillExpertise: (sk) => expertiseSet.has(Number(sk.id)),
-      onRoll: rollDice,
-    })
-    const paired = []
-    const [str, dex, con, int, wis, cha] = STATS
-    paired.push(
-      <div key="str-con" className="sheet-ability-pair">
-        <AbilityBlock key={str.code} {...makeProps(str)} />
-        <AbilityBlock key={con.code} {...makeProps(con)} />
-      </div>,
-    )
-    paired.push(<AbilityBlock key={wis.code} {...makeProps(wis)} />)
-    paired.push(<AbilityBlock key={int.code} {...makeProps(int)} />)
-    paired.push(<AbilityBlock key={cha.code} {...makeProps(cha)} />)
-    paired.push(<AbilityBlock key={dex.code} {...makeProps(dex)} />)
-    if (passiveSenses.length > 0) {
-      paired.push(
-        <div key="passive-senses" className="py-1">
-          <SheetSectionLabel className="!mt-0">Пассивные чувства</SheetSectionLabel>
-          <PassiveSenses items={passiveSenses} />
-        </div>,
-      )
-    }
-    paired.push(
-      <div key="armor-profs" style={{ gridColumn: '1 / -1' }}>
-        <SheetSectionLabel>Владение доспехами</SheetSectionLabel>
-        <ProficiencyList items={armorProfs} options={ARMOR_OPTIONS} empty="Не задано" />
-      </div>,
-    )
-    paired.push(
-      <div key="weapon-profs" style={{ gridColumn: '1 / -1' }}>
-        <SheetSectionLabel>Владение оружием</SheetSectionLabel>
-        <ProficiencyList
-          items={weaponProfs}
-          options={Object.entries(weaponProficiencyLabels).map(([value, label]) => ({ value, label }))}
-          empty="Не задано"
-        />
-      </div>,
-    )
-    return paired
-  }
+  const renderStats = (fields, className) => (
+    <QuickStatsPanel
+      fields={fields}
+      className={className}
+      character={character}
+      pb={pb}
+      inspiration={Number(character?.inspiration) || 0}
+      onOpenInspiration={() => setInspirationModal(true)}
+      onOpenHp={() => setHpModal(true)}
+      onOpenAc={() => setArmorModal(true)}
+      initiativeBonus={initiativeBonus}
+      onRollInitiative={rollInitiative}
+    />
+  )
+
+  const renderAbilities = () => (
+    <AbilitiesPanel
+      topStats={renderStats(['hp', 'pb'], 'character-stats--top')}
+      secondaryStats={renderStats(['ac', 'initiative', 'speed', 'inspiration'], 'character-stats--secondary')}
+      skills={sortedSkills} saveBonus={saveBonus} saveSet={saveSet}
+      skillBonus={skillBonus} profSet={profSet} expertiseSet={expertiseSet} onRoll={rollDice}
+      armorProfs={armorProfs} armorOptions={ARMOR_OPTIONS}
+      weaponProfs={weaponProfs} weaponOptions={Object.entries(weaponProficiencyLabels).map(([value, label]) => ({ value, label }))}
+    />
+  )
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="character-sheet">
       <SheetHeader
         character={character}
         fields={identityFields}
@@ -469,32 +337,17 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      <div className="sheet-body">
-        <div className="sheet-col-left">
-          <aside className="sheet-left fantasy-panel rounded-lg p-4">
-            {renderAbilities()}
-          </aside>
-        </div>
+      <div className="character-sheet-body">
+        <aside className="character-sheet-sidebar" aria-label="Спасброски и навыки">
+          {renderAbilities()}
+        </aside>
+        <section className="character-sheet-workspace">
+          <AbilityScores totals={totals} onRoll={rollDice} />
+          <SheetTabs tabs={tabs} active={tab} onSelect={setTab} />
 
-        <div className="sheet-right flex min-w-0 flex-col gap-4">
-          <QuickStatsPanel
-            character={character}
-            pb={pb}
-            inspiration={Number(character?.inspiration) || 0}
-            onOpenInspiration={() => setInspirationModal(true)}
-            onOpenHp={() => setHpModal(true)}
-            onOpenAc={() => setArmorModal(true)}
-            initiativeBonus={initiativeBonus}
-            initiativeLast={initiativeLast}
-            onRollInitiative={rollInitiative}
-          />
-
-          <section className="fantasy-panel rounded-lg p-4 max-sm:p-2.5">
-            <SheetTabs tabs={tabs} active={tab} onSelect={setTab} />
-
-          <div className="pt-4">
+          <div key={tab} className="character-sheet-content" role="region" aria-label={tabs.find(([key]) => key === tab)?.[1]}>
             {tab === 'abilities' && (
-              <div className="sheet-left sheet-abilities-tab">
+              <div className="character-mobile-abilities">
                 {renderAbilities()}
               </div>
             )}
@@ -545,7 +398,6 @@ const [levelUpOpen, setLevelUpOpen] = useState(false)
             )}
           </div>
         </section>
-      </div>
       </div>
 
       {hpModal && (

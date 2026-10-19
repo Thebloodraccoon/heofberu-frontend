@@ -1,8 +1,9 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { Button, Modal } from '@/components/ui'
+import { Button } from '@/components/ui'
 
 const clamp = (v) => Math.max(0, Math.min(13, v))
 
@@ -21,7 +22,10 @@ export default function InspirationModal({ character, onClose, onError }) {
   }
 
   return (
-    <Modal title="Вдохновение" onClose={onClose} size="xs">
+    <SheetDrawer title="Вдохновение" onClose={onClose} footer={<>
+        <Button variant="ghost" onClick={onClose}>Отмена</Button>
+        <Button onClick={save}>Сохранить</Button>
+      </>}>
       <div className="flex items-center justify-center gap-3">
         <button
           type="button"
@@ -44,10 +48,7 @@ export default function InspirationModal({ character, onClose, onError }) {
         </button>
       </div>
       <p className="mt-2 text-center text-xs text-stone-500">От 0 до 13</p>
-      <div className="mt-4 modal-actions">
-        <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button onClick={save}>Сохранить</Button>
-      </div>
-    </Modal>
+
+    </SheetDrawer>
   )
 }

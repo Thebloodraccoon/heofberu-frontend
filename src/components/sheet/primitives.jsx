@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { fmtBonus } from '@/lib/utils/sheet.js'
 import { RichText, RichTextEditor } from '@/components/ui'
@@ -135,17 +135,18 @@ export function ProficiencyChips({ items = [], options = [], empty = '—' }) {
   )
 }
 
-export function ProficiencyList({ items = [], options = [], empty = '—' }) {
-  if (options.length === 0) {
+export function ProficiencyList({ items = [], options = [], empty = '—', onlyOwned = false, showDots = true }) {
+  const visibleOptions = onlyOwned ? options.filter((option) => items.includes(option.value)) : options
+  if (visibleOptions.length === 0) {
     return <span className="text-xs text-stone-500">{empty}</span>
   }
   return (
     <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => {
+      {visibleOptions.map((o) => {
         const on = items.includes(o.value)
         return (
           <div key={o.value} className={`sheet-prof-row ${on ? 'sheet-prof-row_on' : ''}`}>
-            <span className="sheet-prof-row__dot" />
+            {showDots && <span className="sheet-prof-row__dot" />}
             <span className="sheet-prof-row__label">{o.label}</span>
           </div>
         )
@@ -170,6 +171,24 @@ export function PassiveSenses({ items = [] }) {
 
 export function SheetTabs({ tabs, active, onSelect }) {
   const listRef = useRef(null)
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list) return
+    const updateIndicator = () => {
+      const selected = list.querySelector('[aria-current="page"]')
+      list.style.setProperty('--tab-left', `${selected?.offsetLeft ?? 0}px`)
+      list.style.setProperty('--tab-width', `${selected?.offsetWidth ?? 0}px`)
+    }
+    updateIndicator()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateIndicator)
+      return () => window.removeEventListener('resize', updateIndicator)
+    }
+    const observer = new ResizeObserver(updateIndicator)
+    observer.observe(list)
+    list.querySelectorAll('button').forEach((button) => observer.observe(button))
+    return () => observer.disconnect()
+  }, [active, tabs])
 
   const centerTab = (btn) => {
     const list = listRef.current
@@ -184,11 +203,12 @@ export function SheetTabs({ tabs, active, onSelect }) {
   }
 
   return (
-    <div ref={listRef} className="sheet-tabs flex-wrap">
+    <nav ref={listRef} className="sheet-tabs article-editor-tabs" aria-label="Разделы листа персонажа">
       {tabs.map(([key, labelText, btnClassName = '']) => (
         <button
           key={key}
           type="button"
+          aria-current={active === key ? 'page' : undefined}
           className={`sheet-tabs__btn ${active === key ? 'sheet-tabs__btn_active' : ''} ${btnClassName}`}
           onClick={(e) => {
             centerTab(e.currentTarget)
@@ -198,7 +218,8 @@ export function SheetTabs({ tabs, active, onSelect }) {
           {labelText}
         </button>
       ))}
-    </div>
+      <span className="article-editor-tab-indicator" aria-hidden="true" />
+    </nav>
   )
 }
 

@@ -6,16 +6,11 @@ import { useCharacterGrantedSpells, useCharacterSpellSlots, useCharacterSpells }
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { abilityName } from '@/lib/utils/ability.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
-import { EmptyState, RichText, Skeleton } from '@/components/ui'
+import { Button, EmptyState, RichText, Skeleton } from '@/components/ui'
 import { useUiSet } from '@/lib/uiState.js'
 import { SPELL_LEVEL_ORDER } from './constants.js'
 import SpellPickerModal from './SpellPickerModal.jsx'
 
-const TrashIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-  </svg>
-)
 
 const COMPONENT_FULL = { VERBAL: 'Вербальный', SOMATIC: 'Соматический', MATERIAL: 'Материальный' }
 
@@ -77,59 +72,29 @@ function SpellFacts({ sp }) {
 function SpellRow({ sp, open, onExpand, onRemove }) {
   const description = sp.description?.trim()
   return (
-    <li className="rounded-lg border border-stone-700/60 bg-stone-900/60">
+    <li className="character-record-card character-record-card--accordion">
       <div className="flex w-full items-center gap-2">
         <button
           type="button"
           onClick={onExpand}
+          aria-expanded={open}
           className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left"
         >
           <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
+          <span className="min-w-0 flex-1 break-words text-sm font-medium text-stone-100">
             {sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}
+            {sp.school && <span className="mt-1 block text-xs font-normal text-stone-400">{label(sp.school)}</span>}
           </span>
-          {sp.school && <span className="shrink-0 text-xs text-stone-500">{label(sp.school)}</span>}
         </button>
-        <button
+        {onRemove && <button
           type="button"
-          className="mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-800 hover:text-red-300"
+          className="catalog-delete-button mr-2"
           title="Забыть заклинание"
           onClick={onRemove}
         >
-          <TrashIcon />
-        </button>
+          <LoreIcon name="trash" />
+        </button>}
       </div>
-      {open && (
-        <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">
-          <SpellFacts sp={sp} />
-          {description ? (
-            <RichText value={description} className="text-stone-200" />
-          ) : (
-            <span className="text-stone-500">Описание отсутствует</span>
-          )}
-        </div>
-      )}
-    </li>
-  )
-}
-
-// Заклинание вне ячеек: та же карточка, что и обычное заклинание, но без
-// кнопки «Забыть» — игрок не выбирал его сам, оно привязано к особенности.
-function GrantedSpellRow({ sp, open, onExpand }) {
-  const description = sp.description?.trim()
-  return (
-    <li className="rounded-lg border border-stone-700/60 bg-stone-900/60">
-      <button
-        type="button"
-        onClick={onExpand}
-        className="flex w-full min-w-0 items-center gap-2 px-4 py-2.5 text-left"
-      >
-        <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-100">
-          {sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}
-        </span>
-        {sp.school && <span className="shrink-0 text-xs text-stone-500">{label(sp.school)}</span>}
-      </button>
       {open && (
         <div className="border-t border-stone-800 px-4 py-3 text-sm text-stone-400">
           <SpellFacts sp={sp} />
@@ -195,15 +160,7 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
               </span>
             )}
           </p>
-          <button
-            type="button"
-            className={`sheet-btn sheet-btn_primary ${!slotsFull && hasSpellcasting ? 'sheet-btn_warn-pulse' : ''}`}
-            onClick={() => setPickerOpen(true)}
-            disabled={!hasSpellcasting}
-            title={classSpellcastingAbility ? `Характеристика заклинаний: ${abilityName(classSpellcastingAbility)}` : undefined}
-          >
-            + Добавить
-          </button>
+<Button onClick={() => setPickerOpen(true)} disabled={!hasSpellcasting} title={classSpellcastingAbility ? `Характеристика заклинаний: ${abilityName(classSpellcastingAbility)}` : undefined}><LoreIcon name="plus" /> Добавить</Button>
         </div>
 
         {!hasSpellcasting && (
@@ -212,14 +169,15 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
           </p>
         )}
 
+        <div className="mt-4 space-y-4">
         {grantedSpells.length > 0 && (
-          <div className={hasSpellcasting ? 'mt-4' : 'mt-3'}>
+          <div>
             <p className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
               Заклинания вне ячеек
             </p>
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {grantedSpells.map((sp) => (
-                <GrantedSpellRow
+                <SpellRow
                   key={sp.id}
                   sp={sp}
                   open={openIds.includes(`granted:${sp.id}`)}
@@ -235,7 +193,7 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
             {[3, 2, 2].map((n, i) => (
               <div key={i}>
                 <Skeleton className="mb-1.5 h-3 w-28" />
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {Array.from({ length: n }, (_, j) => (
                     <li
                       key={j}
@@ -252,7 +210,6 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
         ) : (
           <>
             {hasSpellcasting && spells.length === 0 && <EmptyState text="Заклинаний пока нет" />}
-            <div className="space-y-4">
               {SPELL_LEVEL_ORDER.filter((lv) => byLevel[lv]).map((lv) => (
                 <div key={lv}>
                   <p className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -265,7 +222,7 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
                       </span>
                     )}
                   </p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {byLevel[lv].map((sp) => (
                       <SpellRow
                         key={sp.id}
@@ -278,9 +235,9 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
                   </ul>
                 </div>
               ))}
-            </div>
           </>
         )}
+        </div>
       </div>
 
       {pickerOpen && (

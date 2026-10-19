@@ -1,6 +1,7 @@
+import { insertGmBlock } from '@/features/articles/insertGmBlock.js'
 import { StrictMode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RichTextEditor } from '@/components/ui/RichTextEditor.jsx'
 
@@ -11,6 +12,83 @@ const pasteInto = (el, text) =>
   fireEvent.paste(el, { clipboardData: { getData: (type) => (type === 'text/plain' ? text : '') } })
 
 describe('RichTextEditor', () => {
+  it('formats the selection from its floating menu and hides it on Escape or collapsed selection', async () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    const onChange = vi.fn()
+    let editor
+    try {
+      render(<RichTextEditor value="Привет мир" onChange={onChange} onEditor={(ed) => { editor = ed }} />)
+      act(() => { editor.commands.focus(); editor.commands.setTextSelection({ from: 1, to: 7 }) })
+      const menu = await screen.findByRole('toolbar', { name: 'Форматирование выделенного текста' })
+      await userEvent.click(within(menu).getByTitle('Жирный'))
+      expect(onChange.mock.lastCall[0].target.value).toBe('**Привет** мир')
+      expect(within(menu).getByTitle('Жирный')).toHaveAttribute('aria-pressed', 'true')
+      expect(editor.state.selection.from).toBe(1)
+      expect(editor.state.selection.to).toBe(7)
+      await userEvent.keyboard('{Escape}')
+      expect(screen.queryByRole('toolbar', { name: 'Форматирование выделенного текста' })).not.toBeInTheDocument()
+      act(() => { editor.commands.setTextSelection({ from: 8, to: 11 }) })
+      await waitFor(() => expect(document.querySelector('.rich-selection-menu')).toBeInTheDocument())
+      act(() => { editor.commands.setTextSelection(1) })
+      await waitFor(() => expect(screen.queryByRole('toolbar', { name: 'Форматирование выделенного текста' })).not.toBeInTheDocument())
+    } finally { window.matchMedia = originalMatchMedia }
+  })
+
+  it('supports links and the GM secret action without replacing the selected text', async () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('https://example.com')
+    let editor
+    try {
+      render(<RichTextEditor value="Тайна" onChange={vi.fn()} onEditor={(ed) => { editor = ed }}
+        extraTools={[{ title: 'Секрет мастера', label: 'ГМ', onClick: insertGmBlock }]} />)
+      act(() => { editor.commands.focus(); editor.commands.setTextSelection({ from: 1, to: 6 }) })
+      const menu = await screen.findByRole('toolbar', { name: 'Форматирование выделенного текста' })
+      await userEvent.click(within(menu).getByTitle('Ссылка'))
+      expect(editor.getMarkdown()).toContain('[Тайна](https://example.com)')
+      await userEvent.click(within(menu).getByTitle('Секрет мастера'))
+      expect(editor.getMarkdown()).toContain(':::gm')
+      expect(editor.getMarkdown()).toContain('Тайна')
+    } finally { prompt.mockRestore(); window.matchMedia = originalMatchMedia }
+  })
+
+  it('does not show the floating menu on touch screens', async () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    let editor
+    try {
+      render(<RichTextEditor value="Привет" onChange={vi.fn()} onEditor={(ed) => { editor = ed }} />)
+      act(() => { editor.commands.focus(); editor.commands.setTextSelection({ from: 1, to: 7 }) })
+      expect(screen.queryByRole('toolbar', { name: 'Форматирование выделенного текста' })).not.toBeInTheDocument()
+      expect(screen.getByRole('toolbar', { name: 'Форматирование текста' })).toBeVisible()
+    } finally { window.matchMedia = originalMatchMedia }
+  })
+
+  it('turns a typed double hyphen into an em dash and allows undoing the replacement', () => {
+    const onChange = vi.fn()
+    let editor
+    render(<RichTextEditor value="Текст -" onChange={onChange} onEditor={(ed) => { editor = ed }} />)
+    act(() => {
+      editor.commands.setTextSelection(editor.state.doc.content.size - 1)
+      const { from, to } = editor.state.selection
+      editor.view.someProp('handleTextInput', (handler) => handler(editor.view, from, to, '-'))
+    })
+    expect(editor.getText()).toBe('Текст —')
+    expect(onChange.mock.lastCall[0].target.value).toBe('Текст —')
+    act(() => { editor.commands.undoInputRule() })
+    expect(editor.getText()).toBe('Текст --')
+  })
+
+  it('preserves double hyphens in loaded content and Markdown source', async () => {
+    render(<RichTextEditor value="Текст -- пример" onChange={vi.fn()} ariaLabel="Поле" />)
+    expect(screen.getByRole('textbox', { name: 'Поле' })).toHaveTextContent('Текст -- пример')
+    await userEvent.click(screen.getByTitle('Показать код'))
+    expect(screen.getByDisplayValue('Текст -- пример')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
+    expect(screen.getByRole('textbox', { name: 'Поле' })).toHaveTextContent('Текст -- пример')
+  })
+
   it('renders the toolbar and existing content', () => {
     render(<RichTextEditor value="Привет" onChange={vi.fn()} ariaLabel="Заметка" />)
     expect(screen.getByRole('toolbar', { name: 'Форматирование текста' })).toBeInTheDocument()

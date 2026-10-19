@@ -1,3 +1,5 @@
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi as api } from '@/features/characters/api.js'
@@ -53,13 +55,7 @@ export default function ConditionsPanel({ character, onError }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="sheet-section-label sheet-section-label--flush self-center leading-none">Активные состояния</p>
-        <button
-          type="button"
-          className="sheet-btn sheet-btn_primary"
-          onClick={() => setFormOpen((o) => !o)}
-        >
-          + Добавить
-        </button>
+        <Button onClick={() => setFormOpen(true)}><LoreIcon name="plus" /> Добавить</Button>
       </div>
 
       {conditions.length === 0 ? (
@@ -69,7 +65,7 @@ export default function ConditionsPanel({ character, onError }) {
           {conditions.map((c) => (
             <li
               key={c.condition}
-              className="flex items-center justify-between gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-4 py-2.5"
+              className="character-record-card flex flex-wrap items-center justify-between gap-3"
             >
               <span className="text-sm font-medium text-stone-100">
                 {conditionLabels[c.condition] ?? label(c.condition)}
@@ -81,11 +77,11 @@ export default function ConditionsPanel({ character, onError }) {
                 {c.source && <span className="text-xs text-stone-500">{c.source}</span>}
                 <button
                   type="button"
-                  className="rounded p-1.5 text-sm text-stone-400 transition hover:text-red-300"
+                  className="catalog-delete-button"
                   title="Снять состояние"
                   onClick={() => remove(c.condition)}
                 >
-                  ×
+                  <LoreIcon name="close" />
                 </button>
               </span>
             </li>
@@ -94,8 +90,19 @@ export default function ConditionsPanel({ character, onError }) {
       )}
 
       {formOpen && (
-        <div className="mt-3 rounded-lg border border-stone-700/60 bg-stone-900/60 p-4">
-          <p className="sheet-section-label m-0 !mt-0 leading-none">Новое состояние</p>
+        <SheetDrawer title="Новое состояние" onClose={() => setFormOpen(false)} footer={<>
+              <Button variant="ghost" onClick={() => setFormOpen(false)}>Отмена</Button>
+              <Button
+                onClick={add}
+                disabled={
+                  !condition ||
+                  !availableConditions.includes(condition) ||
+                  (condition === 'EXHAUSTION' && !exhaustionLevel)
+                }
+              >
+                Добавить
+              </Button>
+            </>}>
           <div className="mt-4 grid gap-x-4 gap-y-5 sm:grid-cols-2">
             <Field label="Состояние">
               <Select
@@ -129,21 +136,9 @@ export default function ConditionsPanel({ character, onError }) {
                 maxLength={SOURCE_MAX}
               />
             </Field>
-            <div className="flex items-end gap-2 sm:col-span-2">
-              <Button
-                onClick={add}
-                disabled={
-                  !condition ||
-                  !availableConditions.includes(condition) ||
-                  (condition === 'EXHAUSTION' && !exhaustionLevel)
-                }
-              >
-                Добавить
-              </Button>
-              <Button variant="ghost" onClick={() => setFormOpen(false)}>Отмена</Button>
-            </div>
+
           </div>
-        </div>
+        </SheetDrawer>
       )}
     </div>
   )

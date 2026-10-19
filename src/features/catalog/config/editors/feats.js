@@ -1,10 +1,9 @@
 import { catalogApi as api } from '../../api.js'
 import { abilityLabels } from '@/lib/i18n/index.js'
 import {
-  buildChoiceGroupsPayload,
-  buildFixedEffectsPayload,
   effectSummaryLines,
   normalizeEffectsTree,
+  syncFeatureEffects,
 } from '@/lib/utils/featureEffects.js'
 import { optOptional, toNum, toStr } from './shared.js'
 
@@ -73,12 +72,11 @@ export const featsCfg = {
     const effects = form.effects ?? { ability_effects: [] }
     if (!rec) {
       const created = await api.feats.create(base)
-      await api.feats.effects.set(created.id, buildFixedEffectsPayload(effects))
-      await api.feats.choiceGroups.set(created.id, buildChoiceGroupsPayload(effects))
+      await syncFeatureEffects(api.feats, created.id, normalizeEffectsTree(), effects)
       return created
     }
-    // Диффим по секциям: PATCH базы летит только при изменении полей, а тяжёлые
-    // PUT эффектов/групп — только когда реально изменилось само дерево.
+    // Диффим по секциям: PATCH базы летит только при изменении полей, а дерево
+    // эффектов уезжает точечными запросами по изменившимся строкам.
     const prevForm = featsCfg.fromRecord(rec)
     const prevBase = {
       name: prevForm.name,
@@ -92,12 +90,7 @@ export const featsCfg = {
     if (!eq(base, prevBase)) {
       await api.feats.update(rec.id, base)
     }
-    if (!eq(buildFixedEffectsPayload(effects), buildFixedEffectsPayload(prevForm.effects))) {
-      await api.feats.effects.set(rec.id, buildFixedEffectsPayload(effects))
-    }
-    if (!eq(buildChoiceGroupsPayload(effects), buildChoiceGroupsPayload(prevForm.effects))) {
-      await api.feats.choiceGroups.set(rec.id, buildChoiceGroupsPayload(effects))
-    }
+    await syncFeatureEffects(api.feats, rec.id, prevForm.effects, effects)
     return rec
   },
   listBadges: (item) => [

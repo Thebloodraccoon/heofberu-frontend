@@ -1,6 +1,5 @@
 import { catalogApi as api } from '../../api.js'
-import { normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
-import { buildChoiceGroupsPayload, buildFixedEffectsPayload } from '@/lib/utils/featureEffects.js'
+import { normalizeEffectsTree, syncFeatureEffects } from '@/lib/utils/featureEffects.js'
 import { toNum, toStr } from './shared.js'
 
 export const featuresCfg = {
@@ -41,13 +40,15 @@ export const featuresCfg = {
     }
     const effects = form.effects ?? { ability_effects: [] }
     if (!rec) {
-      const created = await api.features.create(base)
-      await api.features.effects.set(created.id, buildFixedEffectsPayload(effects))
-      await api.features.choiceGroups.set(created.id, buildChoiceGroupsPayload(effects))
+      // source_type обязателен у FeatureCreate: самостоятельная особенность
+      // справочника ничьей частью не является — OTHER (тем же фильтром она
+      // потом и ищется, см. listParams).
+      const created = await api.features.create({ ...base, source_type: 'OTHER' })
+      await syncFeatureEffects(api.features, created.id, normalizeEffectsTree(), effects)
       return created
     }
-    // Диффим по секциям: PATCH базы летит только при изменении полей, а тяжёлые
-    // PUT эффектов/групп — только когда реально изменилось само дерево.
+    // Диффим по секциям: PATCH базы летит только при изменении полей, а дерево
+    // эффектов уезжает точечными запросами по изменившимся строкам.
     const prevForm = featuresCfg.fromRecord(rec)
     const prevBase = {
       name: prevForm.name,
@@ -58,12 +59,7 @@ export const featuresCfg = {
     if (!eq(base, prevBase)) {
       await api.features.update(rec.id, base)
     }
-    if (!eq(buildFixedEffectsPayload(effects), buildFixedEffectsPayload(prevForm.effects))) {
-      await api.features.effects.set(rec.id, buildFixedEffectsPayload(effects))
-    }
-    if (!eq(buildChoiceGroupsPayload(effects), buildChoiceGroupsPayload(prevForm.effects))) {
-      await api.features.choiceGroups.set(rec.id, buildChoiceGroupsPayload(effects))
-    }
+    await syncFeatureEffects(api.features, rec.id, prevForm.effects, effects)
     return rec
   },
   listBadges: (item) => [
