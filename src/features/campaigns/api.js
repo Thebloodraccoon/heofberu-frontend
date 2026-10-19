@@ -4,7 +4,7 @@ export const CAMPAIGN_STATUSES = ['planning', 'active', 'paused', 'finished', 'a
 export const CAMPAIGN_CLOSED_STATUSES = ['finished', 'abandoned']
 export const CAMPAIGN_SESSION_STATUSES = ['planned', 'played', 'cancelled']
 export const PUBLIC_CAMPAIGN_STATUSES = ['draft', 'published', 'archived']
-export const CHARACTER_VISIBILITIES = ['hidden', 'concept', 'full']
+export const CHARACTER_VISIBILITIES = ['hidden', 'full']
 // Списки на бэке страничные, size ≤ 100; посещаемость и выбор пресета берут одну полную страницу.
 export const FULL_PAGE = 100
 

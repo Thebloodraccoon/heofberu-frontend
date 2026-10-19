@@ -14,7 +14,6 @@ vi.mock('@/features/campaigns/queries.js', () => ({
   usePublicCampaignCharacters: () => ({ data: { items: [], total: 0 }, isLoading: false }),
   usePublicCampaignReviews: () => ({ data: { items: [], total: 0 }, isLoading: false }),
 }))
-vi.mock('@/features/campaigns/components/CampaignFormDrawer.jsx', () => ({ default: () => <div>Новая кампания по пресету</div> }))
 
 function Where() {
   const location = useLocation()
@@ -28,27 +27,48 @@ function setup() {
 describe('public campaign page', () => {
   beforeEach(() => { state.auth = {} })
 
-  it('shows even a GM the page as players see it', () => {
+  it('shows the GM the master text in the description and hides it in the player view', async () => {
     state.auth = { user: { id: 77 }, isGM: true, isFounder: false }
-    setup()
+    const user = setup()
+    const actions = within(screen.getByRole('group', { name: 'Действия ГМ' }))
+    expect(actions.queryByRole('button', { name: /Начать кампанию/ })).not.toBeInTheDocument()
+    expect(actions.getByRole('button', { name: /База знаний/ })).toBeVisible()
     expect(screen.getByText('Старый маяк.')).toBeVisible()
-    expect(screen.queryByText(/Клад под лестницей/)).not.toBeInTheDocument()
+    expect(within(screen.getByText('Только для мастера').closest('aside')).getByText('Клад под лестницей.')).toBeVisible()
     expect(screen.queryByText(/Смотритель мёртв/)).not.toBeInTheDocument()
     expect(screen.queryByText('Лестница')).not.toBeInTheDocument()
-    expect(within(screen.getByRole('region', { name: 'Действия ГМ' })).getByText(/Так страницу видят игроки/)).toBeVisible()
+    const playerView = actions.getByRole('switch', { name: /Глазами игрока/ })
+    expect(playerView).toHaveAttribute('aria-checked', 'false')
+    await user.click(playerView)
+    expect(playerView).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('Глазами игрока: секреты мастера скрыты.')).toBeVisible()
+    expect(screen.queryByText(/Клад под лестницей/)).not.toBeInTheDocument()
+    expect(screen.getByText('Старый маяк.')).toBeVisible()
   })
 
   it('sends the GM to the editor instead of editing on the page', async () => {
     state.auth = { user: { id: 5 }, isGM: true, isFounder: false }
     const user = setup()
     expect(screen.queryByRole('button', { name: /Быстрая правка/ })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /В редактор/ }))
+    await user.click(screen.getByRole('button', { name: /Редактировать/ }))
     expect(screen.getByText('Адрес: /gm/public-campaigns?slug=mayak')).toBeVisible()
   })
 
   it('has no GM actions for guests and players', () => {
     setup()
-    expect(screen.queryByRole('region', { name: 'Действия ГМ' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Начать кампанию/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Действия ГМ' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: /Глазами игрока/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Клад под лестницей/)).not.toBeInTheDocument()
+  })
+
+  it('always shows the description and switches reviews and heroes below it', async () => {
+    const user = setup()
+    expect(screen.getByText('Старый маяк.')).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Отзывы' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText('Отзывов пока нет.')).toBeVisible()
+    await user.click(screen.getByRole('tab', { name: 'Герои' }))
+    expect(screen.getByRole('tab', { name: 'Герои' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText('Пока никто не показал своих героев.')).toBeVisible()
+    expect(screen.getByText('Старый маяк.')).toBeVisible()
   })
 })

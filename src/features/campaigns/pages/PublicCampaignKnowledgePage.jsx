@@ -19,14 +19,10 @@ import { useCampaignMaterials, usePublicCampaign, usePublicCampaignArticles } fr
 import ActiveFilters from '../components/ActiveFilters.jsx'
 import FilterDrawer from '../components/FilterDrawer.jsx'
 import AttachArticleDrawer, { NewMaterialForm } from '../components/KnowledgeBaseTools.jsx'
+import TagLinks from '../components/TagLinks.jsx'
 
 const typeLabel = (type) => articleTypeLabels[type] ?? type
 const EMPTY_FILTERS = { types: [], pending: '' }
-
-function TagLinks({ tags }) {
-  if (!tags?.length) return null
-  return <div className="article-detail-tags mt-3 flex flex-wrap items-center gap-2" aria-label="Теги">{tags.map((tag) => <Link key={tag.id} to={`/lore?tags=${tag.id}`} className="rounded-full border border-stone-700 px-2 py-0.5 text-xs text-stone-400 hover:border-ember hover:text-ember">#{tag.name}</Link>)}</div>
-}
 
 // Строка списка — как строка статьи в лоре (тип, автор, краткое описание), только открывает статью здесь (?article=…).
 function KnowledgeRow({ caption, title, author, excerpt, note, pending, article }) {
@@ -119,7 +115,7 @@ function ArticleReading({ link, kb, canEditBase }) {
 }
 
 function KnowledgeBase({ preset, articles, canEdit }) {
-  const { user, isFounder } = useAuth()
+  const { user, isFounder, isGM } = useAuth()
   const queryClient = useQueryClient()
   const invalidate = useInvalidateArticles()
   const [params, setParams] = useSearchParams()
@@ -130,7 +126,7 @@ function KnowledgeBase({ preset, articles, canEdit }) {
   const link = kb.links.find((item) => item.slug === current)
   const go = (slug, edit = false) => setParams({ ...(slug ? { article: slug } : {}), ...(edit ? { edit: '1' } : {}) })
   const detail = useArticleBySlug(link && isCampaignMaterial(link.article_type) ? link.slug : null)
-  const canEditMaterial = Boolean(link && isCampaignMaterial(link.article_type) && detail.data && canEditArticle(detail.data, user, isFounder))
+  const canEditMaterial = Boolean(link && isCampaignMaterial(link.article_type) && detail.data && canEditArticle(detail.data, user, isFounder, isGM))
   const saved = (article) => { invalidate(article.id); queryClient.invalidateQueries({ queryKey: queryKeys.publicCampaigns.all }); kb.retitle(article.id, article.title) }
   const back = <button type="button" className="article-back" onClick={() => go(null)}><LoreIcon name="back" />Ко всем статьям базы знаний</button>
 
@@ -169,16 +165,17 @@ function KnowledgeBase({ preset, articles, canEdit }) {
   )
 }
 
-// База знаний публичной кампании — для ГМ, как лор: список с поиском и фильтром, статья открывается здесь же
-// колонкой (без связей). Квесты и сессии автор правит конструктором статей (?edit=1); статьи лора — только
-// чтение со ссылкой в лор. Подвязка, отвязка и пометки — у автора кампании и основателя.
+// База знаний публичной кампании — вики ГМ, как лор: список с поиском и фильтром, статья открывается здесь же
+// колонкой (без связей). Квесты и сессии правит любой ГМ конструктором статей (?edit=1), без ревью и статусов;
+// статьи лора — только чтение со ссылкой в лор. Подвязка, отвязка и пометки — тоже у любого ГМ (сам пресет
+// по-прежнему правят только автор и основатель).
 export default function PublicCampaignKnowledgePage() {
   const { slug } = useParams()
-  const { user, isFounder } = useAuth()
+  const { isGM, isFounder } = useAuth()
   const { data: preset, isLoading, error, refetch } = usePublicCampaign(slug)
   const linksQ = usePublicCampaignArticles(preset?.id)
   const failure = error || linksQ.error
   if (failure) return <div className="lore-page"><ErrorBox error={toCampaignError(failure)} onRetry={error ? refetch : linksQ.refetch} /></div>
   if (isLoading || !preset || linksQ.isLoading || !linksQ.data) return <div className="lore-page" aria-busy="true"><Skeleton className="mb-6 h-10 w-80" /><SkeletonCard className="min-h-[20rem]" /></div>
-  return <KnowledgeBase key={preset.id} preset={preset} articles={linksQ.data} canEdit={isFounder || preset.author?.id === user?.id} />
+  return <KnowledgeBase key={preset.id} preset={preset} articles={linksQ.data} canEdit={Boolean(isGM || isFounder)} />
 }

@@ -100,8 +100,11 @@ export const legacyArticleId = (param) => {
 }
 
 // Править статью может её автор или основатель; чужую ГМ только читает (и смотрит историю).
-export const canEditArticle = (article, user, isFounder) =>
-  !!isFounder || (article?.author?.id != null && user?.id != null && String(article.author.id) === String(user.id))
+// Квест и сессия — вики ГМ: их правит любой ГМ напрямую (без предложений и статусов, status у них null).
+export const canEditArticle = (article, user, isFounder, isGM = false) =>
+  !!isFounder
+  || (!!isGM && CAMPAIGN_ARTICLE_TYPES.includes(article?.article_type))
+  || (article?.author?.id != null && user?.id != null && String(article.author.id) === String(user.id))
 
 // Игрок видит только опубликованные публичные статьи; краткие карточки не содержат этих полей.
 export const isPublicArticle = (a) => a?.status === 'published' && a?.visibility === 'public'

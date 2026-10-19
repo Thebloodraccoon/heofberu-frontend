@@ -35,7 +35,7 @@
 .character-stat-hp strong .character-health-temp { font-size: 0.875rem; font-weight: 500; color: var(--sheet-accent); white-space: nowrap; }
 .character-stat-hp.is-low .character-health-track > span { background: var(--color-red-400); }
 .character-stat-hp.is-low strong { color: var(--color-red-300); }
-.character-ability-score:hover { border-color: var(--sheet-accent); background: var(--color-stone-950); }
+button.character-ability-score:hover { border-color: var(--sheet-accent); background: var(--color-stone-950); }
 .character-sheet-body { display: grid; grid-template-columns: 28rem minmax(0, 1fr); align-items: start; gap: 2rem; }
 .character-sheet-sidebar, .character-sheet-workspace { min-width: 0; }
 .character-sheet-workspace > .character-ability-summary { margin-bottom: 0.75rem; }
@@ -52,8 +52,8 @@
 .character-check-row strong { flex-shrink: 0; margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 .character-check-row small { display: block; color: var(--color-stone-400); font-size: 0.75rem; }
 .character-check-row { border-radius: 0.25rem; transition: background-color 160ms ease, box-shadow 160ms ease, transform 120ms ease; }
-.character-check-row:hover, .character-check-row:focus-visible { background: var(--color-stone-900); box-shadow: inset 0 0 0 1px var(--color-stone-700); }
-.character-check-row:active { transform: scale(0.985); }
+button.character-check-row:hover, button.character-check-row:focus-visible { background: var(--color-stone-900); box-shadow: inset 0 0 0 1px var(--color-stone-700); }
+button.character-check-row:active { transform: scale(0.985); }
 .character-proficiency-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; border: 1px solid var(--color-stone-500); flex: none; }
 .character-proficiency-dot.is-proficient { background: var(--sheet-accent); border-color: var(--sheet-accent); }
 .character-proficiency-mark { display: grid; place-items: center; width: 0.875rem; height: 0.875rem; flex: none; align-self: center; }

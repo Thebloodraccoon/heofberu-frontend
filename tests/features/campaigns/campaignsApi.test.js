@@ -43,9 +43,9 @@ describe('publicCampaignsApi', () => {
   })
 
   it('sets character visibility for the owner and reads the open card', async () => {
-    await characterVisibilityApi.set(12, 'concept')
+    await characterVisibilityApi.set(12, 'full')
     await characterVisibilityApi.card(12)
-    expect(request).toHaveBeenNthCalledWith(1, '/characters/12/public-visibility', { method: 'PATCH', body: { public_visibility: 'concept' } })
+    expect(request).toHaveBeenNthCalledWith(1, '/characters/12/public-visibility', { method: 'PATCH', body: { public_visibility: 'full' } })
     expect(request).toHaveBeenNthCalledWith(2, '/characters/12/public', { auth: false })
   })
 })

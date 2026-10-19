@@ -53,7 +53,7 @@ function Picker({ articleId, value, parent, onSelect, onClose }) {
     {ready && items.map((item) => <section key={item.id} className={`lore-article-row ${value === item.id ? 'article-library-row--selected' : ''}`} aria-current={value === item.id ? 'true' : undefined}>
       <div className="lore-article-meta">
         <span className="lore-article-type">{articleTypeLabels[item.article_type]}</span>
-        <Badge tone={item.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[item.status]}</Badge>
+        {item.status && <Badge tone={item.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[item.status]}</Badge>}
         {item.visibility === 'gm_only' && <GmOnlyBadge />}
       </div>
       <h3 className="heading-sub mt-2">{item.title}</h3>

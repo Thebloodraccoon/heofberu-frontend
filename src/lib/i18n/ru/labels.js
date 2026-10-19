@@ -487,6 +487,5 @@ export const publicCampaignStatusLabels = {
 // Насколько персонаж виден публично (карточка и витрина публичной кампании).
 export const characterVisibilityLabels = {
   hidden: 'Скрыт',
-  concept: 'Концепт',
-  full: 'Полностью',
+  full: 'Открыт',
 }

@@ -1,11 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import PublicCampaignKnowledgePage from '@/features/campaigns/pages/PublicCampaignKnowledgePage.jsx'
 
-const state = vi.hoisted(() => ({ replace: vi.fn(() => Promise.resolve()) }))
+const state = vi.hoisted(() => ({ replace: vi.fn(() => Promise.resolve()), auth: {} }))
 const QUEST = { id: 2, slug: 'smotritel', title: 'Пропавший смотритель', article_type: 'quest', author: { id: 5, username: 'Ария' }, tags: [], body_markdown: 'Смотритель ушёл в шторм.' }
 const LORE = { id: 1, slug: 'lestnica', title: 'Лестница', article_type: 'location', author: { id: 7, username: 'Бран' }, excerpt: 'Спуск к воде.', tags: [], body_markdown: 'Сто ступеней вниз.' }
 vi.mock('@/features/articles/api.js', async (importOriginal) => {
@@ -13,7 +13,7 @@ vi.mock('@/features/articles/api.js', async (importOriginal) => {
   return { ...actual, articlesApi: { ...actual.articlesApi, get: (id) => Promise.resolve(id === 2 ? QUEST : LORE) } }
 })
 vi.mock('@/components/ToastProvider.jsx', () => ({ useToasts: () => ({ push: vi.fn() }) }))
-vi.mock('@/features/auth/useAuth.js', () => ({ useAuth: () => ({ user: { id: 5 }, isFounder: false }) }))
+vi.mock('@/features/auth/useAuth.js', () => ({ useAuth: () => state.auth }))
 vi.mock('@/features/articles/pages/GmArticlesPage.jsx', () => ({ ArticleEditForm: ({ article, campaignMaterial }) => <div>Конструктор: {article.title}{campaignMaterial && ' материала кампании'}</div> }))
 vi.mock('@/features/campaigns/queries.js', () => ({
   usePublicCampaign: () => ({ data: {
@@ -42,6 +42,8 @@ function setup(url = '/public-campaigns/mayak/knowledge') {
 const list = () => within(screen.getByRole('region', { name: 'Статьи базы знаний' }))
 
 describe('public campaign knowledge base', () => {
+  beforeEach(() => { state.auth = { user: { id: 5 }, isGM: true, isFounder: false }; state.replace.mockClear() })
+
   it('lists the campaign articles like the lore and searches them', async () => {
     const user = setup()
     expect(screen.getByRole('heading', { level: 1, name: 'Проклятие маяка' })).toBeVisible()
@@ -89,6 +91,16 @@ describe('public campaign knowledge base', () => {
     const user = setup('/public-campaigns/mayak/knowledge?article=smotritel')
     expect(screen.getByText('Смотритель ушёл в шторм.')).toBeVisible()
     expect(screen.queryByRole('link', { name: /Открыть в лоре/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Редактировать/ }))
+    expect(screen.getByText('Конструктор: Пропавший смотритель материала кампании')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /Готово/ }))
+    await user.click(screen.getByRole('button', { name: /Отвязать/ }))
+    expect(state.replace).toHaveBeenCalledWith({ id: 9, articles: [{ article_id: 1, position: 0, note: 'Читать до первой сессии' }] })
+  })
+
+  it('lets any GM edit quests and the links, not only the authors', async () => {
+    state.auth = { user: { id: 77 }, isGM: true, isFounder: false }
+    const user = setup('/public-campaigns/mayak/knowledge?article=smotritel')
     await user.click(screen.getByRole('button', { name: /Редактировать/ }))
     expect(screen.getByText('Конструктор: Пропавший смотритель материала кампании')).toBeVisible()
     await user.click(screen.getByRole('button', { name: /Готово/ }))

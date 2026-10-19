@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import GmArticlesPage from '@/features/articles/pages/GmArticlesPage.jsx'
 
 const auth = vi.hoisted(() => ({ isFounder: false, userId: 5 }))
-const article = vi.hoisted(() => ({ status: 'draft', authorId: 5, version: 3 }))
+const article = vi.hoisted(() => ({ status: 'draft', authorId: 5, version: 3, type: 'lore' }))
 const transition = vi.hoisted(() => vi.fn())
 const getArticle = vi.hoisted(() => vi.fn())
 const propose = vi.hoisted(() => vi.fn())
@@ -28,7 +28,7 @@ vi.mock('@/features/articles/queries.js', () => ({
   useTagSearch: () => ({ data: { items: [{ id: 1, name: 'История' }], total: 1 } }),
   useInvalidateArticles: () => vi.fn(),
   useArticleFinder: (params) => (finder(params), { data: { items: [{ id: 1, title: 'Летопись', article_type: 'lore', status: 'draft', subtype: { id: 7, name: 'Хроника' }, author: { id: 99, username: 'Саруман' }, pending_proposals: 2 }], total: 1 } }),
-  useArticleDetail: () => ({ data: { id: 1, title: 'Летопись', article_type: 'lore', status: article.status, visibility: 'public', body_markdown: 'Исходный текст', subtype: { id: 7, name: 'Хроника' }, author: { id: article.authorId, username: article.authorId === 99 ? 'Саруман' : 'Я' }, version: article.version } }),
+  useArticleDetail: () => ({ data: { id: 1, title: 'Летопись', article_type: article.type, status: article.status, visibility: 'public', body_markdown: 'Исходный текст', subtype: { id: 7, name: 'Хроника' }, author: { id: article.authorId, username: article.authorId === 99 ? 'Саруман' : 'Я' }, version: article.version } }),
   useRevisionFeed: () => ({ items: [], total: 0 }),
   useProposalFeed: () => ({ items: [], total: 0 }),
   useRevisionDiff: () => ({ data: undefined }),
@@ -63,6 +63,7 @@ afterEach(() => {
   auth.userId = 5
   article.status = 'draft'
   article.authorId = 5
+  article.type = 'lore'
   transition.mockReset()
   getArticle.mockReset()
   propose.mockReset()
@@ -272,6 +273,18 @@ describe('Article editor workspace', () => {
     const user = setup()
     await user.click(screen.getByRole('button', { name: 'Опубликовать' }))
     expect(await screen.findByText('Cannot publish article 1: it is draft.')).toBeVisible()
+  })
+
+  it('lets any GM edit another GM\'s quest directly: no proposals, no status, no workflow', async () => {
+    article.authorId = 99
+    article.type = 'quest'
+    article.status = null
+    setup()
+    expect(screen.queryByText(/Эту статью написал другой ГМ/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Предложить/ })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Изменить' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('region', { name: 'Статус статьи' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Опубликовать|На ревью|В архив/ })).not.toBeInTheDocument()
   })
 
   it('makes another GM\'s article read-only but keeps its history', async () => {

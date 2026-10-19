@@ -5,6 +5,7 @@ import Pagination from '@/components/ui/Pagination.jsx'
 import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { stripGmBlocks } from '@/features/articles/secrets.js'
+import { useTagSearch } from '@/features/articles/queries.js'
 import { useAuth } from '@/features/auth/useAuth.js'
 import { toCampaignError } from '@/features/campaigns/errors.js'
 import { usePublicCampaignsPage } from '@/features/campaigns/queries.js'
@@ -15,18 +16,28 @@ const PAGE_SIZE = 12
 const EMPTY_FILTERS = { tags: [] }
 const FILTER_SECTIONS = [{ key: 'tags', legend: 'Теги', type: 'tags', hint: 'Будут показаны кампании с любым из выбранных тегов.' }]
 
-// Строка каталога — как строка статьи в лоре: метаданные, заголовок со стрелкой, зазывалка. Теги — на странице кампании.
-function PresetRow({ preset }) {
+const TAGS_ON_NOTICE = 4
+
+// Одна кампания — одна строка, но нарочно не похожая на строку статьи: полоса-объявление со скруглёнными по диагонали углами.
+// Порядок: название, сыгранные столы и автор, зазывалка курсивом, самые популярные теги кампании.
+function PresetNotice({ preset, tagRank }) {
   const pitch = stripGmBlocks(preset.pitch ?? '').trim()
+  const tags = [...(preset.tags ?? [])].sort((a, b) => (tagRank.get(a.id) ?? Infinity) - (tagRank.get(b.id) ?? Infinity)).slice(0, TAGS_ON_NOTICE)
   return (
-    <Link to={`/public-campaigns/${preset.slug}`} className="lore-article-row">
-      <div className="lore-article-meta">
-        <span className="lore-article-type">{preset.campaign_count > 0 ? `Сыграно столов: ${preset.campaign_count}` : 'Ещё не играли'}</span>
-        {preset.author && <span className="text-xs text-stone-500">автор {preset.author.username}</span>}
-      </div>
-      <div className="lore-article-heading"><h2>{preset.title}</h2><LoreIcon name="arrow" /></div>
-      {pitch && <p className="lore-article-excerpt">{pitch}</p>}
-    </Link>
+    <li className="adventure-notice">
+      <Link to={`/public-campaigns/${preset.slug}`} className="adventure-notice-link">
+        <div className="adventure-notice-body">
+          <h2 className="adventure-notice-title">{preset.title}</h2>
+          <p className="adventure-notice-meta">
+            <span className="adventure-notice-played">{preset.campaign_count > 0 ? `Сыграно столов: ${preset.campaign_count}` : 'Ещё не играли'}</span>
+            <span>{preset.author ? `автор ${preset.author.username}` : 'автор удалён'}</span>
+          </p>
+          {pitch && <p className="adventure-notice-pitch">{pitch}</p>}
+          {tags.length > 0 && <p className="adventure-notice-tags">{tags.map((tag) => <span key={tag.id}>#{tag.name}</span>)}</p>}
+        </div>
+        <LoreIcon name="arrow" />
+      </Link>
+    </li>
   )
 }
 
@@ -42,6 +53,9 @@ export default function PublicCampaignsPage() {
   const [page, setPage] = useState(1)
   const { data, isLoading, isPlaceholderData, error, refetch } = usePublicCampaignsPage({ q: appliedQuery || undefined, tag_id: filters.tags.length ? filters.tags.map((tag) => tag.id) : undefined, page, size: PAGE_SIZE })
   const presets = data?.items ?? []
+  // У тегов кампании нет счётчика использования — популярность берём из общего списка тегов (тот же запрос, что в фильтрах).
+  const popularTags = useTagSearch()
+  const tagRank = new Map((popularTags.data?.items ?? []).map((tag, index) => [tag.id, index]))
   const applyFilters = (next) => { setFilters(next); setPage(1) }
   const chips = filters.tags.map((tag) => [`tag-${tag.id}`, `#${tag.name}`, () => applyFilters({ tags: filters.tags.filter((item) => item.id !== tag.id) })])
   const filtered = Boolean(appliedQuery || chips.length)
@@ -57,9 +71,9 @@ export default function PublicCampaignsPage() {
       {error && <ErrorBox error={toCampaignError(error)} onRetry={refetch} />}
       {!error && <section className="lore-results" aria-label="Каталог кампаний">
         <div aria-busy={isLoading} className={`lore-article-list transition-opacity ${isPlaceholderData ? 'opacity-60' : ''}`}>
-          {isLoading && Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="my-3 h-14 w-full" />)}
           {!isLoading && filtered && presets.length > 0 && <p className="lore-results-toolbar">Найдено: {data.total}</p>}
-          {presets.map((preset) => <PresetRow key={preset.id} preset={preset} />)}
+          {isLoading && <div className="adventure-board">{Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />)}</div>}
+          {presets.length > 0 && <ul className="adventure-board">{presets.map((preset) => <PresetNotice key={preset.id} preset={preset} tagRank={tagRank} />)}</ul>}
           {!isLoading && presets.length === 0 && <p className="lore-empty">{filtered ? 'По этим условиям кампаний нет.' : 'Кампаний пока нет.'}</p>}
         </div>
         <Pagination page={page} total={data?.total ?? 0} size={PAGE_SIZE} onPage={setPage} />

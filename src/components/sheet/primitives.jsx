@@ -72,7 +72,8 @@ const PencilIcon = () => (
   </svg>
 )
 
-export function EditableBlock({ title, value = '', onSave, rows = 4 }) {
+// extraTools — кнопки редактора (секрет игрока), renderValue — свой вид текста при чтении, hint — подсказка под редактором.
+export function EditableBlock({ title, value = '', onSave, rows = 4, extraTools, renderValue, hint }) {
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(value)
 
@@ -95,7 +96,7 @@ export function EditableBlock({ title, value = '', onSave, rows = 4 }) {
     <div className="sheet-text-block">
       <div className="sheet-text-block__head">
         <span className="sheet-section-label sheet-section-label--flush">{title}</span>
-        {!edit && (
+        {!edit && onSave && (
           <button type="button" className="sheet-edit-note text-stone-300 hover:text-ember" title="Изменить" onClick={startEdit}>
             <PencilIcon />
           </button>
@@ -103,14 +104,17 @@ export function EditableBlock({ title, value = '', onSave, rows = 4 }) {
       </div>
       {edit ? (
         <div className="px-4 py-3">
-          <RichTextEditor value={draft} onChange={(e) => setDraft(e.target.value)} rows={rows} autoFocus />
+          <RichTextEditor value={draft} onChange={(e) => setDraft(e.target.value)} rows={rows} autoFocus extraTools={extraTools} />
+          {hint && <p className="mt-1.5 text-hint">{hint}</p>}
           <div className="mt-2 flex items-center gap-2">
             <button type="button" className="sheet-btn sheet-btn_primary" onClick={save}>Сохранить</button>
             <button type="button" className="sheet-btn" onClick={cancel}>Отмена</button>
           </div>
         </div>
       ) : (
-        <RichText value={value} className="mx-1 mb-1 rounded-lg bg-stone-900/60 px-4 py-3" />
+        renderValue
+          ? <div className="mx-1 mb-1 rounded-lg bg-stone-900/60 px-4 py-3">{renderValue(value)}</div>
+          : <RichText value={value} className="mx-1 mb-1 rounded-lg bg-stone-900/60 px-4 py-3" />
       )}
     </div>
   )

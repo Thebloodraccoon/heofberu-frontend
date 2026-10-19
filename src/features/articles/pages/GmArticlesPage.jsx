@@ -183,7 +183,7 @@ export default function GmArticlesPage() {
                       <span className="lore-article-type">{articleTypeLabels[a.article_type] ?? a.article_type}</span>
                       {a.subtype && <><span className="text-stone-500" aria-hidden="true">·</span><span className="lore-article-subtype">{a.subtype.name}</span></>}
                     </span>
-                    <Badge tone={a.status === 'published' ? 'good' : a.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>
+                    {a.status && <Badge tone={a.status === 'published' ? 'good' : a.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>}
                     {a.visibility === 'gm_only' && <GmOnlyBadge />}
 
                   </span>
@@ -280,7 +280,7 @@ function ArticleWorkflow({ status, saveStatus, onAction }) {
     <section className="article-workflow" aria-label="Статус статьи">
       <h3 className="article-editor-label">Статус</h3>
       <div className="article-workflow-state">
-        <Badge tone={status === 'published' ? 'good' : status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[status] ?? status}</Badge>
+        {status && <Badge tone={status === 'published' ? 'good' : status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[status] ?? status}</Badge>}
         <SaveStatus compact status={saveStatus} />
       </div>
       <p className="text-xs text-stone-500">{WORKFLOW_HINTS[status]}</p>
@@ -350,7 +350,7 @@ function ArticleFacts({ article, values }) {
   return (
     <FactList>
       <AuthorRow article={article} />
-      <FactRow label="Статус" value={articleStatusLabels[values.status] ?? values.status} />
+      {values.status && <FactRow label="Статус" value={articleStatusLabels[values.status] ?? values.status} />}
       <FactRow label="Тип" value={articleTypeLabels[values.article_type] ?? values.article_type} />
       <FactRow label="Подтип" value={article.subtype?.name ?? '—'} />
       <FactRow label="Видимость" value={articleVisibilityLabels[values.visibility] ?? values.visibility} />
@@ -511,11 +511,13 @@ function ArticleCreateForm({ onSaved, toasts }) {
 // Экспортируется для базы знаний публичной кампании: там квест/сессия правится этим же конструктором
 // (campaignMaterial) — без связей, статуса, видимости, родителя и тегов, тип — только квест или сессия.
 export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts, campaignMaterial = false }) {
-  const { user, isFounder } = useAuth()
-  const canEdit = canEditArticle(article, user, isFounder)
+  const { user, isFounder, isGM } = useAuth()
+  const canEdit = canEditArticle(article, user, isFounder, isGM)
   // Основатель правит любую статью напрямую, но к чужой может и предложить правку — пусть решает автор.
+  // Квест и сессию правят напрямую все ГМ: предложение к ним бэк отклоняет (409).
   const isAuthor = article.author?.id != null && String(article.author.id) === String(user?.id)
-  const founderMayPropose = isFounder && !isAuthor
+  const material = campaignMaterial || CAMPAIGN_ARTICLE_TYPES.includes(article.article_type)
+  const founderMayPropose = isFounder && !isAuthor && !material
   const { statuses, run, clear } = useSaveStatus()
   const [values, setValues] = useState(() => fromArticle(article))
   // Версия содержимого, которую сейчас показывает форма: уходит в publish (проверка «основатель читал именно её»)
@@ -884,7 +886,7 @@ export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, 
       {canEdit && <EditorSettings>
         <div className="space-y-3">
           <ul><AuthorRow article={article} /></ul>
-          {!campaignMaterial && <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />}
+          {!material && <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />}
           <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} campaignMaterial={campaignMaterial} />
           {!campaignMaterial && <><TagInput value={values.tags} onChange={saveTags} />
           <SaveStatus status={statuses.tags} /></>}

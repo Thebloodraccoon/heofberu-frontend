@@ -187,7 +187,7 @@ export default function ArticleDetailPage() {
         </Link>
         <p className="rounded border border-violet-800/60 bg-violet-950/40 px-4 py-3 text-sm text-violet-200">
           Игроки эту статью не видят: «{article.title}» —{' '}
-          {article.status !== 'published' ? articleStatusLabels[article.status] : 'только для ГМ'}.
+          {article.status && article.status !== 'published' ? articleStatusLabels[article.status] : 'только для ГМ'}.
         </p>
       </div>
     )
@@ -253,10 +253,10 @@ export default function ArticleDetailPage() {
             </>
           )}
           </div>
-          {gmView && (article.visibility === 'gm_only' || article.status !== 'published') && (
+          {gmView && (article.visibility === 'gm_only' || (article.status && article.status !== 'published')) && (
             <div className="article-detail-status">
               {article.visibility === 'gm_only' && <GmOnlyBadge />}
-              {article.status !== 'published' && <Badge tone={article.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[article.status] ?? article.status}</Badge>}
+              {article.status && article.status !== 'published' && <Badge tone={article.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[article.status] ?? article.status}</Badge>}
             </div>
           )}
         </div>
