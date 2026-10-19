@@ -33,7 +33,7 @@ export function useKnowledgeLinks(preset, articles) {
     commit,
     move: (index, step) => { const next = [...links]; const [item] = next.splice(index, 1); next.splice(index + step, 0, item); commit(next) },
     saveNote: (id, note) => commit(links.map((item) => (item.article_id === id ? { ...item, note } : item))),
-    attach: (article) => commit([...links, toLink(article)]),
+    attach: (article, note = '') => commit([...links, { ...toLink(article), note }]),
     remove: (id) => commit(links.filter((item) => item.article_id !== id)),
     // Название статьи живёт в ней самой: после переименования только обновляем оглавление.
     retitle: (id, title) => setLinks((current) => current.map((item) => (item.article_id === id ? { ...item, title } : item))),

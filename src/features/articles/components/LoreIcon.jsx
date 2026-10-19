@@ -22,6 +22,8 @@ const paths = {
   star: 'm12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9L12 3Z',
   pin: 'M12 17v5M9 3h6M9 3v5l-3 4v4h12v-4l-3-4V3M6 16h12',
   history: 'M3 12a9 9 0 1 0 3-6.7M3 3v6h6M12 7v5l3 2',
+  flag: 'M5 21V4m0 0h12l-2.5 4.5L17 13H5',
+  calendar: 'M4 6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6ZM4 10h16M8 3v4M16 3v4',
 }
 
 export default function LoreIcon({ name, className = '' }) {

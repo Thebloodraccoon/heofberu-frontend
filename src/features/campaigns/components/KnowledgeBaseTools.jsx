@@ -1,90 +1,69 @@
 import { useState } from 'react'
-import { Button, ErrorBox, Field, Input, RichTextEditor, Select, Skeleton } from '@/components/ui'
+import { Button, ErrorBox, Field, Input, Skeleton } from '@/components/ui'
+import { useToasts } from '@/components/ToastProvider.jsx'
 import Drawer from '@/components/ui/Drawer.jsx'
 import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
-import { CAMPAIGN_ARTICLE_TYPES, articlesApi } from '@/features/articles/api.js'
 import { useArticleFinder } from '@/features/articles/queries.js'
 import { articleTypeLabels } from '@/lib/i18n/index.js'
 import { toCampaignError } from '@/features/campaigns/errors.js'
 import { useCampaignMaterials } from '@/features/campaigns/queries.js'
 import ActiveFilters from './ActiveFilters.jsx'
 import FilterDrawer from './FilterDrawer.jsx'
-import { SECRET_TOOL } from './secretTool.jsx'
+import { ArticleCreateForm } from '@/features/articles/pages/GmArticlesPage.jsx'
 
 const MAX_LINKS = 100
 const SOURCES = [['materials', 'Материалы кампаний'], ['lore', 'Лор']]
+const ALL_SOURCES = SOURCES.map(([source]) => source)
 
-// Новый квест или сессия — пишется в правой части базы знаний и сразу подвязывается к кампании.
+// Новый квест или сессия — той же формой, что редактор материала (ArticleCreateForm), с пометкой под названием;
+// после создания сразу подвязывается к кампании (onCreated(article, note)).
 export function NewMaterialForm({ onCreated, onCancel }) {
-  const [form, setForm] = useState({ title: '', article_type: 'quest', body_markdown: '' })
-  const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState(null)
-  const submit = async (event) => {
-    event.preventDefault()
-    if (!form.title.trim() || busy) return
-    setBusy(true)
-    setFailure(null)
-    try {
-      // Материал кампании не для общего лора: по умолчанию его видят только ГМ.
-      const article = await articlesApi.create({ ...form, title: form.title.trim(), visibility: 'gm_only' })
-      await onCreated(article)
-    } catch (error) {
-      setFailure(toCampaignError(error, { onlyKnown: true }))
-      setBusy(false)
-    }
-  }
-  return (
-    <form className="space-y-4" onSubmit={submit} aria-label="Новый материал">
-      <h2 className="heading-section text-left">Новый квест или сессия</h2>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
-        <Field label="Название"><Input value={form.title} maxLength={200} autoFocus onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} placeholder="Например, «Пропавший смотритель»" /></Field>
-        <Field label="Тип"><Select value={form.article_type} onChange={(event) => setForm((current) => ({ ...current, article_type: event.target.value }))}>{CAMPAIGN_ARTICLE_TYPES.map((type) => <option key={type} value={type}>{articleTypeLabels[type]}</option>)}</Select></Field>
-      </div>
-      <RichTextEditor value={form.body_markdown} onChange={(event) => setForm((current) => ({ ...current, body_markdown: event.target.value }))} extraTools={[SECRET_TOOL]} rows={14} ariaLabel="Текст материала" placeholder="Завязка, сцены, развилки…" />
-      {failure && <ErrorBox error={failure} onRetry={() => setFailure(null)} />}
-      <div className="flex flex-wrap gap-2"><Button type="submit" disabled={!form.title.trim() || busy}>{busy ? 'Создаём…' : 'Создать и подвязать'}</Button><Button type="button" variant="ghost" onClick={onCancel}>Отмена</Button></div>
-    </form>
-  )
+  const toasts = useToasts()
+  const [note, setNote] = useState('')
+  const noteField = <Field label="Пометка в базе знаний (необязательно)"><Input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Зачем читать: «до первой сессии», «если пойдут в порт»…" /></Field>
+  return <ArticleCreateForm campaignMaterial toasts={toasts} afterTitle={noteField} onCancel={onCancel} onSaved={(article) => onCreated(article, note.trim())} />
 }
 
-const EMPTY_FILTERS = { source: 'materials', tags: [] }
+const EMPTY_FILTERS = { source: ALL_SOURCES, tags: [] }
 const FILTER_SECTIONS = [
-  { key: 'source', legend: 'Откуда', hint: 'Материалы кампаний — квесты и сессии; лор — общая база мира.', options: SOURCES },
+  { key: 'source', legend: 'Откуда', hint: 'Материалы кампаний — квесты и сессии; лор — общая база мира. Без выбора — всё сразу.', multiple: true, options: SOURCES },
   { key: 'tags', legend: 'Теги', type: 'tags', hint: 'Статьи с любым из выбранных тегов.' },
 ]
 
 // «Подвязать статью» — боковая панель справа, как поиск в лоре: строка поиска, «Фильтры» (откуда и теги)
-// во второй панели поверх, найденное с типом, автором и кратким описанием. Клик подвязывает сразу (kb.attach),
-// панель остаётся открытой — можно подвязать несколько подряд.
+// во второй панели поверх, найденное с типом, автором и кратким описанием: сначала материалы кампаний, потом лор.
+// Клик подвязывает сразу (kb.attach), панель остаётся открытой — можно подвязать несколько подряд.
 export default function AttachArticleDrawer({ kb, onClose }) {
   const [query, setQuery] = useState('')
   const [applied, setApplied] = useState('')
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const tagIds = filters.tags.length ? filters.tags.map((tag) => tag.id) : undefined
-  const lore = useArticleFinder({ text: applied, tag_id: tagIds, size: 20 }, { enabled: filters.source === 'lore' })
-  const materials = useCampaignMaterials({ q: applied.length >= 2 ? applied : undefined, tag_id: tagIds, size: 20 }, { enabled: filters.source === 'materials' })
-  const finder = filters.source === 'lore' ? lore : materials
+  const sources = filters.source.length ? filters.source : ALL_SOURCES
+  const lore = useArticleFinder({ text: applied, tag_id: tagIds, size: 20 }, { enabled: sources.includes('lore') })
+  const materials = useCampaignMaterials({ q: applied.length >= 2 ? applied : undefined, tag_id: tagIds, size: 20 }, { enabled: sources.includes('materials') })
+  const finders = [sources.includes('materials') && materials, sources.includes('lore') && lore].filter(Boolean)
+  const failed = finders.find((finder) => finder.error)
   const linked = new Set(kb.links.map((link) => link.article_id))
-  const found = (finder.data?.items ?? []).filter((article) => !linked.has(article.id))
+  const found = [...new Map(finders.flatMap((finder) => finder.data?.items ?? []).map((article) => [article.id, article])).values()].filter((article) => !linked.has(article.id))
   const full = kb.links.length >= MAX_LINKS
   const chips = [
-    filters.source === 'lore' && ['source', 'Лор', () => setFilters({ ...filters, source: 'materials' })],
+    ...(sources.length < ALL_SOURCES.length ? SOURCES.filter(([source]) => sources.includes(source)).map(([source, label]) => [`source-${source}`, label, () => setFilters({ ...filters, source: ALL_SOURCES })]) : []),
     ...filters.tags.map((tag) => [`tag-${tag.id}`, `#${tag.name}`, () => setFilters({ ...filters, tags: filters.tags.filter((item) => item.id !== tag.id) })]),
   ].filter(Boolean)
 
   return (
     // Пока открыты фильтры, Escape закрывает только их.
-    <Drawer title="Подвязать статью" subtitle={filters.source === 'lore' ? 'Статьи лора.' : 'Материалы кампаний: квесты и сессии.'} onClose={filtersOpen ? () => {} : onClose} closeLabel="Закрыть подвязку статей" footer={<Button variant="ghost" className="w-full" onClick={onClose}>Готово</Button>}>
+    <Drawer title="Подвязать статью" subtitle={sources.length === ALL_SOURCES.length ? 'Материалы кампаний и статьи лора.' : sources.includes('lore') ? 'Статьи лора.' : 'Материалы кампаний: квесты и сессии.'} onClose={filtersOpen ? () => {} : onClose} closeLabel="Закрыть подвязку статей" footer={<Button variant="ghost" className="w-full" onClick={onClose}>Готово</Button>}>
       <div className="space-y-3">
         <div className="lore-search-panel">
           <SearchToolbar query={query} onQueryChange={setQuery} onSearch={() => setApplied(query.trim())} onFilters={() => setFiltersOpen(true)} filterCount={chips.length} filtersOpen={filtersOpen} label="Поиск статей" placeholder="Название или текст…" submitLabel="Найти статьи" />
           <ActiveFilters chips={chips} onReset={() => setFilters(EMPTY_FILTERS)} />
         </div>
         {full && <p className="text-hint">В базе знаний уже {MAX_LINKS} статей — больше подвязать нельзя.</p>}
-        {finder.error && <ErrorBox error={toCampaignError(finder.error)} onRetry={finder.refetch} />}
-        {finder.isLoading ? <Skeleton className="h-24 w-full" /> : <ul className={`space-y-1.5 ${finder.isPlaceholderData ? 'opacity-60' : ''}`} aria-label="Найденные статьи">
+        {failed && <ErrorBox error={toCampaignError(failed.error)} onRetry={failed.refetch} />}
+        {finders.some((finder) => finder.isLoading) ? <Skeleton className="h-24 w-full" /> : <ul className={`space-y-1.5 ${finders.some((finder) => finder.isPlaceholderData) ? 'opacity-60' : ''}`} aria-label="Найденные статьи">
           {found.map((article) => <li key={article.id}>
             <button type="button" className="catalog-record-card w-full text-left" disabled={full} onClick={() => kb.attach(article)}>
               <span className="flex flex-wrap items-center gap-2 text-xs"><span className="lore-article-type">{articleTypeLabels[article.article_type] ?? article.article_type}</span>{article.author && <span className="text-stone-500">@{article.author.username}</span>}<LoreIcon name="plus" className="ml-auto" /></span>

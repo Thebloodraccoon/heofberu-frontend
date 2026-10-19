@@ -125,6 +125,9 @@
   .article-editor-panel:not([hidden]) { animation: none; }
 }
 .article-editor-tabs button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: -2px; }
+/* Вкладки формы создания квеста или сессии: без бегунка, выбранная подчёркнута сама; остальные — после создания. */
+.article-editor-tabs--static button[aria-pressed="true"] { border-bottom-color: var(--color-gold); }
+.article-editor-tabs--static button:disabled { opacity: 0.45; cursor: not-allowed; }
 .article-editor-menu { position: relative; }
 .article-editor-menu summary { cursor: pointer; list-style: none; font-size: 1.5rem; padding: 0 0.75rem; }
 .article-editor-menu summary::-webkit-details-marker { display: none; }
