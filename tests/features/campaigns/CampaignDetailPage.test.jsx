@@ -39,8 +39,9 @@ describe('campaign detail page', () => {
   it('shows a GM-role player of another table the player view', async () => {
     state.campaign = campaign({ viewer_role: 'player', owner: { id: 9, username: 'Саруман' }, description_markdown: 'Город.' })
     const user = setup()
-    expect(screen.queryByRole('tab', { name: 'Заметки' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Обзор', 'Сессии', 'Отзывы'])
     expect(screen.queryByRole('button', { name: /Настройки/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Мои игры/ })).toHaveAttribute('href', '/campaigns')
     await user.click(screen.getByRole('tab', { name: 'Сессии' }))
     expect(screen.getByText('Панель сессий')).toBeVisible()
   })

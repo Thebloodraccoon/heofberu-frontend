@@ -16,7 +16,8 @@ const catalogLinks = [
 
 const personalLinks = [
   { to: '/profile', label: 'Профиль' },
-  { to: '/characters', label: 'Мои персонажи и игры' },
+  { to: '/characters', label: 'Мои персонажи' },
+  { to: '/campaigns', label: 'Мои игры' },
   { to: '/schedule', label: 'Расписание' },
 ]
 

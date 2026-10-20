@@ -30,6 +30,7 @@ const PublicCampaignPage = lazy(() => import('@/features/campaigns/pages/PublicC
 const PublicCharacterPage = lazy(() => import('@/features/campaigns/pages/PublicCharacterPage.jsx'))
 const GmCampaignsPage = lazy(() => import('@/features/campaigns/pages/GmCampaignsPage.jsx'))
 const SchedulePage = lazy(() => import('@/features/campaigns/pages/SchedulePage.jsx'))
+const MyGamesPage = lazy(() => import('@/features/campaigns/pages/MyGamesPage.jsx'))
 const SessionPage = lazy(() => import('@/features/campaigns/pages/SessionPage.jsx'))
 const GmPublicCampaignsPage = lazy(() => import('@/features/campaigns/pages/GmPublicCampaignsPage.jsx'))
 const PublicCampaignKnowledgePage = lazy(() => import('@/features/campaigns/pages/PublicCampaignKnowledgePage.jsx'))
@@ -94,8 +95,8 @@ function AppRoutes() {
               <Route path="characters" element={<CharactersPage />} />
               <Route path="characters/new" element={<CharacterCreatePage />} />
               <Route path="characters/:id" element={<CharacterDetailPage />} />
-              {/* Кампании игрока живут на «Мои персонажи и игры», расписание — своей страницей. */}
-              <Route path="campaigns" element={<Navigate to="/characters" replace />} />
+              {/* Кабинет игрока: персонажи, столы, где они играют, и расписание — отдельными страницами. */}
+              <Route path="campaigns" element={<MyGamesPage />} />
               <Route path="campaigns/:id" element={<CampaignDetailPage />} />
               <Route path="campaigns/:id/sessions/:sessionId" element={<SessionPage />} />
               <Route path="schedule" element={<SchedulePage />} />

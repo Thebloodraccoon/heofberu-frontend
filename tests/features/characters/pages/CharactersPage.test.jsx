@@ -34,7 +34,7 @@ function setup() {
   render(<MemoryRouter><CharactersPage /></MemoryRouter>)
   return userEvent.setup()
 }
-const characterCard = (name) => within(screen.getByRole('link', { name: new RegExp(`^${name}`) }).closest('article'))
+const characterCard = (name) => within(screen.getByRole('link', { name: new RegExp(`^${name}`) }).closest('.catalog-tile'))
 
 describe('my characters and games', () => {
   beforeEach(() => { state.campaignParams = [] })
@@ -43,22 +43,20 @@ describe('my characters and games', () => {
     setup()
     expect(state.campaignParams.at(-1)).toMatchObject({ role: 'player' })
     const gurn = characterCard('Гурн')
-    expect(gurn.getByRole('link', { name: '«Нова»' })).toHaveAttribute('href', '/campaigns/1')
-    expect(gurn.getByText(/Следующая сессия/)).toBeVisible()
-    expect(characterCard('Илса').getByText(/Свободен/)).toBeVisible()
+    expect(gurn.getByRole('link', { name: /Игровой стол/ })).toHaveAttribute('href', '/campaigns/1')
+    expect(characterCard('Илса').queryByRole('link', { name: /Игровой стол/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Ближайшие сессии' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Расписание/ })).toHaveAttribute('href', '/schedule')
+    expect(screen.getByRole('link', { name: /Мои игры/ })).toHaveAttribute('href', '/campaigns')
   })
 
-  it('filters by participation and reveals past tables on request', async () => {
+  it('filters by participation', async () => {
     const user = setup()
     await user.click(screen.getByRole('button', { name: 'Фильтры' }))
     await user.click(screen.getByRole('button', { name: 'Свободные' }))
-    await user.click(screen.getByRole('button', { name: 'Показывать' }))
     await user.click(screen.getByRole('button', { name: 'Применить' }))
     const list = within(screen.getByRole('region', { name: 'Мои персонажи' }))
     expect(list.queryByRole('link', { name: /^Гурн/ })).not.toBeInTheDocument()
-    expect(list.getByText(/Раньше:/)).toHaveTextContent('«Перевал» (ушёл на покой)')
-    expect(state.campaignParams.at(-1)).toMatchObject({ include_archived: true })
+    expect(list.getByRole('link', { name: /^Илса/ })).toBeVisible()
   })
 })

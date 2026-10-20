@@ -40,7 +40,7 @@ export default function SchedulePage() {
 
   return (
     <div className="lore-page schedule-page">
-      <header className="lore-header article-workspace-header"><div><p className="lore-eyebrow">Личный кабинет</p><h1 className="heading-section">Расписание</h1><p className="lore-intro">Ближайшие сессии столов, где играют ваши персонажи.</p></div><Link className="lore-chip" to="/characters"><LoreIcon name="book" />Мои персонажи и игры</Link></header>
+      <header className="lore-header article-workspace-header"><div><p className="lore-eyebrow">Личный кабинет</p><h1 className="heading-section">Расписание</h1><p className="lore-intro">Ближайшие сессии столов, где играют ваши персонажи.</p></div><Link className="lore-chip" to="/campaigns"><LoreIcon name="book" />Мои игры</Link></header>
       <div className="lore-search-panel campaign-filters"><FiltersButton count={includeCancelled ? 1 : 0} open={filtersOpen} onClick={() => setFiltersOpen(true)} /><ActiveFilters chips={includeCancelled ? [['cancelled', 'С отменёнными', () => apply(EMPTY_FILTERS)]] : []} onReset={() => apply(EMPTY_FILTERS)} /></div>
       {filtersOpen && <FilterDrawer title="Фильтры расписания" subtitle="Какие сессии показывать." sections={FILTER_SECTIONS} value={filters} empty={EMPTY_FILTERS} onApply={apply} onClose={() => setFiltersOpen(false)} />}
       {error && <ErrorBox error={toCampaignError(error)} onRetry={refetch} />}

@@ -18,6 +18,7 @@ import SessionsPanel from '../components/SessionsPanel.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
 
 const TABS = [['overview', 'Обзор'], ['roster', 'Состав'], ['sessions', 'Сессии'], ['notes', 'Заметки'], ['reviews', 'Отзывы']]
+const GM_TABS = ['roster', 'notes']
 
 export default function CampaignDetailPage() {
   const { id } = useParams()
@@ -31,12 +32,13 @@ export default function CampaignDetailPage() {
   const [editing, setEditing] = useState(false)
   const [confirmingArchive, setConfirmingArchive] = useState(false)
   const isGm = isCampaignGm(campaign)
-  // Заметки — только ГМ кампании (по viewer_role: ГМ-игрок чужого стола видит её как игрок).
-  const tabs = TABS.filter(([key]) => key !== 'notes' || isGm)
+  // Заметки и состав — только ГМ кампании (по viewer_role: ГМ-игрок чужого стола видит её как игрок).
+  // Игроку — обзор, сессии и отзывы; своих персонажей он видит в шапке.
+  const tabs = TABS.filter(([key]) => isGm || !GM_TABS.includes(key))
   const tab = tabs.some(([key]) => key === params.get('tab')) ? params.get('tab') : 'overview'
   const setTab = (key) => setParams(key === 'overview' ? {} : { tab: key }, { replace: true })
 
-  if (error) return <div className="lore-page"><ErrorBox error={toCampaignError(error)} onRetry={refetch} /><p className="mt-4"><Link className="link-ember" to="/characters">К моим персонажам и играм</Link></p></div>
+  if (error) return <div className="lore-page"><ErrorBox error={toCampaignError(error)} onRetry={refetch} /><p className="mt-4"><Link className="link-ember" to="/campaigns">К моим играм</Link></p></div>
   if (isLoading || !campaign) return <div className="lore-page" aria-busy="true"><Skeleton className="mb-3 h-4 w-32" /><Skeleton className="mb-6 h-10 w-80" /><SkeletonCard className="min-h-[20rem]" /></div>
 
   const doArchive = () => archive.mutate(campaign.id, { onSuccess: () => { setConfirmingArchive(false); push('Кампания в архиве', 'Активные персонажи сняты с игры.', 'success') } })
@@ -49,14 +51,13 @@ export default function CampaignDetailPage() {
     <div className="lore-page campaign-page">
       {/* Как в лоре: слева — назад, справа — действия; архив живёт в настройках. */}
       <div className="lore-reading-toolbar">
-        {isGm ? <Link to="/gm/campaigns"><LoreIcon name="back" />Игровые столы</Link> : <Link to="/characters"><LoreIcon name="back" />Мои персонажи и игры</Link>}
+        {isGm ? <Link to="/gm/campaigns"><LoreIcon name="back" />Игровые столы</Link> : <Link to="/campaigns"><LoreIcon name="back" />Мои игры</Link>}
         {isGm && <div className="lore-reading-actions"><button type="button" onClick={() => setEditing(true)}><LoreIcon name="settings" />Настройки</button></div>}
       </div>
       <header className="lore-header article-workspace-header campaign-header">
         <div>
-          <div className="campaign-header-meta campaign-header-status"><StatusBadge kind="campaign" status={campaign.status} />{campaign.archived_at && <Badge tone="violet">В архиве</Badge>}<span>{campaign.owner ? `Ведёт ${campaign.owner.username}${campaign.owner.id === user?.id ? ' (вы)' : ''}` : 'ГМ удалил аккаунт'}</span></div>
+          <div className="campaign-header-meta campaign-header-status"><StatusBadge kind="campaign" status={campaign.status} />{campaign.archived_at && <Badge tone="violet">В архиве</Badge>}<span>{campaign.owner ? `Ведёт ${campaign.owner.username}${campaign.owner.id === user?.id ? ' (вы)' : ''}` : 'ГМ удалил аккаунт'}</span>{campaign.public_campaign && <Link className="link-ember" to={`/public-campaigns/${campaign.public_campaign.slug}`}>По мотивам «{campaign.public_campaign.title}»</Link>}</div>
           <h1 className="heading-section">{campaign.title}</h1>
-          {campaign.public_campaign && <div className="campaign-header-meta"><Link className="link-ember" to={`/public-campaigns/${campaign.public_campaign.slug}`}>По мотивам «{campaign.public_campaign.title}»</Link></div>}
           {campaign.my_characters?.length > 0 && <div className="campaign-card-characters mt-3" aria-label="Ваши персонажи"><span className="text-hint">Ваши персонажи:</span>{campaign.my_characters.map((character) => <Link key={character.participation_id} className="lore-chip" to={`/characters/${character.character_id}`}>{character.name}<span className="text-hint">· {campaignCharacterStatusLabels[character.status].toLowerCase()}</span></Link>)}</div>}
         </div>
       </header>
@@ -65,7 +66,7 @@ export default function CampaignDetailPage() {
       <EditorTabs tabs={tabs} value={tab} onChange={setTab} label="Разделы кампании" />
       <div className="campaign-tabpanels">
         <div role="tabpanel" aria-label="Обзор" hidden={tab !== 'overview'}>{tab === 'overview' && <section className="campaign-panel mx-auto w-full max-w-3xl" aria-label="Описание кампании"><DescriptionField value={campaign.description_markdown} framed={false} ariaLabel="Описание кампании" placeholder="Завязка, тон, правила стола…" empty={isGm ? 'Описание пока не написано.' : 'ГМ пока не написал описание.'} onSave={isGm ? async (description_markdown) => { await update.mutateAsync({ id: campaign.id, description_markdown }); push('Описание сохранено', undefined, 'success') } : undefined} /></section>}</div>
-        <div role="tabpanel" aria-label="Состав" hidden={tab !== 'roster'}>{tab === 'roster' && <RosterPanel campaign={campaign} />}</div>
+        {isGm && <div role="tabpanel" aria-label="Состав" hidden={tab !== 'roster'}>{tab === 'roster' && <RosterPanel campaign={campaign} />}</div>}
         <div role="tabpanel" aria-label="Сессии" hidden={tab !== 'sessions'}>{tab === 'sessions' && <SessionsPanel campaign={campaign} />}</div>
         {isGm && <div role="tabpanel" aria-label="Заметки" hidden={tab !== 'notes'}>{tab === 'notes' && <NotesPanel campaign={campaign} />}</div>}
         <div role="tabpanel" aria-label="Отзывы" hidden={tab !== 'reviews'}>{tab === 'reviews' && <ReviewsPanel campaign={campaign} />}</div>
