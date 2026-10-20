@@ -441,6 +441,9 @@ const MATERIAL_TABS = ['Текст', 'Изображения', 'Предложе
 export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, afterTitle = null, onCancel }) {
   const [form, setForm] = useState(campaignMaterial ? MATERIAL_EMPTY : EMPTY)
   const [creating, setCreating] = useState(false)
+  // Статья создана: форма ждёт, пока родитель уведёт на неё (в базе знаний — после подвязки к кампании),
+  // и защита несохранённой правки больше не нужна.
+  const [created, setCreated] = useState(false)
   const [error, setError] = useState(null)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
   const titleOk = Boolean(form.title.trim())
@@ -457,6 +460,7 @@ export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, a
         )
       }
       toasts.push(campaignMaterial ? `${articleTypeLabels[saved.article_type]}: создано` : 'Статья создана', saved.title, 'success')
+      setCreated(true)
       onSaved?.(saved)
     } catch (e) {
       setError(e)
@@ -467,8 +471,8 @@ export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, a
 
   return (
     <section className="article-editor">
-      {/* creating: после «Создать» форма сама уходит на новую статью — это не потеря правки */}
-      <UnsavedGuard when={!creating && Boolean(form.title.trim() || form.excerpt.trim() || form.body_markdown.trim())} />
+      {/* creating/created: после «Создать» форма сама уходит на новую статью — это не потеря правки */}
+      <UnsavedGuard when={!creating && !created && Boolean(form.title.trim() || form.excerpt.trim() || form.body_markdown.trim())} />
       {campaignMaterial ? (
         <div className="article-editor-heading">
           <h2 className="min-w-0 font-display text-xl font-bold text-stone-100">{form.title.trim() || 'Новый квест или сессия'}</h2>
@@ -512,8 +516,8 @@ export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, a
       </div>
       {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
       <div className="article-editor-save flex flex-wrap items-center gap-3">
-        <Button disabled={creating || !titleOk} onClick={create}>
-          {creating ? 'Создаём…' : campaignMaterial ? 'Создать и подвязать' : 'Создать статью'}
+        <Button disabled={creating || created || !titleOk} onClick={create}>
+          {created && campaignMaterial ? 'Подвязываем…' : creating || created ? 'Создаём…' : campaignMaterial ? 'Создать и подвязать' : 'Создать статью'}
         </Button>
         {campaignMaterial && onCancel && <Button variant="ghost" disabled={creating} onClick={onCancel}>Отмена</Button>}
         {!titleOk && <span className="text-xs text-stone-500">Сначала введите название.</span>}
