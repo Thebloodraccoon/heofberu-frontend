@@ -31,6 +31,7 @@ import { Badge, Button, ConfirmDialog, Input, RichText, Select, Skeleton } from 
 import { armorProficiencyLabels, label, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import StatsCalculator from '@/features/characters/components/sheet/StatsCalculator.jsx'
 import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
+import { scalingMarkdown } from '@/lib/utils/featureScaling.js'
 
 function PlusIcon({ className = 'h-4 w-4' }) {
   return <LoreIcon name="plus" className={className} />
@@ -500,7 +501,8 @@ function ExpertiseSection({ character, onError, reload }) {
 function ArmorProficienciesSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: proficienciesData } = useCharacterProficiencies(character.id)
-  const armor = proficienciesData?.armor ?? []
+  // Конкретные доспехи (item_id) здесь не редактируются — только категории.
+  const armor = (proficienciesData?.armor ?? []).filter((a) => a.item_id == null)
   const [busyType, setBusyType] = useState(null)
 
   const invalidate = () =>
@@ -1296,10 +1298,13 @@ function FeaturesSection({ character, onError, reload }) {
                     </Button>
                   </div>
                 </div>
-                {open && (cf.feature?.description || cf.feature?.effects_summary || cf.notes) && (
+                {open && (cf.feature?.description || cf.feature?.effects_summary || cf.feature?.scaling || cf.notes) && (
                   <div className="gm-ability-content">
-                    {cf.feature?.description || cf.feature?.effects_summary ? (
-                      <RichText value={cf.feature?.description} tail={cf.feature?.effects_summary} />
+                    {cf.feature?.description || cf.feature?.effects_summary || cf.feature?.scaling ? (
+                      <RichText
+                        value={cf.feature?.description}
+                        tail={[scalingMarkdown(cf.feature?.scaling, character.level), cf.feature?.effects_summary]}
+                      />
                     ) : null}
                     {cf.notes && (
                       <div className="mt-1.5 text-stone-500">

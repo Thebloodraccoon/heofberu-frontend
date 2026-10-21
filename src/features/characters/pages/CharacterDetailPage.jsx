@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { fmtBonus } from '@/lib/utils/sheet.js'
-import { useCharacter, useCanLevelUp, useCharacterPendingChoices, useCharacterProficiencies } from '@/features/characters/queries.js'
+import { useCharacter, useCanLevelUp, useCharacterPendingChoicesCount, useCharacterProficiencies } from '@/features/characters/queries.js'
 import {
   useBackgroundDetail,
   useClassDetail,
@@ -12,7 +12,9 @@ import {
   useSubclassDetail,
   useSubraceDetail,
 } from '@/features/catalog/queries.js'
-import { sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
+import { armorProficiencyLabels, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
+import { useItemNames } from '@/features/catalog/queries.js'
+import { ownedProficiencyItems } from '@/features/characters/components/sheet/ownedProficiencies.js'
 import { STATS, mod } from '@/lib/utils/ability.js'
 import { ErrorBox, Skeleton } from '@/components/ui'
 import { toCampaignError } from '@/features/campaigns/errors.js'
@@ -40,7 +42,7 @@ import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.js
 import PendingChoicesModal from '@/features/characters/components/sheet/PendingChoicesModal.jsx'
 import AnsweredChoicesSection from '@/features/characters/components/sheet/AnsweredChoicesSection.jsx'
 import CharacterSettingsModal from '@/features/characters/components/sheet/CharacterSettingsModal.jsx'
-import { ARMOR_OPTIONS, num } from '@/features/characters/components/sheet/constants.js'
+import { num } from '@/features/characters/components/sheet/constants.js'
 
 export default function CharacterDetailPage() {
   const { id } = useParams()
@@ -73,7 +75,7 @@ export default function CharacterDetailPage() {
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { data: canLevelUpData } = useCanLevelUp(id)
   const [choicesOpen, setChoicesOpen] = useState(false)
-  const { data: pendingChoices = [] } = useCharacterPendingChoices(id)
+  const { data: pendingChoicesCount = 0 } = useCharacterPendingChoicesCount(id)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -189,16 +191,31 @@ export default function CharacterDetailPage() {
     (skillLabels[a.name] ?? sentenceCase(a.name)).localeCompare(skillLabels[b.name] ?? sentenceCase(b.name), 'ru'),
   ), [skillsCatalog])
 
-  const armorProfs = useMemo(() => {
-    const raw = proficienciesData?.armor ?? classDetail?.armor_proficiencies ?? []
-    const values = raw.map((a) => (typeof a === 'string' ? a : a.armor_type))
-    return [...new Set(values)]
-  }, [proficienciesData?.armor, classDetail])
-  const weaponProfs = useMemo(() => {
-    const raw = proficienciesData?.weapons ?? classDetail?.weapon_proficiencies ?? []
-    const values = raw.map((a) => (typeof a === 'string' ? a : (a.weapon_category ?? a.weapon_type)))
-    return [...new Set(values)]
-  }, [proficienciesData?.weapons, classDetail])
+  // Владения доспехами/оружием: категории и конкретные предметы (item_id) —
+  // имена предметов подтягиваются из справочника.
+  const profItemNames = useItemNames(
+    [...(proficienciesData?.armor ?? []), ...(proficienciesData?.weapons ?? [])].map((p) => p.item_id),
+  )
+  const armorProfs = useMemo(
+    () =>
+      ownedProficiencyItems(proficienciesData?.armor ?? classDetail?.armor_proficiencies ?? [], {
+        categoryKey: 'armor_type',
+        categoryLabels: armorProficiencyLabels,
+        itemNames: profItemNames,
+        itemFallback: 'доспех',
+      }),
+    [proficienciesData?.armor, classDetail, profItemNames],
+  )
+  const weaponProfs = useMemo(
+    () =>
+      ownedProficiencyItems(
+        (proficienciesData?.weapons ?? classDetail?.weapon_proficiencies ?? []).map((w) =>
+          typeof w === 'string' ? w : { ...w, weapon_category: w.weapon_category ?? w.weapon_type },
+        ),
+        { categoryKey: 'weapon_category', categoryLabels: weaponProficiencyLabels, itemNames: profItemNames, itemFallback: 'оружие' },
+      ),
+    [proficienciesData?.weapons, classDetail, profItemNames],
+  )
 
   // Чужой лист (персонаж не в кампании этого ГМ) — понятный русский текст вместо ответа бэка.
   if (error || mutationError) return <ErrorBox error={toCampaignError(error ?? mutationError, { onlyKnown: true })} onRetry={load} />
@@ -321,8 +338,7 @@ export default function CharacterDetailPage() {
       secondaryStats={renderStats(['ac', 'initiative', 'speed', 'inspiration'], 'character-stats--secondary')}
       skills={sortedSkills} saveBonus={saveBonus} saveSet={saveSet}
       skillBonus={skillBonus} profSet={profSet} expertiseSet={expertiseSet} onRoll={rollDice}
-      armorProfs={armorProfs} armorOptions={ARMOR_OPTIONS}
-      weaponProfs={weaponProfs} weaponOptions={Object.entries(weaponProficiencyLabels).map(([value, label]) => ({ value, label }))}
+      armorProfs={armorProfs} weaponProfs={weaponProfs}
     />
   )
 
@@ -333,7 +349,7 @@ export default function CharacterDetailPage() {
         fields={identityFields}
         levelUpInfo={canLevelUpData}
         onOpenLevelUp={() => setLevelUpOpen(true)}
-        pendingChoicesCount={pendingChoices.length}
+        pendingChoicesCount={pendingChoicesCount}
         onOpenChoices={() => setChoicesOpen(true)}
         onRollFree={rollFree}
         onOpenSettings={() => setSettingsOpen(true)}

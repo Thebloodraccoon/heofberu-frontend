@@ -10,6 +10,7 @@ import {
   useCharacterFeatures,
   useCharacterFeats,
   useCharacterItems,
+  useCharacterProficiencies,
 } from '@/features/characters/queries.js'
 import { useAllFeats, useCatalogPage, useFeatDetail, useFeatures } from '@/features/catalog/queries.js'
 
@@ -113,6 +114,7 @@ beforeEach(() => {
   useFeatures.mockReturnValue({ data: [] })
   useAllFeats.mockReturnValue({ data: [], isFetching: false })
   useFeatDetail.mockReturnValue({ data: null, isFetching: false })
+  useCharacterProficiencies.mockReturnValue({ data: { armor: [] } })
 })
 
 describe('GmCharacterPanel unified grid', () => {
@@ -392,6 +394,22 @@ describe('GmCharacterPanel feat granting', () => {
     await user.click(screen.getByRole('button', { name: 'Посмотреть: Проворный' }))
     expect(useFeatDetail).toHaveBeenLastCalledWith(1)
     expect(await screen.findByText('Быстрее всех.')).toBeInTheDocument()
+  })
+})
+
+describe('GmCharacterPanel armor proficiencies', () => {
+  it('lists and removes only category rows, not concrete armor items', () => {
+    useCharacterProficiencies.mockReturnValue({
+      data: {
+        armor: [
+          { armor_type: 'LIGHT', item_id: null, sources: [{ source_type: 'GM' }] },
+          { armor_type: null, item_id: 9, sources: [{ source_type: 'GM' }] },
+        ],
+      },
+    })
+    renderPanel('Характеристики')
+    expect(screen.getAllByTitle('Убрать владение')).toHaveLength(1)
+    expect(screen.getByText('Лёгкие доспехи')).toBeInTheDocument()
   })
 })
 

@@ -2,107 +2,48 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterPendingChoices } from '@/features/characters/queries.js'
-import { useSkills, useSpells } from '@/features/catalog/queries.js'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
-import { describeEffectBundle } from '@/lib/utils/effectBundle.js'
-import { Button, Modal, Select, Skeleton } from '@/components/ui'
+import { Button, Modal, Skeleton } from '@/components/ui'
 import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
-
-const CHOICE_TYPE_LABELS = {
-  ABILITY_SCORE: 'Характеристика',
-  SKILL: 'Навык',
-  SAVING_THROW: 'Спасбросок',
-  ARMOR: 'Доспехи',
-  WEAPON: 'Оружие',
-  SPELL: 'Заклинание',
-}
+import { groupComplete, initialAnswers, toAnswerItems } from '../choiceAnswers.jsx'
+import { ChoiceGroupPicker, useChoiceCatalogs } from '../ChoiceGroupPicker.jsx'
 
 // Форма ответа на группы выбора ОДНОГО granted-фичи — ключуется по
 // character_feature_id снаружи, поэтому стейт черновика ответов сам
 // сбрасывается при переходе к следующему гранту (без лишнего useEffect).
-function GrantChoicesForm({ character, grant, otherFeatureNames, onClose, onError, presentation }) {
+function GrantChoicesForm({ character, grant, total, otherFeatureNames, onClose, onError, presentation }) {
   const Surface = presentation === 'drawer' ? SheetDrawer : Modal
   const queryClient = useQueryClient()
-  const { data: skillsCatalog = [] } = useSkills({ size: 100 })
-  const { data: spellsCatalog = [] } = useSpells({ size: 100 })
-  const skillNames = Object.fromEntries(skillsCatalog.map((s) => [s.id, s.name]))
-  const spellNames = Object.fromEntries(spellsCatalog.map((s) => [s.id, s.name]))
-  const names = { skillNames, spellNames }
-
   const groups = grant.groups ?? []
+  const catalogs = useChoiceCatalogs(groups)
 
-  // Группа без настоящего выбора (вариантов ровно pick_count — «выберите 1
-  // из 1» и т.п.) — предвыбираем все её варианты сразу, иначе кнопка
-  // «Подтвердить» остаётся заблокированной, а игроку не очевидно, что тут
-  // вообще что-то нужно кликнуть.
-  const [answers, setAnswers] = useState(() => {
-    const init = {}
-    for (const g of groups) {
-      const options = g.options ?? []
-      if (options.length > 0 && options.length === g.pick_count) {
-        init[g.id] = options.map((o) => ({ choice_option_id: o.id, skill_id: null, spell_id: null }))
-      }
-    }
-    return init
-  })
+  const [answers, setAnswers] = useState(() => initialAnswers(groups))
   const [busy, setBusy] = useState(false)
 
   const groupAnswer = (groupId) => answers[groupId] ?? []
-  const isSelected = (groupId, optionId) => groupAnswer(groupId).some((a) => a.choice_option_id === optionId)
+  const setGroupAnswer = (groupId, list) => setAnswers((prev) => ({ ...prev, [groupId]: list }))
+  // Заклинание или навык, названные в одной открытой группе гранта, в другой
+  // не предлагаем: бэк отвечает 422 на повтор внутри одного гранта.
+  const namedElsewhere = (groupId, field) =>
+    new Set(
+      groups
+        .filter((g) => g.id !== groupId)
+        .flatMap((g) => groupAnswer(g.id))
+        .map((a) => a[field])
+        .filter((v) => v != null),
+    )
 
-  const toggleOption = (group, option) => {
-    setAnswers((prev) => {
-      const list = prev[group.id] ?? []
-      if (list.some((a) => a.choice_option_id === option.id)) {
-        return { ...prev, [group.id]: list.filter((a) => a.choice_option_id !== option.id) }
-      }
-      const next = group.pick_count === 1 ? [] : list
-      if (next.length >= group.pick_count) return prev
-      return { ...prev, [group.id]: [...next, { choice_option_id: option.id, skill_id: null, spell_id: null }] }
-    })
-  }
-
-  const patchAnswer = (groupId, optionId, patch) =>
-    setAnswers((prev) => ({
-      ...prev,
-      [groupId]: (prev[groupId] ?? []).map((a) => (a.choice_option_id === optionId ? { ...a, ...patch } : a)),
-    }))
-
-  const groupComplete = (group) => {
-    const list = groupAnswer(group.id)
-    if (list.length !== group.pick_count) return false
-    return list.every((a) => {
-      const opt = (group.options ?? []).find((o) => o.id === a.choice_option_id)
-      if (!opt) return false
-      if (opt.needs_skill && a.skill_id == null) return false
-      if (opt.needs_spell && a.spell_id == null) return false
-      return true
-    })
-  }
-
-  const allComplete = groups.length > 0 && groups.every(groupComplete)
+  const incomplete = groups.filter((g) => !groupComplete(groupAnswer(g.id), g)).length
+  const allComplete = groups.length > 0 && incomplete === 0
 
   const submit = async () => {
     setBusy(true)
     try {
-      const body = {
-        answers: groups.flatMap((g) =>
-          groupAnswer(g.id).map((a) => ({
-            choice_group_id: g.id,
-            choice_option_id: a.choice_option_id,
-            ...(a.skill_id != null ? { skill_id: a.skill_id } : {}),
-            ...(a.spell_id != null ? { spell_id: a.spell_id } : {}),
-          })),
-        ),
-      }
+      const body = { answers: groups.flatMap((g) => toAnswerItems(g.id, groupAnswer(g.id))) }
       await charactersApi.features.choices.answer(character.id, grant.character_feature_id, body)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.characters.pendingChoices(Number(character.id)) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.characters.answeredChoices(Number(character.id)) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.characters.proficiencies(Number(character.id)) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.characters.spells(Number(character.id)) }),
-      ])
+      // Префикс ['characters', id] покрывает и выборы, и владения, и заклинания.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
     } catch (e) {
       onError?.(e)
     } finally {
@@ -113,8 +54,9 @@ function GrantChoicesForm({ character, grant, otherFeatureNames, onClose, onErro
   return (
     <Surface
       title="Выборы"
+      subtitle={allComplete ? 'Всё выбрано — можно подтверждать' : `Осталось выбрать: ${incomplete}`}
       onClose={onClose}
-      size="md"
+      size="lg"
       scroll
       footer={
         <>
@@ -122,111 +64,61 @@ function GrantChoicesForm({ character, grant, otherFeatureNames, onClose, onErro
             Позже
           </Button>
           <Button type="button" onClick={submit} disabled={busy || !allComplete}>
-            {busy ? 'Сохраняем…' : 'Подтвердить'}
+            {busy ? 'Сохраняем…' : total > 1 ? 'Подтвердить и дальше' : 'Подтвердить'}
           </Button>
         </>
       }
     >
-      <div className="mb-3 rounded-lg border border-ember/40 bg-ember/5 px-3 py-2">
-        <p className="text-sm text-stone-500">Особенность требует выбора:</p>
-        <p className="text-base font-semibold text-ember">{grant.feature_name}</p>
+      <div className="mb-5 rounded-xl border border-ember/40 bg-gradient-to-br from-ember/10 to-transparent px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs uppercase tracking-wide text-stone-500">Особенность требует выбора</p>
+            <p className="break-words text-lg font-semibold leading-tight text-stone-100">{grant.feature_name}</p>
+          </div>
+          {total > 1 && (
+            <span className="shrink-0 rounded-full border border-stone-700 px-2 py-0.5 text-xs text-stone-400">
+              ещё {total - 1}
+            </span>
+          )}
+        </div>
       </div>
+
+      <div className="space-y-5">
+        {groups.map((group) => (
+          <ChoiceGroupPicker
+            key={group.id}
+            group={group}
+            list={groupAnswer(group.id)}
+            onChange={(list) => setGroupAnswer(group.id, list)}
+            catalogs={catalogs}
+            takenSpellIds={namedElsewhere(group.id, 'spell_id')}
+            takenSkillIds={namedElsewhere(group.id, 'skill_id')}
+          />
+        ))}
+      </div>
+
       {otherFeatureNames.length > 0 && (
-        <p className="mb-3 text-xs text-stone-500">Дальше в очереди: {otherFeatureNames.join(', ')}</p>
+        <div className="mt-5 flex flex-wrap items-center gap-1.5 border-t border-stone-800 pt-3">
+          <span className="text-xs text-stone-500">Дальше в очереди:</span>
+          {otherFeatureNames.map((name, i) => (
+            <span key={i} className="rounded-full border border-stone-700 px-2 py-0.5 text-xs text-stone-400">
+              {name}
+            </span>
+          ))}
+        </div>
       )}
-      <div className="space-y-4">
-        {groups.map((group) => {
-          const typeLabel = CHOICE_TYPE_LABELS[group.choice_type] ?? group.choice_type
-          const list = groupAnswer(group.id)
-          return (
-            <div key={group.id} className="rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
-              <p className="mb-2 text-sm font-medium text-stone-200">
-                {typeLabel} — выберите {group.pick_count} из {(group.options ?? []).length}
-              </p>
-              <div className="space-y-1.5">
-                {(group.options ?? []).map((option) => {
-                  const selected = isSelected(group.id, option.id)
-                  const answer = list.find((a) => a.choice_option_id === option.id)
-                  return (
-                    <div key={option.id}>
-                      <label
-                        className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm transition ${
-                          selected
-                            ? 'border-ember/80 bg-ember/10 text-orange-100'
-                            : 'border-stone-700 bg-stone-800/50 text-stone-200 hover:border-ember/40'
-                        }`}
-                      >
-                        <input
-                          type={group.pick_count === 1 ? 'radio' : 'checkbox'}
-                          name={`group-${group.id}`}
-                          checked={selected}
-                          onChange={() => toggleOption(group, option)}
-                          className="checkbox-base mt-0.5"
-                        />
-                        <span>{describeEffectBundle(option, names)}</span>
-                      </label>
-                      {selected && option.needs_skill && (
-                        <div className="mt-1.5">
-                          <Select
-                            value={answer?.skill_id ?? ''}
-                            onChange={(e) =>
-                              patchAnswer(group.id, option.id, {
-                                skill_id: e.target.value ? Number(e.target.value) : null,
-                              })
-                            }
-                            placeholder="Выберите навык…"
-                          >
-                            {skillsCatalog.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-                      )}
-                      {selected && option.needs_spell && (
-                        <div className="mt-1.5">
-                          <Select
-                            value={answer?.spell_id ?? ''}
-                            onChange={(e) =>
-                              patchAnswer(group.id, option.id, {
-                                spell_id: e.target.value ? Number(e.target.value) : null,
-                              })
-                            }
-                            placeholder="Выберите заклинание…"
-                          >
-                            {spellsCatalog
-                              .filter((sp) => {
-                                const filter = (option.spell_effects ?? [])[0]
-                                if (!filter?.spell_school) return true
-                                return sp.school === filter.spell_school
-                              })
-                              .map((sp) => (
-                                <option key={sp.id} value={sp.id}>
-                                  {sp.name}
-                                </option>
-                              ))}
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-      </div>
     </Surface>
   )
 }
 
-// Модалка «Выборы» — по аналогии с LevelUpModal: доводит игрока по очереди
-// через все гранты (особенности расы/класса/черты), у которых остались
-// неотвеченные группы выбора (GET /grants/pending), отвечая через
-// PATCH /features/{character_feature_id}/choices. Как только у текущего
-// гранта не осталось групп, бэк отдаёт следующий грант в очереди.
-export default function PendingChoicesModal({ character, onClose, onError, presentation = 'modal' }) {
+// «Выборы» — доводит игрока по очереди через все гранты (особенности
+// расы/класса/черты), у которых остались неотвеченные группы выбора
+// (GET /grants/pending), отвечая через PATCH /features/{character_feature_id}/choices.
+// Как только у текущего гранта не осталось групп, бэк отдаёт следующий грант
+// в очереди. На листе персонажа открывается правой панелью (presentation
+// "drawer", по умолчанию) — как повышение уровня; "modal" — для потоков,
+// которые сами живут в центральной модалке.
+export default function PendingChoicesModal({ character, onClose, onError, presentation = 'drawer' }) {
   const Surface = presentation === 'drawer' ? SheetDrawer : Modal
   const { data: pending = [], isLoading } = useCharacterPendingChoices(character.id)
   const current = pending[0] ?? null
@@ -245,7 +137,12 @@ export default function PendingChoicesModal({ character, onClose, onError, prese
   if (!current) {
     return (
       <Surface title="Выборы" onClose={onClose} size="sm" footer={presentation === 'drawer' ? <Button onClick={onClose}>Готово</Button> : undefined}>
-        <p className="text-sm text-stone-400">Все выборы сделаны.</p>
+        <div className="flex flex-col items-center gap-2 py-6 text-center">
+          <span className="flex size-10 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
+            <LoreIcon name="check" className="size-5" />
+          </span>
+          <p className="text-sm text-stone-300">Все выборы сделаны.</p>
+        </div>
         {presentation !== 'drawer' && <div className="modal-actions pt-3 mt-4">
           <Button type="button" onClick={onClose}>
             Готово
@@ -260,6 +157,7 @@ export default function PendingChoicesModal({ character, onClose, onError, prese
       key={current.character_feature_id}
       character={character}
       grant={current}
+      total={pending.length}
       otherFeatureNames={pending.slice(1).map((g) => g.feature_name)}
       onClose={onClose}
       onError={onError}

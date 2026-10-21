@@ -21,6 +21,7 @@ vi.mock('@/features/characters/queries.js', async (importOriginal) => ({
   useCharacterAttacks: () => ({ data: fixture.attacks }),
   useCanLevelUp: () => ({ data: { can_level_up: false } }),
   useCharacterPendingChoices: () => ({ data: [] }),
+  useCharacterPendingChoicesCount: () => ({ data: 0 }),
   useCharacterProficiencies: () => ({ data: { skills: [{ skill_id: 1, is_expertise: true }, { skill_id: 2 }], saving_throws: [{ ability: 'DEX' }], armor: ['LIGHT'], weapons: ['SIMPLE'] } }),
   useCharacterSpells: () => ({ data: [] }),
   useCharacterSpellSlots: () => ({ data: [] }),

@@ -7,8 +7,6 @@ import { useAllFeats, useFeatDetail } from '@/features/catalog/queries.js'
 vi.mock('@/features/catalog/queries.js', () => ({
   useAllFeats: vi.fn(),
   useFeatDetail: vi.fn(),
-  useSkills: vi.fn(() => ({ data: [] })),
-  useSpells: vi.fn(() => ({ data: [] })),
 }))
 
 const statRow = (label) => screen.getByText(label).closest('div')
@@ -40,10 +38,9 @@ const featDetails = {
       { id: 11, ability: 'CON', amount: 2 },
     ],
   },
-  // Реальная форма бэка: варианты увеличения характеристик приходят не
-  // отдельным полем, а группой choice_groups с choice_type ABILITY_SCORE.
-  // У этой черты есть ещё и группа SPELL — бэк требует ответ на неё в том же
-  // запросе level-up/rebuild (422 GrantChoiceRequiredException иначе).
+  // Реальная форма бэка: варианты увеличения характеристик приходят группой
+  // choice_groups с choice_type ABILITY_SCORE, рядом может быть группа SPELL.
+  // Здесь их не отвечают — они остаются в «Выборах» после повышения.
   6: {
     id: 6,
     name: 'Агент порядка',
@@ -188,25 +185,15 @@ describe('AsiChoiceModal', () => {
       expect(screen.getByText('Выбор')).toBeInTheDocument()
     })
 
-    it('derives ability increase options from the real choice_groups shape', async () => {
+    it('takes a feat with choices right away and points to «Выборы» for them', async () => {
       const onConfirm = vi.fn()
       renderModal({ onConfirm })
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
       await userEvent.click(screen.getByRole('button', { name: /^агент порядка$/i }))
-      await userEvent.click(screen.getByLabelText('+1 к Ловкость'))
-      // Черта также открывает группу SPELL — без ответа на неё бэк отклоняет
-      // level-up/rebuild с GrantChoiceRequiredException, поэтому «Применить»
-      // остаётся заблокированной, пока она не отвечена.
-      expect(screen.getByRole('button', { name: 'Применить' })).toBeDisabled()
-      await userEvent.click(screen.getByText('заклинание #221'))
+      expect(screen.getByText(/их вы сделаете сразу после/)).toBeInTheDocument()
+      expect(screen.queryByLabelText('+1 к Ловкость')).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
-      expect(onConfirm).toHaveBeenCalledWith({
-        type: 'FEAT',
-        feat_id: 6,
-        ability_score_increase_id: 102,
-        answers: [{ choice_group_id: 114, choice_option_id: 311 }],
-        choice_answers: [{ choice_group_id: 114, choice_option_id: 311 }],
-      })
+      expect(onConfirm).toHaveBeenCalledWith({ type: 'FEAT', feat_id: 6 })
     })
 
     it('lazily loads feat details via the view button', async () => {
@@ -224,25 +211,8 @@ describe('AsiChoiceModal', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
       await userEvent.click(screen.getByRole('button', { name: /^могучий$/i }))
       await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
-      expect(onConfirm).toHaveBeenCalledWith({
-        type: 'FEAT',
-        feat_id: 2,
-        ability_score_increase_id: null,
-      })
-    })
-
-    it('sends the selected ability score increase id', async () => {
-      const onConfirm = vi.fn()
-      renderModal({ onConfirm })
-      await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      await userEvent.click(screen.getByRole('button', { name: /^сильный удар$/i }))
-      await userEvent.click(screen.getByLabelText('+1 к Телосложение'))
-      await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
-      expect(onConfirm).toHaveBeenCalledWith({
-        type: 'FEAT',
-        feat_id: 4,
-        ability_score_increase_id: 10,
-      })
+      expect(onConfirm).toHaveBeenCalledWith({ type: 'FEAT', feat_id: 2 })
+      expect(screen.queryByText(/их вы сделаете сразу после/)).not.toBeInTheDocument()
     })
   })
 })

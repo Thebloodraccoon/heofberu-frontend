@@ -156,6 +156,16 @@ export const useCharacterPendingChoices = (id) =>
     select: (d) => (Array.isArray(d) ? d.filter((g) => (g.groups ?? []).length > 0) : []),
   })
 
+// Только число грантов с незавершёнными выборами — бейдж в шапке листа не тянет
+// полный список (PendingChoicesModal грузит его сам).
+export const useCharacterPendingChoicesCount = (id) =>
+  useQuery({
+    queryKey: queryKeys.characters.pendingChoicesCount(Number(id)),
+    queryFn: () => charactersApi.grants.pendingCount(Number(id)),
+    enabled: !!id,
+    select: (d) => d?.count ?? 0,
+  })
+
 // Уже сделанные игроком выборы по всем грантам — секция «Выборы
 // способностей» на листе персонажа (ответная сторона pending-choices).
 export const useCharacterAnsweredChoices = (id) =>

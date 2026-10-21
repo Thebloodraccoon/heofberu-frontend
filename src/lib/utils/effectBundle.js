@@ -1,4 +1,10 @@
-import { abilityLabels, armorProficiencyLabels, label as i18nLabel, weaponProficiencyLabels } from '@/lib/i18n/index.js'
+import {
+  abilityLabels,
+  armorProficiencyLabels,
+  skillEffectModeSuffix,
+  weaponProficiencyLabels,
+} from '@/lib/i18n/index.js'
+import { describeOpenSpell } from '@/lib/utils/spellFilter.js'
 
 // Человекочитаемое описание одного эффект-бандла (PendingChoiceOption /
 // ChosenOptionResponse — оба несут effects: [{ effect_type, items }], которые
@@ -16,7 +22,7 @@ function bundleRows(bundle) {
   ]
 }
 
-function describeRow({ type, r }, { skillNames = {}, spellNames = {} } = {}) {
+function describeRow({ type, r }, { skillNames = {}, spellNames = {}, itemNames = {} } = {}) {
   switch (type) {
     case 'ability': {
       const name = abilityLabels[r.ability] ?? r.ability
@@ -25,23 +31,25 @@ function describeRow({ type, r }, { skillNames = {}, spellNames = {} } = {}) {
       const cap = r.new_cap != null ? ` (макс. ${r.new_cap})` : ''
       return `${name}${suffix}${cap}`
     }
-    case 'skill':
-      return r.skill_id != null ? (skillNames[r.skill_id] ?? `навык #${r.skill_id}`) : 'любой навык на выбор'
+    case 'skill': {
+      const name = r.skill_id != null ? (skillNames[r.skill_id] ?? `навык #${r.skill_id}`) : 'любой навык на выбор'
+      return `${name}${skillEffectModeSuffix[r.mode] ?? ''}`
+    }
     case 'saving':
       return abilityLabels[r.ability] ?? r.ability
     case 'armor':
-      return armorProficiencyLabels[r.armor_type] ?? r.armor_type
+      return r.item_id != null
+        ? (itemNames[r.item_id] ?? `доспех #${r.item_id}`)
+        : (armorProficiencyLabels[r.armor_type] ?? r.armor_type)
     case 'weapon':
       return r.item_id != null
-        ? `предмет #${r.item_id}`
+        ? (itemNames[r.item_id] ?? `оружие #${r.item_id}`)
         : (weaponProficiencyLabels[r.weapon_category] ?? r.weapon_category)
     case 'spell': {
       // В грантах персонажа заклинание приходит полным CharacterSpell.
       if (r.name) return r.name
       if (r.spell_id != null) return spellNames[r.spell_id] ?? `заклинание #${r.spell_id}`
-      const school = r.spell_school ? i18nLabel(r.spell_school) : null
-      const lvl = r.spell_level_max ? i18nLabel(r.spell_level_max) : null
-      return ['любое заклинание на выбор', school, lvl && `до ${lvl}`].filter(Boolean).join(', ')
+      return describeOpenSpell(r)
     }
     default:
       return ''

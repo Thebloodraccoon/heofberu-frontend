@@ -1,4 +1,4 @@
-import { useQuery, useQueries } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueries } from '@tanstack/react-query'
 import { catalogApi } from '@/features/catalog/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 
@@ -144,16 +144,42 @@ export const useSpellDetail = (id) =>
     enabled: !!id,
   })
 
-// Имена заклинаний по id: тянем карточку каждого (кэш общий с useSpellDetail),
-// а не полагаемся на первую страницу списка — иначе заклинания вне неё
-// остаются без названия.
-export const useSpellNames = (ids) => {
+// Карточки справочника по id (заклинания, предметы) — тянем каждую отдельно
+// (кэш общий с useSpellDetail), а не полагаемся на первую страницу списка.
+// combine возвращает структурно равный результат, TanStack сохраняет ту же
+// ссылку между рендерами — её можно класть в deps useMemo/useEffect.
+// Карточки редко меняются, поэтому не перезапрашиваем их при каждом открытии.
+const CATALOG_BY_ID_STALE_MS = 5 * 60 * 1000
+
+const useCatalogByIds = (resource, ids, pick) => {
   const unique = [...new Set((ids ?? []).filter((id) => id != null).map(Number))]
-  const results = useQueries({
+  return useQueries({
     queries: unique.map((id) => ({
-      queryKey: ['catalog', 'spells', id],
-      queryFn: () => catalogApi.spells.get(id),
+      queryKey: ['catalog', resource, id],
+      queryFn: () => catalogApi[resource].get(id),
+      staleTime: CATALOG_BY_ID_STALE_MS,
     })),
+    combine: (results) =>
+      Object.fromEntries(unique.map((id, i) => [id, pick(results[i]?.data)]).filter(([, value]) => value)),
   })
-  return Object.fromEntries(unique.map((id, i) => [id, results[i]?.data?.name]).filter(([, n]) => n))
 }
+
+// Имена заклинаний по id: { [id]: name }.
+export const useSpellNames = (ids) => useCatalogByIds('spells', ids, (spell) => spell?.name)
+
+// Имена предметов по id (конкретное оружие и доспехи в эффектах владения).
+export const useItemNames = (ids) => useCatalogByIds('items', ids, (item) => item?.name)
+
+// Предметы из справочника по поиску — для владения конкретным оружием
+// (item_type WEAPON) или доспехом (ARMOR, SHIELD); поиск на сервере.
+export const useItemSearch = (itemTypes, search, { enabled = true } = {}) =>
+  useQuery({
+    queryKey: ['catalog', 'items', 'search', itemTypes, search],
+    queryFn: () => catalogApi.items.list({ item_type: itemTypes, size: 50, ...(search ? { search } : {}) }).then(items),
+    enabled,
+    placeholderData: keepPreviousData,
+  })
+
+// Заклинания целиком по id (тот же кеш, что у useSpellNames) — когда кроме
+// имени нужны уровень и школа: { [id]: SpellResponse }.
+export const useSpellsById = (ids) => useCatalogByIds('spells', ids, (spell) => spell)

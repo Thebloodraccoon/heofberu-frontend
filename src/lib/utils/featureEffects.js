@@ -121,28 +121,47 @@ const toAbilityEffect = ({ id, ability, amount, new_cap }) => ({
   new_cap: new_cap == null || new_cap === '' ? null : Number(new_cap),
 })
 
-const toSkillEffect = ({ id, skill_id, grants_expertise }) => ({
+// mode — что даёт эффект (PROFICIENCY / PROFICIENCY_AND_EXPERTISE / EXPERTISE /
+// UPGRADE). skill_id: null — «любой навык на выбор» (только внутри варианта
+// группы выбора: навык называет игрок, когда выбирает вариант).
+const toSkillEffect = ({ id, skill_id, mode }) => ({
   id: id ?? null,
   skill_id: toNumOr(skill_id, null),
-  grants_expertise: !!grants_expertise,
+  mode: mode ?? 'PROFICIENCY',
 })
 
 const toSavingThrowEffect = ({ id, ability }) => ({ id: id ?? null, ability })
 
-const toArmorEffect = ({ id, armor_type }) => ({ id: id ?? null, armor_type })
+const toArmorEffect = ({ id, armor_type, item_id }) =>
+  item_id != null && item_id !== ''
+    ? { id: id ?? null, item_id: Number(item_id) }
+    : { id: id ?? null, armor_type }
 
 const toWeaponEffect = ({ id, weapon_category, item_id }) =>
   item_id != null && item_id !== ''
     ? { id: id ?? null, item_id: Number(item_id) }
     : { id: id ?? null, weapon_category }
 
-// У SpellEffectItem остались только id и spell_id: школа, предел уровня,
-// always_prepared и counts_against_known_limit из схемы убраны, и бэк отвечает
-// 422 extra_forbidden, если прислать их вместе с заклинанием.
-const toSpellEffect = ({ id, spell_id }) => ({
-  id: id ?? null,
-  spell_id: toNumOr(spell_id, null),
-})
+// Конкретное заклинание — только id и spell_id: фильтр у него бэк не
+// принимает (422). spell_id: null — «любое заклинание на выбор» (только внутри
+// варианта группы выбора): лишнее заклинание, которое игрок выберет сам, с
+// фильтром (списки классов, уровни, «доступного уровня», школы, ритуал).
+// Старые поля (always_prepared, counts_against_known_limit, spell_school,
+// spell_level_max) отбрасываются — бэк ответил бы 422 extra_forbidden.
+const toSpellEffect = ({ id, spell_id, class_ids, min_level, max_level, castable_only, schools, ritual_only }) => {
+  const spellId = toNumOr(spell_id, null)
+  if (spellId != null) return { id: id ?? null, spell_id: spellId }
+  return {
+    id: id ?? null,
+    spell_id: null,
+    class_ids: (class_ids ?? []).map(Number),
+    min_level: min_level || null,
+    max_level: max_level || null,
+    castable_only: Boolean(castable_only),
+    schools: [...(schools ?? [])],
+    ritual_only: Boolean(ritual_only),
+  }
+}
 
 const TO_ITEM = {
   ability: toAbilityEffect,
@@ -343,7 +362,7 @@ export function effectSummaryLines(feature = {}) {
   if (savesText) lines.push({ key: 'saving', label: 'Спасброски', text: savesText })
 
   const armorText = fixed.armor_effects
-    .map((a) => label(armorProficiencyLabels, a.armor_type, a.armor_type))
+    .map((a) => (a.item_id != null ? 'конкретный доспех' : label(armorProficiencyLabels, a.armor_type, a.armor_type)))
     .join(', ')
   if (armorText) lines.push({ key: 'armor', label: 'Владение доспехами', text: armorText })
 

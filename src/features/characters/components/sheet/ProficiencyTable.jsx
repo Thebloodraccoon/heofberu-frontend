@@ -1,5 +1,5 @@
 import { useCharacterProficiencies } from '@/features/characters/queries.js'
-import { useSkills } from '@/features/catalog/queries.js'
+import { useItemNames, useSkills } from '@/features/catalog/queries.js'
 import { abilityLabels, armorProficiencyLabels, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 
 const SOURCE_TYPE_LABELS = {
@@ -51,6 +51,9 @@ export default function ProficiencyTable({ characterId }) {
   const { data: proficiencies } = useCharacterProficiencies(characterId)
   const { data: skillsCatalog = [] } = useSkills({ size: 100 })
   const skillsById = new Map(skillsCatalog.map((s) => [Number(s.id), s]))
+  const itemNames = useItemNames(
+    [...(proficiencies?.armor ?? []), ...(proficiencies?.weapons ?? [])].map((p) => p.item_id),
+  )
 
   const skillRows = (proficiencies?.skills ?? []).map((p) => {
     const sk = skillsById.get(Number(p.skill_id))
@@ -68,15 +71,22 @@ export default function ProficiencyTable({ characterId }) {
     sources: (p.sources ?? []).map(sourceLabel),
   }))
 
+  // Конкретный доспех/оружие (item_id) — по имени из справочника.
   const armorRows = (proficiencies?.armor ?? []).map((p) => ({
-    key: `armor-${p.armor_type}`,
-    name: armorProficiencyLabels[p.armor_type] ?? p.armor_type,
+    key: `armor-${p.item_id != null ? `item-${p.item_id}` : p.armor_type}`,
+    name:
+      p.item_id != null
+        ? (itemNames[p.item_id] ?? `Доспех #${p.item_id}`)
+        : (armorProficiencyLabels[p.armor_type] ?? p.armor_type),
     sources: (p.sources ?? []).map(sourceLabel),
   }))
 
   const weaponRows = (proficiencies?.weapons ?? []).map((p) => ({
-    key: `weapon-${p.weapon_category ?? p.item_id}`,
-    name: weaponProficiencyLabels[p.weapon_category] ?? p.weapon_category ?? `#${p.item_id}`,
+    key: `weapon-${p.item_id != null ? `item-${p.item_id}` : p.weapon_category}`,
+    name:
+      p.item_id != null
+        ? (itemNames[p.item_id] ?? `Оружие #${p.item_id}`)
+        : (weaponProficiencyLabels[p.weapon_category] ?? p.weapon_category),
     sources: (p.sources ?? []).map(sourceLabel),
   }))
 

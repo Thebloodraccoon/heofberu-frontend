@@ -11,16 +11,19 @@ import {
   sentenceCase,
 } from '@/lib/i18n/index.js'
 import { AccordionItem, Badge, Chip, RichText } from '@/components/ui'
+import { scalingMarkdown } from '@/lib/utils/featureScaling.js'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
 
 export const formatBonus = (n) => (n == null ? '' : n >= 0 ? `+${n}` : `${n}`)
 
 // Описание особенности + резюме её эффектов (effects_summary), которое
 // теперь считает бэк — дорендериваем его в конце описания единым куском,
-// без ручного пересчёта на фронте.
+// без ручного пересчёта на фронте. Растущая строка (вся лесенка) идёт между
+// описанием и резюме — до «У вас есть выбор…».
 export function FeatureDescription({ feature, className = 'description-secondary mb-0' }) {
-  if (!feature.description && !feature.effects_summary) return null
-  return <RichText value={feature.description} tail={feature.effects_summary} className={className} />
+  const scaling = scalingMarkdown(feature.scaling)
+  if (!feature.description && !feature.effects_summary && !scaling) return null
+  return <RichText value={feature.description} tail={[scaling, feature.effects_summary]} className={className} />
 }
 
 // Теги расы/подрасы/предыстории под их названием — клик по тегу ведёт в лор

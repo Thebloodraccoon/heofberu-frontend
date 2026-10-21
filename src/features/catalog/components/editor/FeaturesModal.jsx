@@ -5,15 +5,17 @@ import { useQuery } from '@tanstack/react-query'
 import { Button, Field, Input, Modal, RichText, RichTextEditor, RichTextField, TextField, ErrorBox } from '@/components/ui'
 import { normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
 import { persistFeatureEffects } from '@/features/catalog/config/editors/shared.js'
+import { normalizeScaling, sameScaling, scalingError, toScalingDraft } from '@/lib/utils/featureScaling.js'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import FeatureEffectsEditor from './FeatureEffectsEditor.jsx'
+import FeatureScalingEditor from './FeatureScalingEditor.jsx'
 import { catalogApi as api } from '@/features/catalog/api.js'
 
 const LEVEL_MIN = 1
 const LEVEL_MAX = 20
 
 function blankFeature() {
-  return { name: '', description: '', level: null }
+  return { name: '', description: '', level: null, scaling: null }
 }
 
 const clampLevel = (raw) =>
@@ -43,6 +45,11 @@ export default function FeatureModal({
     ...blankFeature(),
     ...(value ?? {}),
   }))
+  // Растущая строка правится черновиком: при создании он уходит вместе с POST,
+  // при правке — одним PATCH по кнопке «Сохранить строку» (не на каждый символ).
+  const [scalingDraft, setScalingDraft] = useState(() => toScalingDraft(value?.scaling))
+  const [scalingSaving, setScalingSaving] = useState(false)
+  const scalingDirty = editing && !sameScaling(scalingDraft, edit.scaling)
 
   const treeQ = useQuery({
     queryKey: ['catalog', 'featureTree', featureId ?? 'new'],
@@ -94,6 +101,22 @@ export default function FeatureModal({
     await onSaved?.()
   }
 
+  const saveScaling = async () => {
+    setScalingSaving(true)
+    setSaveError(null)
+    try {
+      const updated = await api.features.update(featureId, { scaling: normalizeScaling(scalingDraft) })
+      const saved = updated?.scaling ?? null
+      setEdit((d) => ({ ...d, scaling: saved }))
+      setScalingDraft(toScalingDraft(saved))
+      await onSaved?.()
+    } catch (err) {
+      setSaveError(err)
+    } finally {
+      setScalingSaving(false)
+    }
+  }
+
   const setTree = async (next) => {
     setLocalTree(next)
     if (!editing) return
@@ -118,9 +141,10 @@ export default function FeatureModal({
       setLevelError(true)
       return
     }
+    if (scalingError(scalingDraft, edit.level)) return
     setSaving(true)
     setSaveError(null)
-    try { await onSave({ ...edit, effects: tree }) }
+    try { await onSave({ ...edit, scaling: normalizeScaling(scalingDraft), effects: tree }) }
     catch (error) { setSaveError(error) }
     finally { setSaving(false) }
   }
@@ -150,7 +174,11 @@ export default function FeatureModal({
           <Button type="button" variant="ghost" onClick={onClose}>
             Отмена
           </Button>
-          <Button type="button" onClick={create} disabled={saving || !edit.name.trim() || loading}>
+          <Button
+            type="button"
+            onClick={create}
+            disabled={saving || !edit.name.trim() || loading || !!scalingError(scalingDraft, edit.level)}
+          >
             {saving ? 'Сохраняем…' : drawer ? 'Создать' : 'Сохранить'}
           </Button>
         </>
@@ -181,6 +209,29 @@ export default function FeatureModal({
           {showLevel && levelHint && <p className="text-xs text-stone-500">{levelHint}</p>}
 
           <RichTextField label="Описание" value={edit.description} onSave={patchField('description')} rows={4} />
+
+          <FeatureScalingEditor
+            value={scalingDraft}
+            onChange={setScalingDraft}
+            minLevel={edit.level}
+            actions={
+              scalingDirty && (
+                <>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setScalingDraft(toScalingDraft(edit.scaling))}>
+                    Отменить
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={saveScaling}
+                    disabled={scalingSaving || !!scalingError(scalingDraft, edit.level)}
+                  >
+                    {scalingSaving ? 'Сохраняем…' : 'Сохранить строку'}
+                  </Button>
+                </>
+              )
+            }
+          />
         </>
       ) : (
         <>
@@ -212,6 +263,8 @@ export default function FeatureModal({
           <Field label="Описание">
             <RichTextEditor value={edit.description} onChange={setField('description')} rows={4} />
           </Field>
+
+          <FeatureScalingEditor value={scalingDraft} onChange={setScalingDraft} minLevel={edit.level} />
         </>
       )}
       </div>

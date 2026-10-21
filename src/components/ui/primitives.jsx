@@ -251,7 +251,8 @@ export function Select({ value, onChange, children, className = '', disabled, pl
         {...rest}
         className="flex w-full items-center justify-between gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm text-stone-100 outline-none transition hover:border-stone-600 focus:border-ember disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className={`truncate pr-2 ${selected ? 'text-stone-100' : 'text-stone-500'}`}>
+        {/* Длинная подпись переносится, а не обрезается многоточием. */}
+        <span className={`min-w-0 break-words pr-2 text-left ${selected ? 'text-stone-100' : 'text-stone-500'}`}>
           {selected ? selected.label : placeholder ?? 'Выберите...'}
         </span>
         <svg
@@ -296,7 +297,7 @@ export function Select({ value, onChange, children, className = '', disabled, pl
                       : 'text-stone-200 hover:bg-stone-800/60 hover:text-stone-100'
                   } disabled:cursor-not-allowed disabled:opacity-40`}
                 >
-                  <span className="truncate">{o.label}</span>
+                  <span className="min-w-0 break-words">{o.label}</span>
                   {isSel && <span className="shrink-0 text-ember">✓</span>}
                 </button>
               )

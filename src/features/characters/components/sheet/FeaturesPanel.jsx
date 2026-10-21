@@ -4,6 +4,7 @@ import { useCharacterFeatures, useCharacterFeats } from '@/features/characters/q
 import { useUiSet } from '@/lib/uiState.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
 import { RichText, Skeleton } from '@/components/ui'
+import { featureLevelAt, scalingMarkdown } from '@/lib/utils/featureScaling.js'
 
 const SOURCE_LABELS = {
   CLASS: 'Класс',
@@ -69,8 +70,9 @@ export default function FeaturesPanel({ character }) {
           name: cf.feature?.name || `Свойство #${cf.feature_id}`,
           description: cf.feature?.description,
           effectsSummary: cf.feature?.effects_summary,
+          scaling: scalingMarkdown(cf.feature?.scaling, character.level),
           notes: cf.notes,
-          level: st === 'CLASS' || st === 'SUBCLASS' ? cf.feature?.level ?? null : null,
+          level: st === 'CLASS' || st === 'SUBCLASS' ? featureLevelAt(cf.feature, character.level) : null,
           rank: SOURCE_RANK[st] ?? 5,
           sub: st === 'SUBCLASS' ? 1 : 0,
           badge: st === 'FEAT' ? 'Черта' : SOURCE_LABELS[st] ?? 'Особая',
@@ -84,7 +86,7 @@ export default function FeaturesPanel({ character }) {
         a.sub - b.sub ||
         a.name.localeCompare(b.name),
     )
-  }, [feats, features])
+  }, [feats, features, character.level])
 
   return (
     <div className="space-y-4">
@@ -114,8 +116,8 @@ export default function FeaturesPanel({ character }) {
                 open={openKeys.includes(it.key)}
                 onToggle={() => toggleKey(it.key)}
               >
-                {it.description || it.effectsSummary ? (
-                  <RichText value={it.description} tail={it.effectsSummary} className="break-words" />
+                {it.description || it.effectsSummary || it.scaling ? (
+                  <RichText value={it.description} tail={[it.scaling, it.effectsSummary]} className="break-words" />
                 ) : (
                   <p className="text-stone-500">Нет описания</p>
                 )}

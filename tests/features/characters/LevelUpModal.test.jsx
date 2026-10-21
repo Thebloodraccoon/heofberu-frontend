@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/helpers/render.jsx'
 import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
@@ -13,6 +13,8 @@ vi.mock('@/features/catalog/queries.js', () => ({
   useFeatDetail: (id) => ({ data: id ? { id: 7, name: 'Бдительный', description: 'Наблюдает за окружением.' } : null, isFetching: false }),
   useSkills: () => ({ data: [] }),
   useSpells: () => ({ data: [] }),
+  useSpellsById: () => ({}),
+  useClasses: () => ({ data: [] }),
 }))
 
 const character = { id: 12, class_id: 2, level: 2, ability_scores: { constitution_total: 14, strength_total: 12 } }
@@ -58,7 +60,7 @@ describe('LevelUpModal drawer', () => {
     await user.click(screen.getByRole('button', { name: 'Черта', exact: true }))
     await user.click(screen.getByRole('button', { name: 'Бдительный', exact: true }))
     await user.click(screen.getByRole('button', { name: 'Применить' }))
-    expect(fixture.levelUp).toHaveBeenCalledExactlyOnceWith(12, { hit_points_gained: 7, choice: { type: 'FEAT', feat_id: 7, ability_score_increase_id: null } })
+    expect(fixture.levelUp).toHaveBeenCalledExactlyOnceWith(12, { hit_points_gained: 7, choice: { type: 'FEAT', feat_id: 7 } })
     expect(await screen.findByText('Уровень 4')).toBeVisible()
   })
 
@@ -78,17 +80,15 @@ describe('LevelUpModal drawer', () => {
     } finally { random.mockRestore() }
   })
 
-  it('continues pending grants in a drawer without stacking dialogs', async () => {
+  it('does not open the choices panel after a level-up, even with pending grants', async () => {
     const grant = { character_feature_id: 9, feature_name: 'Владение', groups: [] }
     fixture.pending.mockResolvedValue([grant])
     fixture.grants = [grant]
     const { user } = setup()
     await user.click(screen.getByRole('button', { name: /Среднее/ }))
     await user.click(screen.getByRole('button', { name: 'Повысить уровень' }))
-    const choices = await screen.findByRole('dialog', { name: 'Выборы' })
-    expect(choices).toHaveClass('ui-drawer')
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    await user.click(within(choices).getByRole('button', { name: 'Позже' }))
-    expect(screen.getByRole('dialog', { name: 'Повышение уровня' })).toBeVisible()
+    expect(await screen.findByText('Уровень 3')).toBeVisible()
+    expect(screen.queryByRole('dialog', { name: 'Выборы' })).not.toBeInTheDocument()
+    expect(fixture.pending).not.toHaveBeenCalled()
   })
 })

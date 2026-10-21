@@ -3,7 +3,8 @@ import { abilityLabels, armorProficiencyLabels, weaponProficiencyLabels } from '
 // Типы эффектов, которые выбираются экраном-списком вместо узкого меню «+».
 // source: 'skills' — список тянется из справочника, иначе варианты берутся из
 // labels. matches — какие строки эффекта вообще участвуют в этом экране
-// (у оружия строки с конкретным предметом добавляются не здесь).
+// (у оружия и доспехов строки с конкретным предметом — на своём экране,
+// см. ITEM_PICKERS).
 // lockExisting — уже добавленное выбрать повторно нельзя (у улучшения
 // характеристики своя величина и свой предел, их правят в самой строке;
 // удаление — корзиной в строке).
@@ -19,7 +20,7 @@ export const ROW_PICKERS = {
     title: 'Владение навыками',
     idKey: 'skill_id',
     source: 'skills',
-    newRow: (value) => ({ skill_id: value, grants_expertise: false }),
+    newRow: (value) => ({ skill_id: value, mode: 'PROFICIENCY' }),
   },
   saving_throw_effects: {
     title: 'Проверки спасброска',
@@ -31,7 +32,8 @@ export const ROW_PICKERS = {
     title: 'Владение доспехами',
     idKey: 'armor_type',
     labels: armorProficiencyLabels,
-    newRow: (value) => ({ armor_type: value }),
+    matches: (row) => row.item_id == null,
+    newRow: (value) => ({ armor_type: value, item_id: null }),
   },
   weapon_effects: {
     title: 'Владение оружием',
@@ -43,3 +45,10 @@ export const ROW_PICKERS = {
 }
 
 export const hasRowsPicker = (effectType) => Object.hasOwn(ROW_PICKERS, effectType)
+
+// Экран конкретного предмета (mode 'items'): какие типы предметов искать и
+// в какое поле строки кладётся категория (у предметной строки она null).
+export const ITEM_PICKERS = {
+  weapon_effects: { title: 'Конкретное оружие', itemTypes: ['WEAPON'], categoryKey: 'weapon_category', search: 'Найти оружие…' },
+  armor_effects: { title: 'Конкретный доспех', itemTypes: ['ARMOR', 'SHIELD'], categoryKey: 'armor_type', search: 'Найти доспех…' },
+}

@@ -19,6 +19,8 @@ export const queryKeys = {
     proficiencies: (id) => ['characters', id, 'proficiencies'],
     asiChoices: (id) => ['characters', id, 'asi-choices'],
     pendingChoices: (id) => ['characters', id, 'grants', 'pending'],
+    // Общий префикс с pendingChoices: инвалидация списка тянет и счётчик.
+    pendingChoicesCount: (id) => ['characters', id, 'grants', 'pending', 'count'],
     answeredChoices: (id) => ['characters', id, 'grants', 'answered'],
     stats: (id) => ['characters', id, 'stats'],
   },

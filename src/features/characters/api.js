@@ -161,6 +161,8 @@ export const charactersApi = {
     // Все ещё не отвеченные группы выбора по всем грантам персонажа разом —
     // чтобы не опрашивать choices каждого granted-feature по отдельности.
     pending: (id) => request(`/characters/${id}/grants/pending`),
+    // Только число таких грантов ({ count }) — для бейджа на листе, без полного списка.
+    pendingCount: (id) => request(`/characters/${id}/grants/pending/count`),
     // Отвеченная сторона того же — какие варианты игрок уже выбрал.
     answered: (id) => request(`/characters/${id}/grants/answered`),
   },

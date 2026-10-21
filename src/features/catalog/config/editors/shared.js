@@ -1,6 +1,7 @@
 import { catalogApi as api } from '../../api.js'
 import { queryClient } from '@/lib/api/queryClient.js'
 import { normalizeEffectsTree, syncFeatureEffects } from '@/lib/utils/featureEffects.js'
+import { normalizeScaling } from '@/lib/utils/featureScaling.js'
 
 export const opt = (map) => Object.entries(map).map(([value, label]) => ({ value, label }))
 export const optOptional = (map) => [{ value: '', label: '—' }, ...opt(map)]
@@ -43,6 +44,8 @@ export const featurePayload = (f, source) => {
     name: f.name,
     description: f.description ?? '',
     level: f.level ?? null,
+    // Растущая строка (см. lib/utils/featureScaling.js); null — не растёт.
+    scaling: normalizeScaling(f.scaling),
   }
   // Фичи теперь централизованы: при создании источник задаётся через
   // source_type + внешний ключ прямо в теле POST /features.
@@ -83,6 +86,7 @@ export const featuresFromRecord = (r) =>
       name: f.name,
       description: f.description ?? '',
       level: f.level ?? null,
+      scaling: f.scaling ?? null,
       ability_effects: f.ability_effects ?? [],
       has_static_effects: f.has_static_effects,
       has_choices: f.has_choices,

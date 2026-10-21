@@ -1,8 +1,10 @@
 import { ruLevel, sentenceCase } from '@/lib/i18n/index.js'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { Badge, Card, RichText } from '@/components/ui'
+import { scalingMarkdown } from '@/lib/utils/featureScaling.js'
 
 export default function FeatureDetailCard({ item }) {
+  const scaling = scalingMarkdown(item.scaling)
   return (
     <Card className="my-[3px] detail-padded">
       <div className="mb-2">
@@ -17,10 +19,10 @@ export default function FeatureDetailCard({ item }) {
         </div>
       </div>
 
-      {item.description || item.effects_summary ? (
+      {item.description || item.effects_summary || scaling ? (
         <RichText
           value={item.description}
-          tail={item.effects_summary}
+          tail={[scaling, item.effects_summary]}
           className="text-sm leading-relaxed text-stone-200"
         />
       ) : (

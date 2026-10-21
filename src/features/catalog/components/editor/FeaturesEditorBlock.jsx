@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ruLevel } from '@/lib/i18n/index.js'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { Badge, ConfirmDialog, ErrorBox, RichText, Skeleton } from '@/components/ui'
+import { scalingMarkdown } from '@/lib/utils/featureScaling.js'
 import { SectionTitle, PencilIcon, TrashIcon } from './editorShared.jsx'
 
 function Chevron({ open }) {
@@ -128,10 +129,10 @@ export default function FeaturesEditorBlock({
                   </div>
                 </div>
                 {compact && <button type="button" className="catalog-delete-button catalog-card-delete" title="Удалить" aria-label={`Удалить: ${f.name || 'Без названия'}`} onClick={() => setConfirmTarget(f)}><LoreIcon name="trash" /></button>}
-                {(compact || open) && (f.description || f.effects_summary) && (
+                {(compact || open) && (f.description || f.effects_summary || f.scaling) && (
                   <RichText
                     value={f.description}
-                    tail={f.effects_summary}
+                    tail={[scalingMarkdown(f.scaling), f.effects_summary]}
                     className={compact ? 'catalog-feature-preview' : 'mt-2 break-words text-sm leading-loose text-stone-300'}
                   />
                 )}

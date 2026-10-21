@@ -38,7 +38,6 @@ import { OptionCard } from '@/features/characters/components/wizard/OptionCard.j
 import { Hint, Section, StepShell, Tag } from '@/features/characters/components/wizard/StepShell.jsx'
 import RollToasts from '@/features/characters/components/wizard/RollToasts.jsx'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
-import PendingChoicesModal from '@/features/characters/components/sheet/PendingChoicesModal.jsx'
 
 const DEFAULT_FORM = (character) => ({
   race_id: String(character.race_id ?? ''),
@@ -65,17 +64,16 @@ function describeAsiChoice(choice, featEffect) {
   return `${featEffect.name ? sentenceCase(featEffect.name) : 'Черта'}${bonus}`
 }
 
-// Резолвит фичу выбранной черты (имя + повышение характеристики, если оно
-// есть) и поднимает результат наверх — нужно и для отображения, и чтобы
-// накопительно учитывать бонус черты при проверке потолка на следующих уровнях.
-function FeatEffectResolver({ level, featId, increaseId, onResolved }) {
+// Резолвит имя выбранной черты и поднимает его наверх для подписи уровня.
+// Увеличение характеристики от черты выбирается уже после ребилда, в
+// «Выборах», поэтому в расчёт потолка на следующих уровнях оно не входит.
+function FeatEffectResolver({ level, featId, onResolved }) {
   const { data } = useFeatDetail(featId)
   useEffect(() => {
     if (!data) return
-    const inc = (data.ability_score_increases ?? []).find((ai) => String(ai.id) === String(increaseId))
-    onResolved(level, { name: data.name, ability: inc?.ability ?? null, amount: inc?.amount ?? 0 })
+    onResolved(level, { name: data.name, ability: null, amount: 0 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, increaseId])
+  }, [data])
   return null
 }
 
@@ -117,7 +115,6 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
   // (навыки, заклинания и т.п.) сверх ability-score-варианта, отвеченного
   // прямо в AsiChoiceModal — доводим игрока по ним сразу после применения
   // ребилда, а не оставляем ждать значок «Выборы» в шапке листа.
-  const [pendingChoicesAfterRebuild, setPendingChoicesAfterRebuild] = useState(false)
   const [error, setError] = useState(null)
   const [asiLevelOpen, setAsiLevelOpen] = useState(null)
   const [featAsiEffects, setFeatAsiEffects] = useState({})
@@ -329,29 +326,17 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
         background_id: form.background_id ? Number(form.background_id) : null,
         max_hp: Number(form.max_hp),
         skill_ids: (form.class_skill_ids ?? []).map(Number),
-        // Как и в LevelUpModal — ответы на прочие группы выбора черты
-        // дублируем и вложенными в choice, и рядом с ним на случай другого
-        // контракта у бэка (имя/место поля не задокументировано).
-        asi_choices: requiredAsiLevels.map((l) => {
-          const choice = form.asi_choices[l]
-          const choiceAnswers = choice?.answers ?? choice?.choice_answers
-          return {
-            class_level: l,
-            choice,
-            ...(choiceAnswers ? { answers: choiceAnswers, choice_answers: choiceAnswers } : {}),
-          }
-        }),
+        // Черта здесь только называется: её выборы (увеличение характеристики
+        // тоже) бэк оставляет в «Выборах», а у черты, взятой снова, сохраняет.
+        asi_choices: requiredAsiLevels.map((l) => ({ class_level: l, choice: form.asi_choices[l] })),
       }
       for (const s of STATS) body[s.key] = Number(form.ability_base[s.key])
 
       await charactersApi.progression.rebuild(character.id, body)
+      // Вместе с листом обновляется и счётчик «Выборов» (grants/pending) —
+      // сама панель выборов независима и не открывается после ребилда.
       await queryClient.invalidateQueries({ queryKey: ['characters', Number(character.id)] })
-      const pending = await charactersApi.grants.pending(Number(character.id))
-      if ((pending ?? []).length > 0) {
-        setPendingChoicesAfterRebuild(true)
-      } else {
-        onSuccess?.()
-      }
+      onSuccess?.()
     } catch (e) {
       setError(e)
     } finally {
@@ -562,7 +547,7 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
           <div className="flex w-full items-center justify-between gap-3">
             <Button
               variant="ghost"
-              disabled={step === 0 || submitting || pendingChoicesAfterRebuild}
+              disabled={step === 0 || submitting}
               onClick={() => setStep((s) => Math.max(s - 1, 0))}
             >
               ← Назад
@@ -572,7 +557,7 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
                 Далее →
               </Button>
             ) : (
-              <Button disabled={!canContinue || submitting || pendingChoicesAfterRebuild} onClick={submit}>
+              <Button disabled={!canContinue || submitting} onClick={submit}>
                 {submitting ? 'Применяем…' : 'Применить ребилд'}
               </Button>
             )}
@@ -623,22 +608,10 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
             key={l}
             level={l}
             featId={c.feat_id}
-            increaseId={c.ability_score_increase_id}
             onResolved={(lvl, effect) => setFeatAsiEffects((prev) => ({ ...prev, [lvl]: effect }))}
           />
         )
       })}
-
-      {pendingChoicesAfterRebuild && (
-        <PendingChoicesModal
-          character={character}
-          onClose={() => {
-            setPendingChoicesAfterRebuild(false)
-            onSuccess?.()
-          }}
-          onError={setError}
-        />
-      )}
 
       <RollToasts toasts={rolls} onDismiss={dismissRoll} />
     </>

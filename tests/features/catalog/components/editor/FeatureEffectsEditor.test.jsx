@@ -34,6 +34,7 @@ describe('FeatureEffectsEditor', () => {
     catalogApi.spells.list.mockResolvedValue({
       items: [{ id: 9, name: 'Огненный шар' }],
     })
+    catalogApi.classes.list.mockResolvedValue({ items: [] })
   })
 
   it('edits effects and chooses a spell in place without opening another dialog', async () => {
@@ -99,7 +100,7 @@ describe('FeatureEffectsEditor', () => {
     const user = userEvent.setup()
     renderEditor({
       ability_effects: [{ ability: 'STR', amount: 1 }],
-      skill_effects: [{ skill_id: 5, grants_expertise: true }],
+      skill_effects: [{ skill_id: 5, mode: 'PROFICIENCY_AND_EXPERTISE' }],
     })
 
     await user.click(screen.getByText(/Изменение характеристик/))

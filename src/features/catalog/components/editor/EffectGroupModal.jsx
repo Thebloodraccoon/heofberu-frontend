@@ -7,6 +7,7 @@ import { AddButton, EFFECT_TYPES, EMPTY_OPTION_EFFECTS } from './effectTypeEdito
 import EffectRowsPicker from './EffectRowsPicker.jsx'
 import { hasRowsPicker } from './effectRowPickers.js'
 import { TrashIcon } from './editorShared.jsx'
+import { spellLevelRangeInverted } from '@/lib/utils/spellFilter.js'
 
 // Один вариант внутри группы выбора: у опции нет названия (ChoiceOptionPayload
 // не поддерживает label) — только порядковый номер и строки эффекта того же
@@ -26,7 +27,7 @@ function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, o
           <TrashIcon />
         </button>
       </div>
-      <Editor onSelectSpell={onSelectSpell} onOpenPicker={onOpenPicker} rows={option[effectType] ?? []} onChange={(rows) => onChange({ ...option, [effectType]: rows })} />
+      <Editor allowOpen onSelectSpell={onSelectSpell} onOpenPicker={onOpenPicker} rows={option[effectType] ?? []} onChange={(rows) => onChange({ ...option, [effectType]: rows })} />
     </div>
   )
 }
@@ -77,8 +78,12 @@ export default function EffectGroupModal({
             index === target ? { ...option, [effectType]: next } : option,
           ),
         }))
+  // mode — какой экран открыть, если у типа их несколько (у оружия: категории
+  // или конкретное оружие); onClick без аргумента-строки даёт экран по умолчанию.
   const openPickerFor = (target) =>
-    hasRowsPicker(effectType) ? () => setPicker({ kind: 'rows', target }) : undefined
+    hasRowsPicker(effectType)
+      ? (mode) => setPicker({ kind: 'rows', target, mode: typeof mode === 'string' ? mode : null })
+      : undefined
 
   if (!effectType) {
     return (
@@ -118,7 +123,11 @@ export default function EffectGroupModal({
     else onSave(effectType, { ...group, effect_type: effectType })
   }
 
-  const canSave = mode === 'static' ? rows.length > 0 : group.options.length > 0
+  // «От» выше «до» у фильтра «любого заклинания» бэк не примет (422).
+  const invertedSpellRange = (group.options ?? []).some((option) =>
+    (option.spell_effects ?? []).some(spellLevelRangeInverted),
+  )
+  const canSave = mode === 'static' ? rows.length > 0 : group.options.length > 0 && !invertedSpellRange
 
   return (
     <Container
@@ -150,6 +159,7 @@ export default function EffectGroupModal({
             rows={rowsFor(picker.target)}
             onChange={(next) => setRowsFor(picker.target, next)}
             onClose={() => setPicker(null)}
+            mode={picker.mode}
           />
         ) : (
           <SpellPickerModal

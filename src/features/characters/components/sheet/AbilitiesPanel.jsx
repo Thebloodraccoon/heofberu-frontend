@@ -13,11 +13,11 @@ function ProficiencyMark({ proficient, expert = false }) {
   )
 }
 
-function OwnedProficiencies({ items, options }) {
-  const owned = options.filter((option) => items.includes(option.value))
-  return owned.length > 0 ? (
+// items — [{ key, label }]: категории и конкретные предметы (ownedProficiencyItems).
+function OwnedProficiencies({ items }) {
+  return items.length > 0 ? (
     <ul className="character-owned-list">
-      {owned.map((option) => <li key={option.value}>{option.label}</li>)}
+      {items.map((item) => <li key={item.key}>{item.label}</li>)}
     </ul>
   ) : <p className="text-xs text-stone-500">Нет владений</p>
 }
@@ -30,7 +30,7 @@ function CheckRow({ onRoll, title, bonus, label, children }) {
 }
 
 // Без onRoll и без списков доспехов/оружия — урезанная версия для публичного листа героя.
-export default function AbilitiesPanel({ skills, saveBonus, saveSet, skillBonus, profSet, expertiseSet, onRoll, armorProfs, armorOptions, weaponProfs, weaponOptions, topStats, secondaryStats }) {
+export default function AbilitiesPanel({ skills, saveBonus, saveSet, skillBonus, profSet, expertiseSet, onRoll, armorProfs, weaponProfs, topStats, secondaryStats }) {
   return (
     <div className="character-abilities">
       {topStats}
@@ -46,9 +46,9 @@ export default function AbilitiesPanel({ skills, saveBonus, saveSet, skillBonus,
               </CheckRow>
             ))}
           </div>
-          {armorOptions && weaponOptions && <section className="character-proficiencies" aria-label="Владение оружием и доспехами">
-            <h3 className="sheet-section-label">Доспехи</h3><OwnedProficiencies items={armorProfs} options={armorOptions} />
-            <h3 className="sheet-section-label">Оружие</h3><OwnedProficiencies items={weaponProfs} options={weaponOptions} />
+          {armorProfs && weaponProfs && <section className="character-proficiencies" aria-label="Владение оружием и доспехами">
+            <h3 className="sheet-section-label">Доспехи</h3><OwnedProficiencies items={armorProfs} />
+            <h3 className="sheet-section-label">Оружие</h3><OwnedProficiencies items={weaponProfs} />
           </section>}
         </div>
         <div className="character-abilities-right">

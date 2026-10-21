@@ -113,6 +113,53 @@ describe('syncFeatureEffects: fixed effects', () => {
     ])
   })
 
+  it('sends an open spell row with its whole filter, never the backend summary', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(ops, FEATURE_ID, {}, {
+      choice_groups: [
+        {
+          choice_type: 'SPELL',
+          pick_count: 2,
+          options: [
+            {
+              spell_effects: [
+                {
+                  spell_id: null,
+                  castable_only: true,
+                  schools: ['EVOCATION'],
+                  class_ids: ['3'],
+                  summary: ['школа: Воплощение'],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    expect(ops.calls).toEqual([
+      ['groups.create', FEATURE_ID, {
+        choice_type: 'SPELL',
+        pick_count: 2,
+        sort_order: 0,
+        options: [{
+          sort_order: 0,
+          effects: [{
+            effect_type: 'spell',
+            items: [{
+              spell_id: null,
+              class_ids: [3],
+              min_level: null,
+              max_level: null,
+              castable_only: true,
+              schools: ['EVOCATION'],
+              ritual_only: false,
+            }],
+          }],
+        }],
+      }],
+    ])
+  })
+
   it('patches only the fields that changed on an existing row', async () => {
     const ops = mockOps()
     await syncFeatureEffects(
@@ -139,11 +186,11 @@ describe('syncFeatureEffects: fixed effects', () => {
 
   it('deletes the row that disappeared and leaves the rest alone', async () => {
     const ops = mockOps()
-    const kept = { id: 1, skill_id: 5, grants_expertise: false }
+    const kept = { id: 1, skill_id: 5, mode: 'PROFICIENCY' }
     await syncFeatureEffects(
       ops,
       FEATURE_ID,
-      { skill_effects: [kept, { id: 2, skill_id: 6, grants_expertise: false }] },
+      { skill_effects: [kept, { id: 2, skill_id: 6, mode: 'PROFICIENCY' }] },
       { skill_effects: [kept] },
     )
     expect(ops.calls).toEqual([['effects.remove', FEATURE_ID, 'skill', 2]])
@@ -190,7 +237,7 @@ describe('syncFeatureEffects: choice groups', () => {
           pick_count: 1,
           sort_order: 0,
           options: [
-            { id: 77, sort_order: 0, skill_effects: [{ id: 8, skill_id: 5, grants_expertise: false }] },
+            { id: 77, sort_order: 0, skill_effects: [{ id: 8, skill_id: 5, mode: 'PROFICIENCY' }] },
             { id: 78, sort_order: 1, skill_effects: [] },
           ],
         },
@@ -204,8 +251,9 @@ describe('syncFeatureEffects: choice groups', () => {
           pick_count: 2,
           sort_order: 0,
           options: [
-            { id: 77, sort_order: 0, skill_effects: [{ id: 8, skill_id: 5, grants_expertise: true }] },
+            { id: 77, sort_order: 0, skill_effects: [{ id: 8, skill_id: 5, mode: 'EXPERTISE' }] },
             { skill_effects: [{ skill_id: 9 }] },
+            { skill_effects: [{ skill_id: null, mode: 'UPGRADE' }] },
           ],
         },
       ],
@@ -213,10 +261,14 @@ describe('syncFeatureEffects: choice groups', () => {
     await syncFeatureEffects(ops, FEATURE_ID, prev, next)
     expect(ops.calls).toEqual([
       ['groups.patch', FEATURE_ID, 10, { pick_count: 2 }],
-      ['optionEffects.patch', FEATURE_ID, 10, 77, 'skill', 8, { grants_expertise: true }],
+      ['optionEffects.patch', FEATURE_ID, 10, 77, 'skill', 8, { mode: 'EXPERTISE' }],
       ['options.create', FEATURE_ID, 10, {
         sort_order: 1,
-        effects: [{ effect_type: 'skill', items: [{ skill_id: 9, grants_expertise: false }] }],
+        effects: [{ effect_type: 'skill', items: [{ skill_id: 9, mode: 'PROFICIENCY' }] }],
+      }],
+      ['options.create', FEATURE_ID, 10, {
+        sort_order: 2,
+        effects: [{ effect_type: 'skill', items: [{ skill_id: null, mode: 'UPGRADE' }] }],
       }],
       ['options.remove', FEATURE_ID, 10, 78],
     ])
@@ -253,6 +305,13 @@ describe('effectSummaryLines', () => {
     expect(textOf('weapon')).toContain('Воинское оружие')
     expect(textOf('spell')).toBe('')
     expect(textOf('choice-1')).toBe('выбрать 1 из 2')
+  })
+
+  it('names a concrete armor item next to categories', () => {
+    const lines = effectSummaryLines({
+      armor_effects: [{ armor_type: null, item_id: 7 }, { armor_type: 'LIGHT' }],
+    })
+    expect(lines.find((l) => l.key === 'armor')?.text).toBe('конкретный доспех, Лёгкие доспехи')
   })
 
   it('omits empty sections', () => {

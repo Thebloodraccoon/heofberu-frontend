@@ -2,16 +2,22 @@ import EditorAddButton from './EditorAddButton.jsx'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
-import { abilityLabels, armorProficiencyLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
+import {
+  abilityLabels,
+  armorProficiencyLabels,
+  skillEffectModeSuffix,
+  weaponProficiencyLabels,
+} from '@/lib/i18n/index.js'
 import { inferGroupEffectType, normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
-import { useSpellNames } from '@/features/catalog/queries.js'
+import { useItemNames, useSpellNames } from '@/features/catalog/queries.js'
+import { describeOpenSpell } from '@/lib/utils/spellFilter.js'
 import { EFFECT_TYPES } from './effectTypeEditors.jsx'
 import { SectionTitle, GroupRow } from './editorShared.jsx'
 import EffectGroupModal from './EffectGroupModal.jsx'
 
 // Человекочитаемая метка одной строки эффекта — используется только для
 // read-only просмотра внутри аккордеона (сама правка — только через модалку).
-function rowLabel(key, row, { skillNames, spellNames }) {
+function rowLabel(key, row, { skillNames, spellNames, itemNames }) {
   switch (key) {
     case 'ability_effects': {
       const name = abilityLabels[row.ability] ?? row.ability
@@ -21,18 +27,22 @@ function rowLabel(key, row, { skillNames, spellNames }) {
       return `${name}${suffix}${cap}`
     }
     case 'skill_effects': {
-      const name = skillNames[row.skill_id] ?? `навык #${row.skill_id}`
-      return row.grants_expertise ? `${name} (экспертиза)` : name
+      const name =
+        row.skill_id == null ? 'Любой навык на выбор' : (skillNames[row.skill_id] ?? `навык #${row.skill_id}`)
+      return `${name}${skillEffectModeSuffix[row.mode] ?? ''}`
     }
     case 'saving_throw_effects':
       return abilityLabels[row.ability] ?? row.ability
     case 'armor_effects':
-      return armorProficiencyLabels[row.armor_type] ?? row.armor_type
+      return row.item_id != null
+        ? (itemNames[row.item_id] ?? `доспех #${row.item_id}`)
+        : (armorProficiencyLabels[row.armor_type] ?? row.armor_type)
     case 'weapon_effects':
       return row.item_id != null
-        ? (row.itemName ?? `предмет #${row.item_id}`)
+        ? (itemNames[row.item_id] ?? `оружие #${row.item_id}`)
         : (weaponProficiencyLabels[row.weapon_category] ?? row.weapon_category)
     case 'spell_effects':
+      if (row.spell_id == null) return describeOpenSpell(row)
       return spellNames[row.spell_id] ?? `заклинание #${row.spell_id}`
     default:
       return ''
@@ -63,7 +73,13 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
   ].map((r) => r.spell_id)
   const skillNames = Object.fromEntries((skillsQ.data?.items ?? []).map((s) => [s.id, s.name]))
   const spellNames = useSpellNames(allSpellIds)
-  const names = { skillNames, spellNames }
+  const allItemIds = [
+    ...tree.weapon_effects,
+    ...tree.armor_effects,
+    ...groups.flatMap((g) => (g.options ?? []).flatMap((o) => [...(o.weapon_effects ?? []), ...(o.armor_effects ?? [])])),
+  ].map((r) => r.item_id)
+  const itemNames = useItemNames(allItemIds)
+  const names = { skillNames, spellNames, itemNames }
 
   const usedStaticTypes = new Set(EFFECT_TYPES.filter((t) => tree[t.key].length > 0).map((t) => t.key))
   const usedGroupTypes = new Set(groups.map((g) => inferGroupEffectType(g)))

@@ -184,6 +184,30 @@ export const weaponProficiencyLabels = {
   MARTIAL: 'Воинское оружие',
 }
 
+// Что даёт эффект навыка (SkillEffectMode на бэке).
+export const skillEffectModeLabels = {
+  PROFICIENCY: 'Владение',
+  PROFICIENCY_AND_EXPERTISE: 'Владение + экспертиза',
+  EXPERTISE: 'Только экспертиза',
+  UPGRADE: 'Владение или экспертиза',
+}
+
+// Пояснение к режиму под выбором — короткие подписи выше его не вмещают.
+export const skillEffectModeHints = {
+  PROFICIENCY: '',
+  PROFICIENCY_AND_EXPERTISE: '',
+  EXPERTISE: 'Нужно владение из другого источника',
+  UPGRADE: 'Экспертиза, если владение уже есть',
+}
+
+// Короткая приписка к названию навыка в сводках эффектов.
+export const skillEffectModeSuffix = {
+  PROFICIENCY: '',
+  PROFICIENCY_AND_EXPERTISE: ' (экспертиза)',
+  EXPERTISE: ' (только экспертиза)',
+  UPGRADE: ' (экспертиза, если уже владеете)',
+}
+
 export const diceTypeLabels = {
   D4: 'к4',
   D6: 'к6',
