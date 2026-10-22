@@ -12,7 +12,8 @@ import {
   spellSchoolLabels,
   weaponProficiencyLabels,
 } from '@/lib/i18n/index.js'
-import { Input, Select } from '@/components/ui'
+import { Button, Input, Select } from '@/components/ui'
+import Drawer from '@/components/ui/Drawer.jsx'
 import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
 import { useClasses, useItemNames, useItemSearch, useSpellNames } from '@/features/catalog/queries.js'
 import useDebouncedValue from '@/features/articles/useDebouncedValue.js'
@@ -176,7 +177,9 @@ export function Section({ title, count, empty, addControl, onHide, children }) {
   )
 }
 
-export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker }) {
+// allowOpen — вариант группы выбора: можно добавить «любую характеристику на
+// выбор» (ability: null, не больше одной на вариант) — игрок назовёт её сам.
+export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker, allowOpen = false }) {
   const used = new Set(rows.map((r) => r.ability))
   const options = Object.entries(abilityLabels).map(([k, v]) => ({
     key: k,
@@ -185,6 +188,7 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker
   }))
   const usedUp = options.every((o) => o.disabled)
   const add = (ability) => onChange([...rows, { ability, amount: 1, new_cap: null }])
+  const hasOpen = rows.some((r) => r.ability == null)
 
   return (
     <Section
@@ -196,9 +200,12 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker
         // В панели эффектов выбор уезжает на отдельный экран со списком
         // (onOpenPicker); уже добавленную характеристику там выбрать нельзя —
         // у строки своя величина и свой предел.
-        onOpenPicker
-          ? <AddButton onClick={onOpenPicker} title="+ Увеличение" />
-          : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Увеличение" />
+        <>
+          {onOpenPicker
+            ? <AddButton onClick={onOpenPicker} title="+ Увеличение" />
+            : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Увеличение" />}
+          {allowOpen && <AddButton onClick={() => add(null)} disabled={hasOpen} title="+ Любая характеристика" />}
+        </>
       }
     >
       {usedUp && rows.length > 0 && (
@@ -209,7 +216,7 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker
       {rows.map((row, i) => (
         <RowShell key={i} onRemove={() => onChange(rows.filter((_, j) => j !== i))}>
           <span className="min-w-0 self-center truncate text-sm text-stone-200">
-            {abilityLabels[row.ability] ?? row.ability}
+            {row.ability == null ? 'Любая на выбор' : abilityLabels[row.ability] ?? row.ability}
           </span>
           <BlurNumberInput
             min={-5}
@@ -302,11 +309,13 @@ export function SkillEffectsEditor({ rows = [], onChange, onHide, onOpenPicker, 
   )
 }
 
-export function SavingThrowEffectsEditor({ rows = [], onChange, onHide, onOpenPicker }) {
+// allowOpen — вариант группы выбора: «любой спасбросок на выбор» (ability: null).
+export function SavingThrowEffectsEditor({ rows = [], onChange, onHide, onOpenPicker, allowOpen = false }) {
   const used = new Set(rows.map((r) => r.ability))
   const options = Object.entries(abilityLabels).map(([k, v]) => ({ key: k, label: v, disabled: used.has(k) }))
   const usedUp = options.every((o) => o.disabled)
   const add = (ability) => onChange([...rows, { ability }])
+  const hasOpen = rows.some((r) => r.ability == null)
 
   return (
     <Section
@@ -315,9 +324,12 @@ export function SavingThrowEffectsEditor({ rows = [], onChange, onHide, onOpenPi
       empty="Спасбросков нет"
       onHide={onHide}
       addControl={
-        onOpenPicker
-          ? <AddButton onClick={onOpenPicker} title="+ Спасбросок" />
-          : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Спасбросок" />
+        <>
+          {onOpenPicker
+            ? <AddButton onClick={onOpenPicker} title="+ Спасбросок" />
+            : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Спасбросок" />}
+          {allowOpen && <AddButton onClick={() => add(null)} disabled={hasOpen} title="+ Любой спасбросок" />}
+        </>
       }
     >
       {usedUp && rows.length > 0 && (
@@ -326,7 +338,7 @@ export function SavingThrowEffectsEditor({ rows = [], onChange, onHide, onOpenPi
       {rows.map((row, i) => (
         <RowShell key={i} onRemove={() => onChange(rows.filter((_, j) => j !== i))}>
           <span className="min-w-0 self-center truncate text-sm text-stone-200">
-            {abilityLabels[row.ability] ?? row.ability}
+            {row.ability == null ? 'Любой на выбор' : abilityLabels[row.ability] ?? row.ability}
           </span>
           <BlankSlot />
           <BlankSlot />
@@ -461,28 +473,89 @@ function FilterCheckbox({ checked, onChange, children }) {
 
 const toggleIn = (list = [], value) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
 
+// Короткое описание фильтра до сохранения (summary с бэка сбрасывается
+// первой же правкой): уровни, флаги, школы, классы.
+function draftFilterText(row, classes) {
+  const levels = [row.min_level, row.max_level].map((level) => (level ? spellLevelLabels[level] : '…'))
+  const classNames = (row.class_ids ?? []).map((id) => classes.find((c) => c.id === id)?.name ?? `#${id}`)
+  return [
+    row.min_level || row.max_level ? `уровень: ${levels.join(' – ')}` : null,
+    row.castable_only ? 'если есть ячейки' : null,
+    row.ritual_only ? 'ритуал' : null,
+    (row.schools ?? []).length ? `школа: ${row.schools.map((s) => spellSchoolLabels[s]).join(', ')}` : null,
+    classNames.length ? `классы: ${classNames.join(', ')}` : null,
+  ]
+    .filter(Boolean)
+    .join('; ')
+}
+
+// Окно под панелью фильтра — панель эффектов (Drawer) или модалка; фильтр на 50px уже.
+const FILTER_POPUP_INSET = 50
+const parentPanelWidth = (el) => {
+  const panel = el?.closest('.ui-drawer') ?? el?.closest('[role="dialog"]')?.firstElementChild
+  return panel ? Math.max(280, panel.getBoundingClientRect().width - FILTER_POPUP_INSET) : null
+}
+
 // «Любое заклинание на выбор» — пустая ячейка, которую игрок заполнит сам,
-// когда будет выбирать вариант. Фильтр сужает, что можно выбрать; пустой
+// когда будет выбирать вариант. В строке — описание фильтра и кнопка
+// «Настройки», сам фильтр — в панели справа поверх редактора. Пустой
 // фильтр — любое заклинание из справочника (кроме уже известных персонажу).
 function OpenSpellRow({ row, onChange, onRemove, classes }) {
+  const rowRef = useRef(null)
+  const [popupWidth, setPopupWidth] = useState(null)
+  const open = popupWidth !== null
   // Сохранённая строка несёт summary (текст условий с бэка); любая правка
-  // его сбрасывает — дальше видны только выбранные сейчас условия.
+  // его сбрасывает — дальше видно описание текущего черновика.
   const set = (patch) => onChange({ ...row, ...patch, summary: undefined })
-  const summaryText = (row.summary ?? []).join('; ')
+  const summaryText = row.summary ? row.summary.join('; ') : draftFilterText(row, classes)
   const inverted = spellLevelRangeInverted(row)
 
   return (
-    <div className="space-y-3 rounded-lg border border-ember/40 bg-ember/5 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-stone-100">Любое заклинание на выбор</p>
-          {summaryText && <p className="mt-0.5 text-xs text-stone-400">{summaryText}</p>}
-        </div>
-        <button type="button" onClick={onRemove} className="catalog-delete-button" title="Удалить">
-          <TrashIcon />
-        </button>
+    <div ref={rowRef} className="flex items-start gap-2 rounded-lg border border-ember/40 bg-ember/5 p-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-stone-100">Любое заклинание на выбор</p>
+        <p className={`mt-0.5 text-xs ${inverted ? 'text-red-300' : 'text-stone-400'}`}>
+          {inverted ? '«От» не может быть выше «до» — откройте настройки.' : summaryText || 'Без ограничений'}
+        </p>
       </div>
+      <Button type="button" variant="ghost" size="xs" onClick={() => setPopupWidth(parentPanelWidth(rowRef.current) ?? 0)}>
+        Настройки
+      </Button>
+      <button type="button" onClick={onRemove} className="catalog-delete-button" title="Удалить">
+        <TrashIcon />
+      </button>
+      {open && (
+        <OpenSpellFilterPopup
+          row={row}
+          set={set}
+          classes={classes}
+          inverted={inverted}
+          width={popupWidth || null}
+          onClose={() => setPopupWidth(null)}
+        />
+      )}
+    </div>
+  )
+}
 
+// Фильтр «любого заклинания» — выезжающая справа панель, как фильтры каталога
+// заклинаний, поверх панели эффектов. Esc закрывает только её (стек Drawer).
+function OpenSpellFilterPopup({ row, set, classes, inverted, width, onClose }) {
+  return (
+    <Drawer
+      title="Любое заклинание на выбор"
+      subtitle="Что игрок сможет выбрать"
+      onClose={onClose}
+      width={width}
+      className="catalog-nested-drawer"
+      bodyClassName="space-y-4"
+      closeLabel="Закрыть настройки"
+      footer={
+        <Button type="button" onClick={onClose} disabled={inverted}>
+          Готово
+        </Button>
+      }
+    >
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="text-xs text-stone-400">
           <span className="mb-1 block">Уровень от</span>
@@ -548,7 +621,7 @@ function OpenSpellRow({ row, onChange, onRemove, classes }) {
           {classes.length === 0 && <span className="text-xs text-stone-500">Загрузка классов…</span>}
         </div>
       </div>
-    </div>
+    </Drawer>
   )
 }
 

@@ -1,6 +1,14 @@
 import { catalogApi as api } from '../../api.js'
 import { normalizeEffectsTree, syncFeatureEffects } from '@/lib/utils/featureEffects.js'
 import { toNum, toStr } from './shared.js'
+import { normalizeScaling, scalingError } from '@/lib/utils/featureScaling.js'
+
+// Черновик растущей строки при создании: невалидный — ошибка вместо молчаливого пропуска.
+export function creationScaling(form, levelKey) {
+  const error = scalingError(form.scaling, toNum(form[levelKey]))
+  if (error) throw new Error(`Растёт с уровнем: ${error}`)
+  return normalizeScaling(form.scaling)
+}
 
 export const featuresCfg = {
   singular: 'особенность',
@@ -18,13 +26,14 @@ export const featuresCfg = {
     },
   ],
   sections: [
+    { type: 'scaling', key: 'scaling', levelKey: 'level' },
     {
       type: 'effectsTree',
       key: 'effects',
       label: 'Эффекты и группы выбора',
     },
   ],
-  emptyForm: () => ({ name: '', level: '', description: '', effects_summary: '', effects: normalizeEffectsTree() }),
+  emptyForm: () => ({ name: '', level: '', description: '', effects_summary: '', scaling: null, effects: normalizeEffectsTree() }),
   fromRecord: (r) => ({
     name: r.name,
     level: toStr(r.level),
@@ -43,7 +52,7 @@ export const featuresCfg = {
       // source_type обязателен у FeatureCreate: самостоятельная особенность
       // справочника ничьей частью не является — OTHER (тем же фильтром она
       // потом и ищется, см. listParams).
-      const created = await api.features.create({ ...base, source_type: 'OTHER' })
+      const created = await api.features.create({ ...base, source_type: 'OTHER', scaling: creationScaling(form, 'level') })
       await syncFeatureEffects(api.features, created.id, normalizeEffectsTree(), effects)
       return created
     }

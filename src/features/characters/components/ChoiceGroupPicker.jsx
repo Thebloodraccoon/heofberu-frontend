@@ -6,11 +6,13 @@ import { describeEffectBundle } from '@/lib/utils/effectBundle.js'
 import { useState } from 'react'
 import { ExpandToggle, SpellDetailFetched } from './SpellQuickView.jsx'
 import {
+  OpenAbilityPicks,
   OpenSkillPicks,
   OpenSpellPicks,
   groupComplete,
   isOptionAvailable,
   isOptionPicked,
+  optionNeedsAbility,
   optionNeedsSkill,
   optionNeedsSpell,
   toggleOption,
@@ -212,6 +214,8 @@ export function ChoiceGroupPicker({ group, list, onChange, catalogs, takenSpellI
               />
             ) : selected && needsSpell ? (
               <OpenSpellPicks group={group} option={option} list={list} takenSpellIds={takenSpellIds} onChange={onChange} />
+            ) : selected && optionNeedsAbility(option) ? (
+              <OpenAbilityPicks group={group} option={option} list={list} onChange={onChange} />
             ) : null
           return (
             <ChoiceCard

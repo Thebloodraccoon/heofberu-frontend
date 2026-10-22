@@ -11,11 +11,14 @@ import { describeOpenSpell } from '@/lib/utils/spellFilter.js'
 // httpClient раскладывает в шесть плоских *_effects) — общее для модалки «Выборы» (ожидающие) и секции «Выборы
 // способностей» на листе персонажа (уже отвеченные).
 
+// Отвеченный выбор несёт picked_ability — характеристику, названную для
+// открытого варианта: подставляем её вместо «любая на выбор».
 function bundleRows(bundle) {
+  const picked = (r) => (r.ability == null && bundle.picked_ability ? { ...r, ability: bundle.picked_ability } : r)
   return [
-    ...(bundle.ability_effects ?? []).map((r) => ({ type: 'ability', r })),
+    ...(bundle.ability_effects ?? []).map((r) => ({ type: 'ability', r: picked(r) })),
     ...(bundle.skill_effects ?? []).map((r) => ({ type: 'skill', r })),
-    ...(bundle.saving_throw_effects ?? []).map((r) => ({ type: 'saving', r })),
+    ...(bundle.saving_throw_effects ?? []).map((r) => ({ type: 'saving', r: picked(r) })),
     ...(bundle.armor_effects ?? []).map((r) => ({ type: 'armor', r })),
     ...(bundle.weapon_effects ?? []).map((r) => ({ type: 'weapon', r })),
     ...(bundle.spell_effects ?? []).map((r) => ({ type: 'spell', r })),
@@ -25,7 +28,7 @@ function bundleRows(bundle) {
 function describeRow({ type, r }, { skillNames = {}, spellNames = {}, itemNames = {} } = {}) {
   switch (type) {
     case 'ability': {
-      const name = abilityLabels[r.ability] ?? r.ability
+      const name = r.ability == null ? 'любая характеристика на выбор' : (abilityLabels[r.ability] ?? r.ability)
       const amount = r.amount
       const suffix = amount != null ? ` ${amount > 0 ? '+' : ''}${amount}` : ''
       const cap = r.new_cap != null ? ` (макс. ${r.new_cap})` : ''
@@ -36,7 +39,7 @@ function describeRow({ type, r }, { skillNames = {}, spellNames = {}, itemNames 
       return `${name}${skillEffectModeSuffix[r.mode] ?? ''}`
     }
     case 'saving':
-      return abilityLabels[r.ability] ?? r.ability
+      return r.ability == null ? 'любой спасбросок на выбор' : (abilityLabels[r.ability] ?? r.ability)
     case 'armor':
       return r.item_id != null
         ? (itemNames[r.item_id] ?? `доспех #${r.item_id}`)

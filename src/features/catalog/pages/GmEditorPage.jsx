@@ -10,6 +10,8 @@ import { catalogApi as api } from '@/features/catalog/api.js'
 import { editorConfig, featurePayload, featuresFromRecord, persistFeatureEffects, sortedByLevel, subclassPayload, subracePayload, SPELL_LEVEL_KEYS } from '@/features/catalog/config/editors/index.js'
 import FeatureModal from '@/features/catalog/components/editor/FeaturesModal.jsx'
 import FeatureEffectsEditor from '@/features/catalog/components/editor/FeatureEffectsEditor.jsx'
+import CatalogScalingBlock from '@/features/catalog/components/editor/CatalogScalingBlock.jsx'
+import { toNum } from '@/features/catalog/config/editors/shared.js'
 import SubclassEditor from '@/features/catalog/components/editor/SubclassEditor.jsx'
 import SubraceEditor from '@/features/catalog/components/editor/SubraceEditor.jsx'
 import OptionsPicker from '@/features/catalog/components/editor/OptionsPicker.jsx'
@@ -1163,6 +1165,26 @@ export default function GmEditorPage() {
                           <p className="mt-1 text-xs text-stone-500">
                             {ability ? section.hint : section.chooseHint}
                           </p>
+                        </div>
+                      )
+                    }
+if (section.type === 'scaling') {
+                      // Растущая строка пишется только через /features/{id} (черта — тоже особенность).
+                      const saveScaling = async (scaling) => {
+                        const updated = await api.features.update(editing.id, { scaling })
+                        const next = updated?.scaling ?? null
+                        setEditing((e) => (e ? { ...e, scaling: next } : e))
+                        return next
+                      }
+                      return (
+                        <div key={section.key}>
+                          <CatalogScalingBlock
+                            key={editing?.id ?? 'new'}
+                            saved={editing?.scaling ?? null}
+                            minLevel={toNum(form[section.levelKey])}
+                            onSave={editing ? saveScaling : undefined}
+                            onDraftChange={editing ? undefined : (draft) => setForm((f) => ({ ...f, [section.key]: draft }))}
+                          />
                         </div>
                       )
                     }

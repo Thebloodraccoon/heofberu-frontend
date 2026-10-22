@@ -1,19 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
 import { Fragment, useState } from 'react'
 import { Button, Input, Select } from '@/components/ui'
-import { spellLevelLabels } from '@/lib/i18n/index.js'
+import { abilityLabels, spellLevelLabels } from '@/lib/i18n/index.js'
 import { spellMetaText } from '@/lib/utils/spellFilter.js'
 import { ExpandToggle, SpellDetailFetched } from './SpellQuickView.jsx'
 
 // Черновик ответов на ОДНУ группу выбора — список записей
-// { key, choice_option_id, skill_id, spell_id }. Ключ свой у каждой записи:
+// { key, choice_option_id, skill_id, spell_id, ability }. Ключ свой у каждой записи:
 // открытый вариант («любой навык на выбор») можно взять несколько раз с
 // разными навыками («два любых навыка» = один вариант, pick_count = 2),
 // поэтому одного choice_option_id для адресации записи мало.
 // Используются «Выборами» (PendingChoicesModal) через ChoiceGroupPicker.
 
 let lastKey = 0
-const newAnswer = (optionId) => ({ key: ++lastKey, choice_option_id: optionId, skill_id: null, spell_id: null })
+const newAnswer = (optionId) => ({ key: ++lastKey, choice_option_id: optionId, skill_id: null, spell_id: null, ability: null })
 
 // Навык у открытого варианта называет игрок. Ожидающие выборы несут флаг
 // needs_skill, а варианты из деталей черты (каталог) — нет: там узнаём по
@@ -24,6 +24,11 @@ export const optionNeedsSkill = (option) =>
 // То же для «любого заклинания на выбор» (заклинание без spell_id).
 export const optionNeedsSpell = (option) =>
   option.needs_spell ?? (option.spell_effects ?? []).some((effect) => effect.spell_id == null)
+
+// То же для «любой характеристики / любого спасброска на выбор» (ability: null).
+const abilityRows = (option) => [...(option.ability_effects ?? []), ...(option.saving_throw_effects ?? [])]
+export const optionNeedsAbility = (option) =>
+  option.needs_ability ?? abilityRows(option).some((effect) => effect.ability == null)
 
 // Бэк сверяет варианты навыков с остальными источниками персонажа: available:
 // false — вариант сейчас взять нельзя (экспертиза без владения, владение,
@@ -76,6 +81,7 @@ export function groupComplete(list, group) {
     if (!option) return false
     if (optionNeedsSkill(option) && (a.skill_id == null || !isAllowedSkill(option, a.skill_id))) return false
     if (optionNeedsSpell(option) && (a.spell_id == null || !isAllowedSpell(option, a.spell_id))) return false
+    if (optionNeedsAbility(option) && a.ability == null) return false
     return true
   })
 }
@@ -86,6 +92,7 @@ export const toAnswerItems = (groupId, list) =>
     choice_option_id: a.choice_option_id,
     ...(a.skill_id != null ? { skill_id: a.skill_id } : {}),
     ...(a.spell_id != null ? { spell_id: a.spell_id } : {}),
+    ...(a.ability != null ? { ability: a.ability } : {}),
   }))
 
 // Каркас выбора для открытого варианта («любой навык» / «любое заклинание»):
@@ -163,6 +170,49 @@ export function OpenSkillPicks({ group, option, list, skillsCatalog, takenSkillI
               .map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
+                </option>
+              ))}
+          </Select>
+          {remove && (
+            <Button type="button" variant="ghost" size="xs" onClick={remove}>
+              Убрать
+            </Button>
+          )}
+        </div>
+      )}
+    />
+  )
+}
+
+// Выбор характеристики для каждой записи открытого варианта («любая
+// характеристика / любой спасбросок на выбор»). Характеристику, которую вариант
+// уже называет сам или которая выбрана в другой записи, повторно не предлагаем —
+// бэк такое не примет.
+export function OpenAbilityPicks({ group, option, list, onChange }) {
+  const own = new Set(abilityRows(option).map((effect) => effect.ability).filter(Boolean))
+
+  return (
+    <OpenPickList
+      group={group}
+      option={option}
+      list={list}
+      onChange={onChange}
+      field="ability"
+      addLabel="+ Ещё характеристика"
+      className="mt-1.5 space-y-1.5"
+      renderEntry={({ entry, taken, update, remove }) => (
+        <div className="flex items-center gap-2">
+          <Select
+            className="min-w-0 flex-1"
+            value={entry.ability ?? ''}
+            onChange={(e) => update({ ability: e.target.value || null })}
+            placeholder="Выберите характеристику…"
+          >
+            {Object.entries(abilityLabels)
+              .filter(([key]) => !own.has(key) && !taken.has(key))
+              .map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
                 </option>
               ))}
           </Select>

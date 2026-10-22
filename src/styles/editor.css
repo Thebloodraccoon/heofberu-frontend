@@ -130,6 +130,8 @@
 
 /* Race editor and its side panels */
 .ui-drawer.catalog-editor-drawer { width: min(46rem, 100vw); }
+/* Вложенная панель (фильтр «любого заклинания») — поверх и панели, и модалки (z 300) редактора. */
+.ui-drawer-overlay:has(> .catalog-nested-drawer) { z-index: 310; }
 .race-editor-main { display: grid; gap: 1.5rem; align-items: start; }
 .race-editor-image { grid-row: 1; }
 .race-editor-image > div { padding: 1rem; }

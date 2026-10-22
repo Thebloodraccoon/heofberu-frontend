@@ -6,6 +6,7 @@ import {
   syncFeatureEffects,
 } from '@/lib/utils/featureEffects.js'
 import { optOptional, toNum, toStr } from './shared.js'
+import { creationScaling } from './features.js'
 
 // FeatResponse (в отличие от FeatureResponse) не присылает готовую effects_summary
 // с бэка — собираем её на клиенте из дерева эффектов тем же форматом
@@ -34,6 +35,7 @@ export const featsCfg = {
     },
   ],
   sections: [
+    { type: 'scaling', key: 'scaling', levelKey: 'min_level' },
     {
       type: 'effectsTree',
       key: 'effects',
@@ -48,8 +50,11 @@ export const featsCfg = {
     min_level: '',
     description: '',
     effects_summary: '',
+    scaling: null,
     effects: normalizeEffectsTree(),
   }),
+  // FeatResponse не несёт растущую строку — она есть у той же записи в /features.
+  enrich: async (feat) => ({ ...feat, scaling: (await api.features.get(feat.id))?.scaling ?? null }),
   fromRecord: (r) => ({
     name: r.name,
     prerequisite_ability: r.prerequisite_ability ?? '',
@@ -71,7 +76,9 @@ export const featsCfg = {
     }
     const effects = form.effects ?? { ability_effects: [] }
     if (!rec) {
+      const scaling = creationScaling(form, 'min_level')
       const created = await api.feats.create(base)
+      if (scaling) await api.features.update(created.id, { scaling })
       await syncFeatureEffects(api.feats, created.id, normalizeEffectsTree(), effects)
       return created
     }

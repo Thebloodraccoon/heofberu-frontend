@@ -185,7 +185,7 @@ export default function FeatureModal({
       }
     >
       {saveError && <ErrorBox error={saveError} />}
-      {drawer && !navigating && <EditorTabs tabs={[['description', 'Описание'], ['effects', 'Эффекты']]} value={tab} onChange={setTab} label="Разделы особенности" />}
+      {drawer && !navigating && <EditorTabs tabs={[['description', 'Описание'], ['scaling', 'Растёт с уровнем'], ['effects', 'Эффекты']]} value={tab} onChange={setTab} label="Разделы особенности" />}
       <div hidden={drawer && tab !== 'description'} className="space-y-4">
       {editing ? (
         <>
@@ -209,29 +209,6 @@ export default function FeatureModal({
           {showLevel && levelHint && <p className="text-xs text-stone-500">{levelHint}</p>}
 
           <RichTextField label="Описание" value={edit.description} onSave={patchField('description')} rows={4} />
-
-          <FeatureScalingEditor
-            value={scalingDraft}
-            onChange={setScalingDraft}
-            minLevel={edit.level}
-            actions={
-              scalingDirty && (
-                <>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setScalingDraft(toScalingDraft(edit.scaling))}>
-                    Отменить
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={saveScaling}
-                    disabled={scalingSaving || !!scalingError(scalingDraft, edit.level)}
-                  >
-                    {scalingSaving ? 'Сохраняем…' : 'Сохранить строку'}
-                  </Button>
-                </>
-              )
-            }
-          />
         </>
       ) : (
         <>
@@ -263,10 +240,32 @@ export default function FeatureModal({
           <Field label="Описание">
             <RichTextEditor value={edit.description} onChange={setField('description')} rows={4} />
           </Field>
-
-          <FeatureScalingEditor value={scalingDraft} onChange={setScalingDraft} minLevel={edit.level} />
         </>
       )}
+      </div>
+      <div hidden={drawer && tab !== 'scaling'}>
+        <FeatureScalingEditor
+          value={scalingDraft}
+          onChange={setScalingDraft}
+          minLevel={edit.level}
+          actions={
+            scalingDirty && (
+              <>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setScalingDraft(toScalingDraft(edit.scaling))}>
+                  Отменить
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={saveScaling}
+                  disabled={scalingSaving || !!scalingError(scalingDraft, edit.level)}
+                >
+                  {scalingSaving ? 'Сохраняем…' : 'Сохранить строку'}
+                </Button>
+              </>
+            )
+          }
+        />
       </div>
       <div hidden={drawer && tab !== 'effects'} className="space-y-4">
       {!navigating && summary}

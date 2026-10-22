@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 
 const drawerStack = []
 
-export default function Drawer({ title, subtitle, onClose, children, footer, bodyClassName = '', className = '', closeLabel = 'Закрыть фильтры' }) {
+// width — точная ширина в px (например, вложенная панель «на 50px уже» той, что под ней).
+export default function Drawer({ title, subtitle, onClose, children, footer, bodyClassName = '', className = '', closeLabel = 'Закрыть фильтры', width = null }) {
   const titleId = useId()
   const panelRef = useRef(null)
   const closeRef = useRef(null)
@@ -51,7 +52,7 @@ export default function Drawer({ title, subtitle, onClose, children, footer, bod
 
   return createPortal(
     <div className="ui-drawer-overlay" onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section ref={panelRef} className={`ui-drawer ${className}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <section ref={panelRef} className={`ui-drawer ${className}`} style={width ? { width } : undefined} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="ui-drawer-header">
           <div>
             <h2 id={titleId} className="heading-section">{title}</h2>
