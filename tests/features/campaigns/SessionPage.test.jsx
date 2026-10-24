@@ -4,9 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import SessionPage from '@/features/campaigns/pages/SessionPage.jsx'
 
-const state = vi.hoisted(() => ({ role: 'player', published: true, status: 'played', attendance: vi.fn() }))
+const state = vi.hoisted(() => ({ role: 'player', published: true, status: 'played', attendance: vi.fn(), remove: vi.fn() }))
 vi.mock('@/components/ToastProvider.jsx', () => ({ useToasts: () => ({ push: vi.fn() }) }))
 vi.mock('@/features/campaigns/components/SessionReviews.jsx', () => ({ default: () => <p>Отзывы стола</p> }))
+vi.mock('@/components/ui/RichTextEditor.jsx', () => ({ default: ({ value, onChange, ariaLabel }) => <textarea aria-label={ariaLabel} value={value} onChange={onChange} /> }))
 vi.mock('@/features/campaigns/components/GmPanelDrawer.jsx', () => ({ default: ({ name }) => <div>ГМ-панель: {name}</div> }))
 vi.mock('@/features/characters/queries.js', () => ({ useCharacter: () => ({ data: { current_hp: 7, max_hp: 12, temp_hp: 0 }, isLoading: false }) }))
 vi.mock('@/features/campaigns/queries.js', () => ({
@@ -16,7 +17,8 @@ vi.mock('@/features/campaigns/queries.js', () => ({
     chronicle_markdown: state.published ? 'Герои **поднялись** на маяк.' : null, attendees: [{ participation_id: 11, character_name: 'Гурн', owner: { username: 'Ария' } }],
   }, isLoading: false }),
   usePublishSession: () => ({ mutate: vi.fn() }),
-  useDeleteSession: () => ({ mutate: vi.fn(), reset: vi.fn() }),
+  useDeleteSession: () => ({ mutate: state.remove, reset: vi.fn(), isPending: false }),
+  useSaveSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSetAttendance: () => ({ mutate: state.attendance, isPending: false }),
   useFullRoster: () => ({ data: [
     { id: 11, status: 'active', owner: { username: 'Ария' }, character: { id: 42, name: 'Гурн', level: 3, class_name: 'воин' } },
@@ -66,5 +68,19 @@ describe('session page', () => {
     expect(state.attendance).toHaveBeenCalledWith({ sessionId: 7, participationIds: [11, 12] }, expect.any(Object))
     await user.click(screen.getAllByRole('button', { name: /Быстрая правка/ })[0])
     expect(screen.getByText('ГМ-панель: Гурн')).toBeVisible()
+  })
+
+  it('opens the unified session settings and confirms deletion without saving the draft', async () => {
+    state.role = 'gm'; state.published = true; state.status = 'played'
+    setup()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Настройки' }))
+    expect(screen.getByRole('dialog', { name: 'Сессия №4' })).toBeVisible()
+    await user.type(screen.getByRole('textbox', { name: 'Название' }), ' Правка')
+    await user.click(screen.getByRole('button', { name: 'Удалить сессию', exact: true }))
+    expect(screen.getByRole('alertdialog', { name: 'Удалить сессию?' })).toHaveTextContent('Несохранённые изменения будут отменены.')
+    expect(state.remove).not.toHaveBeenCalled()
+    await user.click(screen.getAllByRole('button', { name: 'Удалить сессию', exact: true }).at(-1))
+    expect(state.remove).toHaveBeenCalledWith(7, expect.any(Object))
   })
 })
