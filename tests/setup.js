@@ -27,6 +27,12 @@ if (!window.matchMedia) {
 
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || vi.fn()
 
+// jsdom не реализует верхний слой и методы HTML dialog; фокус проверяет сам компонент.
+if (!HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true }
+  HTMLDialogElement.prototype.close = function () { this.open = false }
+}
+
 // jsdom не реализует эти DOM-геометрические API — нужны ProseMirror-редактору
 // (RichTextEditor) для определения позиции клика/курсора внутри contenteditable.
 if (!document.elementFromPoint) {

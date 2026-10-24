@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./base.css";
 @import "./components.css";
+@import "./datetime.css";
 @import "./guide.css";
 @import "./sheet.css";
 @import "./catalog.css";

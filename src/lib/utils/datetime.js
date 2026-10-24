@@ -1,5 +1,5 @@
 // Время сессий и прочих меток кампаний. Бэк хранит `timestamptz` и время без смещения считает UTC,
-// а `<input type="datetime-local">` отдаёт локальное время без зоны — поэтому всё, что уходит на сервер,
+// а поле выбора даты отдаёт местное время без зоны — поэтому всё, что уходит на сервер,
 // переводим в ISO с `Z`, а пришедшее ISO — обратно в локальное значение поля.
 
 const pad = (value) => String(value).padStart(2, '0')
@@ -11,7 +11,7 @@ export function toApiDateTime(localValue) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
-// ISO с сервера → значение для `datetime-local` в часовом поясе браузера; null → ''.
+// ISO с сервера → местное значение YYYY-MM-DDTHH:mm в часовом поясе браузера; null → ''.
 export function toLocalInputValue(iso) {
   if (!iso) return ''
   const date = new Date(iso)
