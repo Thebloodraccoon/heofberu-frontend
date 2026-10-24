@@ -74,10 +74,13 @@ export const tagsApi = {
   remove: (id) => request(`/tags/${id}`, { method: 'DELETE' }),
 }
 
+// Типы статей лора (фильтры, редактор статей). Квесты и сессии сюда не входят: это материалы
+// конкретной публичной кампании — пишутся и подвязываются на странице её базы знаний (/public-campaigns/:slug/knowledge).
 export const ARTICLE_TYPES = [
   'lore', 'region', 'location', 'faction', 'npc', 'event', 'artifact',
-  'deity', 'religion', 'creature', 'culture', 'language', 'document', 'condition', 'quest', 'session',
+  'deity', 'religion', 'creature', 'culture', 'language', 'document', 'condition',
 ]
+export const CAMPAIGN_ARTICLE_TYPES = ['quest', 'session']
 export const ARTICLE_STATUSES = ['draft', 'in_review', 'published', 'archived']
 export const ARTICLE_VISIBILITY = ['public', 'gm_only']
 
@@ -97,8 +100,11 @@ export const legacyArticleId = (param) => {
 }
 
 // Править статью может её автор или основатель; чужую ГМ только читает (и смотрит историю).
-export const canEditArticle = (article, user, isFounder) =>
-  !!isFounder || (article?.author?.id != null && user?.id != null && String(article.author.id) === String(user.id))
+// Квест и сессия — вики ГМ: их правит любой ГМ напрямую (без предложений и статусов, status у них null).
+export const canEditArticle = (article, user, isFounder, isGM = false) =>
+  !!isFounder
+  || (!!isGM && CAMPAIGN_ARTICLE_TYPES.includes(article?.article_type))
+  || (article?.author?.id != null && user?.id != null && String(article.author.id) === String(user.id))
 
 // Игрок видит только опубликованные публичные статьи; краткие карточки не содержат этих полей.
 export const isPublicArticle = (a) => a?.status === 'published' && a?.visibility === 'public'

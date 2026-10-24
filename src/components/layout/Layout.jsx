@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth.js'
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher.jsx'
 
@@ -17,12 +17,15 @@ const catalogLinks = [
 const personalLinks = [
   { to: '/profile', label: 'Профиль' },
   { to: '/characters', label: 'Мои персонажи' },
+  { to: '/campaigns', label: 'Мои игры' },
+  { to: '/schedule', label: 'Расписание' },
 ]
 
 const gmLinks = [
+  { to: '/gm/public-campaigns', label: 'Редактор публичных кампаний' },
   { to: '/gm/articles', label: 'Редактор статей и тегов' },
   { to: '/gm/editor', label: 'Редактор справочников' },
-  { to: '/gm/characters', label: 'Персонажи игроков' },
+  { to: '/gm/campaigns', label: 'Игровые столы' },
 ]
 
 const founderLinks = [{ to: '/users', label: 'Админ-панель' }]
@@ -66,6 +69,7 @@ function SidebarContent({ onClick }) {
       <SidebarLink to="/" end label="Главная" onClick={onClick} />
       <SidebarLink to="/guide" label="Руководство" onClick={onClick} />
       <SidebarLink to="/lore" label="Лор" onClick={onClick} />
+      <SidebarLink to="/public-campaigns" label="Кампании" onClick={onClick} />
 
       <SectionTitle>Справочники</SectionTitle>
       {catalogLinks.map((l) => (
@@ -97,6 +101,8 @@ function SidebarContent({ onClick }) {
 }
 
 function DesktopNavItem({ label, to, children }) {
+  const { pathname } = useLocation()
+  const isGroupActive = children?.some((item) => matchPath({ path: item.to, end: false }, pathname)) ?? false
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const triggerRef = useRef(null)
@@ -145,7 +151,8 @@ function DesktopNavItem({ label, to, children }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex items-center gap-1 rounded px-3 py-2 text-sm font-medium text-stone-300 transition hover:bg-stone-800/60 hover:text-stone-100"
+        aria-current={isGroupActive ? 'true' : undefined}
+        className={`flex items-center gap-1 rounded px-3 py-2 text-sm font-medium transition ${isGroupActive ? 'bg-stone-800 text-stone-100' : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'}`}
       >
         {label}
         <svg
@@ -184,6 +191,7 @@ function DesktopNav() {
     { label: 'Главная', to: '/' },
     { label: 'Руководство', to: '/guide' },
     { label: 'Лор', to: '/lore' },
+    { label: 'Кампании', to: '/public-campaigns' },
     { label: 'Справочники', children: catalogLinks },
     authenticated && { label: 'Личное', children: personalLinks },
     authenticated && isGM && { label: 'Для ГМ', children: gmLinks },

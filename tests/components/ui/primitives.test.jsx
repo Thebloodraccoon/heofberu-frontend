@@ -245,7 +245,7 @@ describe('Badge', () => {
 describe('Button', () => {
   it('renders with the primary variant by default', () => {
     const { container } = render(<Button>Жми</Button>)
-    expect(container.firstChild).toHaveClass('bg-ember')
+    expect(container.firstChild).toHaveClass('bg-action-primary')
   })
 })
 

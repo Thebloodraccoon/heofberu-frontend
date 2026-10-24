@@ -6,6 +6,7 @@ import {
   articlePath,
   articlesApi,
   ARTICLE_TYPES,
+  CAMPAIGN_ARTICLE_TYPES,
   ARTICLE_VISIBILITY,
   canEditArticle,
   validateImageFile,
@@ -182,7 +183,7 @@ export default function GmArticlesPage() {
                       <span className="lore-article-type">{articleTypeLabels[a.article_type] ?? a.article_type}</span>
                       {a.subtype && <><span className="text-stone-500" aria-hidden="true">·</span><span className="lore-article-subtype">{a.subtype.name}</span></>}
                     </span>
-                    <Badge tone={a.status === 'published' ? 'good' : a.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>
+                    {a.status && <Badge tone={a.status === 'published' ? 'good' : a.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[a.status] ?? a.status}</Badge>}
                     {a.visibility === 'gm_only' && <GmOnlyBadge />}
 
                   </span>
@@ -279,7 +280,7 @@ function ArticleWorkflow({ status, saveStatus, onAction }) {
     <section className="article-workflow" aria-label="Статус статьи">
       <h3 className="article-editor-label">Статус</h3>
       <div className="article-workflow-state">
-        <Badge tone={status === 'published' ? 'good' : status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[status] ?? status}</Badge>
+        {status && <Badge tone={status === 'published' ? 'good' : status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[status] ?? status}</Badge>}
         <SaveStatus compact status={saveStatus} />
       </div>
       <p className="text-xs text-stone-500">{WORKFLOW_HINTS[status]}</p>
@@ -297,7 +298,7 @@ function ArticleWorkflow({ status, saveStatus, onAction }) {
   )
 }
 
-function EditorSettings({ children }) {
+function EditorSettings({ children, title = 'Параметры статьи' }) {
   const [mobile, setMobile] = useState(() => window.matchMedia?.('(max-width: 900px)').matches ?? false)
   const [open, setOpen] = useState(false)
   useEffect(() => {
@@ -309,12 +310,12 @@ function EditorSettings({ children }) {
   }, [])
   return mobile ? (
     <div className="article-editor-settings-toggle">
-      <Button variant="ghost" onClick={() => setOpen(true)}>Параметры статьи</Button>
-      {open && <Drawer title="Параметры статьи" closeLabel="Закрыть параметры" onClose={() => setOpen(false)}><div className="article-editor-parameters">{children}</div></Drawer>}
+      <Button variant="ghost" onClick={() => setOpen(true)}>{title}</Button>
+      {open && <Drawer title={title} closeLabel="Закрыть параметры" onClose={() => setOpen(false)}><div className="article-editor-parameters">{children}</div></Drawer>}
     </div>
   ) : (
-    <aside className="article-editor-settings article-editor-parameters" aria-label="Параметры статьи">
-      <h3 className="article-editor-label mb-5">Параметры статьи</h3>
+    <aside className="article-editor-settings article-editor-parameters" aria-label={title}>
+      <h3 className="article-editor-label mb-5">{title}</h3>
       {children}
     </aside>
   )
@@ -349,7 +350,7 @@ function ArticleFacts({ article, values }) {
   return (
     <FactList>
       <AuthorRow article={article} />
-      <FactRow label="Статус" value={articleStatusLabels[values.status] ?? values.status} />
+      {values.status && <FactRow label="Статус" value={articleStatusLabels[values.status] ?? values.status} />}
       <FactRow label="Тип" value={articleTypeLabels[values.article_type] ?? values.article_type} />
       <FactRow label="Подтип" value={article.subtype?.name ?? '—'} />
       <FactRow label="Видимость" value={articleVisibilityLabels[values.visibility] ?? values.visibility} />
@@ -389,13 +390,16 @@ function ArticleForm({ article, ...props }) {
 }
 
 // Выпадающие списки общие для создания и правки; onChange(patch) решает, что с ними делать.
-function ArticleSelects({ values, articleId, onChange, disabled = false, statuses }) {
+const settingsTitle = (type) => type === 'quest' ? 'Параметры квеста' : type === 'session' ? 'Параметры сессии' : 'Параметры статьи'
+
+// Тип квеста и сессии фиксируется при создании; в базе знаний нет видимости и родителя.
+function ArticleSelects({ values, articleId, onChange, disabled = false, statuses, campaignMaterial = false }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       <div className="space-y-2">
       <Field label="Тип">
-        <Select value={values.article_type} disabled={disabled || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value, ...(values.subtype_id ? { subtype_id: null } : {}) }, 'Тип')}>
-          {ARTICLE_TYPES.map((t) => (
+        <Select value={values.article_type} disabled={disabled || CAMPAIGN_ARTICLE_TYPES.includes(values.article_type) || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value, ...(values.subtype_id ? { subtype_id: null } : {}) }, 'Тип')}>
+          {(campaignMaterial ? CAMPAIGN_ARTICLE_TYPES : ARTICLE_TYPES).map((t) => (
             <option key={t} value={t}>
               {articleTypeLabels[t]}
             </option>
@@ -406,7 +410,7 @@ function ArticleSelects({ values, articleId, onChange, disabled = false, statuse
       <SubtypeSelect articleType={values.article_type} value={values.subtype_id} disabled={disabled || statuses?.subtype_id?.state === 'saving'} onChange={(id) => onChange({ subtype_id: id })} />
       {statuses && <SaveStatus status={statuses.subtype_id} />}
       </div>
-      <Field label="Видимость">
+      {!campaignMaterial && <><Field label="Видимость">
         <Select
           value={values.visibility}
           disabled={disabled || statuses?.visibility?.state === 'saving'}
@@ -423,16 +427,25 @@ function ArticleSelects({ values, articleId, onChange, disabled = false, statuse
       <div>
         <ParentArticlePicker articleId={articleId} value={values.parent_id} disabled={disabled || statuses?.parent_id?.state === 'saving'} onChange={(id) => onChange({ parent_id: id }, 'Родительская статья')} />
         {statuses && <SaveStatus status={statuses.parent_id} />}
-      </div>
+      </div></>}
     </div>
   )
 }
 
+const MATERIAL_EMPTY = { ...EMPTY, article_type: 'quest', visibility: 'gm_only' }
+const MATERIAL_TABS = ['Текст', 'Изображения', 'Предложения', 'История']
+
 // Новая статья — обычная форма и одна кнопка «Создать статью»; дальше она открывается
 // в режиме правки (ArticleEditForm), где каждое поле сохраняется само.
-function ArticleCreateForm({ onSaved, toasts }) {
-  const [form, setForm] = useState(EMPTY)
+// campaignMaterial — квест или сессия для базы знаний кампании: раскладка как у ArticleEditForm (шапка с названием,
+// вкладки — до создания доступен только «Текст»), без краткого описания и тегов, видна только ГМ;
+// afterTitle — что показать под названием (пометка), onCancel — кнопка «Отмена».
+export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, afterTitle = null, onCancel, initialArticleType = 'quest', ignoreNavigation, extraDirty = false }) {
+  const [form, setForm] = useState(campaignMaterial ? { ...MATERIAL_EMPTY, article_type: initialArticleType === 'session' ? 'session' : 'quest' } : EMPTY)
   const [creating, setCreating] = useState(false)
+  // Статья создана: форма ждёт, пока родитель уведёт на неё (в базе знаний — после подвязки к кампании),
+  // и защита несохранённой правки больше не нужна.
+  const [created, setCreated] = useState(false)
   const [error, setError] = useState(null)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
   const titleOk = Boolean(form.title.trim())
@@ -448,7 +461,8 @@ function ArticleCreateForm({ onSaved, toasts }) {
           form.tags.map((t) => t.id),
         )
       }
-      toasts.push('Статья создана', saved.title, 'success')
+      toasts.push(campaignMaterial ? `${articleTypeLabels[saved.article_type]}: создано` : 'Статья создана', saved.title, 'success')
+      setCreated(true)
       onSaved?.(saved)
     } catch (e) {
       setError(e)
@@ -459,17 +473,23 @@ function ArticleCreateForm({ onSaved, toasts }) {
 
   return (
     <section className="article-editor">
-      {/* creating: после «Создать» форма сама уходит на новую статью — это не потеря правки */}
-      <UnsavedGuard when={!creating && Boolean(form.title.trim() || form.excerpt.trim() || form.body_markdown.trim())} />
-      <h2 className="font-display text-xl font-bold text-stone-100">Новая статья</h2>
+      {/* creating/created: после «Создать» форма сама уходит на новую статью — это не потеря правки */}
+      <UnsavedGuard when={!creating && !created && Boolean(extraDirty || form.title.trim() || form.excerpt.trim() || form.body_markdown.trim())} ignoreNavigation={ignoreNavigation} />
+      {!campaignMaterial && <h2 className="font-display text-xl font-bold text-stone-100">Новая статья</h2>}
       <div className="article-editor-layout">
       <div className="article-editor-main space-y-5">
+        {campaignMaterial && (
+          <div className="article-editor-tabs article-editor-tabs--static" aria-label="Разделы редактора">
+            {MATERIAL_TABS.map((label, index) => <button key={label} type="button" aria-pressed={index === 0} disabled={index > 0} title={index > 0 ? 'Доступно после создания' : undefined}>{label}</button>)}
+          </div>
+        )}
         <Field label="Название">
-          <Input value={form.title} maxLength={200} onChange={(e) => set({ title: e.target.value })} />
+          <Input value={form.title} maxLength={200} autoFocus={campaignMaterial} onChange={(e) => set({ title: e.target.value })} placeholder={campaignMaterial ? 'Например, «Пропавший смотритель»' : undefined} />
         </Field>
-      <Field label="Краткое описание">
+      {afterTitle}
+      {!campaignMaterial && <Field label="Краткое описание">
         <Input value={form.excerpt} maxLength={500} onChange={(e) => set({ excerpt: e.target.value })} />
-      </Field>
+      </Field>}
       <div className="space-y-1.5">
         <span className="text-label">Текст (Markdown)</span>
         <RichTextEditor
@@ -478,24 +498,25 @@ function ArticleCreateForm({ onSaved, toasts }) {
           extraTools={[SECRET_TOOL]}
           rows={12}
           ariaLabel="Текст статьи"
-          placeholder="Пишите статью…"
+          placeholder={campaignMaterial ? 'Завязка, сцены, развилки…' : 'Пишите статью…'}
         />
         <SecretHint />
         <p className="text-xs text-stone-500">Загружать картинки можно после создания статьи.</p>
       </div>
       </div>
-      <EditorSettings>
+      <EditorSettings title={settingsTitle(form.article_type)}>
         <div className="space-y-3">
-      <ArticleSelects values={form} onChange={(patch) => set(patch)} />
-      <TagInput value={form.tags} onChange={(tags) => set({ tags })} />
+      <ArticleSelects values={form} onChange={(patch) => set(patch)} campaignMaterial={campaignMaterial} />
+      {campaignMaterial ? <p className="text-xs text-stone-500">Квест или сессию видят только ГМ.</p> : <TagInput value={form.tags} onChange={(tags) => set({ tags })} />}
         </div>
       </EditorSettings>
       </div>
       {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
       <div className="article-editor-save flex flex-wrap items-center gap-3">
-        <Button disabled={creating || !titleOk} onClick={create}>
-          {creating ? 'Создаём…' : 'Создать статью'}
+        <Button disabled={creating || created || !titleOk} onClick={create}>
+          {created && campaignMaterial ? 'Добавляем…' : creating || created ? 'Создаём…' : campaignMaterial ? 'Создать и добавить' : 'Создать статью'}
         </Button>
+        {campaignMaterial && onCancel && <Button variant="ghost" disabled={creating || created} onClick={onCancel}>Отмена</Button>}
         {!titleOk && <span className="text-xs text-stone-500">Сначала введите название.</span>}
       </div>
     </section>
@@ -506,12 +527,18 @@ function ArticleCreateForm({ onSaved, toasts }) {
 // Текстовые поля — «Изменить» → «Сохранить» (PATCH только этого поля); списки и теги
 // сохраняются сразу при изменении. Все запросы идут по очереди (queueRef), чтобы
 // ответы не приходили вперемешку, а на экране — последнее выбранное значение.
-function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts }) {
-  const { user, isFounder } = useAuth()
-  const canEdit = canEditArticle(article, user, isFounder)
+// Экспортируется для базы знаний публичной кампании: там квест/сессия правится этим же конструктором
+// (campaignMaterial) — без связей, статуса, видимости, родителя и тегов, тип — только квест или сессия.
+// afterTitle — что показать сразу под названием (база знаний кампании ставит туда пометку к статье),
+// headingActions — дополнительные действия материала; в базе знаний показаны в параметрах рядом с «Удалить».
+export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts, campaignMaterial = false, afterTitle = null, headingActions = null, ignoreNavigation }) {
+  const { user, isFounder, isGM } = useAuth()
+  const canEdit = canEditArticle(article, user, isFounder, isGM)
   // Основатель правит любую статью напрямую, но к чужой может и предложить правку — пусть решает автор.
+  // Квест и сессию правят напрямую все ГМ: предложение к ним бэк отклоняет (409).
   const isAuthor = article.author?.id != null && String(article.author.id) === String(user?.id)
-  const founderMayPropose = isFounder && !isAuthor
+  const material = campaignMaterial || CAMPAIGN_ARTICLE_TYPES.includes(article.article_type)
+  const founderMayPropose = isFounder && !isAuthor && !material
   const { statuses, run, clear } = useSaveStatus()
   const [values, setValues] = useState(() => fromArticle(article))
   // Версия содержимого, которую сейчас показывает форма: уходит в publish (проверка «основатель читал именно её»)
@@ -727,16 +754,19 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
 
   return (
     <section className="article-editor">
-      <UnsavedGuard when={bodyEdit && bodyDraft !== values.body_markdown} />
-      <div className="article-editor-heading">
+      <UnsavedGuard when={bodyEdit && bodyDraft !== values.body_markdown} ignoreNavigation={ignoreNavigation} />
+      {!campaignMaterial && <div className="article-editor-heading">
         <h2 className="min-w-0 font-display text-xl font-bold text-stone-100">
           {values.title}
         </h2>
-        <div className="flex items-center gap-3">
-          <Badge tone={values.status === 'published' ? 'good' : values.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[values.status]}</Badge>
-          <ArticleActions article={article} canDelete={isFounder} onDelete={() => setConfirmDelete(true)} />
-        </div>
-      </div>
+        {/* У квеста и сессии нет статусов и места в лоре: вместо статуса и меню — сразу «Удалить» (удаляет только основатель). */}
+        {material
+          ? <div className="flex items-center gap-2">{headingActions}{isFounder && <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}><LoreIcon name="trash" />Удалить</Button>}</div>
+          : <div className="flex items-center gap-3">
+            <Badge tone={values.status === 'published' ? 'good' : values.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[values.status]}</Badge>
+            <ArticleActions article={article} canDelete={isFounder} onDelete={() => setConfirmDelete(true)} />
+          </div>}
+      </div>}
 
       {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
       {pendingCount > 0 && activePanel !== 'proposals' && (
@@ -754,10 +784,10 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
         {[
           ['text', 'Текст'],
           ['images', 'Изображения'],
-          ['relations', 'Связи'],
+          !campaignMaterial && ['relations', 'Связи'],
           ['proposals', pendingCount ? `Предложения (${pendingCount})` : 'Предложения'],
           ['history', 'История'],
-        ].map(([key, label]) => (
+        ].filter(Boolean).map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -779,7 +809,8 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
         {proposing ? proposalForm : (
           <>
             <ReadOnlyField label="Название">{values.title}</ReadOnlyField>
-            <ReadOnlyField label="Краткое описание">{values.excerpt}</ReadOnlyField>
+            {afterTitle}
+            {!material && <ReadOnlyField label="Краткое описание">{values.excerpt}</ReadOnlyField>}
             <ReadOnlyField label="Текст">{values.body_markdown && <ArticleText value={values.body_markdown} />}</ReadOnlyField>
           </>
         )}
@@ -802,7 +833,8 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
         </div>
       )}
       <TextField label="Название" value={values.title} onSave={(draft) => saveText('title', draft)} />
-      <TextField label="Краткое описание" value={values.excerpt} onSave={(draft) => saveText('excerpt', draft)} />
+      {afterTitle}
+      {!material && <TextField label="Краткое описание" value={values.excerpt} onSave={(draft) => saveText('excerpt', draft)} />}
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
@@ -863,9 +895,9 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       />
 
       </div>
-      <div hidden={activePanel !== 'relations'} className="article-editor-panel">
+      {!campaignMaterial && <div hidden={activePanel !== 'relations'} className="article-editor-panel">
       <ArticleRelations articleId={article.id} articleTitle={values.title} readOnly={!canEdit} />
-      </div>
+      </div>}
       <div hidden={activePanel !== 'proposals'} className="article-editor-panel">
         {activePanel === 'proposals' && (
           <ArticleProposals articleId={article.id} canReview={canEdit} onAccepted={(saved) => onRestored(saved, 'Предложение принято')} />
@@ -877,17 +909,18 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
         )}
       </div>
       </div>
-      {canEdit && <EditorSettings>
+      {canEdit && <EditorSettings title={settingsTitle(values.article_type)}>
         <div className="space-y-3">
           <ul><AuthorRow article={article} /></ul>
-          <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />
-          <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} />
-          <TagInput value={values.tags} onChange={saveTags} />
-          <SaveStatus status={statuses.tags} />
-          <p className="text-xs text-stone-500">Параметры и теги сохраняются сразу. Для текста используйте кнопку «Сохранить».</p>
+          {!material && <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />}
+          <ArticleSelects values={values} articleId={article.id} onChange={saveNow} statuses={statuses} campaignMaterial={campaignMaterial} />
+          {!campaignMaterial && <><TagInput value={values.tags} onChange={saveTags} />
+          <SaveStatus status={statuses.tags} /></>}
+          <p className="text-xs text-stone-500">{campaignMaterial ? 'Параметры сохраняются сразу.' : 'Параметры и теги сохраняются сразу.'} Для текста используйте кнопку «Сохранить».</p>
+          {campaignMaterial && <div className="flex flex-wrap items-center gap-2">{headingActions}{isFounder && <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}><LoreIcon name="trash" />Удалить</Button>}</div>}
         </div>
       </EditorSettings>}
-      {!canEdit && <EditorSettings><ArticleFacts article={article} values={values} /></EditorSettings>}
+      {!canEdit && <EditorSettings title={settingsTitle(values.article_type)}><ArticleFacts article={article} values={values} /></EditorSettings>}
       </div>
 
       {imagePicker && (
@@ -906,7 +939,7 @@ function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts 
       {confirmDelete && (
         <ConfirmDialog
           title="Удалить статью?"
-          message={`«${values.title}» будет удалена. Дочерние статьи останутся без родителя.`}
+          message={material ? `«${values.title}» будет удалена насовсем — и из баз знаний всех кампаний.` : `«${values.title}» будет удалена. Дочерние статьи останутся без родителя.`}
           busy={deleting}
           onCancel={() => setConfirmDelete(false)}
           onConfirm={remove}

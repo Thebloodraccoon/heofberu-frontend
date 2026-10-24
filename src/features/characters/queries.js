@@ -15,12 +15,6 @@ export const useMyCharacters = () =>
     queryFn: () => charactersApi.listMine({ size: 100 }).then((p) => p?.items ?? []),
   })
 
-export const useAllCharacters = () =>
-  useQuery({
-    queryKey: queryKeys.characters.allCharacters,
-    queryFn: () => charactersApi.listAll({ size: 100 }).then((p) => p?.items ?? []),
-  })
-
 export const useCharacterCount = (enabled = true) =>
   useQuery({
     queryKey: ['characters', 'count'],
@@ -40,7 +34,11 @@ export const useDeleteCharacter = () => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id) => charactersApi.remove(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.all }),
+    // Удалённый персонаж уходит и из составов кампаний (каскад на бэке).
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.all })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.campaigns.all })
+    },
   })
 }
 

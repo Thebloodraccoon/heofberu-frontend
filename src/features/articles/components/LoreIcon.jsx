@@ -1,4 +1,8 @@
 const paths = {
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  archive: 'M3 4h18v4H3V4ZM5 8v12h14V8M10 12h4',
+  unpublish: 'M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5',
+  copy: 'M8 8h12v13H8V8ZM16 8V3H3v13h5',
   dice: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM7 7h.01M17 7h.01M12 12h.01M7 17h.01M17 17h.01',
   settings: 'M4 7h16M4 17h16M8 4v6M16 14v6',
   levelUp: 'M12 20V4m-6 6 6-6 6 6',
@@ -10,6 +14,7 @@ const paths = {
   filter: 'M4 7h16M7 12h10M10 17h4',
   sort: 'M4 6h10M4 12h7M4 18h4M19 6v12m-3-3 3 3 3-3',
   eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Zm13 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
+  eyeOff: 'm3 3 18 18M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3M9.9 9.9a3 3 0 0 0 4.2 4.2',
   arrow: 'M5 12h14m-6-6 6 6-6 6',
   back: 'M19 12H5m6-6-6 6 6 6',
   close: 'm6 6 12 12M18 6 6 18',
@@ -21,6 +26,8 @@ const paths = {
   star: 'm12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9L12 3Z',
   pin: 'M12 17v5M9 3h6M9 3v5l-3 4v4h12v-4l-3-4V3M6 16h12',
   history: 'M3 12a9 9 0 1 0 3-6.7M3 3v6h6M12 7v5l3 2',
+  flag: 'M5 21V4m0 0h12l-2.5 4.5L17 13H5',
+  calendar: 'M4 6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6ZM4 10h16M8 3v4M16 3v4',
 }
 
 export default function LoreIcon({ name, className = '' }) {

@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
-import GmArticlesPage from '@/features/articles/pages/GmArticlesPage.jsx'
+import GmArticlesPage, { ArticleEditForm } from '@/features/articles/pages/GmArticlesPage.jsx'
 
 const auth = vi.hoisted(() => ({ isFounder: false, userId: 5 }))
-const article = vi.hoisted(() => ({ status: 'draft', authorId: 5, version: 3 }))
+const article = vi.hoisted(() => ({ status: 'draft', authorId: 5, version: 3, type: 'lore' }))
 const transition = vi.hoisted(() => vi.fn())
 const getArticle = vi.hoisted(() => vi.fn())
 const propose = vi.hoisted(() => vi.fn())
@@ -28,7 +28,7 @@ vi.mock('@/features/articles/queries.js', () => ({
   useTagSearch: () => ({ data: { items: [{ id: 1, name: 'История' }], total: 1 } }),
   useInvalidateArticles: () => vi.fn(),
   useArticleFinder: (params) => (finder(params), { data: { items: [{ id: 1, title: 'Летопись', article_type: 'lore', status: 'draft', subtype: { id: 7, name: 'Хроника' }, author: { id: 99, username: 'Саруман' }, pending_proposals: 2 }], total: 1 } }),
-  useArticleDetail: () => ({ data: { id: 1, title: 'Летопись', article_type: 'lore', status: article.status, visibility: 'public', body_markdown: 'Исходный текст', subtype: { id: 7, name: 'Хроника' }, author: { id: article.authorId, username: article.authorId === 99 ? 'Саруман' : 'Я' }, version: article.version } }),
+  useArticleDetail: () => ({ data: { id: 1, title: 'Летопись', article_type: article.type, status: article.status, visibility: 'public', body_markdown: 'Исходный текст', subtype: { id: 7, name: 'Хроника' }, author: { id: article.authorId, username: article.authorId === 99 ? 'Саруман' : 'Я' }, version: article.version } }),
   useRevisionFeed: () => ({ items: [], total: 0 }),
   useProposalFeed: () => ({ items: [], total: 0 }),
   useRevisionDiff: () => ({ data: undefined }),
@@ -63,6 +63,7 @@ afterEach(() => {
   auth.userId = 5
   article.status = 'draft'
   article.authorId = 5
+  article.type = 'lore'
   transition.mockReset()
   getArticle.mockReset()
   propose.mockReset()
@@ -70,6 +71,20 @@ afterEach(() => {
 })
 
 describe('Article editor workspace', () => {
+  it.each([['quest', 'Параметры квеста'], ['session', 'Параметры сессии']])('locks the %s type and moves material actions into its settings', (type, title) => {
+    auth.isFounder = true
+    const material = { id: 1, article_type: type, title: 'Материал кампании', body_markdown: 'Текст', author: { id: 5, username: 'Я' }, version: 1 }
+    const materialRouter = createMemoryRouter([{ path: '/', element: <ArticleEditForm article={material} campaignMaterial toasts={{ push: vi.fn() }} headingActions={<button type="button">Отвязать</button>} /> }])
+    const { container } = render(<RouterProvider router={materialRouter} />)
+    expect(container.querySelector('.article-editor-heading')).toBeNull()
+    const settings = within(screen.getByRole('complementary', { name: title }))
+    expect(settings.getByRole('button', { name: 'Тип', exact: true })).toBeDisabled()
+    expect(settings.getByRole('button', { name: 'Тип', exact: true })).toHaveTextContent(type === 'quest' ? 'Квест' : 'Сессия')
+    expect(settings.getByRole('button', { name: 'Отвязать' })).toBeVisible()
+    expect(settings.getByRole('button', { name: 'Удалить', exact: true })).toBeVisible()
+    expect(update).not.toHaveBeenCalled()
+  })
+
   it.each(['/gm/articles', '/gm/articles?id=new', '/gm/articles?id=1'])('opens and closes the writing guide from %s without losing drafts', async (url) => {
     const user = setup(url)
     if (url.endsWith('id=1')) await user.click(screen.getByRole('button', { name: 'Изменить текст статьи' }))
@@ -272,6 +287,18 @@ describe('Article editor workspace', () => {
     const user = setup()
     await user.click(screen.getByRole('button', { name: 'Опубликовать' }))
     expect(await screen.findByText('Cannot publish article 1: it is draft.')).toBeVisible()
+  })
+
+  it('lets any GM edit another GM\'s quest directly: no proposals, no status, no workflow', async () => {
+    article.authorId = 99
+    article.type = 'quest'
+    article.status = null
+    setup()
+    expect(screen.queryByText(/Эту статью написал другой ГМ/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Предложить/ })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Изменить' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('region', { name: 'Статус статьи' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Опубликовать|На ревью|В архив/ })).not.toBeInTheDocument()
   })
 
   it('makes another GM\'s article read-only but keeps its history', async () => {

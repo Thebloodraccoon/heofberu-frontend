@@ -3,6 +3,7 @@ import { EditableBlock } from '@/components/sheet/primitives.jsx'
 import { Skeleton } from '@/components/ui'
 import { charactersApi } from '@/features/characters/api.js'
 import { useBackstory } from '@/features/characters/queries.js'
+import { PLAYER_SECRET_HINT, PLAYER_SECRET_TOOL, renderPlayerSecrets } from './playerSecrets.jsx'
 
 const BACKSTORY_KEY = (id) => ['characters', Number(id), 'backstory']
 
@@ -29,6 +30,6 @@ export default function BackstoryPanel({ characterId, onError }) {
   }
 
   return (
-    <EditableBlock title="Предыстория" value={content} rows={12} onSave={save} />
+    <EditableBlock title="Предыстория" value={content} rows={12} onSave={save} extraTools={[PLAYER_SECRET_TOOL]} renderValue={renderPlayerSecrets} hint={PLAYER_SECRET_HINT} />
   )
 }

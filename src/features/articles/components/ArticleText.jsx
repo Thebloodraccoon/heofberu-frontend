@@ -3,7 +3,8 @@ import { splitGmBlocks } from '@/features/articles/secrets.js'
 import LoreIcon from './LoreIcon.jsx'
 
 // Текст статьи для ГМ в режиме чтения: блоки `:::gm … :::` — в рамке «Только для мастера», как в лоре.
-export default function ArticleText({ value, empty = 'Текст статьи пока не написан.' }) {
+// secretLabel / secretIcon — другая подпись рамки (у секретов игрока в листе персонажа).
+export default function ArticleText({ value, empty = 'Текст статьи пока не написан.', secretLabel = 'Только для мастера', secretIcon = 'eye' }) {
   const segments = splitGmBlocks(value)
   if (segments.length === 0) return <RichText value="" empty={empty} />
   return (
@@ -11,7 +12,7 @@ export default function ArticleText({ value, empty = 'Текст статьи п
       {segments.map((seg, i) =>
         seg.secret ? (
           <aside key={i} className="lore-secret">
-            <p className="lore-secret-label"><LoreIcon name="eye" /> Только для мастера</p>
+            <p className="lore-secret-label"><LoreIcon name={secretIcon} /> {secretLabel}</p>
             <RichText value={seg.text} empty="Пустой секрет." />
           </aside>
         ) : (

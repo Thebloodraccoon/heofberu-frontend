@@ -58,7 +58,7 @@ describe('articlesApi', () => {
 })
 
 describe('canEditArticle', () => {
-  it('allows the author and the founder, nobody else', () => {
+  it('allows the author and the founder; quests and sessions — any GM', () => {
     const by5 = { author: { id: 5, username: 'Астра' } }
     expect(canEditArticle(by5, { id: 5 }, false)).toBe(true)
     expect(canEditArticle(by5, { id: '5' }, false)).toBe(true)
@@ -68,5 +68,10 @@ describe('canEditArticle', () => {
     expect(canEditArticle({ author: null }, { id: 6 }, false)).toBe(false)
     expect(canEditArticle({ author: null }, { id: 6 }, true)).toBe(true)
     expect(canEditArticle(by5, null, false)).toBe(false)
+    // Квест и сессия — вики ГМ: правит любой ГМ, игрок — нет.
+    expect(canEditArticle({ ...by5, article_type: 'quest' }, { id: 6 }, false, true)).toBe(true)
+    expect(canEditArticle({ ...by5, article_type: 'session' }, { id: 6 }, false, true)).toBe(true)
+    expect(canEditArticle({ ...by5, article_type: 'quest' }, { id: 6 }, false, false)).toBe(false)
+    expect(canEditArticle({ ...by5, article_type: 'lore' }, { id: 6 }, false, true)).toBe(false)
   })
 })

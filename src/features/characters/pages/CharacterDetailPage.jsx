@@ -15,6 +15,7 @@ import {
 import { sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { STATS, mod } from '@/lib/utils/ability.js'
 import { ErrorBox, Skeleton } from '@/components/ui'
+import { toCampaignError } from '@/features/campaigns/errors.js'
 import { SheetTabs } from '@/components/sheet/primitives.jsx'
 import SheetRollToasts from '@/components/sheet/SheetRollToasts.jsx'
 import SheetHeader from '@/features/characters/components/sheet/SheetHeader.jsx'
@@ -199,7 +200,8 @@ export default function CharacterDetailPage() {
     return [...new Set(values)]
   }, [proficienciesData?.weapons, classDetail])
 
-  if (error || mutationError) return <ErrorBox error={error ?? mutationError} onRetry={load} />
+  // Чужой лист (персонаж не в кампании этого ГМ) — понятный русский текст вместо ответа бэка.
+  if (error || mutationError) return <ErrorBox error={toCampaignError(error ?? mutationError, { onlyKnown: true })} onRetry={load} />
   if (!character) {
     return (
       <div className="character-sheet" aria-busy="true" aria-label="Загрузка листа персонажа">
