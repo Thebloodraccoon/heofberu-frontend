@@ -298,7 +298,7 @@ function ArticleWorkflow({ status, saveStatus, onAction }) {
   )
 }
 
-function EditorSettings({ children }) {
+function EditorSettings({ children, title = 'Параметры статьи' }) {
   const [mobile, setMobile] = useState(() => window.matchMedia?.('(max-width: 900px)').matches ?? false)
   const [open, setOpen] = useState(false)
   useEffect(() => {
@@ -310,12 +310,12 @@ function EditorSettings({ children }) {
   }, [])
   return mobile ? (
     <div className="article-editor-settings-toggle">
-      <Button variant="ghost" onClick={() => setOpen(true)}>Параметры статьи</Button>
-      {open && <Drawer title="Параметры статьи" closeLabel="Закрыть параметры" onClose={() => setOpen(false)}><div className="article-editor-parameters">{children}</div></Drawer>}
+      <Button variant="ghost" onClick={() => setOpen(true)}>{title}</Button>
+      {open && <Drawer title={title} closeLabel="Закрыть параметры" onClose={() => setOpen(false)}><div className="article-editor-parameters">{children}</div></Drawer>}
     </div>
   ) : (
-    <aside className="article-editor-settings article-editor-parameters" aria-label="Параметры статьи">
-      <h3 className="article-editor-label mb-5">Параметры статьи</h3>
+    <aside className="article-editor-settings article-editor-parameters" aria-label={title}>
+      <h3 className="article-editor-label mb-5">{title}</h3>
       {children}
     </aside>
   )
@@ -390,13 +390,15 @@ function ArticleForm({ article, ...props }) {
 }
 
 // Выпадающие списки общие для создания и правки; onChange(patch) решает, что с ними делать.
-// campaignMaterial — квест или сессия кампании: тип только из них, без видимости и родителя.
+const settingsTitle = (type) => type === 'quest' ? 'Параметры квеста' : type === 'session' ? 'Параметры сессии' : 'Параметры статьи'
+
+// Тип квеста и сессии фиксируется при создании; в базе знаний нет видимости и родителя.
 function ArticleSelects({ values, articleId, onChange, disabled = false, statuses, campaignMaterial = false }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       <div className="space-y-2">
       <Field label="Тип">
-        <Select value={values.article_type} disabled={disabled || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value, ...(values.subtype_id ? { subtype_id: null } : {}) }, 'Тип')}>
+        <Select value={values.article_type} disabled={disabled || CAMPAIGN_ARTICLE_TYPES.includes(values.article_type) || statuses?.article_type?.state === 'saving'} onChange={(e) => onChange({ article_type: e.target.value, ...(values.subtype_id ? { subtype_id: null } : {}) }, 'Тип')}>
           {(campaignMaterial ? CAMPAIGN_ARTICLE_TYPES : ARTICLE_TYPES).map((t) => (
             <option key={t} value={t}>
               {articleTypeLabels[t]}
@@ -438,8 +440,8 @@ const MATERIAL_TABS = ['Текст', 'Изображения', 'Предложе
 // campaignMaterial — квест или сессия для базы знаний кампании: раскладка как у ArticleEditForm (шапка с названием,
 // вкладки — до создания доступен только «Текст»), без краткого описания и тегов, видна только ГМ;
 // afterTitle — что показать под названием (пометка), onCancel — кнопка «Отмена».
-export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, afterTitle = null, onCancel }) {
-  const [form, setForm] = useState(campaignMaterial ? MATERIAL_EMPTY : EMPTY)
+export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, afterTitle = null, onCancel, initialArticleType = 'quest', ignoreNavigation, extraDirty = false }) {
+  const [form, setForm] = useState(campaignMaterial ? { ...MATERIAL_EMPTY, article_type: initialArticleType === 'session' ? 'session' : 'quest' } : EMPTY)
   const [creating, setCreating] = useState(false)
   // Статья создана: форма ждёт, пока родитель уведёт на неё (в базе знаний — после подвязки к кампании),
   // и защита несохранённой правки больше не нужна.
@@ -472,13 +474,8 @@ export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, a
   return (
     <section className="article-editor">
       {/* creating/created: после «Создать» форма сама уходит на новую статью — это не потеря правки */}
-      <UnsavedGuard when={!creating && !created && Boolean(form.title.trim() || form.excerpt.trim() || form.body_markdown.trim())} />
-      {campaignMaterial ? (
-        <div className="article-editor-heading">
-          <h2 className="min-w-0 font-display text-xl font-bold text-stone-100">{form.title.trim() || 'Новый квест или сессия'}</h2>
-          {onCancel && <Button size="sm" variant="ghost" disabled={creating} onClick={onCancel}>Отмена</Button>}
-        </div>
-      ) : <h2 className="font-display text-xl font-bold text-stone-100">Новая статья</h2>}
+      <UnsavedGuard when={!creating && !created && Boolean(extraDirty || form.title.trim() || form.excerpt.trim() || form.body_markdown.trim())} ignoreNavigation={ignoreNavigation} />
+      {!campaignMaterial && <h2 className="font-display text-xl font-bold text-stone-100">Новая статья</h2>}
       <div className="article-editor-layout">
       <div className="article-editor-main space-y-5">
         {campaignMaterial && (
@@ -507,7 +504,7 @@ export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, a
         <p className="text-xs text-stone-500">Загружать картинки можно после создания статьи.</p>
       </div>
       </div>
-      <EditorSettings>
+      <EditorSettings title={settingsTitle(form.article_type)}>
         <div className="space-y-3">
       <ArticleSelects values={form} onChange={(patch) => set(patch)} campaignMaterial={campaignMaterial} />
       {campaignMaterial ? <p className="text-xs text-stone-500">Квест или сессию видят только ГМ.</p> : <TagInput value={form.tags} onChange={(tags) => set({ tags })} />}
@@ -517,9 +514,9 @@ export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, a
       {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
       <div className="article-editor-save flex flex-wrap items-center gap-3">
         <Button disabled={creating || created || !titleOk} onClick={create}>
-          {created && campaignMaterial ? 'Подвязываем…' : creating || created ? 'Создаём…' : campaignMaterial ? 'Создать и подвязать' : 'Создать статью'}
+          {created && campaignMaterial ? 'Добавляем…' : creating || created ? 'Создаём…' : campaignMaterial ? 'Создать и добавить' : 'Создать статью'}
         </Button>
-        {campaignMaterial && onCancel && <Button variant="ghost" disabled={creating} onClick={onCancel}>Отмена</Button>}
+        {campaignMaterial && onCancel && <Button variant="ghost" disabled={creating || created} onClick={onCancel}>Отмена</Button>}
         {!titleOk && <span className="text-xs text-stone-500">Сначала введите название.</span>}
       </div>
     </section>
@@ -533,8 +530,8 @@ export function ArticleCreateForm({ onSaved, toasts, campaignMaterial = false, a
 // Экспортируется для базы знаний публичной кампании: там квест/сессия правится этим же конструктором
 // (campaignMaterial) — без связей, статуса, видимости, родителя и тегов, тип — только квест или сессия.
 // afterTitle — что показать сразу под названием (база знаний кампании ставит туда пометку к статье),
-// headingActions — кнопки в шапке квеста или сессии перед «Удалить» (там же — «Отвязать»).
-export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts, campaignMaterial = false, afterTitle = null, headingActions = null }) {
+// headingActions — дополнительные действия материала; в базе знаний показаны в параметрах рядом с «Удалить».
+export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, toasts, campaignMaterial = false, afterTitle = null, headingActions = null, ignoreNavigation }) {
   const { user, isFounder, isGM } = useAuth()
   const canEdit = canEditArticle(article, user, isFounder, isGM)
   // Основатель правит любую статью напрямую, но к чужой может и предложить правку — пусть решает автор.
@@ -757,8 +754,8 @@ export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, 
 
   return (
     <section className="article-editor">
-      <UnsavedGuard when={bodyEdit && bodyDraft !== values.body_markdown} />
-      <div className="article-editor-heading">
+      <UnsavedGuard when={bodyEdit && bodyDraft !== values.body_markdown} ignoreNavigation={ignoreNavigation} />
+      {!campaignMaterial && <div className="article-editor-heading">
         <h2 className="min-w-0 font-display text-xl font-bold text-stone-100">
           {values.title}
         </h2>
@@ -769,7 +766,7 @@ export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, 
             <Badge tone={values.status === 'published' ? 'good' : values.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[values.status]}</Badge>
             <ArticleActions article={article} canDelete={isFounder} onDelete={() => setConfirmDelete(true)} />
           </div>}
-      </div>
+      </div>}
 
       {error && <ErrorBox error={error} onRetry={() => setError(null)} />}
       {pendingCount > 0 && activePanel !== 'proposals' && (
@@ -912,7 +909,7 @@ export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, 
         )}
       </div>
       </div>
-      {canEdit && <EditorSettings>
+      {canEdit && <EditorSettings title={settingsTitle(values.article_type)}>
         <div className="space-y-3">
           <ul><AuthorRow article={article} /></ul>
           {!material && <ArticleWorkflow status={values.status} saveStatus={statuses.status} onAction={transition} />}
@@ -920,9 +917,10 @@ export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, 
           {!campaignMaterial && <><TagInput value={values.tags} onChange={saveTags} />
           <SaveStatus status={statuses.tags} /></>}
           <p className="text-xs text-stone-500">{campaignMaterial ? 'Параметры сохраняются сразу.' : 'Параметры и теги сохраняются сразу.'} Для текста используйте кнопку «Сохранить».</p>
+          {campaignMaterial && <div className="flex flex-wrap items-center gap-2">{headingActions}{isFounder && <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}><LoreIcon name="trash" />Удалить</Button>}</div>}
         </div>
       </EditorSettings>}
-      {!canEdit && <EditorSettings><ArticleFacts article={article} values={values} /></EditorSettings>}
+      {!canEdit && <EditorSettings title={settingsTitle(values.article_type)}><ArticleFacts article={article} values={values} /></EditorSettings>}
       </div>
 
       {imagePicker && (

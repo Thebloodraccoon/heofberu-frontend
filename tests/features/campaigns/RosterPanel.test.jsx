@@ -18,8 +18,8 @@ vi.mock('@/features/campaigns/components/CandidatesDrawer.jsx', () => ({ default
 vi.mock('@/features/campaigns/components/GmPanelDrawer.jsx', () => ({ default: ({ name }) => <div>ГМ-панель открыта: {name}</div> }))
 
 const campaign = (viewerRole) => ({ id: 1, title: 'Нова', status: 'active', viewer_role: viewerRole, archived_at: null })
-function setup(viewerRole = 'gm') {
-  render(<MemoryRouter><RosterPanel campaign={campaign(viewerRole)} /></MemoryRouter>)
+function setup(viewerRole = 'gm', patch = {}) {
+  render(<MemoryRouter><RosterPanel campaign={{ ...campaign(viewerRole), ...patch }} /></MemoryRouter>)
   return userEvent.setup()
 }
 
@@ -61,5 +61,12 @@ describe('campaign roster', () => {
     expect(screen.queryByRole('button', { name: /Добавить персонажа/ })).not.toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: /Лист/ })).toHaveLength(1)
     expect(screen.queryByRole('button', { name: /ГМ-панель/ })).not.toBeInTheDocument()
+  })
+
+  it('disables roster changes for a closed table', () => {
+    setup('gm', { status: 'finished' })
+    expect(screen.getByRole('button', { name: /Добавить персонажа/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Статус: Гурн' })).toBeDisabled()
+    expect(screen.getByRole('link', { name: /Лист/ })).toHaveAttribute('href', '/characters/42')
   })
 })

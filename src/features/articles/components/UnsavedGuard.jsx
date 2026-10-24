@@ -1,15 +1,17 @@
-import { useEffect } from 'react'
+import { useContext, useEffect, useId } from 'react'
 import { useBlocker } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/ui'
+import UnsavedGuardContext from './UnsavedGuardContext.js'
 
 // Защита несохранённой правки: переход внутри приложения (другая страница, другая статья ?id=,
 // «Ко всем статьям», назад в браузере) спрашивает подтверждение; закрытие/перезагрузка вкладки —
 // штатное предупреждение браузера (beforeunload, свой текст браузеры не показывают).
 // Нужен data-router (createBrowserRouter в App.jsx).
-export default function UnsavedGuard({ when }) {
+export function NavigationGuard({ when, ignoreNavigation }) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      when && currentLocation.pathname + currentLocation.search !== nextLocation.pathname + nextLocation.search,
+      when && currentLocation.pathname + currentLocation.search !== nextLocation.pathname + nextLocation.search
+      && !ignoreNavigation?.(currentLocation, nextLocation),
   )
 
   useEffect(() => {
@@ -33,4 +35,16 @@ export default function UnsavedGuard({ when }) {
       onConfirm={() => blocker.proceed()}
     />
   )
+}
+
+function RegisteredGuard({ register, when, ignoreNavigation }) {
+  const id = useId()
+  useEffect(() => { register(id, { when, ignoreNavigation }) }, [id, register, when, ignoreNavigation])
+  useEffect(() => () => register(id, null), [id, register])
+  return null
+}
+
+export default function UnsavedGuard(props) {
+  const register = useContext(UnsavedGuardContext)
+  return register ? <RegisteredGuard register={register} {...props} /> : <NavigationGuard {...props} />
 }

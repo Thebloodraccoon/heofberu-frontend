@@ -1,14 +1,14 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Layout from '@/components/layout/Layout.jsx'
 import { renderWithProviders } from '../../helpers/render.jsx'
 
-vi.mock('@/features/auth/useAuth.js', () => ({
-  useAuth: () => ({ authenticated: false, isGM: false, logout: vi.fn() }),
-}))
+const auth = vi.hoisted(() => ({ authenticated: false, isGM: false, isFounder: false }))
+vi.mock('@/features/auth/useAuth.js', () => ({ useAuth: () => ({ ...auth, logout: vi.fn() }) }))
 
 describe('Layout navigation', () => {
+  beforeEach(() => Object.assign(auth, { authenticated: false, isGM: false, isFounder: false }))
   it('keeps focus in the mobile menu and restores scrolling when dismissed', async () => {
     const user = userEvent.setup()
     renderWithProviders(<Layout />, { auth: false })
@@ -47,9 +47,36 @@ describe('Layout navigation', () => {
     const user = userEvent.setup()
     renderWithProviders(<Layout />, { auth: false, routerProps: { initialEntries: ['/catalog/races/2'] } })
     const trigger = screen.getByRole('button', { name: 'Справочники' })
+    expect(trigger).toHaveClass('bg-stone-800', 'text-stone-100')
+    expect(trigger).toHaveAttribute('aria-current', 'true')
     await user.click(trigger)
     expect(screen.getByRole('link', { name: 'Расы' })).toHaveAttribute('aria-current', 'page')
     await user.click(screen.getByRole('link', { name: 'Классы' }))
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveClass('bg-stone-800', 'text-stone-100')
+    await user.click(screen.getByRole('link', { name: 'Лор', exact: true }))
+    expect(trigger).not.toHaveClass('bg-stone-800')
+    expect(trigger).not.toHaveAttribute('aria-current')
+  })
+
+  it.each([
+    ['/profile', 'Личное'],
+    ['/characters/42', 'Личное'],
+    ['/campaigns/1?tab=sessions', 'Личное'],
+    ['/gm/articles?id=1', 'Для ГМ'],
+    ['/gm/editor/races/2', 'Для ГМ'],
+    ['/users/42', 'Админ'],
+  ])('highlights the parent dropdown for %s', (path, name) => {
+    Object.assign(auth, { authenticated: true, isGM: true, isFounder: true })
+    renderWithProviders(<Layout />, { auth: false, routerProps: { initialEntries: [path] } })
+    const trigger = screen.getByRole('button', { name, exact: true })
+    expect(trigger).toHaveClass('bg-stone-800', 'text-stone-100')
+    expect(trigger).toHaveAttribute('aria-current', 'true')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('does not treat a similar path prefix as a selected dropdown item', () => {
+    renderWithProviders(<Layout />, { auth: false, routerProps: { initialEntries: ['/catalog/races-extra'] } })
+    expect(screen.getByRole('button', { name: 'Справочники' })).not.toHaveAttribute('aria-current')
   })
 })

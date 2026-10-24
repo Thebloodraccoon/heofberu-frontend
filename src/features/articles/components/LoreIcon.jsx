@@ -1,4 +1,8 @@
 const paths = {
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  archive: 'M3 4h18v4H3V4ZM5 8v12h14V8M10 12h4',
+  unpublish: 'M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5',
+  copy: 'M8 8h12v13H8V8ZM16 8V3H3v13h5',
   dice: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM7 7h.01M17 7h.01M12 12h.01M7 17h.01M17 17h.01',
   settings: 'M4 7h16M4 17h16M8 4v6M16 14v6',
   levelUp: 'M12 20V4m-6 6 6-6 6 6',

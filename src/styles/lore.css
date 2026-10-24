@@ -169,7 +169,9 @@
 .tags-manager button { box-shadow: none; }
 
 .article-filter-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; width: 100%; }
-.article-workspace-nav .article-back { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; color: var(--color-stone-400); font-size: 0.85rem; }
+.article-back { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; vertical-align: middle; line-height: 1.4; }
+.article-back > .lore-icon { display: block; }
+.article-workspace-nav .article-back { color: var(--color-stone-400); font-size: 0.85rem; }
 .article-workspace-nav .article-back:hover { color: var(--color-ember); }
 
 .article-actions-dropdown { z-index: 40; }

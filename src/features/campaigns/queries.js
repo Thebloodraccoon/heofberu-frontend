@@ -7,6 +7,7 @@ import {
   characterVisibilityApi,
   publicCampaignsApi,
 } from '@/features/campaigns/api.js'
+import { readAllCampaignPages } from './overview.js'
 
 const campaignKey = (id) => queryKeys.campaigns.detail(Number(id))
 
@@ -20,6 +21,31 @@ export const useCampaign = (id) =>
 
 export const useSchedule = (params) =>
   useQuery({ queryKey: queryKeys.campaigns.schedule(params), queryFn: () => campaignsApi.schedule(params), placeholderData: keepPreviousData })
+
+// Общее расписание для карточек столов: без отдельного запроса на каждую карточку.
+export const useTableSchedule = (options = {}) =>
+  useQuery({
+    queryKey: [...queryKeys.campaigns.schedule({ role: 'gm' }), 'all'],
+    queryFn: () => {
+      const from = new Date().toISOString()
+      return readAllCampaignPages((pagination) => campaignsApi.schedule({ role: 'gm', from, ...pagination }))
+    },
+    enabled: options.enabled !== false,
+  })
+
+export const useOverviewSessions = (id) =>
+  useQuery({
+    queryKey: [...queryKeys.campaigns.sessions(Number(id), { status: 'planned' }), 'all'],
+    queryFn: () => readAllCampaignPages((pagination) => campaignsApi.sessions.list(Number(id), { status: 'planned', ...pagination })),
+    enabled: !!id,
+  })
+
+export const useOverviewRoster = (id, options = {}) =>
+  useQuery({
+    queryKey: [...queryKeys.campaigns.roster(Number(id)), 'all'],
+    queryFn: () => readAllCampaignPages((pagination) => campaignsApi.roster.list(Number(id), pagination)),
+    enabled: !!id && options.enabled !== false,
+  })
 
 // Создание, правка, архив: меняются «мои кампании», а закрытие кампании ещё и освобождает персонажей
 // (их листы перестают быть доступны ГМ) — поэтому заодно сбрасываем кеш персонажей.

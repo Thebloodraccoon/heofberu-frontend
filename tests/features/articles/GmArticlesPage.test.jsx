@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
-import GmArticlesPage from '@/features/articles/pages/GmArticlesPage.jsx'
+import GmArticlesPage, { ArticleEditForm } from '@/features/articles/pages/GmArticlesPage.jsx'
 
 const auth = vi.hoisted(() => ({ isFounder: false, userId: 5 }))
 const article = vi.hoisted(() => ({ status: 'draft', authorId: 5, version: 3, type: 'lore' }))
@@ -71,6 +71,20 @@ afterEach(() => {
 })
 
 describe('Article editor workspace', () => {
+  it.each([['quest', 'Параметры квеста'], ['session', 'Параметры сессии']])('locks the %s type and moves material actions into its settings', (type, title) => {
+    auth.isFounder = true
+    const material = { id: 1, article_type: type, title: 'Материал кампании', body_markdown: 'Текст', author: { id: 5, username: 'Я' }, version: 1 }
+    const materialRouter = createMemoryRouter([{ path: '/', element: <ArticleEditForm article={material} campaignMaterial toasts={{ push: vi.fn() }} headingActions={<button type="button">Отвязать</button>} /> }])
+    const { container } = render(<RouterProvider router={materialRouter} />)
+    expect(container.querySelector('.article-editor-heading')).toBeNull()
+    const settings = within(screen.getByRole('complementary', { name: title }))
+    expect(settings.getByRole('button', { name: 'Тип', exact: true })).toBeDisabled()
+    expect(settings.getByRole('button', { name: 'Тип', exact: true })).toHaveTextContent(type === 'quest' ? 'Квест' : 'Сессия')
+    expect(settings.getByRole('button', { name: 'Отвязать' })).toBeVisible()
+    expect(settings.getByRole('button', { name: 'Удалить', exact: true })).toBeVisible()
+    expect(update).not.toHaveBeenCalled()
+  })
+
   it.each(['/gm/articles', '/gm/articles?id=new', '/gm/articles?id=1'])('opens and closes the writing guide from %s without losing drafts', async (url) => {
     const user = setup(url)
     if (url.endsWith('id=1')) await user.click(screen.getByRole('button', { name: 'Изменить текст статьи' }))

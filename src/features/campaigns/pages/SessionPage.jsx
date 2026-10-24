@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Badge, Button, ConfirmDialog, ErrorBox, Skeleton, SkeletonCard } from '@/components/ui'
+import { Badge, Button, ErrorBox, Skeleton, SkeletonCard } from '@/components/ui'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import ArticleText from '@/features/articles/components/ArticleText.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
@@ -25,7 +25,6 @@ export default function SessionPage() {
   const publish = usePublishSession(id)
   const remove = useDeleteSession(id)
   const [editing, setEditing] = useState(false)
-  const [confirming, setConfirming] = useState(false)
   const back = `/campaigns/${id}?tab=sessions`
 
   const failure = campaignError || error
@@ -69,14 +68,7 @@ export default function SessionPage() {
         : <p className="lore-empty mt-6">Отзывы откроются после сессии.</p>}
       {isGm && <SessionCharacters campaign={campaign} session={session} />}
 
-      {editing && <SessionFormDrawer campaign={campaign} session={session} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); push('Сессия сохранена', undefined, 'success') }} extra={
-        <section className="campaign-settings-archive" aria-label="Удаление сессии">
-          <h3 className="text-label">Удаление</h3>
-          <p className="text-hint">Вместе с сессией удалятся отметки посещаемости и отзывы игроков о ней.</p>
-          <Button variant="danger" onClick={() => { setEditing(false); setConfirming(true) }}><LoreIcon name="trash" />Удалить сессию</Button>
-        </section>
-      } />}
-      {confirming && <ConfirmDialog title="Удалить сессию?" message="Вместе с сессией удалятся отметки посещаемости и отзывы игроков о ней." busy={remove.isPending} error={remove.error && toCampaignError(remove.error)} onCancel={() => { setConfirming(false); remove.reset() }} onConfirm={() => remove.mutate(session.id, { onSuccess: () => { push(`Сессия №${session.number} удалена`, undefined, 'success'); navigate(back, { replace: true }) } })} />}
+      {editing && <SessionFormDrawer campaign={campaign} session={session} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} deleteAction={{ ...remove, run: () => remove.mutate(session.id, { onSuccess: () => { push(`Сессия №${session.number} удалена`, undefined, 'success'); navigate(back, { replace: true }) } }) }} />}
     </div>
   )
 }
