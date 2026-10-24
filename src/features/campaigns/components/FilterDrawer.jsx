@@ -5,7 +5,7 @@ import { useTagSearch } from '@/features/articles/queries.js'
 import useDebouncedValue from '@/features/articles/useDebouncedValue.js'
 
 // Раздел тегов — как в фильтрах лора: выбранные сверху, поиск по словарю, популярные по умолчанию.
-function TagSection({ legend, hint, selected, onToggle }) {
+export function TagSection({ legend, hint, selected, onToggle }) {
   const [search, setSearch] = useState('')
   const debounced = useDebouncedValue(search.trim())
   const tagsQ = useTagSearch({ search: debounced, sort: 'popular' })

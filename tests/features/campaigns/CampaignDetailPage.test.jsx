@@ -11,13 +11,15 @@ vi.mock('@/features/campaigns/queries.js', () => ({
   useCampaign: () => ({ data: state.campaign, isLoading: false, refetch: vi.fn() }),
   useArchiveCampaign: () => ({ mutate: state.archive, isPending: false, reset: vi.fn() }),
   useRestoreCampaign: () => ({ mutate: vi.fn(), isPending: false }),
-  useUpdateCampaign: () => ({ mutateAsync: vi.fn() }),
+  useUpdateCampaign: () => ({ mutateAsync: vi.fn(), mutate: vi.fn(), isPending: false }),
+  useCreateCampaign: () => ({ mutate: vi.fn(), isPending: false }),
+  useOverviewSessions: () => ({ data: [], isLoading: false }),
+  useOverviewRoster: () => ({ data: [], isLoading: false }),
 }))
 vi.mock('@/features/campaigns/components/RosterPanel.jsx', () => ({ default: () => <div>Панель состава</div> }))
 vi.mock('@/features/campaigns/components/SessionsPanel.jsx', () => ({ default: () => <div>Панель сессий</div> }))
 vi.mock('@/features/campaigns/components/NotesPanel.jsx', () => ({ default: () => <div>Панель заметок</div> }))
 vi.mock('@/features/campaigns/components/ReviewsPanel.jsx', () => ({ default: () => <div>Панель отзывов</div> }))
-vi.mock('@/features/campaigns/components/CampaignFormDrawer.jsx', () => ({ default: ({ extra }) => <div>Форма кампании{extra}</div> }))
 
 const campaign = (patch) => ({ id: 1, title: 'Нова', status: 'active', viewer_role: 'gm', owner: { id: 5, username: 'Я' }, public_campaign: null, description_markdown: 'Город.\n:::gm\nМэр — культист.\n:::', archived_at: null, ...patch })
 function setup() {
@@ -51,8 +53,24 @@ describe('campaign detail page', () => {
     const user = setup()
     await user.click(screen.getByRole('button', { name: /Настройки/ }))
     await user.click(screen.getByRole('button', { name: 'В архив' }))
-    expect(screen.getByRole('dialog')).toHaveTextContent('активные персонажи будут сняты с игры')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Активные персонажи будут сняты с игры')
     await user.click(screen.getAllByRole('button', { name: 'В архив' }).at(-1))
     expect(state.archive).toHaveBeenCalledWith(1, expect.any(Object))
+  })
+
+  it('links the GM directly to the internal knowledge tab of the source campaign', () => {
+    state.campaign = campaign({ public_campaign: { id: 2, slug: 'mayak', title: 'Маяк' } })
+    setup()
+    const target = new URL(screen.getByRole('link', { name: 'База знаний' }).href)
+    expect(target.pathname).toBe('/gm/public-campaigns')
+    expect(target.searchParams.get('slug')).toBe('mayak')
+    expect(target.searchParams.get('tab')).toBe('knowledge')
+  })
+
+  it('keeps knowledge tools and the active roster out of the player view', () => {
+    state.campaign = campaign({ viewer_role: 'player', public_campaign: { id: 2, slug: 'mayak', title: 'Маяк' } })
+    setup()
+    expect(screen.queryByRole('link', { name: 'База знаний' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /В игре/ })).not.toBeInTheDocument()
   })
 })

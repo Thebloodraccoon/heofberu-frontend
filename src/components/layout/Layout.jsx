@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth.js'
 import ThemeSwitcher from '@/components/ui/ThemeSwitcher.jsx'
 
@@ -101,6 +101,8 @@ function SidebarContent({ onClick }) {
 }
 
 function DesktopNavItem({ label, to, children }) {
+  const { pathname } = useLocation()
+  const isGroupActive = children?.some((item) => matchPath({ path: item.to, end: false }, pathname)) ?? false
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const triggerRef = useRef(null)
@@ -149,7 +151,8 @@ function DesktopNavItem({ label, to, children }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex items-center gap-1 rounded px-3 py-2 text-sm font-medium text-stone-300 transition hover:bg-stone-800/60 hover:text-stone-100"
+        aria-current={isGroupActive ? 'true' : undefined}
+        className={`flex items-center gap-1 rounded px-3 py-2 text-sm font-medium transition ${isGroupActive ? 'bg-stone-800 text-stone-100' : 'text-stone-300 hover:bg-stone-800/60 hover:text-stone-100'}`}
       >
         {label}
         <svg

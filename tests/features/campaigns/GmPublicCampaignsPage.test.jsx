@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import GmPublicCampaignsPage from '@/features/campaigns/pages/GmPublicCampaignsPage.jsx'
 
 const state = vi.hoisted(() => ({ params: [] }))
+vi.mock('@/features/articles/queries.js', () => ({ useTagSearch: () => ({ data: { items: [] }, isLoading: false }) }))
 vi.mock('@/components/ToastProvider.jsx', () => ({ useToasts: () => ({ push: vi.fn() }) }))
 vi.mock('@/features/campaigns/queries.js', () => ({
   usePublicCampaignsPage: (params) => {

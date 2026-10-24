@@ -10,7 +10,7 @@ import NoteDrawer from './NoteDrawer.jsx'
 
 const PAGE_SIZE = 20
 
-// Заметки ГМ колонкой по центру, как статья лора: список → заметка читается отрендеренным Markdown,
+// Заметки ГМ: список → заметка читается отрендеренным Markdown,
 // «Изменить» открывает форму в Drawer.
 export default function NotesPanel({ campaign }) {
   const [page, setPage] = useState(1)
@@ -22,7 +22,7 @@ export default function NotesPanel({ campaign }) {
   const reading = notes.find((note) => note.id === readingId)
 
   return (
-    <section aria-label="Заметки ГМ" className="campaign-panel mx-auto w-full max-w-3xl">
+    <section aria-label="Заметки ГМ" className="campaign-panel">
       {reading ? <article aria-label={reading.title}>
         <div className="lore-reading-toolbar">
           <button type="button" className="article-back" onClick={() => setReadingId(null)}><LoreIcon name="back" />Ко всем заметкам</button>

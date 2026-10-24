@@ -53,14 +53,16 @@ export default function RosterPanel({ campaign }) {
             <span className="sheet-avatar shrink-0" aria-hidden="true">{(participation.character.name || '?').slice(0, 1).toUpperCase()}</span>
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-2"><span className="font-display font-bold text-stone-100">{participation.character.name}</span><StatusBadge kind="character" status={participation.status} /></span>
-              <span className="block truncate text-xs text-stone-400">{[participation.owner?.username, `${participation.character.level} ур.`, sentenceCase(participation.character.class_name), participation.character.race_name && sentenceCase(participation.character.race_name)].filter(Boolean).join(' · ')}</span>
+              <span className="block text-xs text-stone-400">{[participation.owner && `@${participation.owner.username}`, `${participation.character.level} ур.`, sentenceCase(participation.character.class_name), participation.character.race_name && sentenceCase(participation.character.race_name)].filter(Boolean).join(' · ')}</span>
               <span className="block text-hint">В кампании с {formatDateTime(participation.joined_at)}{participation.ended_at && ` · до ${formatDateTime(participation.ended_at)}`}</span>
             </span>
-            <span className="campaign-roster-actions">
-              {(isGm ? participation.status === 'active' : ownSheet) && <Link className="lore-chip" to={`/characters/${participation.character.id}`}>Лист <LoreIcon name="arrow" /></Link>}
-              {isGm && participation.status === 'active' && <button type="button" className="lore-chip" onClick={() => setPanelFor(participation.character)}><LoreIcon name="edit" />ГМ-панель</button>}
-              {isGm && moves.length > 0 && <Select value="" aria-label={`Статус: ${participation.character.name}`} placeholder="Изменить статус" disabled={setStatus.isPending} onChange={(event) => event.target.value && choose(participation, event.target.value)}>{moves.map((status) => <option key={status} value={status}>{campaignCharacterStatusLabels[status]}</option>)}</Select>}
-            </span>
+            <div className="campaign-roster-actions">
+              <div className="campaign-roster-main-actions">
+                {(isGm ? participation.status === 'active' : ownSheet) && <Link className="campaign-roster-sheet" to={`/characters/${participation.character.id}`}><LoreIcon name="book" />Лист<LoreIcon name="arrow" /></Link>}
+                {isGm && participation.status === 'active' && <Button variant="ghost" onClick={() => setPanelFor(participation.character)}><LoreIcon name="edit" />ГМ-панель</Button>}
+              </div>
+              {isGm && moves.length > 0 && <div className="campaign-roster-status"><Select value="" aria-label={`Статус: ${participation.character.name}`} placeholder="Изменить статус" disabled={closed || setStatus.isPending} title={closed ? 'Кампания закрыта: состав не меняется' : undefined} onChange={(event) => event.target.value && choose(participation, event.target.value)}>{moves.map((status) => <option key={status} value={status}>{campaignCharacterStatusLabels[status]}</option>)}</Select></div>}
+            </div>
           </li>
         })}</ul>)}
       <Pagination page={page} total={data?.total ?? 0} size={PAGE_SIZE} onPage={setPage} />

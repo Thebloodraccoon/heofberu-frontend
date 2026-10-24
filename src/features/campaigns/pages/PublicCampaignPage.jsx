@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLayoutEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, ErrorBox, Skeleton, SkeletonCard } from '@/components/ui'
 import Pagination from '@/components/ui/Pagination.jsx'
 import ArticleText from '@/features/articles/components/ArticleText.jsx'
@@ -12,6 +12,7 @@ import { toCampaignError } from '@/features/campaigns/errors.js'
 import { usePublicCampaign, usePublicCampaignCharacters, usePublicCampaignReviews } from '@/features/campaigns/queries.js'
 import StatusBadge from '../components/StatusBadge.jsx'
 import TagLinks from '../components/TagLinks.jsx'
+import CampaignFormDrawer from '../components/CampaignFormDrawer.jsx'
 
 const SHOWCASE_SIZE = 12
 const REVIEWS_SIZE = 10
@@ -89,26 +90,36 @@ function PresetTabs({ preset }) {
 export default function PublicCampaignPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
-  const { isGM } = useAuth()
+  const location = useLocation()
+  const { user, isGM, isFounder } = useAuth()
   const { data: preset, isLoading, error, refetch } = usePublicCampaign(slug)
   const [playerView, setPlayerView] = useState(false)
+  const [starting, setStarting] = useState(false)
+  const listSearch = location.state?.campaignListSearch ?? ''
+  const back = { pathname: '/public-campaigns', search: listSearch }
+  const backState = { restoreCampaignList: location.state?.campaignListSearch !== undefined }
 
-  if (error) return <div className="lore-page"><ErrorBox error={toCampaignError(error)} onRetry={refetch} /><p className="mt-4"><Link className="link-ember" to="/public-campaigns">К каталогу</Link></p></div>
+  useLayoutEffect(() => { window.scrollTo(0, 0) }, [slug])
+
+  if (error) return <div className="lore-page"><ErrorBox error={toCampaignError(error)} onRetry={refetch} /><p className="mt-4"><Link className="link-ember" to={back} state={backState}>К каталогу</Link></p></div>
   if (isLoading || !preset) return <div className="lore-page" aria-busy="true"><Skeleton className="mb-6 h-10 w-80" /><SkeletonCard className="min-h-[20rem]" /></div>
 
   // ГМ получает от бэка полный текст: секреты видны ему, пока не включён взгляд игрока. Игрокам бэк их не отдаёт.
   const gmView = isGM && !playerView
   const asPlayer = (text) => stripGmBlocks(text ?? '').trim()
+  const canEdit = isFounder || (preset.author?.id != null && user?.id != null && String(preset.author.id) === String(user.id))
+  const canStart = preset.status !== 'archived' && (preset.status === 'published' || canEdit)
 
   return (
     <div className="lore-page preset-page">
       {/* Как в лоре: слева — назад к доске, справа — действия ГМ. */}
       <div className="preset-toolbar">
-        <Link to="/public-campaigns"><LoreIcon name="back" />Доска приключений</Link>
+        <Link to={back} state={backState}><LoreIcon name="back" />Доска приключений</Link>
         {isGM && <div className="flex flex-wrap gap-2" role="group" aria-label="Действия ГМ">
           <button type="button" className="lore-player-switch" role="switch" aria-checked={playerView} onClick={() => setPlayerView((current) => !current)}><LoreIcon name="eye" /> Глазами игрока <span className="lore-switch-track" aria-hidden="true" /></button>
           <Button size="sm" variant="ghost" onClick={() => navigate(`/public-campaigns/${preset.slug}/knowledge`)}><LoreIcon name="book" />База знаний</Button>
-          <Button size="sm" variant="ghost" onClick={() => navigate(`/gm/public-campaigns?slug=${encodeURIComponent(preset.slug)}`)}><LoreIcon name="edit" />Редактировать</Button>
+          {canEdit && <Button size="sm" variant="ghost" onClick={() => navigate(`/gm/public-campaigns?slug=${encodeURIComponent(preset.slug)}`)}><LoreIcon name="edit" />Редактировать</Button>}
+          {canStart && <Button size="sm" onClick={() => setStarting(true)}><LoreIcon name="plus" />Создать игровой стол</Button>}
         </div>}
       </div>
       {isGM && playerView && <p className="lore-preview-notice">Глазами игрока: секреты мастера скрыты.</p>}
@@ -116,7 +127,7 @@ export default function PublicCampaignPage() {
       <div className="preset-column">
         <header className="lore-header preset-hero">
           <h1 className="heading-section">{preset.title}</h1>
-          <div className="campaign-header-meta">{preset.status !== 'published' && <StatusBadge kind="preset" status={preset.status} />}<span>{preset.campaign_count > 0 ? `Сыграно столов: ${preset.campaign_count}` : 'Ещё не играли'}</span><span>{preset.author ? `Автор: ${preset.author.username}` : 'Автор удалён'}</span></div>
+          <div className="campaign-header-meta">{preset.status !== 'published' && <StatusBadge kind="preset" status={preset.status} />}<span>{preset.campaign_count > 0 ? `Сыграно столов: ${preset.campaign_count}` : 'Ещё не играли'}</span><span>{preset.author ? `@${preset.author.username}` : 'Автор удалён'}</span></div>
           <TagLinks tags={preset.tags} />
           {asPlayer(preset.pitch) && <p className="preset-pitch">{asPlayer(preset.pitch)}</p>}
         </header>
@@ -124,7 +135,7 @@ export default function PublicCampaignPage() {
         <section className="preset-section preset-description" aria-label="Описание"><ArticleText value={gmView ? preset.description_markdown : asPlayer(preset.description_markdown)} empty="Описание пока не написано." /></section>
         <PresetTabs preset={preset} />
       </div>
-
+      {starting && <CampaignFormDrawer preset={preset} onClose={() => setStarting(false)} onSaved={(campaign) => { setStarting(false); navigate(`/campaigns/${campaign.id}`) }} />}
     </div>
   )
 }
