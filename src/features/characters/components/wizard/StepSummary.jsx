@@ -2,8 +2,10 @@ import { STATS, abilityName, mod } from '@/lib/utils/ability.js'
 import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { useItemNames } from '@/features/catalog/queries.js'
 import { describeItemFilter } from '@/lib/utils/effectBundle.js'
-import { isFilterOption } from '@/lib/utils/characterCreate.js'
+import { allChoiceGroups, isFilterOption } from '@/lib/utils/characterCreate.js'
 import { Section, StepShell } from './StepShell.jsx'
+
+const SOURCE_LABEL = { class: 'класс', background: 'предыстория' }
 
 function InfoCard({ label, children, full = false }) {
   return (
@@ -46,25 +48,13 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
     ...(backgroundDetail?.starting_items ?? []).map((it) => ({ ...it, name: itemName(it), source: 'предыстория' })),
   ]
 
-  const groups = [
-    ...(classDetail?.starting_choice_groups ?? classDetail?.choice_groups ?? []).map((g) => ({
-      ...g,
-      source: 'class',
-      sourceLabel: 'класс',
-    })),
-    ...(backgroundDetail?.starting_choice_groups ?? backgroundDetail?.choice_groups ?? []).map((g) => ({
-      ...g,
-      source: 'background',
-      sourceLabel: 'предыстория',
-    })),
-  ]
   const choices = form.starting_choices ?? {}
   const chosenItems = []
-  groups.forEach((g, gi) => {
-    const key = `${g.source}:${gi}`
-    ;(g.options ?? []).forEach((opt) => {
+  allChoiceGroups(classDetail, backgroundDetail).forEach(({ group, source, gi }) => {
+    const key = `${source}:${gi}`
+    ;(group.options ?? []).forEach((opt) => {
       if ((choices[key] ?? []).includes(Number(opt.id ?? opt.item_id))) {
-        chosenItems.push({ name: itemName(opt), quantity: opt.quantity, source: g.sourceLabel, chosen: true })
+        chosenItems.push({ name: itemName(opt), quantity: opt.quantity, source: SOURCE_LABEL[source], chosen: true })
       }
     })
   })

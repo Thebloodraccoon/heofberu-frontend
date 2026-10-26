@@ -2,8 +2,10 @@ import { useItems } from '@/features/catalog/queries.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
 import { Select } from '@/components/ui'
 import { describeItemFilter } from '@/lib/utils/effectBundle.js'
-import { isFilterOption, itemFilterParams } from '@/lib/utils/characterCreate.js'
+import { allChoiceGroups, isFilterOption, itemFilterParams } from '@/lib/utils/characterCreate.js'
 import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
+
+const SOURCE_LABEL = { class: 'класс', background: 'предыстория' }
 
 // Выбранный вариант-фильтр («любое простое оружие»): игрок называет конкретный
 // предмет из подходящих (GET /items с полями фильтра).
@@ -40,18 +42,13 @@ export default function StepEquipment({ stepNo, total, form, update, lookups }) 
   const picks = form.item_choice_picks ?? {}
   const setPick = (optId, itemId) => update({ item_choice_picks: { ...picks, [optId]: itemId } })
 
-  const groups = [
-    ...(classDetail?.starting_choice_groups ?? classDetail?.choice_groups ?? []).map((g) => ({
-      ...g,
-      source: 'class',
-      sourceLabel: 'класс',
-    })),
-    ...(backgroundDetail?.starting_choice_groups ?? backgroundDetail?.choice_groups ?? []).map((g) => ({
-      ...g,
-      source: 'background',
-      sourceLabel: 'предыстория',
-    })),
-  ]
+  // gi — индекс внутри источника: те же ключи `${source}:${gi}`, что проверяет choiceGroupsComplete.
+  const groups = allChoiceGroups(classDetail, backgroundDetail).map(({ group, source, gi }) => ({
+    ...group,
+    source,
+    gi,
+    sourceLabel: SOURCE_LABEL[source],
+  }))
 
   const toggle = (source, gi, optId, pickCount) => {
     const key = `${source}:${gi}`
@@ -93,10 +90,10 @@ export default function StepEquipment({ stepNo, total, form, update, lookups }) 
 
         {groups.length > 0 && (
           <div className="mt-4 space-y-3">
-            {groups.map((g, gi) => {
+            {groups.map((g) => {
               const opts = g.options ?? []
               const pick = Number(g.pick_count) || 1
-              const key = `${g.source}:${gi}`
+              const key = `${g.source}:${g.gi}`
               const chosen = choices[key] ?? []
               return (
                 <div key={key} className="rounded-lg border border-stone-700/60 bg-stone-900/50 p-3">
@@ -117,7 +114,7 @@ export default function StepEquipment({ stepNo, total, form, update, lookups }) 
                           <button
                             type="button"
                             disabled={!on && chosen.length >= pick}
-                            onClick={() => toggle(g.source, gi, optId, pick)}
+                            onClick={() => toggle(g.source, g.gi, optId, pick)}
                             className={`flex w-full items-center gap-2 rounded border px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-45 ${
                               on
                                 ? 'border-ember/70 bg-ember/10'
