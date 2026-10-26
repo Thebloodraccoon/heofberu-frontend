@@ -75,10 +75,24 @@ export const spellRangeLabels = {
   UNLIMITED: 'Неограниченно',
 }
 
-export const itemTypeLabels = {
+// Вид предмета (kind) — задаётся при создании и не меняется.
+export const itemKindLabels = {
   WEAPON: 'Оружие',
   ARMOR: 'Доспехи',
-  SHIELD: 'Щит',
+  TOOL: 'Инструменты',
+  GEAR: 'Предметы',
+}
+
+// Что добавить в снаряжение (селект + «Добавить»): предмет какого вида выбрать.
+export const itemKindPickLabels = {
+  WEAPON: 'Оружие',
+  ARMOR: 'Доспех',
+  TOOL: 'Инструмент',
+  GEAR: 'Предмет',
+}
+
+// Подтип прочего предмета (subtype, только у kind GEAR).
+export const gearTypeLabels = {
   POTION: 'Зелье',
   SCROLL: 'Свиток',
   WONDROUS_ITEM: 'Чудесный предмет',
@@ -87,7 +101,6 @@ export const itemTypeLabels = {
   STAFF: 'Посох',
   WAND: 'Волшебная палочка',
   ADVENTURING_GEAR: 'Снаряжение',
-  TOOL: 'Инструмент',
   AMMUNITION: 'Амуниция',
   TREASURE: 'Сокровище',
   OTHER: 'Прочее',
@@ -182,6 +195,89 @@ export const armorProficiencyLabels = {
 export const weaponProficiencyLabels = {
   SIMPLE: 'Простое оружие',
   MARTIAL: 'Воинское оружие',
+}
+
+// Категория доспеха у самого предмета (item.armor_category; щит — ARMOR + SHIELD).
+export const armorCategoryLabels = {
+  LIGHT: 'Лёгкий доспех',
+  MEDIUM: 'Средний доспех',
+  HEAVY: 'Тяжёлый доспех',
+  SHIELD: 'Щит',
+}
+
+export const toolCategoryLabels = {
+  ARTISAN: 'Инструменты ремесленника',
+  MUSICAL_INSTRUMENT: 'Музыкальный инструмент',
+  GAMING_SET: 'Игровой набор',
+  VEHICLE: 'Транспорт',
+  KIT: 'Набор',
+}
+
+// Фильтр «любой предмет такого-то вида» (вариант снаряжения без item_id,
+// открытый выбор инструмента) — с согласованием рода. '' — без категории.
+export const anyWeaponLabels = {
+  '': 'любое оружие',
+  SIMPLE: 'любое простое оружие',
+  MARTIAL: 'любое воинское оружие',
+}
+
+export const anyArmorLabels = {
+  '': 'любой доспех',
+  LIGHT: 'любой лёгкий доспех',
+  MEDIUM: 'любой средний доспех',
+  HEAVY: 'любой тяжёлый доспех',
+  SHIELD: 'любой щит',
+}
+
+export const anyToolLabels = {
+  '': 'любой инструмент',
+  ARTISAN: 'любые инструменты ремесленника',
+  MUSICAL_INSTRUMENT: 'любой музыкальный инструмент',
+  GAMING_SET: 'любой игровой набор',
+  VEHICLE: 'любое транспортное средство',
+  KIT: 'любой набор',
+}
+
+export const speedTypeLabels = {
+  WALK: 'Ходьба',
+  FLY: 'Полёт',
+  SWIM: 'Плавание',
+  CLIMB: 'Лазание',
+  BURROW: 'Копание',
+}
+
+export const speedEffectModeLabels = {
+  BONUS: 'Бонус',
+  SET: 'Не меньше',
+  EQUAL_TO_WALK: 'Равна скорости ходьбы',
+  IGNORE_ARMOR_PENALTY: 'Тяжёлый доспех не замедляет',
+}
+
+export const armorClassModeLabels = {
+  BONUS: 'Бонус к КД',
+  FORMULA: 'Формула КД',
+}
+
+// Когда действует эффект скорости/КД («доспех» — нательный, щит не в счёт).
+export const effectConditionLabels = {
+  NONE: 'Всегда',
+  WEARING_ARMOR: 'В доспехе',
+  NO_ARMOR: 'Без доспеха',
+  NO_HEAVY_ARMOR: 'Без тяжёлого доспеха',
+  NO_ARMOR_NO_SHIELD: 'Без доспеха и щита',
+}
+
+// Что выбирал игрок в группе выбора — по типу эффектов варианта.
+export const choiceKindLabels = {
+  ability: 'Характеристика',
+  skill: 'Навык',
+  saving: 'Спасбросок',
+  armor: 'Доспехи',
+  weapon: 'Оружие',
+  tool: 'Инструмент',
+  spell: 'Заклинание',
+  speed: 'Скорость',
+  armor_class: 'КД',
 }
 
 // Что даёт эффект навыка (SkillEffectMode на бэке).
@@ -293,7 +389,8 @@ export const fieldLabels = {
   material_components: 'Материальные компоненты',
   spell_concentration: 'Концентрация',
   spell_ritual: 'Ритуал',
-  item_type: 'Тип предмета',
+  kind: 'Вид предмета',
+  subtype: 'Тип предмета',
   rarity: 'Редкость',
   attack_type: 'Тип атаки',
   damage_type: 'Тип урона',
@@ -335,9 +432,16 @@ export const fieldLabels = {
   requires_attunement: 'Требует настройки',
   weight: 'Вес',
   cost_gold: 'Стоимость (золото)',
-  weapon_properties: 'Свойства оружия',
+  properties: 'Свойства оружия',
+  magic_bonus: 'Магический бонус',
+  weapon_category: 'Категория оружия',
+  range_normal: 'Дистанция',
+  range_long: 'Макс. дистанция',
+  versatile_dice_count: 'Кости урона двумя руками',
+  versatile_dice_type: 'Кость урона двумя руками',
+  armor_category: 'Категория доспеха',
+  tool_category: 'Вид инструмента',
   armor_class_base: 'Класс доспеха (базовый)',
-  armor_class_dex_bonus: 'КД от Ловкости',
   armor_class_max_dex_bonus: 'Макс. КД от Ловкости',
   strength_requirement: 'Требование к Силе',
   stealth_disadvantage: 'Помеха на Скрытность',
@@ -364,7 +468,8 @@ const maps = {
   ...spellCastTimeLabels,
   ...spellDurationLabels,
   ...spellRangeLabels,
-  ...itemTypeLabels,
+  ...itemKindLabels,
+  ...gearTypeLabels,
   ...itemRarityLabels,
   ...raceSizeLabels,
   ...attackTypeLabels,

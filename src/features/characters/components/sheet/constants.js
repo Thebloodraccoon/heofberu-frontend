@@ -1,11 +1,6 @@
 import { armorProficiencyLabels, label } from '@/lib/i18n/index.js'
 
 export const ATTACK_TYPES = ['MELEE_ATTACK', 'RANGED_ATTACK']
-export const DICE_TYPES = ['D4', 'D6', 'D8', 'D10', 'D12', 'D20', 'D100']
-export const DAMAGE_TYPES = [
-  'SLASHING', 'PIERCING', 'BLUDGEONING', 'ACID', 'COLD', 'FIRE', 'FORCE',
-  'LIGHTNING', 'NECROTIC', 'POISON', 'PSYCHIC', 'RADIANT', 'THUNDER',
-]
 export const CONDITIONS = [
   'BLINDED', 'CHARMED', 'DEAFENED', 'FRIGHTENED', 'GRAPPLED', 'INCAPACITATED',
   'INVISIBLE', 'PARALYZED', 'PETRIFIED', 'POISONED', 'PRONE', 'RESTRAINED',

@@ -1,18 +1,19 @@
 import { catalogApi as api } from '../../api.js'
-import { toNum, toStr } from './shared.js'
+import { toNumDefault, toStr } from './shared.js'
 
+// column — шапка таблицы «кN | …», как в карточке предыстории.
 const suggestionGroups = [
-  { value: 'PERSONALITY_TRAIT', label: 'Черты личности' },
-  { value: 'IDEAL', label: 'Идеалы' },
-  { value: 'BOND', label: 'Привязанности' },
-  { value: 'FLAW', label: 'Слабости' },
+  { value: 'PERSONALITY_TRAIT', label: 'Черты личности', column: 'Черта характера' },
+  { value: 'IDEAL', label: 'Идеалы', column: 'Идеал' },
+  { value: 'BOND', label: 'Привязанности', column: 'Привязанность' },
+  { value: 'FLAW', label: 'Слабости', column: 'Слабость' },
 ]
 
 export const backgroundsCfg = {
   singular: 'предыстория',
   featuresSource: { type: 'BACKGROUND', fk: 'background_id' },
   featuresOps: api.backgrounds.features,
-  featuresModal: { showLevel: false, levelHint: '' },
+  featuresModal: { showLevel: false },
   featuresBlock: {
     label: 'Умения предыстории',
     addLabel: '+ Добавить',
@@ -26,25 +27,24 @@ export const backgroundsCfg = {
     empty: 'Снаряжения нет',
     noun: 'предмет',
   },
+  choiceGroupsOps: api.backgrounds.choiceGroups,
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Благородный', full: true },
-    { key: 'starting_gold', label: 'Стартовое золото', type: 'number', min: 0, inline: true },
+    { key: 'starting_gold', label: 'Стартовое золото', type: 'number', unit: 'зм', min: 0, inline: true },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [
+    { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки предыстории', empty: 'Навыков в справочнике нет' },
     {
       type: 'groupedRows',
       key: 'suggestions',
-      addLabel: '+ Добавить',
+      // Список — только чтение, правка группы — в панели (GroupedRowsEditor);
+      // сохраняет обычный автосейв (submitFields ниже: POST/PATCH/DELETE по строкам).
       empty: 'Вариантов нет',
       groupKey: 'suggestion_type',
       textKey: 'text',
       groups: suggestionGroups,
-      // Позволяет сохранять одну правку сразу по галочке "Готово",
-      // не дожидаясь общего автосейва формы.
-      ops: api.backgrounds.suggestions,
     },
-    { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки предыстории', empty: 'Навыков в справочнике нет' },
     { type: 'tags', key: 'tags', label: 'Теги' },
   ],
   emptyForm: () => ({
@@ -70,7 +70,8 @@ export const backgroundsCfg = {
   submitFields: async (form, rec) => {
     const base = {
       name: form.name,
-      starting_gold: toNum(form.starting_gold),
+      // Пустое поле — 0: бэк не принимает null (колонка NOT NULL).
+      starting_gold: toNumDefault(form.starting_gold, 0),
       description: form.description,
     }
     const suggestions = form.suggestions.map((s) => ({ ...s, text: s.text?.trim() ? s.text : '-' }))
@@ -91,7 +92,7 @@ export const backgroundsCfg = {
     // Бэк теперь принимает саджесты поштучно (POST/PATCH/DELETE), а PUT-full-replace
     // снят. Диффим каждую секцию, чтобы автосейв не слал лишних запросов, когда
     // меняется только один блок (напр., только навыки).
-    const prevGold = rec.starting_gold == null ? null : Number(rec.starting_gold)
+    const prevGold = Number(rec.starting_gold ?? 0)
     const baseChanged =
       base.name !== rec.name ||
       base.starting_gold !== prevGold ||

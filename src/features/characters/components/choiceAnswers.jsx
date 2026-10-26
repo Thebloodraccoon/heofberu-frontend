@@ -4,16 +4,20 @@ import { Button, Input, Select } from '@/components/ui'
 import { abilityLabels, spellLevelLabels } from '@/lib/i18n/index.js'
 import { spellMetaText } from '@/lib/utils/spellFilter.js'
 import { ExpandToggle, SpellDetailFetched } from './SpellQuickView.jsx'
+import ChipGroup from '@/components/ui/ChipGroup.jsx'
+import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
+
+const SPELL_LEVELS = ['CANTRIP', ...Array.from({ length: 9 }, (_, i) => `LEVEL_${i + 1}`)]
 
 // Черновик ответов на ОДНУ группу выбора — список записей
-// { key, choice_option_id, skill_id, spell_id, ability }. Ключ свой у каждой записи:
+// { key, choice_option_id, skill_id, spell_id, ability, item_id }. Ключ свой у каждой записи:
 // открытый вариант («любой навык на выбор») можно взять несколько раз с
 // разными навыками («два любых навыка» = один вариант, pick_count = 2),
 // поэтому одного choice_option_id для адресации записи мало.
 // Используются «Выборами» (PendingChoicesModal) через ChoiceGroupPicker.
 
 let lastKey = 0
-const newAnswer = (optionId) => ({ key: ++lastKey, choice_option_id: optionId, skill_id: null, spell_id: null, ability: null })
+const newAnswer = (optionId) => ({ key: ++lastKey, choice_option_id: optionId, skill_id: null, spell_id: null, ability: null, item_id: null })
 
 // Навык у открытого варианта называет игрок. Ожидающие выборы несут флаг
 // needs_skill, а варианты из деталей черты (каталог) — нет: там узнаём по
@@ -29,6 +33,15 @@ export const optionNeedsSpell = (option) =>
 const abilityRows = (option) => [...(option.ability_effects ?? []), ...(option.saving_throw_effects ?? [])]
 export const optionNeedsAbility = (option) =>
   option.needs_ability ?? abilityRows(option).some((effect) => effect.ability == null)
+
+// Эффекты-инструменты варианта: плоский tool_effects (если httpClient его
+// разложил) или группа tool из effects.
+export const toolRows = (option) =>
+  option.tool_effects ?? (option.effects ?? []).filter((g) => g.effect_type === 'tool').flatMap((g) => g.items ?? [])
+
+// То же для «любого инструмента на выбор» (инструмент без item_id).
+export const optionNeedsItem = (option) =>
+  option.needs_item ?? toolRows(option).some((effect) => effect.item_id == null)
 
 // Бэк сверяет варианты навыков с остальными источниками персонажа: available:
 // false — вариант сейчас взять нельзя (экспертиза без владения, владение,
@@ -73,6 +86,8 @@ const isAllowedSpell = (option, spellId) =>
   !Array.isArray(option.allowed_spells) || option.allowed_spells.some((s) => s.id === spellId)
 const isAllowedSkill = (option, skillId) =>
   !Array.isArray(option.allowed_skill_ids) || option.allowed_skill_ids.includes(skillId)
+const isAllowedItem = (option, itemId) =>
+  !Array.isArray(option.allowed_items) || option.allowed_items.some((i) => i.id === itemId)
 
 export function groupComplete(list, group) {
   if (list.length !== group.pick_count) return false
@@ -82,6 +97,7 @@ export function groupComplete(list, group) {
     if (optionNeedsSkill(option) && (a.skill_id == null || !isAllowedSkill(option, a.skill_id))) return false
     if (optionNeedsSpell(option) && (a.spell_id == null || !isAllowedSpell(option, a.spell_id))) return false
     if (optionNeedsAbility(option) && a.ability == null) return false
+    if (optionNeedsItem(option) && (a.item_id == null || !isAllowedItem(option, a.item_id))) return false
     return true
   })
 }
@@ -93,6 +109,7 @@ export const toAnswerItems = (groupId, list) =>
     ...(a.skill_id != null ? { skill_id: a.skill_id } : {}),
     ...(a.spell_id != null ? { spell_id: a.spell_id } : {}),
     ...(a.ability != null ? { ability: a.ability } : {}),
+    ...(a.item_id != null ? { item_id: a.item_id } : {}),
   }))
 
 // Каркас выбора для открытого варианта («любой навык» / «любое заклинание»):
@@ -185,9 +202,9 @@ export function OpenSkillPicks({ group, option, list, skillsCatalog, takenSkillI
 }
 
 // Выбор характеристики для каждой записи открытого варианта («любая
-// характеристика / любой спасбросок на выбор»). Характеристику, которую вариант
-// уже называет сам или которая выбрана в другой записи, повторно не предлагаем —
-// бэк такое не примет.
+// характеристика / любой спасбросок на выбор») — чипами. Характеристику, которую
+// вариант уже называет сам или которая выбрана в другой записи, повторно не
+// предлагаем — бэк такое не примет.
 export function OpenAbilityPicks({ group, option, list, onChange }) {
   const own = new Set(abilityRows(option).map((effect) => effect.ability).filter(Boolean))
 
@@ -202,17 +219,55 @@ export function OpenAbilityPicks({ group, option, list, onChange }) {
       className="mt-1.5 space-y-1.5"
       renderEntry={({ entry, taken, update, remove }) => (
         <div className="flex items-center gap-2">
+          <ChipGroup
+            label="Характеристика"
+            className="min-w-0 flex-1"
+            options={Object.entries(abilityLabels)
+              .filter(([key]) => !own.has(key) && (!taken.has(key) || key === entry.ability))
+              .map(([value, label]) => ({ value, label }))}
+            value={entry.ability ?? ''}
+            onChange={(ability) => update({ ability })}
+          />
+          {remove && (
+            <Button type="button" variant="ghost" size="xs" onClick={remove}>
+              Убрать
+            </Button>
+          )}
+        </div>
+      )}
+    />
+  )
+}
+
+// Выбор инструмента для каждой записи открытого варианта («любой музыкальный
+// инструмент»): кандидаты — allowed_items от бэка; уже названный в другой записи
+// или группе гранта (takenItemIds) инструмент повторно не предлагаем.
+export function OpenItemPicks({ group, option, list, takenItemIds, onChange }) {
+  const allowed = option.allowed_items ?? []
+
+  return (
+    <OpenPickList
+      group={group}
+      option={option}
+      list={list}
+      onChange={onChange}
+      field="item_id"
+      takenElsewhere={takenItemIds}
+      addLabel="+ Ещё инструмент"
+      className="mt-1.5 space-y-1.5"
+      renderEntry={({ entry, taken, update, remove }) => (
+        <div className="flex items-center gap-2">
           <Select
             className="min-w-0 flex-1"
-            value={entry.ability ?? ''}
-            onChange={(e) => update({ ability: e.target.value || null })}
-            placeholder="Выберите характеристику…"
+            value={entry.item_id ?? ''}
+            onChange={(e) => update({ item_id: e.target.value ? Number(e.target.value) : null })}
+            placeholder="Выберите инструмент…"
           >
-            {Object.entries(abilityLabels)
-              .filter(([key]) => !own.has(key) && !taken.has(key))
-              .map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
+            {allowed
+              .filter((it) => !taken.has(it.id))
+              .map((it) => (
+                <option key={it.id} value={it.id}>
+                  {it.name}
                 </option>
               ))}
           </Select>
@@ -227,102 +282,120 @@ export function OpenAbilityPicks({ group, option, list, onChange }) {
   )
 }
 
-// Одна «пустая ячейка» открытого варианта: пока заклинание не выбрано — поиск
-// по списку подходящих (allowed_spells от бэка: фильтр варианта, без уже
-// известных персонажу), после — выбранное заклинание с кнопкой «Сменить».
-// Любое заклинание можно раскрыть стрелкой и прочитать, не выбирая его.
-function OpenSpellEntry({ spells, picked, onPick, onRemove }) {
+// Список подходящих заклинаний — отдельной панелью поверх «Выборов» (в самой
+// группе сотня строк перегружает форму): поиск, уровни чипами (если их больше
+// одного), любое можно раскрыть и прочитать, не выбирая.
+function SpellPickDrawer({ spells, onPick, onClose }) {
   const [query, setQuery] = useState('')
   const [level, setLevel] = useState('')
   const [expandedId, setExpandedId] = useState(null)
-  const toggleExpanded = (id) => setExpandedId((current) => (current === id ? null : id))
-
-  if (picked) {
-    const open = expandedId === picked.id
-    return (
-      <div className="rounded-lg border border-ember/50 bg-stone-900/60">
-        <div className="flex items-center gap-2 px-3 py-2">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-orange-100">{picked.name}</p>
-            <p className="text-xs text-stone-400">{spellMetaText(picked)}</p>
-          </div>
-          <ExpandToggle open={open} onClick={() => toggleExpanded(picked.id)} name={picked.name} />
-          <Button type="button" variant="ghost" size="xs" onClick={() => onPick(null)}>
-            Сменить
-          </Button>
-          {onRemove && (
-            <Button type="button" variant="ghost" size="xs" onClick={onRemove}>
-              Убрать
-            </Button>
-          )}
-        </div>
-        {open && <SpellDetailFetched spellId={picked.id} />}
-      </div>
-    )
-  }
-
-  const levels = [...new Set(spells.map((s) => s.level))]
+  const levels = [...new Set(spells.map((s) => s.level))].sort((x, y) => SPELL_LEVELS.indexOf(x) - SPELL_LEVELS.indexOf(y))
   const q = query.trim().toLowerCase()
   const shown = spells.filter((s) => (!level || s.level === level) && (!q || s.name.toLowerCase().includes(q)))
 
   return (
-    <div className="rounded-lg border border-stone-700 bg-stone-900/60 p-2">
-      <div className="flex flex-wrap gap-2">
-        <Input
-          type="search"
-          className="min-w-0 flex-1"
-          placeholder="Найти заклинание…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+    <SheetDrawer
+      title="Выбор заклинания"
+      subtitle={`Подходит: ${spells.length}`}
+      onClose={onClose}
+      footer={<Button variant="ghost" onClick={onClose}>Отмена</Button>}
+    >
+      <div className="space-y-3">
+        <Input type="search" placeholder="Найти заклинание…" value={query} onChange={(e) => setQuery(e.target.value)} />
         {levels.length > 1 && (
-          <Select className="w-40" value={level} onChange={(e) => setLevel(e.target.value)}>
-            <option value="">Все уровни</option>
-            {levels.map((l) => (
-              <option key={l} value={l}>
-                {spellLevelLabels[l] ?? l}
-              </option>
-            ))}
-          </Select>
+          <ChipGroup
+            label="Уровень"
+            emptyLabel="Все"
+            options={[{ value: '', label: 'Все' }, ...levels.map((l) => ({ value: l, label: spellLevelLabels[l] ?? l }))]}
+            value={level}
+            onChange={setLevel}
+          />
         )}
-        {onRemove && (
-          <Button type="button" variant="ghost" size="xs" onClick={onRemove}>
-            Убрать
-          </Button>
-        )}
+        <ul className="space-y-1">
+          {shown.map((spell) => {
+            const open = expandedId === spell.id
+            return (
+              <li key={spell.id} className={`rounded-md ${open ? 'bg-stone-800/50' : ''}`}>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onPick(spell.id)}
+                    className="flex min-w-0 flex-1 items-baseline justify-between gap-3 rounded-md px-2 py-1.5 text-left transition hover:bg-stone-800"
+                  >
+                    <span className="min-w-0 truncate text-sm text-stone-100">{spell.name}</span>
+                    <span className="shrink-0 text-xs text-stone-500">{spellMetaText(spell)}</span>
+                  </button>
+                  <ExpandToggle open={open} onClick={() => setExpandedId(open ? null : spell.id)} name={spell.name} />
+                </div>
+                {open && (
+                  <>
+                    <SpellDetailFetched spellId={spell.id} />
+                    <div className="flex justify-end px-3 pb-2">
+                      <Button type="button" size="xs" onClick={() => onPick(spell.id)}>
+                        Выбрать
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+        {shown.length === 0 && <p className="px-2 py-1.5 text-xs text-stone-500">Ничего не найдено</p>}
       </div>
-      <ul className="mt-2 max-h-80 space-y-1 overflow-y-auto overscroll-contain pr-1">
-        {shown.map((spell) => {
-          const open = expandedId === spell.id
-          return (
-            <li key={spell.id} className={`rounded-md ${open ? 'bg-stone-800/50' : ''}`}>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => onPick(spell.id)}
-                  className="flex min-w-0 flex-1 items-baseline justify-between gap-3 rounded-md px-2 py-1.5 text-left transition hover:bg-stone-800"
-                >
-                  <span className="min-w-0 truncate text-sm text-stone-100">{spell.name}</span>
-                  <span className="shrink-0 text-xs text-stone-500">{spellMetaText(spell)}</span>
-                </button>
-                <ExpandToggle open={open} onClick={() => toggleExpanded(spell.id)} name={spell.name} />
-              </div>
-              {open && (
-                <>
-                  <SpellDetailFetched spellId={spell.id} />
-                  <div className="flex justify-end px-3 pb-2">
-                    <Button type="button" size="xs" onClick={() => onPick(spell.id)}>
-                      Выбрать
-                    </Button>
-                  </div>
-                </>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-      {shown.length === 0 && <p className="px-2 py-1.5 text-xs text-stone-500">Ничего не найдено</p>}
-    </div>
+    </SheetDrawer>
+  )
+}
+
+// Одна «пустая ячейка» открытого варианта: пока заклинание не выбрано — кнопка
+// «Выбрать заклинание» (список — в SpellPickDrawer), после — карточка выбранного
+// с «Изменить». Описание выбранного раскрывается стрелкой.
+function OpenSpellEntry({ spells, picked, onPick, onRemove }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const removeButton = onRemove && (
+    <Button type="button" variant="ghost" size="xs" onClick={onRemove}>
+      Убрать
+    </Button>
+  )
+
+  return (
+    <>
+      {picked ? (
+        <div className="rounded-lg border border-ember/50 bg-stone-900/60">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-orange-100">{picked.name}</p>
+              <p className="text-xs text-stone-400">{spellMetaText(picked)}</p>
+            </div>
+            <ExpandToggle open={detailOpen} onClick={() => setDetailOpen((v) => !v)} name={picked.name} />
+            <Button type="button" variant="ghost" size="xs" onClick={() => setPickerOpen(true)}>
+              Изменить
+            </Button>
+            {removeButton}
+          </div>
+          {detailOpen && <SpellDetailFetched spellId={picked.id} />}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" size="xs" onClick={() => setPickerOpen(true)} disabled={spells.length === 0}>
+            Выбрать заклинание
+          </Button>
+          <span className="text-xs text-stone-500">{spells.length ? `подходит: ${spells.length}` : 'подходящих нет'}</span>
+          {removeButton}
+        </div>
+      )}
+      {pickerOpen && (
+        <SpellPickDrawer
+          spells={spells}
+          onPick={(spellId) => {
+            onPick(spellId)
+            setPickerOpen(false)
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+    </>
   )
 }
 

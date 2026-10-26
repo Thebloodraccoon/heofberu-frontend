@@ -1,9 +1,47 @@
 import Drawer from '@/components/ui/Drawer.jsx'
 import { useState } from 'react'
-import { Button, ErrorBox, Input } from '@/components/ui'
-import { AddButton } from './effectTypeEditors.jsx'
+import { Button, ErrorBox } from '@/components/ui'
+import { armorCategoryLabels, itemKindLabels, toolCategoryLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
+import { describeItemFilter } from '@/lib/utils/effectBundle.js'
 import { TrashIcon } from './editorShared.jsx'
-import ItemPickerModal from './ItemPickerModal.jsx'
+import ItemPickerModal, { ItemKindAddControl } from './ItemPickerModal.jsx'
+import { NumberStepper } from './LevelField.jsx'
+import ChipGroup from '@/components/ui/ChipGroup.jsx'
+
+// Вид предмета фильтра и поле его категории (у прочих предметов фильтра нет).
+const FILTER_CATEGORY = {
+  WEAPON: { key: 'weapon_category', labels: weaponProficiencyLabels },
+  ARMOR: { key: 'armor_category', labels: armorCategoryLabels },
+  TOOL: { key: 'tool_category', labels: toolCategoryLabels },
+}
+
+// Вариант-фильтр «любой предмет вида»: игрок назовёт конкретный предмет при
+// создании персонажа (item_id: null + kind и необязательная категория).
+function FilterOptionForm({ onAdd }) {
+  const [kind, setKind] = useState('WEAPON')
+  const [category, setCategory] = useState('')
+  const cat = FILTER_CATEGORY[kind]
+  const add = () =>
+    onAdd({
+      item_id: null,
+      kind,
+      weapon_category: null,
+      armor_category: null,
+      tool_category: null,
+      ...(cat && category ? { [cat.key]: category } : {}),
+      quantity: 1,
+    })
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-stone-700 p-2">
+      <span className="text-sm text-stone-400">Любой предмет:</span>
+      <ChipGroup label="Вид предмета" options={Object.keys(FILTER_CATEGORY).map((value) => ({ value, label: itemKindLabels[value] }))} value={kind} onChange={(next) => { setKind(next); setCategory('') }} />
+      {cat && (
+        <ChipGroup label="Категория" emptyLabel="Любая" options={[{ value: '', label: 'Любая' }, ...Object.entries(cat.labels).map(([value, label]) => ({ value, label }))]} value={category} onChange={setCategory} />
+      )}
+      <Button type="button" size="xs" onClick={add}>Добавить</Button>
+    </div>
+  )
+}
 
 // Модалка для одной группы «снаряжение на выбор» — по аналогии с
 // EffectGroupModal у эффектов особенности: список групп живёт в родителе,
@@ -13,15 +51,23 @@ export default function ItemChoiceGroupModal({ initialGroup = null, onSave, onCl
     pick_count: initialGroup?.pick_count ?? 1,
     options: (initialGroup?.options ?? []).map((o) => ({
       item_id: o.item_id,
+      kind: o.kind ?? null,
+      weapon_category: o.weapon_category ?? null,
+      armor_category: o.armor_category ?? null,
+      tool_category: o.tool_category ?? null,
       quantity: o.quantity ?? 1,
       name: o.item?.name,
     })),
   }))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
+  // Вид предмета, выбор которого открыт (null — список вариантов).
+  const [pickerKind, setPickerKind] = useState(null)
+  const pickerOpen = pickerKind != null
+  const closePicker = () => setPickerKind(null)
+  const [filterOpen, setFilterOpen] = useState(false)
 
-  const usedIds = new Set(group.options.map((o) => o.item_id))
+  const usedIds = new Set(group.options.filter((o) => o.item_id != null).map((o) => o.item_id))
   const addOption = (item) =>
     setGroup((g) => ({ ...g, options: [...g.options, { item_id: item.id, quantity: 1, name: item.name }] }))
   const setOptionQuantity = (oi, v) =>
@@ -54,7 +100,7 @@ export default function ItemChoiceGroupModal({ initialGroup = null, onSave, onCl
       onClose={onClose}
       size="lg"
       scroll
-      footer={pickerOpen ? <Button type="button" variant="ghost" onClick={() => setPickerOpen(false)}>Закрыть</Button> :
+      footer={pickerOpen ? <Button type="button" variant="ghost" onClick={closePicker}>Закрыть</Button> :
         <>
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
             Отмена
@@ -67,35 +113,32 @@ export default function ItemChoiceGroupModal({ initialGroup = null, onSave, onCl
     >
       <div hidden={pickerOpen} className="space-y-3">
         {error && <ErrorBox error={error} onRetry={() => {}} />}
-        <div className="flex items-center justify-between gap-2">
-          <label className="flex items-center gap-2 text-sm text-stone-300">
-            Выбрать
-            <Input
-              type="number"
-              min={1}
-              max={10}
-              value={group.pick_count}
-              onChange={(e) => setGroup((g) => ({ ...g, pick_count: Math.max(1, Number(e.target.value) || 1) }))}
-              className="input-narrow w-16"
-            />
-          </label>
-          <AddButton onClick={() => setPickerOpen(true)} title="+ Добавить вариант" />
+        <div className="flex items-center gap-2 text-sm text-stone-300">
+          Выбрать
+          <NumberStepper hideLabel required label="Сколько выбрать" min={1} max={10} value={group.pick_count ?? 1} onChange={(n) => setGroup((g) => ({ ...g, pick_count: n }))} />
         </div>
+        <div className="flex flex-wrap gap-2">
+          <ItemKindAddControl
+            extra={{ FILTER: 'Любой предмет вида' }}
+            onPick={(value) => (value === 'FILTER' ? setFilterOpen(true) : setPickerKind(value))}
+          />
+        </div>
+        {filterOpen && (
+          <FilterOptionForm
+            onAdd={(option) => {
+              setGroup((g) => ({ ...g, options: [...g.options, option] }))
+              setFilterOpen(false)
+            }}
+          />
+        )}
 
         <div className="space-y-2">
           {group.options.map((o, oi) => (
             <div key={oi} className="flex items-center gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-2">
               <span className="min-w-0 flex-1 truncate text-sm text-stone-200">
-                {o.name ?? `предмет #${o.item_id}`}
+                {o.item_id == null ? describeItemFilter(o) : (o.name ?? `предмет #${o.item_id}`)}
               </span>
-              <input
-                type="number"
-                min={1}
-                value={o.quantity}
-                onChange={(e) => setOptionQuantity(oi, e.target.value)}
-                className="w-16 rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
-              />
-              <span className="text-xs text-stone-400">шт.</span>
+              <NumberStepper hideLabel required label="Количество" min={1} max={99} suffix="шт." value={Number(o.quantity) || 1} onChange={(n) => setOptionQuantity(oi, n)} />
               <button
                 type="button"
                 onClick={() => removeOption(oi)}
@@ -113,7 +156,7 @@ export default function ItemChoiceGroupModal({ initialGroup = null, onSave, onCl
       </div>
 
       {pickerOpen && (
-        <ItemPickerModal inline excludeIds={usedIds} onPick={addOption} onClose={() => setPickerOpen(false)} />
+        <ItemPickerModal inline kind={pickerKind} excludeIds={usedIds} onPick={addOption} onClose={closePicker} />
       )}
     </Drawer>
   )

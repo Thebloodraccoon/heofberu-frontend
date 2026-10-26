@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import {
   allChoiceGroups,
   buildItemChoiceIds,
+  buildItemChoicePicks,
   choiceGroupsComplete,
+  itemFilterParams,
 } from '@/lib/utils/characterCreate.js'
 
 const classDetail = {
@@ -67,5 +69,40 @@ describe('choiceGroupsComplete', () => {
 
   it('is true when there are no groups at all', () => {
     expect(choiceGroupsComplete(null, null, {})).toBe(true)
+  })
+})
+
+describe('filter options (item_id null)', () => {
+  const bard = {
+    starting_choice_groups: [
+      {
+        pick_count: 1,
+        options: [
+          { id: 30, item_id: 300, quantity: 1 },
+          { id: 31, item_id: null, kind: 'WEAPON', weapon_category: 'SIMPLE', armor_category: null, quantity: 1 },
+        ],
+      },
+    ],
+  }
+
+  it('builds GET /items params from the set filter fields only', () => {
+    expect(itemFilterParams(bard.starting_choice_groups[0].options[1])).toEqual({
+      kind: 'WEAPON',
+      weapon_category: 'SIMPLE',
+      size: 100,
+    })
+  })
+
+  it('needs a concrete item for a chosen filter option', () => {
+    const choices = { 'class:0': [31] }
+    expect(choiceGroupsComplete(bard, null, choices, {})).toBe(false)
+    expect(choiceGroupsComplete(bard, null, choices, { 31: 5 })).toBe(true)
+    expect(choiceGroupsComplete(bard, null, { 'class:0': [30] }, {})).toBe(true)
+  })
+
+  it('sends picks only for chosen filter options', () => {
+    expect(buildItemChoicePicks(bard, null, { 'class:0': [31] }, { 31: 5, 30: 9 })).toEqual([{ option_id: 31, item_id: 5 }])
+    expect(buildItemChoicePicks(bard, null, { 'class:0': [30] }, { 31: 5 })).toEqual([])
+    expect(buildItemChoiceIds(bard, null, { 'class:0': [31] })).toEqual([31])
   })
 })

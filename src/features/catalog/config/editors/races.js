@@ -1,12 +1,12 @@
 import { catalogApi as api } from '../../api.js'
-import { abilityLabels, raceSizeLabels } from '@/lib/i18n/index.js'
+import { raceSizeLabels } from '@/lib/i18n/index.js'
 import { opt, toNumDefault, toStr } from './shared.js'
 
 export const racesCfg = {
   singular: 'раса',
   featuresSource: { type: 'RACE', fk: 'race_id' },
   featuresOps: api.races.features,
-  featuresModal: { showLevel: false, levelHint: '' },
+  featuresModal: { showLevel: false },
   featuresBlock: {
     label: 'Особенности и умения расы',
     addLabel: '+ Добавить',
@@ -23,25 +23,14 @@ export const racesCfg = {
   },
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Эльф', full: true },
-    { key: 'size', label: 'Размер', type: 'select', options: opt(raceSizeLabels), inline: true },
-    { key: 'speed', label: 'Скорость (фт.)', type: 'number', min: 0, inline: true },
+    // Размер и скорость одной строкой: все чипы размера в ряд, скорость с краю; тесно — скорость
+    // уходит на следующую строку, на телефоне и чипы переносятся.
+    { key: 'size', label: 'Размер', type: 'chips', options: opt(raceSizeLabels), row: 'body', flex: 'grow' },
+    { key: 'speed', label: 'Скорость', type: 'number', unit: 'фт.', min: 0, row: 'body', flex: 'fixed' },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
   ],
   sections: [
-    {
-      type: 'rows',
-      key: 'ability_bonuses',
-      label: 'Бонусы характеристик',
-      addLabel: '+ Добавить',
-      empty: 'Бонусов нет',
-      labels: true,
-      fixedWidths: true,
-      defaults: { ability: 'STR', bonus: 1 },
-      columns: [
-        { key: 'ability', label: 'Характеристика', type: 'select', options: opt(abilityLabels), width: 'w-48' },
-        { key: 'bonus', label: 'Бонус', type: 'number', min: -5, max: 5, width: 'w-20' },
-      ],
-    },
+    { type: 'abilityBonuses', key: 'ability_bonuses', label: 'Бонусы характеристик' },
     { type: 'pillsFrom', listKey: 'skills', key: 'skill_ids', label: 'Навыки расы', empty: 'Навыков в справочнике нет' },
     { type: 'tags', key: 'tags', label: 'Теги' },
   ],
@@ -71,11 +60,14 @@ export const racesCfg = {
       description: form.description,
     }
     if (!rec) {
-      const created = await api.races.create({
-        ...base,
-        ability_bonuses: form.ability_bonuses,
-        granted_skills: form.skill_ids,
-      })
+      // POST /races берёт только базовые поля — бонусы, навыки и теги следом своими PUT.
+      const created = await api.races.create(base)
+      if (form.ability_bonuses.length) {
+        await api.races.abilityBonuses(created.id, { ability_bonuses: form.ability_bonuses })
+      }
+      if (form.skill_ids.length) {
+        await api.races.skills(created.id, { skill_ids: form.skill_ids })
+      }
       if (form.tags.length) {
         await api.races.tags(created.id, { tag_ids: form.tags.map((t) => t.id) })
       }
@@ -108,6 +100,5 @@ export const racesCfg = {
   listBadges: (item) =>
     [
       item.size ? { text: raceSizeLabels[item.size] ?? item.size, tone: 'default' } : null,
-      item.speed != null ? { text: `${item.speed} фт.`, tone: 'default' } : null,
     ].filter(Boolean),
 }

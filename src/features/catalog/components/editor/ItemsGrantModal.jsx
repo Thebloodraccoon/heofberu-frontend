@@ -1,9 +1,9 @@
 import Drawer from '@/components/ui/Drawer.jsx'
 import { useState } from 'react'
 import { Button, ErrorBox } from '@/components/ui'
-import { AddButton } from './effectTypeEditors.jsx'
 import { TrashIcon } from './editorShared.jsx'
-import ItemPickerModal from './ItemPickerModal.jsx'
+import ItemPickerModal, { ItemKindAddControl } from './ItemPickerModal.jsx'
+import { NumberStepper } from './LevelField.jsx'
 
 // Модалка для правки всего списка обязательного снаряжения разом — выдаётся
 // игроку целиком, без выбора, поэтому (в отличие от групп выбора) это один
@@ -14,7 +14,10 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
+  // Вид предмета, выбор которого открыт (null — список снаряжения).
+  const [pickerKind, setPickerKind] = useState(null)
+  const pickerOpen = pickerKind != null
+  const closePicker = () => setPickerKind(null)
 
   const usedIds = new Set(rows.map((r) => r.item_id))
   const add = (item) => setRows((r) => [...r, { item_id: item.id, quantity: 1, name: item.name }])
@@ -43,7 +46,7 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
       onClose={onClose}
       size="lg"
       scroll
-      footer={pickerOpen ? <Button type="button" variant="ghost" onClick={() => setPickerOpen(false)}>Закрыть</Button> :
+      footer={pickerOpen ? <Button type="button" variant="ghost" onClick={closePicker}>Закрыть</Button> :
         <>
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
             Отмена
@@ -56,9 +59,9 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
     >
       <div hidden={pickerOpen} className="space-y-3">
         {error && <ErrorBox error={error} onRetry={() => {}} />}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm text-stone-300">Список снаряжения</span>
-          <AddButton onClick={() => setPickerOpen(true)} title="+ Добавить предмет" />
+          <ItemKindAddControl onPick={setPickerKind} />
         </div>
         <div className="space-y-2">
           {rows.length === 0 && <p className="text-sm text-stone-500">Снаряжения нет</p>}
@@ -67,15 +70,7 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
               <span className="min-w-0 flex-1 truncate text-sm text-stone-200">
                 {row.name ?? `предмет #${row.item_id}`}
               </span>
-              <input
-                type="number"
-                min={1}
-                value={row.quantity}
-                onChange={(e) => setQuantity(i, e.target.value)}
-                title="Количество"
-                className="h-[40px] w-24 rounded border border-stone-700 bg-stone-800/70 px-1 text-center text-sm text-stone-100 outline-none focus:border-ember"
-              />
-              <span className="text-xs text-stone-400">шт.</span>
+              <NumberStepper hideLabel required label={`Количество: ${row.name ?? `предмет #${row.item_id}`}`} min={1} max={99} suffix="шт." value={Number(row.quantity) || 1} onChange={(n) => setQuantity(i, n)} />
               <button
                 type="button"
                 onClick={() => remove(i)}
@@ -90,7 +85,7 @@ export default function ItemsGrantModal({ title = 'Обязательное сн
       </div>
 
       {pickerOpen && (
-        <ItemPickerModal inline excludeIds={usedIds} onPick={add} onClose={() => setPickerOpen(false)} />
+        <ItemPickerModal inline kind={pickerKind} excludeIds={usedIds} onPick={add} onClose={closePicker} />
       )}
     </Drawer>
   )

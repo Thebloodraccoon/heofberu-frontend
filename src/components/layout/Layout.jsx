@@ -9,8 +9,11 @@ const catalogLinks = [
   { to: '/catalog/skills', label: 'Навыки' },
   { to: '/catalog/spells', label: 'Заклинания' },
   { to: '/catalog/backgrounds', label: 'Предыстории' },
-  { to: '/catalog/feats', label: 'Черты' },
+  { to: '/catalog/weapons', label: 'Оружие' },
+  { to: '/catalog/armor', label: 'Доспехи и щиты' },
+  { to: '/catalog/tools', label: 'Инструменты' },
   { to: '/catalog/items', label: 'Предметы' },
+  { to: '/catalog/feats', label: 'Черты' },
   { to: '/catalog/features', label: 'Особенности' },
 ]
 

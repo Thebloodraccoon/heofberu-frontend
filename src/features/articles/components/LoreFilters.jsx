@@ -44,7 +44,7 @@ export default function LoreFilters({ types, tags, match, subtypes = [], statuse
   }
 
   return (
-    <Drawer title="Фильтры лора" subtitle="Выберите типы статей и интересующие темы." onClose={onClose} footer={
+    <Drawer variant="filters" title="Фильтры лора" subtitle="Выберите типы статей и интересующие темы." onClose={onClose} footer={
       <div className="article-filter-actions">
         <Button variant="ghost" onClick={() => apply([], [], 'any', [], [], { author: '', pendingOnly: false })}>Сбросить</Button>
         <Button onClick={() => apply(draftTypes, draftTags, draftMatch, draftSubtypes, draftStatuses, draftGm)}>Применить</Button>

@@ -41,7 +41,7 @@ export default function FilterDrawer({ title, subtitle, sections, value, empty, 
   const apply = (next) => { onApply(next); onClose() }
 
   return (
-    <Drawer title={title} subtitle={subtitle} onClose={onClose} footer={
+    <Drawer variant="filters" title={title} subtitle={subtitle} onClose={onClose} footer={
       <div className="article-filter-actions">
         <Button variant="ghost" onClick={() => apply(empty)}>Сбросить</Button>
         <Button onClick={() => apply(draft)}>Применить</Button>

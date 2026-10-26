@@ -14,8 +14,8 @@ export default function ForgotPasswordPage() {
     setError(null)
     setBusy(true)
     try {
-      const redirect = `${window.location.origin}/reset-password`
-      await authApi.forgotPassword({ email, redirect })
+      // Ссылку в письме строит бэк (FRONTEND_RESET_URL) — адрес фронта не передаём.
+      await authApi.forgotPassword({ email })
       setSent(true)
     } catch (err) {
       setError(err)

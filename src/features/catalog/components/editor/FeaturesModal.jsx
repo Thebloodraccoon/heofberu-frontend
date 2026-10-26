@@ -1,14 +1,15 @@
 import Drawer from '@/components/ui/Drawer.jsx'
 import EditorTabs from '@/components/ui/EditorTabs.jsx'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Button, Field, Input, Modal, RichText, RichTextEditor, RichTextField, TextField, ErrorBox } from '@/components/ui'
+import { Button, Field, Input, Modal, RichTextEditor, RichTextField, TextField, ErrorBox } from '@/components/ui'
 import { normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
 import { persistFeatureEffects } from '@/features/catalog/config/editors/shared.js'
 import { normalizeScaling, sameScaling, scalingError, toScalingDraft } from '@/lib/utils/featureScaling.js'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import FeatureEffectsEditor from './FeatureEffectsEditor.jsx'
 import FeatureScalingEditor from './FeatureScalingEditor.jsx'
+import LevelField from './LevelField.jsx'
 import { catalogApi as api } from '@/features/catalog/api.js'
 
 const LEVEL_MIN = 1
@@ -28,7 +29,6 @@ export default function FeatureModal({
   value = null,
   showLevel = false,
   levelRequired = false,
-  levelHint,
   onSave,
   onSaved,
   onClose,
@@ -81,6 +81,7 @@ export default function FeatureModal({
   const [saveError, setSaveError] = useState(null)
   const Container = drawer ? Drawer : Modal
   const [levelError, setLevelError] = useState(false)
+  const levelSaveRef = useRef(null)
 
   const setField = (key) => (e) =>
     setEdit((d) => ({
@@ -151,14 +152,6 @@ export default function FeatureModal({
 
   const loading = treeQ.isLoading && editing
 
-  const summary = tree?.effects_summary && (
-        <Field label="Сводка эффектов">
-          <RichText
-            value={tree.effects_summary}
-            className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm leading-relaxed text-stone-300"
-          />
-        </Field>
-      )
 
   return (
     <Container
@@ -185,57 +178,51 @@ export default function FeatureModal({
       }
     >
       {saveError && <ErrorBox error={saveError} />}
-      {drawer && !navigating && <EditorTabs tabs={[['description', 'Описание'], ['scaling', 'Растёт с уровнем'], ['effects', 'Эффекты']]} value={tab} onChange={setTab} label="Разделы особенности" />}
+      {drawer && !navigating && <EditorTabs tabs={[['description', 'Описание'], ['scaling', 'Растёт с уровнем'], ['static', 'Статичные эффекты'], ['choices', 'Выбор эффектов']]} value={tab} onChange={setTab} label="Разделы особенности" />}
       <div hidden={drawer && tab !== 'description'} className="space-y-4">
       {editing ? (
         <>
-          <div className={showLevel ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3'}>
-            <TextField
-              label="Название"
-              value={edit.name}
-              onSave={patchField('name')}
-              placeholder="Например, Тёмное зрение"
+          <TextField
+            label="Название *"
+            value={edit.name}
+            onSave={patchField('name')}
+            placeholder="Например, Тёмное зрение"
+          />
+          {showLevel && (
+            <LevelField
+              label={levelRequired ? 'Уровень получения *' : 'Уровень получения'}
+              required={levelRequired}
+              value={edit.level}
+              onChange={(level) => {
+                // −/+ кликают сериями — сохраняем один раз, когда правка затихла.
+                setEdit((d) => ({ ...d, level }))
+                clearTimeout(levelSaveRef.current)
+                levelSaveRef.current = setTimeout(() => patchField('level')(level).catch(setSaveError), 600)
+              }}
             />
-            {showLevel && (
-              <TextField
-                label={levelRequired ? 'Уровень получения (обязательно)' : 'Уровень получения'}
-                type="number"
-                value={edit.level ?? ''}
-                onSave={patchField('level')}
-                placeholder={levelRequired ? 'Обязательно' : 'Пусто = сразу'}
-              />
-            )}
-          </div>
-          {showLevel && levelHint && <p className="text-xs text-stone-500">{levelHint}</p>}
+          )}
 
           <RichTextField label="Описание" value={edit.description} onSave={patchField('description')} rows={4} />
         </>
       ) : (
         <>
-          <div className={showLevel ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3'}>
-            <Field label="Название">
-              <Input value={edit.name} onChange={setField('name')} placeholder="Например, Тёмное зрение" autoFocus />
-            </Field>
-            {showLevel && (
-              <Field label={levelRequired ? 'Уровень получения (обязательно)' : 'Уровень получения'}>
-                <Input
-                  type="number"
-                  min={LEVEL_MIN}
-                  max={LEVEL_MAX}
-                  value={edit.level ?? ''}
-                  onChange={(e) => {
-                    setLevelError(false)
-                    setField('level')(e)
-                  }}
-                  placeholder={levelRequired ? 'Обязательно' : 'Пусто = сразу'}
-                />
-              </Field>
-            )}
-          </div>
-          {showLevel && levelRequired && levelError && (
-            <p className="mt-1 text-xs text-red-400">Укажите уровень, с которого умение доступно.</p>
+          <Field label="Название *">
+            <Input value={edit.name} onChange={setField('name')} placeholder="Например, Тёмное зрение" autoFocus />
+          </Field>
+          {showLevel && (
+            <LevelField
+              label={levelRequired ? 'Уровень получения *' : 'Уровень получения'}
+              required={levelRequired}
+              value={edit.level}
+              onChange={(level) => {
+                setLevelError(false)
+                setEdit((d) => ({ ...d, level }))
+              }}
+            />
           )}
-          {showLevel && levelHint && <p className="text-xs text-stone-500">{levelHint}</p>}
+          {showLevel && levelRequired && levelError && (
+            <p className="mt-1 text-xs text-red-400">Выберите уровень, с которого умение доступно.</p>
+          )}
 
           <Field label="Описание">
             <RichTextEditor value={edit.description} onChange={setField('description')} rows={4} />
@@ -267,15 +254,16 @@ export default function FeatureModal({
           }
         />
       </div>
-      <div hidden={drawer && tab !== 'effects'} className="space-y-4">
-      {!navigating && summary}
-
-      {loading ? (
-        <p className="py-4 text-sm text-stone-500">Загрузка эффектов…</p>
-      ) : (
-        <FeatureEffectsEditor summary={summary} value={tree} onChange={setTree} inline={drawer} onNavigate={drawer ? setNavigating : undefined} />
-      )}
-      </div>
+      {/* Две вкладки эффектов; вне панели (drawer=false) — обе части подряд, каждая со своим превью. */}
+      {[['static', 'static'], ['choices', 'choice']].map(([tabKey, part]) => (
+        <div key={tabKey} hidden={drawer && tab !== tabKey} className="space-y-4">
+          {loading ? (
+            <p className="py-4 text-sm text-stone-500">Загрузка эффектов…</p>
+          ) : (
+            <FeatureEffectsEditor part={part} summaryHtml={tree?.effects_summary ?? ''} value={tree} onChange={setTree} inline={drawer} onNavigate={drawer ? setNavigating : undefined} />
+          )}
+        </div>
+      ))}
     </Container>
   )
 }

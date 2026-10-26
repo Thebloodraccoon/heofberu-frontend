@@ -1,26 +1,30 @@
 import EditorAddButton from '@/features/catalog/components/editor/EditorAddButton.jsx'
 import Drawer from '@/components/ui/Drawer.jsx'
 import EditorTabs from '@/components/ui/EditorTabs.jsx'
-import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { catalogEditorTabs, catalogFieldTab, catalogSectionTab } from '@/features/catalog/config/editors/tabs.js'
 import { scrollChildToTop } from '@/lib/utils/scroll.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { catalogApi as api } from '@/features/catalog/api.js'
-import { editorConfig, featurePayload, featuresFromRecord, persistFeatureEffects, sortedByLevel, subclassPayload, subracePayload, SPELL_LEVEL_KEYS } from '@/features/catalog/config/editors/index.js'
+import { editorConfig, featurePayload, featuresFromRecord, persistFeatureEffects, sortedByLevel, subclassPayload, subracePayload } from '@/features/catalog/config/editors/index.js'
 import FeatureModal from '@/features/catalog/components/editor/FeaturesModal.jsx'
 import FeatureEffectsEditor from '@/features/catalog/components/editor/FeatureEffectsEditor.jsx'
 import CatalogScalingBlock from '@/features/catalog/components/editor/CatalogScalingBlock.jsx'
-import { toNum } from '@/features/catalog/config/editors/shared.js'
+import { GROUP_FIELD_TYPES, toNum } from '@/features/catalog/config/editors/shared.js'
 import SubclassEditor from '@/features/catalog/components/editor/SubclassEditor.jsx'
 import SubraceEditor from '@/features/catalog/components/editor/SubraceEditor.jsx'
 import OptionsPicker from '@/features/catalog/components/editor/OptionsPicker.jsx'
-import EditorFieldControl, { BlurNumberInput, CheckIcon, PencilIcon, SectionTitle, TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
+import EditorFieldControl, { BlurNumberInput, ChoiceCountStepper, SectionTitle, TrashIcon } from '@/features/catalog/components/editor/editorShared.jsx'
+import GroupedRowsEditor from '@/features/catalog/components/editor/GroupedRowsEditor.jsx'
+import AbilityBonusesBlock from '@/features/catalog/components/editor/AbilityBonusesBlock.jsx'
+import SpellSlotsTable from '@/features/catalog/components/editor/SpellSlotsTable.jsx'
 import FeaturesEditorBlock from '@/features/catalog/components/editor/FeaturesEditorBlock.jsx'
 import ItemsEditorBlock from '@/features/catalog/components/editor/ItemsEditorBlock.jsx'
+import ItemEffectsEditor from '@/features/catalog/components/editor/ItemEffectsEditor.jsx'
+import WeaponPropertiesPicker from '@/features/catalog/components/editor/WeaponPropertiesPicker.jsx'
 import RecordListItem from '@/features/catalog/components/editor/RecordListItem.jsx'
-import TagInput from '@/features/articles/components/TagInput.jsx'
-import { Button, Card, ConfirmDialog, ErrorBox, Field, Input, RichText, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
+import CatalogTagInput from '@/features/catalog/components/editor/CatalogTagInput.jsx'
+import { Button, Card, ConfirmDialog, DiceField, ErrorBox, Field, Input, RichTextEditor, Select, Skeleton, SkeletonCard } from '@/components/ui'
 import ImageUploadBlock from '@/features/catalog/components/editor/ImageUploadBlock.jsx'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
@@ -28,8 +32,15 @@ import CatalogToolbar from '@/features/catalog/components/CatalogToolbar.jsx'
 import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
 import CatalogEmptyState from '@/features/catalog/components/CatalogEmptyState.jsx'
 import Pagination from '@/components/ui/Pagination.jsx'
-import { useCatalogPage } from '@/features/catalog/queries.js'
+import { useCatalogPage, useWeaponProperties } from '@/features/catalog/queries.js'
+import { queryKeys } from '@/lib/api/queryKeys.js'
 import { PAGE_SIZE } from '@/features/catalog/catalog.js'
+
+// Ширина поля в строке row (сетка в 4 колонки): span — сколько колонок.
+const ROW_SPAN = { 1: 'sm:col-span-1', 2: 'sm:col-span-2', 3: 'sm:col-span-3', 4: 'sm:col-span-4' }
+// Гибкая строка (flex): grow — тянется, но не уже 40rem (иначе соседи уходят вниз, а потом и сами
+// чипы переносятся); fixed — узкое поле (число) у края строки.
+const ROW_FLEX = { grow: 'min-w-0 flex-[1_1_40rem]', fixed: 'w-[100px] flex-none' }
 
 export default function GmEditorPage() {
   const [resource, setResource] = useState('races')
@@ -56,7 +67,17 @@ export default function GmEditorPage() {
     return params
   }, [cfg, page, appliedSearch, filters])
 
-  const findQ = useCatalogPage(resource, listParams)
+  // Редакторы видов предметов (оружие, доспехи…) листают общий /items с фильтром kind.
+  const findQ = useCatalogPage(cfg.apiResource ?? resource, listParams)
+  // Словарь свойств оружия: из него itemPatches решает, какие поля придержать.
+  // Читается из кеша в момент сохранения (свежий даже для только что созданного свойства).
+  useWeaponProperties({ enabled: cfg.itemKind === 'WEAPON' })
+  const editorContext = () => {
+    const weaponProperties = queryClient.getQueryData(queryKeys.catalog.itemProperties)
+    return { weaponProperties: Array.isArray(weaponProperties) ? weaponProperties : [] }
+  }
+  // Правка записи меняет и публичный справочник, карточки по id и пикеры этого ресурса.
+  const invalidateResource = () => queryClient.invalidateQueries({ queryKey: queryKeys.catalog.resource(cfg.apiResource ?? resource) })
   const records = findQ.data?.items ?? null
   const total = findQ.data?.total ?? 0
 
@@ -146,13 +167,14 @@ export default function GmEditorPage() {
 
   const [featureModal, setFeatureModal] = useState(null)
   const [confirmSub, setConfirmSub] = useState(null)
+  // «Нет» у характеристики заклинаний стирает ячейки — с подтверждением: { key, slotsKey }.
+  const [confirmClearSlots, setConfirmClearSlots] = useState(null)
   const [confirmSubDeleting, setConfirmSubDeleting] = useState(false)
   const [subDeleteError, setSubDeleteError] = useState(null)
   const [confirmSubrace, setConfirmSubrace] = useState(null)
   const [confirmSubraceDeleting, setConfirmSubraceDeleting] = useState(false)
   const [subraceDeleteError, setSubraceDeleteError] = useState(null)
   const [confirmRow, setConfirmRow] = useState(null)
-  const [editingGroupedRows, setEditingGroupedRows] = useState(() => new Set())
 
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -181,29 +203,21 @@ export default function GmEditorPage() {
       const needed = pillKeys.filter((key) => key !== resource)
       if (needed.length === 0) return {}
       const apis = { skills: api.skills, classes: api.classes, races: api.races, items: api.items }
+      // Один запрос списка на ресурс, даже если он нужен и сам, и как родитель.
+      const lists = {}
+      const listOf = (key) => (lists[key] ??= apis[key].list({ size: 100 }).then((page) => page.items ?? []))
       const loaders = {
-        subclasses: async () => {
-          const parents = await api.classes.list({ size: 100 }).then((p) => p.items ?? [])
-          const details = await Promise.all(parents.map((c) => api.classes.get(c.id).catch(() => null)))
-          return details.flatMap((d, i) =>
-            (d?.subclasses ?? []).map((s) => ({ ...s, parentName: parents[i]?.name }))
-          )
-        },
+        // Строки списка классов уже несут свои подклассы — детали классов не нужны.
+        subclasses: async () =>
+          (await listOf('classes')).flatMap((c) => (c.subclasses ?? []).map((s) => ({ ...s, parentId: c.id, parentName: c.name }))),
+        // У рас в списке подрас нет: один лёгкий GET /subraces (все подрасы), имя расы — по race_id.
         subraces: async () => {
-          const parents = await api.races.list({ size: 100 }).then((p) => p.items ?? [])
-          const details = await Promise.all(parents.map((rc) => api.races.get(rc.id).catch(() => null)))
-          return details.flatMap((d, i) =>
-            (d?.subraces ?? []).map((s) => ({ ...s, parentName: parents[i]?.name }))
-          )
+          const [parents, list] = await Promise.all([listOf('races'), api.races.subraces.list()])
+          const raceName = Object.fromEntries(parents.map((rc) => [rc.id, rc.name]))
+          return (Array.isArray(list) ? list : []).map((s) => ({ ...s, parentId: s.race_id, parentName: raceName[s.race_id] }))
         },
       }
-      const arrays = await Promise.all(
-        needed.map((key) =>
-          loaders[key]
-            ? loaders[key]()
-            : apis[key].list({ size: 100 }).then((page) => page.items ?? [])
-        )
-      )
+      const arrays = await Promise.all(needed.map((key) => (loaders[key] ? loaders[key]() : listOf(key))))
       const next = {}
       needed.forEach((key, i) => {
         next[key] = arrays[i]
@@ -272,6 +286,7 @@ export default function GmEditorPage() {
   // открытой модалке и мог повторить сохранение, не потеряв правки.
   const saveGrant = async (rows) => {
     await cfg.itemsOps.set(editing.id, { items: rows })
+    invalidateResource()
     await reloadItems()
   }
 
@@ -279,15 +294,20 @@ export default function GmEditorPage() {
     groups.map((g, i) => ({
       pick_count: Math.max(1, Number(g.pick_count) || 1),
       sort_order: i,
-      options: (g.options ?? []).map((o) => ({
-        item_id: Number(o.item_id),
-        quantity: Math.max(1, Number(o.quantity) || 1),
-      })),
+      // Вариант — конкретный предмет или фильтр «любой предмет вида»
+      // (item_id: null + заданные поля фильтра; null-поля бэк не ждёт).
+      options: (g.options ?? []).map((o) => {
+        const quantity = Math.max(1, Number(o.quantity) || 1)
+        if (o.item_id != null) return { item_id: Number(o.item_id), quantity }
+        const filter = ['kind', 'weapon_category', 'armor_category', 'tool_category'].filter((k) => o[k] != null)
+        return { ...Object.fromEntries(filter.map((k) => [k, o[k]])), quantity }
+      }),
     }))
 
   const saveChoiceGroup = async (group, index) => {
     const next = index == null ? [...choiceGroups, group] : choiceGroups.map((g, i) => (i === index ? group : g))
     await cfg.choiceGroupsOps.set(editing.id, { choice_groups: choiceGroupsPayload(next) })
+    invalidateResource()
     await reloadChoiceGroups()
   }
 
@@ -295,6 +315,7 @@ export default function GmEditorPage() {
     try {
       const next = choiceGroups.filter((_, i) => i !== index)
       await cfg.choiceGroupsOps.set(editing.id, { choice_groups: choiceGroupsPayload(next) })
+      invalidateResource()
       await reloadChoiceGroups()
     } catch (e) {
       setChoiceGroupsError(e)
@@ -314,17 +335,21 @@ export default function GmEditorPage() {
     }
   }
 
+  const showSubclasses = (classId, list) => {
+    setSubError(null)
+    setSubclasses(list)
+    setSubDetails({})
+    openSubs.forEach((id) => {
+      const sub = list.find((s) => s.id === id)
+      if (sub) loadSubDetail(classId, sub)
+    })
+  }
+
   const reloadSubclasses = async (classId) => {
     setSubError(null)
     try {
       const full = await api.classes.get(classId)
-      const list = full.subclasses ?? []
-      setSubclasses(list)
-      setSubDetails({})
-      openSubs.forEach((id) => {
-        const sub = list.find((s) => s.id === id)
-        if (sub) loadSubDetail(classId, sub)
-      })
+      showSubclasses(classId, full.subclasses ?? [])
     } catch (e) {
       setSubError(e)
     }
@@ -357,28 +382,57 @@ export default function GmEditorPage() {
     }
   }
 
+  const showSubraces = (raceId, list) => {
+    setSubraceError(null)
+    setSubraces(list)
+    setSubraceDetails({})
+    openSubraces.forEach((id) => {
+      const sub = list.find((s) => s.id === id)
+      if (sub) loadSubraceDetail(raceId, sub)
+    })
+  }
+
   const reloadSubraces = async (raceId) => {
     setSubraceError(null)
     try {
       const full = await api.races.get(raceId)
-      const list = full.subraces ?? []
-      setSubraces(list)
-      setSubraceDetails({})
-      openSubraces.forEach((id) => {
-        const sub = list.find((s) => s.id === id)
-        if (sub) loadSubraceDetail(raceId, sub)
-      })
+      showSubraces(raceId, full.subraces ?? [])
     } catch (e) {
       setSubraceError(e)
     }
   }
 
-  const loadNested = async (id) => {
-    if (cfg.featuresOps) await reloadFeatures(id)
-    if (cfg.itemsOps) await reloadItems(id)
-    if (cfg.choiceGroupsOps) await reloadChoiceGroups(id)
-    if (cfg.hasSubclasses) await reloadSubclasses(id)
-    if (cfg.hasSubraces) await reloadSubraces(id)
+  // full — только что загруженная деталь записи: GET /classes|races|backgrounds/{id}
+  // уже несёт features, starting_items, starting_choice_groups и подклассы/подрасы,
+  // поэтому отдельные GET вложенных списков идут, только если в детали их нет.
+  const loadNested = async (id, full) => {
+    const has = (key) => Array.isArray(full?.[key])
+    if (cfg.featuresOps) {
+      if (has('features')) {
+        setFeaturesError(null)
+        setFeatures(featuresFromRecord(full.features))
+      } else await reloadFeatures(id)
+    }
+    if (cfg.itemsOps) {
+      if (has('starting_items')) {
+        setStartingItemsError(null)
+        setStartingItems(full.starting_items)
+      } else await reloadItems(id)
+    }
+    if (cfg.choiceGroupsOps) {
+      if (has('starting_choice_groups')) {
+        setChoiceGroupsError(null)
+        setChoiceGroups(full.starting_choice_groups)
+      } else await reloadChoiceGroups(id)
+    }
+    if (cfg.hasSubclasses) {
+      if (has('subclasses')) showSubclasses(id, full.subclasses)
+      else await reloadSubclasses(id)
+    }
+    if (cfg.hasSubraces) {
+      if (has('subraces')) showSubraces(id, full.subraces)
+      else await reloadSubraces(id)
+    }
   }
 
   const selectResource = (key) => {
@@ -433,7 +487,7 @@ export default function GmEditorPage() {
       setImageUrl(enriched?.image_url ?? full?.image_url ?? null)
       skipNextAutoSaveRef.current = true
       setForm(cfg.fromRecord(enriched))
-      await loadNested(full.id)
+      await loadNested(full.id, full)
     } catch (e) {
       setError(e)
     } finally {
@@ -520,83 +574,12 @@ export default function GmEditorPage() {
   }
   const removeRow = (key, i) =>
     setForm((f) => ({ ...f, [key]: f[key].filter((_, idx) => idx !== i) }))
-  const toggleGroupedRowEdit = (key, i) =>
-    setEditingGroupedRows((prev) => {
-      const id = `${key}:${i}`
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  const setGroupedRowText = (key, i, colKey, v) => {
-    // Правки саджеста не должны улетать через общий автосейв формы —
-    // патч уходит явно по галочке "Готово" (finishGroupedRowEdit).
-    skipNextAutoSaveRef.current = true
-    setRow(key, i, colKey, v)
-  }
-  const finishGroupedRowEdit = async (section, i) => {
-    toggleGroupedRowEdit(section.key, i)
-    if (!editingRef.current || !section.ops) return
-    const row = (formRef.current?.[section.key] ?? [])[i]
-    if (!row) return
-    const text = row[section.textKey]?.trim() ? row[section.textKey] : '-'
-    const payload = { [section.groupKey]: row[section.groupKey], [section.textKey]: text }
-    try {
-      let newId = row.id
-      if (newId == null) {
-        const created = await section.ops.create(editingRef.current.id, payload)
-        newId = created.id
-      } else {
-        await section.ops.update(editingRef.current.id, newId, payload)
-      }
-      skipNextAutoSaveRef.current = true
-      setForm((f) => ({
-        ...f,
-        [section.key]: (f[section.key] ?? []).map((r, idx) =>
-          idx === i ? { ...r, id: newId, [section.textKey]: text } : r,
-        ),
-      }))
-      // Держим rec[section.key] в синхроне, иначе следующий общий автосейв
-      // (после правки другого поля) увидит "расхождение" и продублирует патч.
-      setEditing((rec) => {
-        if (!rec) return rec
-        const prevList = rec[section.key] ?? []
-        const exists = prevList.some((s) => String(s.id) === String(newId))
-        const nextEntry = { ...payload, id: newId }
-        const nextList = exists
-          ? prevList.map((s) => (String(s.id) === String(newId) ? nextEntry : s))
-          : [...prevList, nextEntry]
-        return { ...rec, [section.key]: nextList }
-      })
-    } catch (err) {
-      setFieldError(err)
-    }
-  }
-  const setSpellSlot = (key, classLevel, spellLevel, v) =>
-    setForm((f) => {
-      const slots = { ...(f[key]?.[classLevel] ?? {}) }
-      slots[spellLevel] = v
-      return { ...f, [key]: { ...(f[key] ?? {}), [classLevel]: slots } }
-    })
-  const addSpellSlotLevel = (key) =>
-    setForm((f) => {
-      const levels = Object.keys(f[key] ?? {}).map(Number)
-      const next = levels.length ? Math.max(...levels) + 1 : 1
-      if (next > 20) return f
-      return { ...f, [key]: { ...(f[key] ?? {}), [next]: {} } }
-    })
-  const removeSpellSlotLevel = (key, classLevel) =>
-    setForm((f) => {
-      const slots = { ...(f[key] ?? {}) }
-      delete slots[classLevel]
-      return { ...f, [key]: slots }
-    })
-
   const listOptions = (() => {
     const toOptions = (arr) =>
       arr.map((x) => ({
         value: x.id,
         label: x.parentName ? `${x.parentName} — ${x.name}` : x.name,
+        ...(x.parentId != null && { parentId: x.parentId, parentName: x.parentName }),
       }))
     const srcFor = (key) => pills[key] ?? []
     return {
@@ -619,6 +602,8 @@ export default function GmEditorPage() {
       return
     }
     savingInFlightRef.current = true
+    // Слой сохранения делает форму inert — фокус теряется; после сохранения возвращаем его на место.
+    const focused = document.activeElement
     setFieldSaving(true)
     setFieldError(null)
     pushStatus(
@@ -629,19 +614,25 @@ export default function GmEditorPage() {
     try {
       const currentForm = formRef.current
       const currentEditing = editingRef.current
-      await cfg.submitFields(currentForm, currentEditing)
+      const ctx = editorContext()
+      await cfg.submitFields(currentForm, currentEditing, ctx)
+      invalidateResource()
       const full = await cfg.api.get(currentEditing.id)
       const enriched = cfg.enrich ? await cfg.enrich(full) : full
       setEditing(enriched)
       setImageUrl(enriched?.image_url ?? full?.image_url ?? null)
       skipNextAutoSaveRef.current = true
-      setForm(cfg.fromRecord(enriched))
-      await loadNested(full.id)
+      // keepHeld — придержанные (недозаполненные) поля предмета остаются из формы.
+      setForm(cfg.keepHeld ? cfg.keepHeld(cfg.fromRecord(enriched), currentForm, ctx) : cfg.fromRecord(enriched))
+      await loadNested(full.id, full)
       pushStatus('Сохранено', `${cfg.singular[0].toUpperCase()}${cfg.singular.slice(1)}: ${enriched?.name ?? ''}`)
     } catch (err) {
       setFieldError(err)
     } finally {
       setFieldSaving(false)
+      requestAnimationFrame(() => {
+        if (focused?.isConnected && focused !== document.body) focused.focus({ preventScroll: true })
+      })
       savingInFlightRef.current = false
       if (pendingAutoSaveRef.current) {
         pendingAutoSaveRef.current = false
@@ -658,7 +649,8 @@ export default function GmEditorPage() {
     setFieldSaving(true)
     setFieldError(null)
     try {
-      const created = await cfg.submitFields(form, null)
+      const created = await cfg.submitFields(form, null, editorContext())
+      invalidateResource()
       if (cfg.featuresOps || cfg.hasSubclasses) {
         setEditing(created)
         setImageUrl(created?.image_url ?? null)
@@ -698,6 +690,8 @@ export default function GmEditorPage() {
         await upsertFeature(next, index, source)
         await reloadFeatures()
       }
+      // Особенности встроены в деталь родителя (класс/раса/предыстория) — её кеш тоже устарел.
+      invalidateResource()
       setFeatureModal(null)
     } catch (e) {
       setFeaturesError(e)
@@ -732,6 +726,7 @@ export default function GmEditorPage() {
   const removeFeature = async (f) => {
     try {
       await api.features.remove(f.id)
+      invalidateResource()
       await reloadFeatures()
     } catch (e) {
       setFeaturesError(e)
@@ -811,6 +806,7 @@ export default function GmEditorPage() {
     setError(null)
     try {
       await cfg.api.remove(deleteTarget.id)
+      invalidateResource()
       if (editing?.id === deleteTarget.id) closeForm()
       setDeleteTarget(null)
       load()
@@ -946,7 +942,7 @@ export default function GmEditorPage() {
                 <div className="mb-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="font-display text-xl font-bold text-stone-100">
-                      {editing ? `Редактирование: ${editing.name}` : `Новая ${cfg.singular}`}
+                      {editing ? `Редактирование: ${editing.name}` : (cfg.newTitle ?? `Новая ${cfg.singular}`)}
                     </h2>
                     {editing && (
                       <Button
@@ -964,8 +960,21 @@ export default function GmEditorPage() {
                 </div>
 
                 {editorTabs && <EditorTabs tabs={editorTabs} value={editorTab} onChange={setEditorTab} label="Разделы записи справочника" />}
-                <form onSubmit={editing ? saveFields : createSubmit} className="flex flex-col gap-5">
+                {/* Пока идёт автосохранение — текущая вкладка под мини-скелетоном и не принимает правок:
+                    иначе можно наплодить параллельных запросов к одной записи. */}
+                <div className="relative" aria-busy={editing && fieldSaving}>
+                {editing && fieldSaving && (
+                  <div className="editor-saving-overlay" role="status">
+                    <div className="editor-saving-card">
+                      <Skeleton className="h-3 w-40" />
+                      <Skeleton className="h-3 w-28" />
+                      <span>Сохраняем изменения…</span>
+                    </div>
+                  </div>
+                )}
+                <form onSubmit={editing ? saveFields : createSubmit} className="flex flex-col gap-5" inert={editing && fieldSaving}>
                   {!editing && editorTabs && ['features', 'subraces', 'subclasses'].includes(editorTab) && <p className="text-sm text-stone-500">Сначала создайте запись, чтобы добавить {editorTab === 'subraces' ? 'подрасы' : editorTab === 'subclasses' ? 'подклассы' : 'умения и особенности'}.</p>}
+                  {!editing && cfg.itemKind && editorTab === 'effects' && <p className="text-sm text-stone-500">Сначала создайте предмет, чтобы добавить эффекты.</p>}
                   {resource !== 'races' && editing && cfg.imageOps && <div hidden={tabHidden('main')}><ImageUploadBlock imageUrl={imageUrl} onUpload={uploadImage} onRemove={removeImage} busy={imageBusy} error={imageError} /></div>}
                   {(editorTabs ?? [['main', 'Основное']]).map(([tab, title]) => <div key={tab} hidden={tabHidden(tab)} role="tabpanel" aria-label={title}>
                   <div className={resource === 'races' && tab === 'main' ? 'race-editor-main' : ''}>
@@ -977,20 +986,94 @@ export default function GmEditorPage() {
                       const groups = []
                       for (let i = 0; i < visibleFields.length; i++) {
                         const field = visibleFields[i]
-                        if (field.inline && visibleFields[i + 1]?.inline) {
+                        if (field.row) {
+                          // Строка из нескольких полей (row): сетка в 4 колонки, full — на 2.
+                          const row = [field]
+                          while (visibleFields[i + 1]?.row === field.row) row.push(visibleFields[++i])
+                          groups.push(Object.assign(row, { row: true }))
+                        } else if (field.inline && visibleFields[i + 1]?.inline) {
                           groups.push([field, visibleFields[i + 1]])
                           i += 1
                         } else {
                           groups.push([field])
                         }
                       }
-                      const renderField = (field) =>
+                      // Обязательное поле — со звёздочкой в подписи («Название *»).
+                      const renderField = (rawField) => renderOne(rawField.required ? { ...rawField, label: `${rawField.label} *` } : rawField)
+                      const renderOne = (field) =>
                         field.type === 'heading' ? (
                           <div key={field.key} className="pt-2 sm:col-span-2">
                             <SectionTitle>{field.label}</SectionTitle>
+                            {field.hint && <p className="text-xs text-stone-500">{field.hint}</p>}
+                          </div>
+                        ) : field.type === 'abilityScore' ? (
+                          // Требование черты: характеристика чипами и порог «не ниже N» рядом; бэк
+                          // требует их вместе — выбор характеристики ставит 13, «Нет» снимает порог.
+                          <div key={field.key} className="sm:col-span-2">
+                            <Field label={field.label} group>
+                              <div className="flex flex-wrap items-center gap-3">
+                                <EditorFieldControl
+                                  field={{ ...field, type: 'chips' }}
+                                  value={form[field.key] ?? ''}
+                                  onChange={(ability) => setForm((f) => ({ ...f, [field.key]: ability, [field.scoreKey]: ability ? f[field.scoreKey] || '13' : '' }))}
+                                />
+                                {form[field.key] && (
+                                  <span className="flex items-center gap-2 text-sm text-stone-400">
+                                    не ниже
+                                    <EditorFieldControl
+                                      field={{ type: 'stepper', label: 'Минимальное значение', min: 1, max: 30, required: true }}
+                                      value={form[field.scoreKey]}
+                                      onChange={setField(field.scoreKey)}
+                                    />
+                                  </span>
+                                )}
+                              </div>
+                            </Field>
+                          </div>
+                        ) : field.type === 'rangePresets' ? (
+                          <div key={field.key} className="sm:col-span-2">
+                            <Field label={field.label} group>
+                              <div role="group" aria-label={field.label} className="flex flex-wrap gap-2">
+                                {field.presets.map(([normal, long]) => {
+                                  const [normalKey, longKey] = field.keys
+                                  const active = Number(form[normalKey]) === normal && Number(form[longKey]) === long
+                                  return (
+                                    <button
+                                      key={`${normal}/${long}`}
+                                      type="button"
+                                      aria-pressed={active}
+                                      className="catalog-filter-choice"
+                                      onClick={() => setForm((f) => ({ ...f, [normalKey]: String(normal), [longKey]: String(long) }))}
+                                    >
+                                      {normal}/{long}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </Field>
+                          </div>
+                        ) : field.type === 'dice' ? (
+                          <div key={field.key} className="sm:col-span-2">
+                            <DiceField
+                              label={field.label}
+                              count={field.countKey ? form[field.countKey] : 1}
+                              type={form[field.typeKey] ?? ''}
+                              withCount={!!field.countKey}
+                              optional={field.optional}
+                              aside={field.aside && (
+                                <Field label={field.aside.label} group={GROUP_FIELD_TYPES.has(field.aside.type)}>
+                                  <EditorFieldControl field={field.aside} value={form[field.aside.key]} onChange={setField(field.aside.key)} />
+                                </Field>
+                              )}
+                              onChange={({ count, type }) => setForm((f) => ({
+                                ...f,
+                                ...(field.countKey && { [field.countKey]: count === '' ? '' : String(count) }),
+                                [field.typeKey]: type,
+                              }))}
+                            />
                           </div>
                         ) : field.type === 'checkbox' ? (
-                          <div key={field.key} className="flex items-end">
+                          <div key={field.key} className={`flex items-end ${field.span ? ROW_SPAN[field.span] : ''}`}>
                             <label className="flex w-full cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2">
                               <input
                                 type="checkbox"
@@ -1005,22 +1088,27 @@ export default function GmEditorPage() {
                           // RichTextField/TextField рисуют свою метку и статус
                           // сохранения — без дополнительной обёртки Field, чтобы
                           // не дублировать label.
-                          <div key={field.key} className={field.full ? 'sm:col-span-2' : ''}>
+                          <div key={field.key} className={field.flex ? ROW_FLEX[field.flex] : field.span ? ROW_SPAN[field.span] : field.full ? 'sm:col-span-2' : ''}>
                             <EditorFieldControl field={field} value={form[field.key]} onSaveField={saveField(field.key)} />
                           </div>
                         ) : (
-                          <div key={field.key} className={field.full ? 'sm:col-span-2' : ''}>
-                            <Field label={field.label}>
+                          <div key={field.key} className={field.flex ? ROW_FLEX[field.flex] : field.span ? ROW_SPAN[field.span] : field.full ? 'sm:col-span-2' : ''}>
+                            <Field label={field.label} group={GROUP_FIELD_TYPES.has(field.type)}>
                               <EditorFieldControl
                                 field={field}
                                 value={form[field.key]}
                                 onChange={setField(field.key)}
                               />
+                              {field.hint && <span className="text-xs text-stone-500">{field.hint}</span>}
                             </Field>
                           </div>
                         )
                       return groups.map((group) =>
-                        group.length === 2 ? (
+                        group.row ? (
+                          <div key={group.map((f) => f.key).join('-')} className={group.some((f) => f.flex) ? 'flex flex-wrap items-start gap-4 sm:col-span-2' : 'grid gap-4 sm:col-span-2 sm:grid-cols-4'}>
+                            {group.map((field) => renderField(field))}
+                          </div>
+                        ) : group.length === 2 ? (
                           <div
                             key={`${group[0].key}-${group[1].key}`}
                             className="grid grid-cols-2 gap-4 sm:col-span-2"
@@ -1046,97 +1134,13 @@ export default function GmEditorPage() {
                     })
                     .map((section) => {
                     if (section.type === 'spellSlots') {
-                      const slotLevels = Object.keys(form[section.key] ?? {})
-                        .map(Number)
-                        .sort((a, b) => a - b)
                       return (
-                        <div key={section.key}>
-                          <SectionTitle
-                            button={
-                              <EditorAddButton
-                                onClick={() => addSpellSlotLevel(section.key)}
-                                disabled={slotLevels.length >= 20}
-                              >
-                                Добавить уровень
-                              </EditorAddButton>
-                            }
-                          >
-                            {section.label}
-                          </SectionTitle>
-                          {slotLevels.length === 0 && (
-                            <p className="text-sm text-stone-500">
-                              {section.empty} — нажмите «Добавить уровень», чтобы задать ячейки заклинаний.
-                            </p>
-                          )}
-                          {slotLevels.length > 0 && (
-                            <div className="overflow-x-auto">
-                              <table className="w-full min-w-[640px] border-collapse text-sm">
-                                <thead>
-                                  <tr>
-                                    <th className="w-10 border border-stone-700 bg-stone-900/50 px-2 py-1 text-left text-xs font-semibold text-stone-400">
-                                      Ур.
-                                    </th>
-                                    <th className="border border-stone-700 bg-stone-900/50 px-3 py-1.5 text-sm font-semibold text-stone-400">
-                                      Кантрип
-                                    </th>
-                                    {Array.from({ length: 9 }, (_, i) => (
-                                      <th
-                                        key={i}
-                                        className="border border-stone-700 bg-stone-900/50 px-3 py-1.5 text-sm font-semibold text-stone-400"
-                                      >
-                                        {i + 1}
-                                      </th>
-                                    ))}
-                                    <th className="w-10 border border-stone-700 bg-stone-900/50 px-2 py-1" />
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {slotLevels.map((classLevel) => {
-                                    const row = form[section.key]?.[classLevel] ?? {}
-                                    return (
-                                      <tr key={classLevel}>
-                                        <td className="border border-stone-700 px-3 py-1.5 text-sm font-medium text-stone-300">
-                                          {classLevel}
-                                        </td>
-                                        <td className="border border-stone-700 p-1">
-                                          <BlurNumberInput
-                                            min={0}
-                                            max={9}
-                                            value={row.CANTRIP ?? ''}
-                                            onChange={(v) => setSpellSlot(section.key, classLevel, 'CANTRIP', v)}
-                                            className="w-full rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
-                                          />
-                                        </td>
-                                          {SPELL_LEVEL_KEYS.slice(1).map((spellLevel) => (
-                                          <td key={spellLevel} className="border border-stone-700 p-1">
-                                            <BlurNumberInput
-                                              min={0}
-                                              max={9}
-                                              value={row[spellLevel] ?? ''}
-                                              onChange={(v) => setSpellSlot(section.key, classLevel, spellLevel, v)}
-                                              className="w-full rounded border border-stone-700 bg-stone-800/70 px-1 py-0.5 text-center text-sm text-stone-100 outline-none focus:border-ember"
-                                            />
-                                          </td>
-                                        ))}
-                                        <td className="border border-stone-700 px-1 text-center">
-                                          <button
-                                            type="button"
-                                            onClick={() => removeSpellSlotLevel(section.key, classLevel)}
-                                            className="rounded my-[5px] px-1.5 py-0.5 text-xs text-red-400 transition hover:bg-red-950/50 hover:text-red-300"
-                                            aria-label={`Убрать уровень ${classLevel}`}
-                                            title={`Убрать уровень ${classLevel}`}
-                                          >
-                                            ✕
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    )
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
+                        <SpellSlotsTable
+                          key={section.key}
+                          label={section.label}
+                          value={form[section.key] ?? {}}
+                          onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
+                        />
                       )
                     }
                     if (section.type === 'spellcasting') {
@@ -1144,24 +1148,22 @@ export default function GmEditorPage() {
                       return (
                         <div key={section.key}>
                           <SectionTitle>{section.label}</SectionTitle>
-                          <Select
+                          <EditorFieldControl
+                            field={{ type: 'chips', label: section.label, options: section.options ?? [] }}
                             value={ability}
-                            onChange={(e) => {
-                              const value = e.target.value
+                            onChange={(value) => {
+                              const hasSlots = Object.values(form[section.slotsKey] ?? {}).some((row) => Object.values(row ?? {}).some((n) => Number(n) > 0))
+                              if (!value && hasSlots) {
+                                setConfirmClearSlots({ key: section.key, slotsKey: section.slotsKey })
+                                return
+                              }
                               setForm((f) => ({
                                 ...f,
                                 [section.key]: value,
                                 ...(value ? {} : { [section.slotsKey]: {} }),
                               }))
                             }}
-                            className="w-48"
-                          >
-                            {(section.options ?? []).map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </Select>
+                          />
                           <p className="mt-1 text-xs text-stone-500">
                             {ability ? section.hint : section.chooseHint}
                           </p>
@@ -1192,112 +1194,53 @@ if (section.type === 'effectsTree') {
                       return (
                         <FeatureEffectsEditor
                           drawer
-                          key={section.key}
+                          key={`${section.key}-${section.part}`}
+                          part={section.part}
+                          summaryHtml={form.effects_summary}
                           value={form[section.key]}
                           onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
                         />
                       )
                     }
                     if (section.type === 'groupedRows') {
-                      const rows = form[section.key] ?? []
                       return (
-                        <div key={section.key} className="flex flex-col gap-5">
-                          {section.groups.map((group) => {
-                            const entries = rows
-                              .map((row, idx) => ({ row, idx }))
-                              .filter(({ row }) => row[section.groupKey] === group.value)
-                              .sort((a, b) => (a.row.id ?? Infinity) - (b.row.id ?? Infinity))
-                            return (
-                              <div key={group.value}>
-                                <SectionTitle
-                                  button={
-                                    <EditorAddButton
-onClick={() => {
-                                          setForm((f) => ({
-                                            ...f,
-                                            [section.key]: [
-                                              ...(f[section.key] ?? []),
-                                              { [section.groupKey]: group.value, [section.textKey]: '' },
-                                            ],
-                                          }))
-                                        }}
-                                    >
-                                      {section.addLabel}
-                                    </EditorAddButton>
-                                  }
-                                >
-                                  {group.label}
-                                </SectionTitle>
-                                {entries.length === 0 && (
-                                  <p className="text-sm text-stone-500">{section.empty}</p>
-                                )}
-                                <div className="flex flex-col gap-2">
-                                  {entries.map(({ row, idx }, n) => {
-                                    const editing = editingGroupedRows.has(`${section.key}:${idx}`)
-                                    return (
-                                      <div
-                                        key={idx}
-                                        className="flex items-center gap-2 rounded border border-stone-700/60 bg-stone-900/40 p-2"
-                                      >
-                                        <span className="shrink-0 text-xs font-semibold text-stone-500">
-                                          {n + 1}.
-                                        </span>
-                                        {editing ? (
-                                          <RichTextEditor
-                                            value={row[section.textKey] ?? ''}
-                                            onChange={(e) => setGroupedRowText(section.key, idx, section.textKey, e.target.value)}
-                                            rows={2}
-                                            className="min-h-0 flex-1"
-                                          />
-                                        ) : (
-                                          <RichText
-                                            value={row[section.textKey] ?? ''}
-                                            className="flex-1 text-sm leading-relaxed"
-                                          />
-                                        )}
-                                        <div className="flex shrink-0 items-center gap-1">
-                                          {editing ? (
-                                            <button
-                                              type="button"
-                                              onClick={() => finishGroupedRowEdit(section, idx)}
-                                              className="my-[5px] inline-flex h-[32px] w-[32px] items-center justify-center rounded border border-ember/60 bg-ember/20 text-ember transition hover:bg-ember/30"
-                                              title="Готово"
-                                            >
-                                              <CheckIcon />
-                                            </button>
-                                          ) : (
-                                            <button
-                                              type="button"
-                                              onClick={() => toggleGroupedRowEdit(section.key, idx)}
-                                              className="my-[5px] inline-flex h-[32px] w-[32px] items-center justify-center rounded border border-stone-700 text-stone-300 transition hover:bg-stone-800"
-                                              title="Изменить"
-                                            >
-                                              <PencilIcon />
-                                            </button>
-                                          )}
-                                          <button
-                                            type="button"
-                                            onClick={() => editing ? setConfirmRow({ key: section.key, index: idx }) : removeRow(section.key, idx)}
-                                            className="catalog-delete-button"
-                                            title="Удалить"
-                                          >
-                                            <TrashIcon />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
+                        <GroupedRowsEditor
+                          key={section.key}
+                          section={section}
+                          rows={form[section.key] ?? []}
+                          onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
+                        />
                       )
+                    }
+                    if (section.type === 'weaponProperties') {
+                      return (
+                        <WeaponPropertiesPicker
+                          key={section.key}
+                          value={form[section.key] ?? []}
+                          form={form}
+                          onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
+                          onFormChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+                        />
+                      )
+                    }
+                    if (section.type === 'itemEffects') {
+                      return editing ? <ItemEffectsEditor key={`${section.key}-${editing.id}`} itemId={editing.id} item={editing} /> : null
                     }
                     if (section.type === 'tags') {
                       return (
-                        <TagInput
+                        <CatalogTagInput
                           key={section.key}
+                          value={form[section.key] ?? []}
+                          onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
+                        />
+                      )
+                    }
+                    if (section.type === 'abilityBonuses') {
+                      return (
+                        <AbilityBonusesBlock
+                          key={section.key}
+                          label={section.label}
+                          owner={form.name ? `раса «${form.name}»` : 'новая раса'}
                           value={form[section.key] ?? []}
                           onChange={(next) => setForm((f) => ({ ...f, [section.key]: next }))}
                         />
@@ -1316,7 +1259,7 @@ onClick={() => {
                         <div key={section.key}>
                           <SectionTitle
                             button={
-                              <EditorAddButton onClick={() => addRow(section)} disabled={allUsed}>{section.key === 'ability_bonuses' ? 'Добавить бонус' : section.addLabel.replace(/^\+\s*/, '')}</EditorAddButton>
+                              <EditorAddButton onClick={() => addRow(section)} disabled={allUsed}>{section.addLabel.replace(/^\+\s*/, '')}</EditorAddButton>
                             }
                           >
                             {section.label}
@@ -1425,7 +1368,7 @@ onClick={() => {
                     }
                     const options =
                       section.type === 'pills' ? section.options : listOptions[section.listKey]
-                    return (
+                    const picker = (
                       <OptionsPicker
                         drawer
                         key={section.key}
@@ -1433,10 +1376,32 @@ onClick={() => {
                         hint={section.hint}
                         empty={section.empty}
                         options={options}
+                        parentFilterLabel={{ subclasses: 'Класс', subraces: 'Раса' }[section.listKey]}
+                        subheader={section.countKey && (
+                          <ChoiceCountStepper
+                            value={Number(form[section.countKey] ?? 0)}
+                            max={Math.min(20, (form[section.key] ?? []).length)}
+                            onChange={(n) => setForm((f) => ({ ...f, [section.countKey]: String(n) }))}
+                          />
+                        )}
                         selected={form[section.key]}
                         onToggle={toggleIn(section.key)}
                         onClear={() => setForm((f) => ({ ...f, [section.key]: [] }))}
                       />
+                    )
+                    const after = section.after
+                    if (!after) return picker
+                    return (
+                      <div key={section.key} className="space-y-4">
+                        {picker}
+                        {editing ? (
+                          <EditorFieldControl field={after} value={form[after.key]} onSaveField={saveField(after.key)} />
+                        ) : (
+                          <Field label={after.label}>
+                            <EditorFieldControl field={after} value={form[after.key]} onChange={setField(after.key)} />
+                          </Field>
+                        )}
+                      </div>
                     )
                   }).map((node) => node && <div key={node.key} hidden={tabHidden(catalogSectionTab(resource, node.key))}>{node}</div>)}
                   {fieldError && <ErrorBox error={fieldError} onRetry={() => {}} />}
@@ -1451,6 +1416,7 @@ onClick={() => {
                     </div>
                   )}
                 </form>
+                </div>
 
                 {editing && cfg.featuresOps && (
                   <div hidden={tabHidden('features')}><FeaturesEditorBlock
@@ -1490,8 +1456,9 @@ onClick={() => {
                       button={
                         <EditorAddButton
                           onClick={openNewSub}
+                          aria-label="Добавить подкласс"
                         >
-                          Добавить подкласс
+                          Добавить
                         </EditorAddButton>
                       }
                     >
@@ -1531,7 +1498,6 @@ onClick={() => {
                                   aria-haspopup="dialog"
                                   className="catalog-card-open flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                                 >
-                                  <LoreIcon name="chevron" className={`text-stone-500 transition-transform ${open ? 'rotate-90' : ''}`} />
                                   <span className="truncate text-base font-medium text-stone-100">
                                     {info.detail?.name ?? sub.name}
                                   </span>
@@ -1564,7 +1530,10 @@ onClick={() => {
                                       detail={info.detail}
                                       features={info.features ?? []}
                                       error={info.error}
-                                      onRefresh={() => reloadSubDetail(sub.id)}
+                                      onRefresh={() => {
+                                        invalidateResource()
+                                        return reloadSubDetail(sub.id)
+                                      }}
                                     />
                                   ) : null}
                                 </Drawer>
@@ -1581,7 +1550,7 @@ onClick={() => {
                   <div hidden={tabHidden('subraces')} className="mt-6">
                     <SectionTitle
                       button={
-                        <EditorAddButton onClick={openNewSubrace}>Добавить подрасу</EditorAddButton>
+                        <EditorAddButton onClick={openNewSubrace} aria-label="Добавить подрасу">Добавить</EditorAddButton>
                       }
                     >
                       Подрасы <span className="text-stone-500">{subraces.length}</span>
@@ -1655,7 +1624,10 @@ onClick={() => {
                                       detail={info.detail}
                                       features={info.features ?? []}
                                       error={info.error}
-                                      onRefresh={() => reloadSubraceDetail(sub.id)}
+                                      onRefresh={() => {
+                                        invalidateResource()
+                                        return reloadSubraceDetail(sub.id)
+                                      }}
                                     />
                                   ) : null}
                                 </Drawer>
@@ -1724,9 +1696,11 @@ onClick={() => {
             value={row}
             showLevel={cfg.featuresModal.showLevel}
             levelRequired={cfg.featuresModal.levelRequired}
-            levelHint={cfg.featuresModal.levelHint}
             onSave={saveFeature}
-            onSaved={() => reloadFeatures()}
+            onSaved={() => {
+              invalidateResource()
+              return reloadFeatures()
+            }}
             onClose={() => setFeatureModal(null)}
           />
         )
@@ -1745,6 +1719,18 @@ onClick={() => {
         />
       )}
 
+      {confirmClearSlots && (
+        <ConfirmDialog
+          title="Удалить ячейки заклинаний?"
+          message="Без характеристики заклинаний класс не колдует: все ячейки заклинаний по уровням удалятся при сохранении."
+          onCancel={() => setConfirmClearSlots(null)}
+          onConfirm={() => {
+            const { key, slotsKey } = confirmClearSlots
+            setForm((f) => ({ ...f, [key]: '', [slotsKey]: {} }))
+            setConfirmClearSlots(null)
+          }}
+        />
+      )}
       {confirmSub && (
         <ConfirmDialog
           title="Удалить подкласс?"

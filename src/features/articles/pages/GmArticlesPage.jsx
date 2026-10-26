@@ -8,6 +8,7 @@ import {
   ARTICLE_TYPES,
   CAMPAIGN_ARTICLE_TYPES,
   ARTICLE_VISIBILITY,
+  canDeleteArticle,
   canEditArticle,
   validateImageFile,
 } from '@/features/articles/api.js'
@@ -539,6 +540,7 @@ export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, 
   const isAuthor = article.author?.id != null && String(article.author.id) === String(user?.id)
   const material = campaignMaterial || CAMPAIGN_ARTICLE_TYPES.includes(article.article_type)
   const founderMayPropose = isFounder && !isAuthor && !material
+  const canDelete = canDeleteArticle(article, user, isFounder)
   const { statuses, run, clear } = useSaveStatus()
   const [values, setValues] = useState(() => fromArticle(article))
   // Версия содержимого, которую сейчас показывает форма: уходит в publish (проверка «основатель читал именно её»)
@@ -761,10 +763,10 @@ export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, 
         </h2>
         {/* У квеста и сессии нет статусов и места в лоре: вместо статуса и меню — сразу «Удалить» (удаляет только основатель). */}
         {material
-          ? <div className="flex items-center gap-2">{headingActions}{isFounder && <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}><LoreIcon name="trash" />Удалить</Button>}</div>
+          ? <div className="flex items-center gap-2">{headingActions}{canDelete && <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}><LoreIcon name="trash" />Удалить</Button>}</div>
           : <div className="flex items-center gap-3">
             <Badge tone={values.status === 'published' ? 'good' : values.status === 'in_review' ? 'accent' : 'default'}>{articleStatusLabels[values.status]}</Badge>
-            <ArticleActions article={article} canDelete={isFounder} onDelete={() => setConfirmDelete(true)} />
+            <ArticleActions article={article} canDelete={canDelete} onDelete={() => setConfirmDelete(true)} />
           </div>}
       </div>}
 
@@ -917,7 +919,7 @@ export function ArticleEditForm({ article, onSaved, onImagesChanged, onDeleted, 
           {!campaignMaterial && <><TagInput value={values.tags} onChange={saveTags} />
           <SaveStatus status={statuses.tags} /></>}
           <p className="text-xs text-stone-500">{campaignMaterial ? 'Параметры сохраняются сразу.' : 'Параметры и теги сохраняются сразу.'} Для текста используйте кнопку «Сохранить».</p>
-          {campaignMaterial && <div className="flex flex-wrap items-center gap-2">{headingActions}{isFounder && <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}><LoreIcon name="trash" />Удалить</Button>}</div>}
+          {campaignMaterial && <div className="flex flex-wrap items-center gap-2">{headingActions}{canDelete && <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}><LoreIcon name="trash" />Удалить</Button>}</div>}
         </div>
       </EditorSettings>}
       {!canEdit && <EditorSettings title={settingsTitle(values.article_type)}><ArticleFacts article={article} values={values} /></EditorSettings>}

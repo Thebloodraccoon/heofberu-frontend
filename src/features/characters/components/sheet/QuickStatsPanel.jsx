@@ -1,5 +1,6 @@
 import { fmtBonus } from '@/lib/utils/sheet.js'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import { otherSpeeds } from '@/lib/utils/combatStats.js'
 
 function Stat({ label, value, hint, onClick, actionIcon = 'edit', ariaLabel, className = '', children }) {
   const Tag = onClick ? 'button' : 'div'
@@ -14,20 +15,28 @@ function Stat({ label, value, hint, onClick, actionIcon = 'edit', ariaLabel, cla
   )
 }
 
-export default function QuickStatsPanel({ character, pb, inspiration, onOpenInspiration, onOpenHp, onOpenAc, initiativeBonus, onRollInitiative, fields, className = '' }) {
+export default function QuickStatsPanel({ character, pb, inspiration, onOpenInspiration, onOpenHp, onOpenAc, onOpenSpeed, combat, initiativeBonus, onRollInitiative, fields, className = '' }) {
   const hp = Number(character.current_hp) || 0
   const maxHp = Number(character.max_hp) || 0
   const tempHp = Number(character.temp_hp) || 0
   const percent = maxHp > 0 ? Math.max(0, Math.min(100, hp / maxHp * 100)) : 0
   const show = (field) => !fields || fields.includes(field)
+  // combat — GET /combat-stats: расчётное значение подсказкой под ручным числом листа.
+  const acHint = [
+    Number(character.shield) > 0 ? `Щит: +${character.shield}` : null,
+    combat?.armor_class ? `Расчёт: ${combat.armor_class.computed}` : null,
+  ].filter(Boolean).join(' · ')
+  const speedHint = combat?.speed
+    ? [`Расчёт: ${combat.speed.computed?.walk ?? '—'}`, ...otherSpeeds(combat.speed.computed).map((sp) => `${sp.label.toLowerCase()} ${sp.value}`)].join(' · ')
+    : ''
   return (
     <section className={`character-stats ${className}`} aria-label="Основные показатели">
       {show('hp') && <Stat label="Хиты" value={<><span className="character-health-current">{hp}</span><span>/ {maxHp}</span>{tempHp > 0 && <span className="character-health-temp" aria-label={`Временные хиты: ${tempHp}`}>+{tempHp} врем.</span>}</>} onClick={onOpenHp} className={`character-stat-hp ${percent <= 25 ? 'is-low' : ''}`}>
         <span className="character-health-track" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
       </Stat>}
-      {show('ac') && <Stat label={fields ? 'КД' : 'Класс доспеха'} ariaLabel={`Класс доспеха: ${Number(character.armor_class ?? 0) + Number(character.shield ?? 0)}`} value={Number(character.armor_class ?? 0) + Number(character.shield ?? 0)} hint={Number(character.shield) > 0 ? `Щит: +${character.shield}` : undefined} onClick={onOpenAc} />}
+      {show('ac') && <Stat label={fields ? 'КД' : 'Класс доспеха'} ariaLabel={`Класс доспеха: ${Number(character.armor_class ?? 0) + Number(character.shield ?? 0)}`} value={Number(character.armor_class ?? 0) + Number(character.shield ?? 0)} hint={acHint || undefined} onClick={onOpenAc} />}
       {show('initiative') && <Stat label="Инициатива" value={fmtBonus(initiativeBonus)} onClick={onRollInitiative} actionIcon={null} />}
-      {show('speed') && <Stat label="Скорость" value={<>{character.speed ?? '—'} <span>фт</span></>} />}
+      {show('speed') && <Stat label="Скорость" value={<>{character.speed ?? '—'} <span>фт</span></>} hint={speedHint || undefined} onClick={onOpenSpeed} />}
       {show('pb') && <Stat label="Владение" value={fmtBonus(pb)} />}
       {show('inspiration') && <Stat label="Вдохновения" value={inspiration} onClick={onOpenInspiration} />}
     </section>

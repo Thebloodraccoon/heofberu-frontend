@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { ABILITY_CAP, STATS, abilityName, mod } from '@/lib/utils/ability.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
-import { Button, Input, RichText, Skeleton } from '@/components/ui'
-import { useAllFeats, useFeatDetail } from '@/features/catalog/queries.js'
+import { Button, RichText, Skeleton } from '@/components/ui'
+import { catalogApi } from '@/features/catalog/api.js'
+import { catalog } from '@/features/catalog/catalog.js'
+import CatalogSearchList from '@/features/catalog/components/CatalogSearchList.jsx'
+import { useFeatDetail } from '@/features/catalog/queries.js'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { Tag } from './StepShell.jsx'
+import { queryKeys } from '@/lib/api/queryKeys.js'
 
 // Здесь черту только выбирают. Все её выборы — увеличение характеристики
 // (Устойчивый и т.п.), навыки, заклинания — делаются в одном месте, в
@@ -26,9 +30,9 @@ export default function AsiChoiceModal({
 }) {
   const [mode, setMode] = useState('asi')
   const [increases, setIncreases] = useState({})
-  const [featId, setFeatId] = useState(null)
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  // Выбранная черта целиком: список подгружается страницами и может смениться поиском.
+  const [pickedFeat, setPickedFeat] = useState(null)
+  const featId = pickedFeat?.id ?? null
   const [expandedId, setExpandedId] = useState(null)
 
   const ownedFeatIds = new Set(grantedFeatIds.map((id) => Number(id)))
@@ -37,25 +41,12 @@ export default function AsiChoiceModal({
     if (next !== mode) {
       // Переключение на «Улучшение характеристик» сбрасывает выбор черты.
       if (next === 'asi') {
-        setFeatId(null)
+        setPickedFeat(null)
         setExpandedId(null)
-        setQuery('')
-        setDebouncedQuery('')
       }
       setMode(next)
     }
   }
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300)
-    return () => clearTimeout(t)
-  }, [query])
-
-  const featsQ = useAllFeats(debouncedQuery)
-  const feats = featsQ.data ?? []
-
-  // Черты, уже взятые персонажем, на выбор не выводим.
-  const available = feats.filter((f) => !ownedFeatIds.has(Number(f.id)))
 
   const totals = { ...increases }
   const budget = Object.values(totals).reduce((a, b) => a + b, 0)
@@ -80,7 +71,7 @@ export default function AsiChoiceModal({
   const featLevelOk = (f) => f.min_level == null || Number(f.min_level) <= Number(level)
   const featOk = (f) => featPrereqOk(f) && featLevelOk(f)
 
-  const rawSelectedFeat = feats.find((f) => String(f.id) === String(featId))
+  const rawSelectedFeat = pickedFeat
   // Черта могла перестать быть доступной уже после выбора (например, каталог
   // изменили под ногами) — такой выбор нельзя ни показывать выбранным, ни
   // подтверждать.
@@ -181,34 +172,18 @@ export default function AsiChoiceModal({
 
       {mode === 'feat' && (
         <>
-          <div className="mb-3">
-            <Input
-              type="search"
-              placeholder="Поиск черты..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          {featsQ.isFetching && feats.length === 0 && (
-            <div className="space-y-2 py-2" aria-busy="true">
-              {Array.from({ length: 5 }, (_, i) => (
-                <div key={i} className="space-y-1.5 rounded-lg border border-stone-700/60 p-3">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3.5 w-1/2" />
-                </div>
-              ))}
-            </div>
-          )}
-          {!featsQ.isFetching && feats.length === 0 && (
-            <p className="py-6 text-center text-sm text-stone-400">
-              {debouncedQuery ? 'Ничего не найдено по запросу.' : 'Черты не найдены.'}
-            </p>
-          )}
-          {!featsQ.isFetching && feats.length > 0 && available.length === 0 && (
-            <p className="py-6 text-center text-sm text-stone-400">Все доступные черты уже взяты персонажем.</p>
-          )}
-          <div className={presentation === 'drawer' ? 'space-y-2' : 'max-h-80 space-y-2 overflow-y-auto pr-1'}>
-            {available.map((f) => {
+          {/* Черты, уже взятые персонажем, на выбор не выводим. */}
+          <CatalogSearchList
+            queryKey={queryKeys.pickers.feats}
+            list={catalogApi.feats.list}
+            filters={catalog.feats.filters}
+            exclude={(f) => ownedFeatIds.has(Number(f.id))}
+            placeholder="Поиск черты…"
+            label="Поиск черты"
+            emptyText="Черты не найдены."
+            listClassName={`${presentation === 'drawer' ? 'max-h-[60vh]' : 'max-h-80'} space-y-2 overflow-y-auto pr-1`}
+          >
+            {(available) => available.map((f) => {
               const ok = featOk(f)
               const selected = ok && String(f.id) === String(featId)
               const expanded = String(expandedId) === String(f.id)
@@ -224,7 +199,7 @@ export default function AsiChoiceModal({
                     <button
                       type="button"
                       disabled={!ok}
-                      onClick={() => setFeatId(f.id)}
+                      onClick={() => setPickedFeat(f)}
                       className={`min-w-0 flex-1 rounded text-left font-medium text-stone-100 ${ok ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                     >
                       {sentenceCase(f.name)}
@@ -289,7 +264,7 @@ export default function AsiChoiceModal({
                 </div>
               )
             })}
-          </div>
+          </CatalogSearchList>
           {selectedFeat && featHasChoices(selectedFeat, detail) && (
             <p className="mt-4 rounded-lg border border-dashed border-ember/40 bg-ember/5 px-3 py-2 text-sm text-stone-300">
               У черты есть выборы (увеличение характеристики, навыки, заклинания…) — их вы сделаете сразу после

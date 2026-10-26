@@ -18,6 +18,8 @@ export const charactersApi = {
     // Общий калькулятор характеристик: база, итог и вклад каждого источника.
     get: (id) => request(`/characters/${id}/stats`),
   },
+  // КД и скорости: ручные значения листа рядом с расчётом движка (с разбивкой).
+  combatStats: (id) => request(`/characters/${id}/combat-stats`),
   proficiencies: {
     // Материализованные владения (навыки/спасброски/доспехи/оружие) с источником каждой записи.
     get: (id) => request(`/characters/${id}/proficiencies`),
@@ -105,12 +107,6 @@ export const charactersApi = {
     features: {
       add: (id, body) =>
         request(`/characters/${id}/gm-panel/features`, { method: 'POST', body }),
-      update: (id, charFeatureId, body) =>
-        request(`/characters/${id}/gm-panel/features`, {
-          method: 'PATCH',
-          body,
-          params: { feature_id: charFeatureId },
-        }),
       remove: (id, charFeatureId) =>
         request(`/characters/${id}/gm-panel/features`, {
           method: 'DELETE',
@@ -168,18 +164,10 @@ export const charactersApi = {
   },
   items: {
     list: (id) => request(`/characters/${id}/items`),
-    add: (id, body) => request(`/characters/${id}/items`, { method: 'POST', body }),
-    update: (id, charItemId, body) =>
-      request(`/characters/${id}/items`, {
-        method: 'PATCH',
-        body,
-        params: { item_id: charItemId },
-      }),
-    remove: (id, charItemId) =>
-      request(`/characters/${id}/items`, {
-        method: 'DELETE',
-        params: { item_id: charItemId },
-      }),
+    // Надеть/снять — доступно владельцу листа (не только ГМу).
+    setEquipped: (id, stackId, isEquipped) =>
+      request(`/characters/${id}/items/${stackId}`, { method: 'PATCH', body: { is_equipped: isEquipped } }),
+    // Добавить/убрать/изменить количество — только ГМ: gmPanel.items.
   },
   conditions: {
     list: (id) => request(`/characters/${id}/conditions`),

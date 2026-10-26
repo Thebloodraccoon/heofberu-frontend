@@ -129,7 +129,6 @@
 }
 
 /* Race editor and its side panels */
-.ui-drawer.catalog-editor-drawer { width: min(46rem, 100vw); }
 /* Вложенная панель (фильтр «любого заклинания») — поверх и панели, и модалки (z 300) редактора. */
 .ui-drawer-overlay:has(> .catalog-nested-drawer) { z-index: 310; }
 .race-editor-main { display: grid; gap: 1.5rem; align-items: start; }
@@ -154,12 +153,13 @@
 .catalog-bonus-row > button { width: 2.5rem; flex: none; }
 .catalog-effect-actions { position: sticky; bottom: -1.5rem; display: flex; gap: .75rem; padding-block: 1rem; margin-top: 1rem; background: var(--color-stone-950); border-top: 1px solid var(--color-stone-700); }
 .catalog-effect-actions > button { flex: 1; }
+/* В закреплённом подвале панели (DrawerFooter) рамку, фон и отступы даёт сам подвал. */
+.ui-drawer-footer > .catalog-effect-actions { position: static; flex: 1; margin: 0; padding: 0; border: 0; background: none; }
 .race-editor .text-label, .catalog-editor-drawer .text-label { font-size: .875rem; font-weight: 600; letter-spacing: normal; text-transform: none; }
 @media (min-width: 1100px) {
   .race-editor-main { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 639px) {
-  .ui-drawer.catalog-editor-drawer { width: 100%; }
   .catalog-effect-actions { bottom: -1rem; }
   .catalog-bonus-row > button, .catalog-bonus-row input, .catalog-bonus-row button[aria-haspopup="listbox"] { height: 2.75rem; min-height: 2.75rem; }
   .catalog-bonus-row > button { width: 2.75rem; }
@@ -204,3 +204,21 @@ button.catalog-delete-button:hover { color: var(--color-red-300); background: co
 .spell-picker-content > .article-back { align-self: flex-start; }
 .catalog-effect-screen--picker > .catalog-effect-actions { position: static; flex-shrink: 0; margin-top: 1rem; }
 .ui-drawer .spell-picker-content .grant-picker-card + .grant-picker-card { margin-top: .5rem; }
+
+/* Число в маленьком диапазоне (NumberStepper / LevelField): «[−] [ 6 ] уровень [+]». */
+.num-stepper-label { display: block; margin-bottom: .375rem; font: 500 .875rem/1.4 var(--font-sans); color: var(--color-stone-300); }
+.num-stepper-control { display: inline-flex; align-items: center; gap: .25rem; padding: .125rem; border: 1px solid var(--color-stone-700); border-radius: .375rem; background: var(--color-stone-950); }
+.num-stepper .character-dice-step { width: 2.25rem; height: 2.25rem; }
+.num-stepper-input { width: 3rem; padding: .25rem; border: 0; background: transparent; text-align: center; font: 500 1.125rem/1.2 var(--font-sans); font-variant-numeric: tabular-nums; color: var(--color-stone-100); outline: none; }
+.num-stepper-input::placeholder { font-size: .8125rem; color: var(--color-stone-500); }
+.num-stepper-suffix { min-width: 4.5rem; font: .875rem/1.4 var(--font-sans); color: var(--color-stone-400); }
+.num-stepper-control:focus-within { border-color: var(--color-ember); }
+
+/* Число с единицей (фт., зм, фунт.) прямо в поле, без стрелок. */
+.unit-input { position: relative; }
+.unit-input > input { padding-right: 3.25rem; }
+.unit-input-suffix { position: absolute; top: 50%; right: .75rem; transform: translateY(-50%); pointer-events: none; font: .8125rem/1 var(--font-sans); color: var(--color-stone-500); }
+
+/* Автосохранение формы редактора: вкладка под полупрозрачным слоем с мини-скелетоном. */
+.editor-saving-overlay { position: absolute; inset: 0; z-index: 10; display: flex; justify-content: center; align-items: flex-start; padding-top: 3rem; border-radius: .5rem; background: color-mix(in srgb, var(--color-stone-950) 55%, transparent); }
+.editor-saving-card { display: grid; justify-items: center; gap: .5rem; padding: 1rem 1.25rem; border: 1px solid var(--color-stone-700); border-radius: .5rem; background: var(--color-stone-900); font: 500 .8125rem/1.4 var(--font-sans); color: var(--color-stone-300); box-shadow: 0 12px 32px -16px rgba(0, 0, 0, .8); }

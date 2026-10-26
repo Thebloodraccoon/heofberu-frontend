@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterPendingChoices } from '@/features/characters/queries.js'
@@ -20,9 +20,20 @@ function GrantChoicesForm({ character, grant, total, otherFeatureNames, onClose,
 
   const [answers, setAnswers] = useState(() => initialAnswers(groups))
   const [busy, setBusy] = useState(false)
+  // Группы — по одной: раскрыта первая незаполненная, готовая сворачивается в
+  // строку-итог и открывается следующая. attempted — «Подтвердить» нажата при
+  // незаполненных группах: они подсвечиваются.
+  const firstIncomplete = (all) => groups.find((g) => !groupComplete(all[g.id] ?? [], g))?.id ?? null
+  const [openId, setOpenId] = useState(() => firstIncomplete(answers))
+  const [attempted, setAttempted] = useState(false)
+  const sectionRefs = useRef(new Map())
 
   const groupAnswer = (groupId) => answers[groupId] ?? []
-  const setGroupAnswer = (groupId, list) => setAnswers((prev) => ({ ...prev, [groupId]: list }))
+  const setGroupAnswer = (group, list) => {
+    const next = { ...answers, [group.id]: list }
+    setAnswers(next)
+    if (!groupComplete(groupAnswer(group.id), group) && groupComplete(list, group)) setOpenId(firstIncomplete(next))
+  }
   // Заклинание или навык, названные в одной открытой группе гранта, в другой
   // не предлагаем: бэк отвечает 422 на повтор внутри одного гранта.
   const namedElsewhere = (groupId, field) =>
@@ -38,6 +49,14 @@ function GrantChoicesForm({ character, grant, total, otherFeatureNames, onClose,
   const allComplete = groups.length > 0 && incomplete === 0
 
   const submit = async () => {
+    // Кнопка не блокируется: незаполненное подсвечиваем и показываем первое.
+    if (!allComplete) {
+      const id = firstIncomplete(answers)
+      setAttempted(true)
+      setOpenId(id)
+      requestAnimationFrame(() => sectionRefs.current.get(id)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }))
+      return
+    }
     setBusy(true)
     try {
       const body = { answers: groups.flatMap((g) => toAnswerItems(g.id, groupAnswer(g.id))) }
@@ -63,7 +82,7 @@ function GrantChoicesForm({ character, grant, total, otherFeatureNames, onClose,
           <Button type="button" variant="ghost" onClick={onClose}>
             Позже
           </Button>
-          <Button type="button" onClick={submit} disabled={busy || !allComplete}>
+          <Button type="button" onClick={submit} disabled={busy}>
             {busy ? 'Сохраняем…' : total > 1 ? 'Подтвердить и дальше' : 'Подтвердить'}
           </Button>
         </>
@@ -83,16 +102,42 @@ function GrantChoicesForm({ character, grant, total, otherFeatureNames, onClose,
         </div>
       </div>
 
-      <div className="space-y-5">
+      {groups.length > 1 && (
+        <div className="mb-4">
+          <div className="mb-1 flex justify-between text-xs text-stone-400">
+            <span>Готово {groups.length - incomplete} из {groups.length}</span>
+          </div>
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-stone-800"
+            role="progressbar"
+            aria-label="Сделано выборов"
+            aria-valuemin={0}
+            aria-valuemax={groups.length}
+            aria-valuenow={groups.length - incomplete}
+          >
+            <div
+              className="h-full rounded-full bg-ember transition-all"
+              style={{ width: `${((groups.length - incomplete) / groups.length) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4">
         {groups.map((group) => (
           <ChoiceGroupPicker
             key={group.id}
             group={group}
             list={groupAnswer(group.id)}
-            onChange={(list) => setGroupAnswer(group.id, list)}
+            onChange={(list) => setGroupAnswer(group, list)}
+            open={groups.length === 1 || openId === group.id}
+            onToggleOpen={groups.length > 1 ? () => setOpenId((id) => (id === group.id ? null : group.id)) : undefined}
+            error={attempted && !groupComplete(groupAnswer(group.id), group)}
+            sectionRef={(el) => (el ? sectionRefs.current.set(group.id, el) : sectionRefs.current.delete(group.id))}
             catalogs={catalogs}
             takenSpellIds={namedElsewhere(group.id, 'spell_id')}
             takenSkillIds={namedElsewhere(group.id, 'skill_id')}
+            takenItemIds={namedElsewhere(group.id, 'item_id')}
           />
         ))}
       </div>

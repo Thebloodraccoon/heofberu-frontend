@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { articlesApi } from '@/features/articles/api.js'
-import { useArticleDetail, useArticleFinder } from '@/features/articles/queries.js'
+import { useArticleDetail } from '@/features/articles/queries.js'
 import { articleStatusLabels, articleTypeLabels } from '@/lib/i18n'
-import { Badge, Button, ErrorBox, Input, RichText, Skeleton } from '@/components/ui'
+import { Badge, Button, ErrorBox, RichText, Skeleton } from '@/components/ui'
 import Drawer from '@/components/ui/Drawer.jsx'
-import Pagination from '@/components/ui/Pagination.jsx'
+import SearchPickerList from '@/components/ui/SearchPickerList.jsx'
 import GmOnlyBadge from './GmOnlyBadge.jsx'
+import LoreFilters from './LoreFilters.jsx'
+import { queryKeys } from '@/lib/api/queryKeys.js'
 
 async function descendantIds(articleId) {
   const excluded = new Set([articleId])
@@ -27,45 +29,59 @@ function Preview({ id }) {
   return <div className="mt-3 max-h-80 overflow-y-auto border-l-2 border-stone-700 pl-3"><RichText value={query.data?.body_markdown} empty="Текст статьи пока не написан." /></div>
 }
 
+const EMPTY_FILTERS = { types: [], tags: [], match: 'any', subtypes: [] }
+
+// Поиск от двух символов идёт в /articles/search, короче — обычный список (как useArticleFinder).
+const fetchArticles = ({ search = '', ...params }) => (search.length >= 2 ? articlesApi.search({ ...params, q: search }) : articlesApi.list(params))
+
+// Общий SearchPickerList: поиск + «Найти», «Фильтры» лора (тип, подтип, теги) в узкой панели, подгрузка при прокрутке.
 function Picker({ articleId, value, parent, onSelect, onClose }) {
-  const [search, setSearch] = useState('')
-  const [applied, setApplied] = useState('')
-  const [page, setPage] = useState(1)
   const [preview, setPreview] = useState(null)
-  const list = useArticleFinder({ page, size: 12, text: applied })
-  const tree = useQuery({ queryKey: ['articles', 'parent-exclusions', articleId], queryFn: () => descendantIds(articleId), enabled: !!articleId, staleTime: 0 })
+  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const tree = useQuery({ queryKey: queryKeys.pickers.articleDescendants(articleId), queryFn: () => descendantIds(articleId), enabled: !!articleId, staleTime: 0 })
   const ready = !articleId || (tree.isSuccess && !tree.isFetching)
-  const items = (list.data?.items ?? []).filter((item) => item.id !== articleId && !tree.data?.has(item.id))
-  return <Drawer title="Родительская статья" subtitle="Выберите раздел, к которому относится статья." closeLabel="Закрыть выбор родителя" onClose={onClose}>
+  const filterParams = {
+    ...(filters.types.length ? { article_type: filters.types } : {}),
+    ...(filters.subtypes.length ? { subtype_id: filters.subtypes.map((s) => s.id) } : {}),
+    ...(filters.tags.length ? { tag_id: filters.tags.map((t) => t.id), tag_match: filters.match } : {}),
+  }
+  return <Drawer title="Родительская статья" subtitle="Выберите раздел, к которому относится статья." closeLabel="Закрыть выбор родителя" bodyClassName="grant-picker-body" onClose={onClose}>
     {value && <section className="lore-preview-notice" aria-label="Текущий родитель">
       <p className="lore-eyebrow">Текущий родитель</p>
       {parent && <span className="lore-article-type">{articleTypeLabels[parent.article_type]}</span>}
       <p className="font-medium">{parent?.title ?? `Статья #${value}`}</p>
     </section>}
-    <form className="flex gap-2 mb-4" onSubmit={(event) => { event.preventDefault(); setApplied(search.trim()); setPage(1) }}>
-      <Input aria-label="Поиск родительской статьи" placeholder="Поиск по названию…" value={search} onChange={(event) => setSearch(event.target.value)} />
-      <Button type="submit" variant="ghost">Найти</Button>
-    </form>
-    {!ready && !tree.error && <Skeleton className="h-20 w-full" />}
     {tree.error && <ErrorBox error={tree.error} onRetry={tree.refetch} />}
-    {list.isLoading && <Skeleton className="h-24 w-full" />}
-    {list.error && <ErrorBox error={list.error} onRetry={list.refetch} />}
-    {ready && items.map((item) => <section key={item.id} className={`lore-article-row ${value === item.id ? 'article-library-row--selected' : ''}`} aria-current={value === item.id ? 'true' : undefined}>
-      <div className="lore-article-meta">
-        <span className="lore-article-type">{articleTypeLabels[item.article_type]}</span>
-        {item.status && <Badge tone={item.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[item.status]}</Badge>}
-        {item.visibility === 'gm_only' && <GmOnlyBadge />}
-      </div>
-      <h3 className="heading-sub mt-2">{item.title}</h3>
-      {item.excerpt && <p className="lore-article-excerpt">{item.excerpt}</p>}
-      <div className="flex flex-wrap gap-2 mt-3">
-        <Button size="sm" variant="ghost" aria-expanded={preview === item.id} onClick={() => setPreview(preview === item.id ? null : item.id)}>{preview === item.id ? 'Скрыть текст' : 'Подробнее'}</Button>
-        <Button size="sm" disabled={list.isFetching || value === item.id} onClick={() => onSelect(item.id)}>{value === item.id ? 'Выбран родителем' : 'Выбрать родителем'}</Button>
-      </div>
-      {preview === item.id && <Preview id={item.id} />}
-    </section>)}
-    {ready && list.data && !items.length && <p className="lore-filter-hint">На этой странице нет доступных родителей. Измените поиск или страницу.</p>}
-    <Pagination page={page} total={list.data?.total ?? 0} size={12} onPage={setPage} />
+    <SearchPickerList
+      queryKey={[...queryKeys.pickers.parentArticles, filterParams]}
+      fetchPage={(page) => fetchArticles({ ...page, ...filterParams })}
+      pageSize={12}
+      enabled={ready}
+      label="Поиск родительской статьи"
+      placeholder="Поиск по названию…"
+      onFilters={() => setFiltersOpen(true)}
+      filterCount={filters.types.length + filters.subtypes.length + filters.tags.length}
+      filtersOpen={filtersOpen}
+      exclude={(item) => item.id === articleId || tree.data?.has(item.id)}
+      emptyText="Доступных родителей нет. Измените поиск или фильтры."
+      header={filtersOpen && <LoreFilters types={filters.types} tags={filters.tags} match={filters.match} subtypes={filters.subtypes} onClose={() => setFiltersOpen(false)} onApply={(types, tags, match, subtypes) => setFilters({ types, tags, match, subtypes })} />}
+    >
+      {(items) => items.map((item) => <section key={item.id} className={`lore-article-row ${value === item.id ? 'article-library-row--selected' : ''}`} aria-current={value === item.id ? 'true' : undefined}>
+        <div className="lore-article-meta">
+          <span className="lore-article-type">{articleTypeLabels[item.article_type]}</span>
+          {item.status && <Badge tone={item.status === 'published' ? 'good' : 'default'}>{articleStatusLabels[item.status]}</Badge>}
+          {item.visibility === 'gm_only' && <GmOnlyBadge />}
+        </div>
+        <h3 className="heading-sub mt-2">{item.title}</h3>
+        {item.excerpt && <p className="lore-article-excerpt">{item.excerpt}</p>}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Button size="sm" variant="ghost" aria-expanded={preview === item.id} onClick={() => setPreview(preview === item.id ? null : item.id)}>{preview === item.id ? 'Скрыть текст' : 'Подробнее'}</Button>
+          <Button size="sm" disabled={value === item.id} onClick={() => onSelect(item.id)}>{value === item.id ? 'Выбран родителем' : 'Выбрать родителем'}</Button>
+        </div>
+        {preview === item.id && <Preview id={item.id} />}
+      </section>)}
+    </SearchPickerList>
   </Drawer>
 }
 

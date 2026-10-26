@@ -1,25 +1,21 @@
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/components/ui'
 import { catalogApi as api } from '@/features/catalog/api.js'
-import { useItemSearch } from '@/features/catalog/queries.js'
-import useDebouncedValue from '@/features/articles/useDebouncedValue.js'
+import CatalogSearchList from '@/features/catalog/components/CatalogSearchList.jsx'
+import { useSkills } from '@/features/catalog/queries.js'
+import { ITEM_FILTERS_BY_KIND } from './itemFilters.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
 import { ITEM_PICKERS, ROW_PICKERS } from './effectRowPickers.js'
+import { queryKeys } from '@/lib/api/queryKeys.js'
 
 const SEARCH_THRESHOLD = 8
 const ALWAYS = () => true
 
 // Конкретный предмет из справочника (item_id) — отдельный экран владения
-// оружием/доспехами (кнопка «+ Оружие»/«+ Доспех», mode 'items'). Поиск идёт
-// на сервере, клик добавляет или убирает строку с этим предметом.
+// оружием/доспехами/инструментами (mode 'items'): тот же поиск, фильтры вида и
+// подгрузка по скроллу, что у ItemPickerModal; клик добавляет или убирает строку.
 function ItemsList({ config, rows, onChange }) {
-  const [query, setQuery] = useState('')
-  // Поиск на сервере — дебаунс, чтобы не слать запрос на каждую букву.
-  const debouncedQuery = useDebouncedValue(query.trim(), 300)
-  const itemsQ = useItemSearch(config.itemTypes, debouncedQuery)
-  const found = itemsQ.data ?? []
   const selected = new Set(rows.filter((row) => row.item_id != null).map((row) => Number(row.item_id)))
   const toggle = (item) => {
     if (selected.has(item.id)) {
@@ -30,34 +26,29 @@ function ItemsList({ config, rows, onChange }) {
   }
 
   return (
-    <>
-      <Input
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder={config.search}
-        aria-label={config.search}
-        className="mb-3 w-full"
-      />
-      {itemsQ.isFetching && <p className="pb-1 text-xs text-stone-500">Загрузка…</p>}
-      <div className="grant-picker-list space-y-2 pr-1">
-        {found.map((item) => {
-          const isSelected = selected.has(item.id)
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={`editor-record-card ${isSelected ? 'is-active' : ''}`}
-              aria-pressed={isSelected}
-              onClick={() => toggle(item)}
-            >
-              <span>{sentenceCase(item.name)}</span>
-            </button>
-          )
-        })}
-      </div>
-      {!itemsQ.isFetching && found.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
-    </>
+    <CatalogSearchList
+      queryKey={queryKeys.pickers.items}
+      list={api.items.list}
+      params={{ kind: [config.kind] }}
+      filters={ITEM_FILTERS_BY_KIND[config.kind]}
+      placeholder={config.search}
+      label={config.search}
+    >
+      {(found) => found.map((item) => {
+        const isSelected = selected.has(item.id)
+        return (
+          <button
+            key={item.id}
+            type="button"
+            className={`editor-record-card ${isSelected ? 'is-active' : ''}`}
+            aria-pressed={isSelected}
+            onClick={() => toggle(item)}
+          >
+            <span>{sentenceCase(item.name)}</span>
+          </button>
+        )
+      })}
+    </CatalogSearchList>
   )
 }
 
@@ -66,19 +57,16 @@ function ItemsList({ config, rows, onChange }) {
 // содержимое панели подменяется списком с поиском и мультивыбором.
 // mode 'items' — у владения оружием/доспехами экран конкретного предмета вместо категорий.
 export default function EffectRowsPicker({ effectType, rows = [], onChange, onClose, mode = null }) {
-  const picker = ROW_PICKERS[effectType]
+  const itemPicker = mode === 'items' || !ROW_PICKERS[effectType] ? ITEM_PICKERS[effectType] : null
+  const picker = ROW_PICKERS[effectType] ?? {}
   const [query, setQuery] = useState('')
   const fromSkills = picker.source === 'skills'
 
-  const skillsQ = useQuery({
-    queryKey: ['catalog', 'skills', 'all'],
-    enabled: fromSkills,
-    queryFn: () => api.skills.list({ size: 100 }),
-  })
+  const skillsQ = useSkills({}, { enabled: fromSkills })
 
   const options = fromSkills
-    ? (skillsQ.data?.items ?? []).map((s) => ({ value: s.id, label: s.name }))
-    : Object.entries(picker.labels).map(([value, label]) => ({ value, label }))
+    ? (skillsQ.data ?? []).map((s) => ({ value: s.id, label: s.name }))
+    : Object.entries(picker.labels ?? {}).map(([value, label]) => ({ value, label }))
 
   // Уже добавленные строки — это и есть «выбранное»: клик по варианту
   // добавляет строку эффекта или убирает её вместе со всеми настройками
@@ -94,7 +82,6 @@ export default function EffectRowsPicker({ effectType, rows = [], onChange, onCl
     onChange(rows.filter((row) => !(inPicker(row) && row[picker.idKey] === value)))
   }
 
-  const itemPicker = mode === 'items' ? ITEM_PICKERS[effectType] : null
   if (itemPicker) {
     return (
       <section className="spell-picker-content">

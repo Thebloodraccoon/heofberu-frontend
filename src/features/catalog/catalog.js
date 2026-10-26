@@ -1,9 +1,8 @@
 import { catalogApi as api } from './api.js'
+import { ARMOR_FILTERS, GEAR_FILTERS, TOOL_FILTERS, WEAPON_FILTERS } from './components/editor/itemFilters.js'
 import {
   abilityLabels,
   damageTypeLabels,
-  itemRarityLabels,
-  itemTypeLabels,
   raceSizeLabels,
   spellCastTimeLabels,
   spellDurationLabels,
@@ -20,6 +19,18 @@ const boolOptions = [
 ]
 
 export const PAGE_SIZE = 50
+
+// Предметы — один справочник /items, но в каталоге и редакторе по разделу на вид (kind).
+export const ITEM_KIND_RESOURCE = { WEAPON: 'weapons', ARMOR: 'armor', TOOL: 'tools', GEAR: 'items' }
+export const isItemResource = (resource) => Object.values(ITEM_KIND_RESOURCE).includes(resource)
+
+const itemSection = (kind, extra) => ({
+  api: api.items,
+  apiResource: 'items',
+  itemKind: kind,
+  listParams: { kind: [kind] },
+  ...extra,
+})
 
 export const catalog = {
   races: {
@@ -66,22 +77,16 @@ export const catalog = {
     api: api.backgrounds,
     filters: [],
   },
+  weapons: itemSection('WEAPON', { label: 'Оружие', icon: 'Ор', desc: 'Мечи, луки и прочее оружие', filters: WEAPON_FILTERS }),
+  armor: itemSection('ARMOR', { label: 'Доспехи и щиты', icon: 'Д', desc: 'Доспехи и щиты', filters: ARMOR_FILTERS }),
+  tools: itemSection('TOOL', { label: 'Инструменты', icon: 'И', desc: 'Инструменты и наборы', filters: TOOL_FILTERS }),
+  items: itemSection('GEAR', { label: 'Предметы', icon: 'Пр', desc: 'Зелья, кольца, снаряжение и артефакты', filters: GEAR_FILTERS }),
   feats: {
     label: 'Черты',
     icon: 'Ч',
     desc: 'Особые таланты',
     api: api.feats,
     filters: [],
-  },
-  items: {
-    label: 'Предметы',
-    icon: 'Пр',
-    desc: 'Оружие, доспехи и артефакты',
-    api: api.items,
-    filters: [
-      { name: 'item_type', label: 'Тип предмета', options: enumOptions(itemTypeLabels) },
-      { name: 'rarity', label: 'Редкость', options: enumOptions(itemRarityLabels) },
-    ],
   },
   features: {
     label: 'Особенности',

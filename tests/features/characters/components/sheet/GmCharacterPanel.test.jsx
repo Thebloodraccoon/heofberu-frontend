@@ -12,7 +12,7 @@ import {
   useCharacterItems,
   useCharacterProficiencies,
 } from '@/features/characters/queries.js'
-import { useAllFeats, useCatalogPage, useFeatDetail, useFeatures } from '@/features/catalog/queries.js'
+import { useCatalogPage, useFeatDetail, useFeatures } from '@/features/catalog/queries.js'
 
 vi.mock('@/features/characters/api.js', () => ({
   charactersApi: {
@@ -25,7 +25,7 @@ vi.mock('@/features/characters/api.js', () => ({
       asi: { add: vi.fn(), remove: vi.fn() },
       skills: { setExpertise: vi.fn() },
       feats: { add: vi.fn(), remove: vi.fn() },
-      features: { add: vi.fn(), update: vi.fn(), remove: vi.fn() },
+      features: { add: vi.fn(), remove: vi.fn() },
       items: { add: vi.fn(), update: vi.fn(), remove: vi.fn() },
     },
     progression: { levelUp: vi.fn(), canLevelUp: vi.fn(), asiChoices: vi.fn().mockResolvedValue([]) },
@@ -49,7 +49,6 @@ vi.mock('@/features/characters/queries.js', () => ({
 vi.mock('@/features/catalog/queries.js', () => ({
   useFeats: vi.fn(() => ({ data: [] })),
   useFeatures: vi.fn(() => ({ data: [] })),
-  useAllFeats: vi.fn(() => ({ data: [], isFetching: false })),
   useFeatDetail: vi.fn(() => ({ data: null, isFetching: false })),
   useSkills: vi.fn(() => ({ data: [] })),
   useCatalogPage: vi.fn(() => ({ data: { items: [], total: 0 }, error: null, refetch: vi.fn() })),
@@ -106,20 +105,30 @@ const SECTION_TITLES = [
   'Снаряжение персонажа',
 ]
 
+// Пикер черт листает каталог сам (CatalogSearchList → catalogApi.feats.list).
+const mockFeats = (items) => vi.spyOn(catalogApi.feats, 'list').mockResolvedValue({ items, total: items.length, page: 1, size: 30 })
+
 beforeEach(() => {
   vi.clearAllMocks()
   useCharacterFeats.mockReturnValue({ data: [] })
   useCharacterFeatures.mockReturnValue({ data: [] })
   useCharacterItems.mockReturnValue({ data: [] })
   useFeatures.mockReturnValue({ data: [] })
-  useAllFeats.mockReturnValue({ data: [], isFetching: false })
+  mockFeats([])
   useFeatDetail.mockReturnValue({ data: null, isFetching: false })
   useCharacterProficiencies.mockReturnValue({ data: { armor: [] } })
 })
 
+// Варианты увеличения характеристик черты — как их отдаёт бэк: эффекты «ability» в вариантах choice_groups.
+const asiGroups = (increases) => ({
+  choice_groups: increases.length
+    ? [{ id: 1, pick_count: 1, options: increases.map((item, n) => ({ id: 100 + n, effects: [{ effect_type: 'ability', items: [item] }] })) }]
+    : [],
+})
+
 describe('GmCharacterPanel unified grid', () => {
   it('requires selection and an ability option in the feat grant drawer', async () => {
-    const feat = { id: 77, name: 'Дар силы', ability_score_increases: [{ id: 71, ability: 'STR', amount: 1 }, { id: 72, ability: 'DEX', amount: 1 }] }
+    const feat = { id: 77, name: 'Дар силы', ...asiGroups([{ id: 71, ability: 'STR', amount: 1 }, { id: 72, ability: 'DEX', amount: 1 }]) }
     const listSpy = vi.spyOn(catalogApi.feats, 'list').mockResolvedValue({ items: [feat], total: 1 })
     useFeatDetail.mockReturnValue({ data: feat, isFetching: false })
     const user = userEvent.setup()
@@ -201,28 +210,6 @@ describe('GmCharacterPanel feature management', () => {
     })
   })
 
-  it('changes a feature grant notes via PATCH', async () => {
-    useCharacterFeatures.mockReturnValue({ data: [GRANTED_FEATURE] })
-    const user = userEvent.setup()
-    renderPanel()
-
-    await user.click(screen.getByRole('button', { name: 'Заметка' }))
-    const editor = screen.getByLabelText('Заметка для игрока')
-    await user.click(editor)
-    await user.keyboard('{Control>}a{/Control}')
-    // По-символьный ввод (type) в ProseMirror-редактор не воспроизводим в jsdom
-    // (курсор/selection не синхронизируются как в реальном браузере) — вставляем
-    // через paste, который ProseMirror обрабатывает через свой paste-пайплайн.
-    fireEvent.paste(editor, {
-      clipboardData: { getData: (type) => (type === 'text/plain' ? 'Новая заметка' : '') },
-    })
-    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
-
-    await waitFor(() => {
-      expect(charactersApi.gmPanel.features.update).toHaveBeenCalledWith(7, 10, { notes: 'Новая заметка' })
-    })
-  })
-
   it('removes a feature grant via DELETE after confirmation', async () => {
     useCharacterFeatures.mockReturnValue({ data: [GRANTED_FEATURE] })
     const user = userEvent.setup()
@@ -245,10 +232,7 @@ describe('GmCharacterPanel feat granting', () => {
   }
 
   it('forces a feat choice: confirm disabled until a row is selected', async () => {
-    useAllFeats.mockReturnValue({
-      data: [{ id: 3, name: 'Цепкий', description: 'Хватка железная.', min_level: null }],
-      isFetching: false,
-    })
+    mockFeats([{ id: 3, name: 'Цепкий', description: 'Хватка железная.', min_level: null }])
     const user = userEvent.setup()
     renderPanel()
 
@@ -268,20 +252,17 @@ describe('GmCharacterPanel feat granting', () => {
   })
 
   it('forces choosing the ability score increase when several options exist', async () => {
-    useAllFeats.mockReturnValue({
-      data: [
+    mockFeats([
         {
           id: 4,
           name: 'Сильный удар',
           min_level: null,
-          ability_score_increases: [
+          ...asiGroups([
             { id: 10, ability: 'STR', amount: 1 },
             { id: 11, ability: 'CON', amount: 1 },
-          ],
+          ]),
         },
-      ],
-      isFetching: false,
-    })
+      ])
     const user = userEvent.setup()
     renderPanel()
 
@@ -302,17 +283,14 @@ describe('GmCharacterPanel feat granting', () => {
   })
 
   it('passes the single ability score increase option explicitly without asking', async () => {
-    useAllFeats.mockReturnValue({
-      data: [
+    mockFeats([
         {
           id: 5,
           name: 'Точный бросок',
           min_level: null,
-          ability_score_increases: [{ id: 20, ability: 'DEX', amount: 1 }],
+          ...asiGroups([{ id: 20, ability: 'DEX', amount: 1 }]),
         },
-      ],
-      isFetching: false,
-    })
+      ])
     const user = userEvent.setup()
     renderPanel()
 
@@ -331,13 +309,10 @@ describe('GmCharacterPanel feat granting', () => {
 
   it('does not offer feats already granted to the character', async () => {
     useCharacterFeats.mockReturnValue({ data: [{ id: 1, feat_id: 1, feat: { id: 1, name: 'Проворный' } }] })
-    useAllFeats.mockReturnValue({
-      data: [
+    mockFeats([
         { id: 1, name: 'Проворный', min_level: null },
         { id: 2, name: 'Могучий', prerequisite_ability: 'STR', prerequisite_minimum_score: 13, min_level: null },
-      ],
-      isFetching: false,
-    })
+      ])
     const user = userEvent.setup()
     renderPanel()
 
@@ -347,20 +322,17 @@ describe('GmCharacterPanel feat granting', () => {
   })
 
   it('lets the GM choose an option right from the expanded view', async () => {
-    useAllFeats.mockReturnValue({
-      data: [
+    mockFeats([
         {
           id: 6,
           name: 'Крепкая хватка',
           min_level: null,
-          ability_score_increases: [
+          ...asiGroups([
             { id: 30, ability: 'STR', amount: 1 },
             { id: 31, ability: 'WIS', amount: 1 },
-          ],
+          ]),
         },
-      ],
-      isFetching: false,
-    })
+      ])
     const user = userEvent.setup()
     renderPanel()
 
@@ -379,12 +351,9 @@ describe('GmCharacterPanel feat granting', () => {
   })
 
   it('lets the GM view feat details before picking', async () => {
-    useAllFeats.mockReturnValue({
-      data: [{ id: 1, name: 'Проворный', min_level: null, description: '' }],
-      isFetching: false,
-    })
+    mockFeats([{ id: 1, name: 'Проворный', min_level: null, description: '' }])
     useFeatDetail.mockReturnValue({
-      data: { id: 1, name: 'Проворный', description: 'Быстрее всех.', ability_score_increases: [] },
+      data: { id: 1, name: 'Проворный', description: 'Быстрее всех.', ...asiGroups([]) },
       isFetching: false,
     })
     const user = userEvent.setup()
@@ -461,6 +430,24 @@ describe('GmCharacterPanel item stacks', () => {
         is_attuned: false,
         notes: '',
       })
+    })
+  })
+
+  it('toggles equip via PATCH and offers attunement only for items that need it', async () => {
+    useCharacterItems.mockReturnValue({
+      data: [STACK, { ...STACK, id: 2, item_id: 24, item: { id: 24, name: 'Кольцо защиты', requires_attunement: true } }],
+    })
+    const user = userEvent.setup()
+    renderPanel('Снаряжение')
+
+    expect(screen.getAllByRole('button', { name: /Экип/ })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: /Настр/ })).toHaveLength(1)
+    await user.click(screen.getAllByRole('button', { name: /Экип/ })[0])
+    await user.click(screen.getByRole('button', { name: /Настр/ }))
+
+    await waitFor(() => {
+      expect(charactersApi.gmPanel.items.update).toHaveBeenCalledWith(7, 1, { is_equipped: true })
+      expect(charactersApi.gmPanel.items.update).toHaveBeenCalledWith(7, 2, { is_attuned: true })
     })
   })
 

@@ -5,18 +5,21 @@ import LoreIcon from './LoreIcon.jsx'
 
 // Общий выбор тегов для статей и записей справочника: чипы и кнопка
 // «Добавить теги», открывающая боковую панель со словарём (поиск, создание нового тега).
-// value/onChange — массив { id, name }.
-export default function TagInput({ value, onChange }) {
+// value/onChange — массив { id, name }. header({ count, open }) — своя шапка блока
+// вместо «Теги» + «Добавить теги» (справочник рисует её как у особенностей).
+export default function TagInput({ value, onChange, header }) {
   const [modal, setModal] = useState(false)
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="article-editor-label">Теги</h3>
-        <Button type="button" size="sm" variant="ghost" onClick={() => setModal(true)}>
-          Добавить теги
-        </Button>
-      </div>
+      {header ? header({ count: value.length, open: () => setModal(true) }) : (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="article-editor-label">Теги</h3>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setModal(true)}>
+            Добавить теги
+          </Button>
+        </div>
+      )}
 
       {value.length === 0 ? (
         <p className="text-sm text-stone-500">Тегов пока нет.</p>

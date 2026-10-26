@@ -2,8 +2,9 @@ import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
 import { Button, Input } from '@/components/ui'
 import { num } from './constants.js'
+import { ArmorClassTable, CombatPanel } from './CombatStatsTables.jsx'
 
-export default function ArmorModal({ character, onClose, onSave }) {
+export default function ArmorModal({ character, combat, onClose, onSave }) {
   const [armorClass, setArmorClass] = useState(String(character.armor_class ?? 10))
   const [shield, setShield] = useState(String(character.shield ?? 0))
 
@@ -43,7 +44,11 @@ export default function ArmorModal({ character, onClose, onSave }) {
           />
         </label>
       </div>
-
+      {combat && (
+        <CombatPanel title="Расчёт по снаряжению и особенностям" total={combat.computed}>
+          <ArmorClassTable armorClass={combat} hideTitle />
+        </CombatPanel>
+      )}
     </SheetDrawer>
   )
 }

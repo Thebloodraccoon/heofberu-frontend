@@ -23,6 +23,8 @@ export const queryKeys = {
     pendingChoicesCount: (id) => ['characters', id, 'grants', 'pending', 'count'],
     answeredChoices: (id) => ['characters', id, 'grants', 'answered'],
     stats: (id) => ['characters', id, 'stats'],
+    combatStats: (id) => ['characters', id, 'combat-stats'],
+    canLevelUp: (id) => ['characters', id, 'progression', 'can-level-up'],
   },
   catalog: {
     classes: (params) => ['catalog', 'classes', params ?? {}],
@@ -37,6 +39,23 @@ export const queryKeys = {
     spells: (params) => ['catalog', 'spells', params ?? {}],
     features: (params) => ['catalog', 'features', params ?? {}],
     items: (params) => ['catalog', 'items', params ?? {}],
+    itemDetail: (id) => ['catalog', 'items', id],
+    itemProperties: ['catalog', 'item-properties'],
+    // Префикс всего, что кешировано по ресурсу справочника (списки, карточки, пикеры) — для инвалидации после правки ГМа.
+    resource: (resource) => ['catalog', resource],
+  },
+  // Списки выбора (SearchPickerList). Ключи лежат под префиксом своего ресурса,
+  // поэтому инвалидация списков ресурса ('catalog','items' / 'articles','list'…) достаёт и их.
+  pickers: {
+    items: ['catalog', 'items', 'picker'],
+    spells: ['catalog', 'spells', 'picker'],
+    characterSpells: (characterId) => ['catalog', 'spells', 'picker', 'character', characterId],
+    feats: ['catalog', 'feats', 'picker'],
+    features: ['catalog', 'features', 'picker'],
+    parentArticles: ['articles', 'list', 'parent-picker'],
+    articleDescendants: (articleId) => ['articles', articleId, 'descendants'],
+    knowledgeBaseArticles: ['articles', 'list', 'knowledge-base-picker'],
+    presets: (params) => ['public-campaigns', 'list', params ?? {}, 'picker'],
   },
   articles: {
     all: ['articles'],

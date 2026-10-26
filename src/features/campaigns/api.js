@@ -56,8 +56,11 @@ export const campaignsApi = {
 }
 
 // Публичная кампания (пресет): зазывалка, с которой любой ГМ может начать свою игровую кампанию.
+// Поиск — от двух символов (бэк: q min_length=2, иначе 422); короче — как без поиска.
+const searchQuery = (q) => (q?.trim().length >= 2 ? q.trim() : undefined)
+
 export const publicCampaignsApi = {
-  list: (params) => request('/public-campaigns', { params }),
+  list: (params) => request('/public-campaigns', { params: { ...params, q: searchQuery(params?.q) } }),
   getBySlug: (slug) => request(`/public-campaigns/by-slug/${encodeURIComponent(slug)}`),
   create: (body) => request('/public-campaigns', { method: 'POST', body }),
   update: (id, body) => request(`/public-campaigns/${id}`, { method: 'PATCH', body }),

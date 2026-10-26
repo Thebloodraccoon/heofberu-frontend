@@ -1,6 +1,8 @@
 import { STATS, abilityName, mod } from '@/lib/utils/ability.js'
 import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
-import { useItems } from '@/features/catalog/queries.js'
+import { useItemNames } from '@/features/catalog/queries.js'
+import { describeItemFilter } from '@/lib/utils/effectBundle.js'
+import { isFilterOption } from '@/lib/utils/characterCreate.js'
 import { Section, StepShell } from './StepShell.jsx'
 
 function InfoCard({ label, children, full = false }) {
@@ -19,7 +21,6 @@ function InfoCard({ label, children, full = false }) {
 
 export default function StepSummary({ stepNo, total, form, lookups, derived }) {
   const { raceDetail, subraceDetail, backgroundDetail, classDetail, subclassDetail, skills } = lookups
-  const { data: catalogItems = [] } = useItems()
   const skillsById = new Map((skills ?? []).map((s) => [Number(s.id), s]))
   const chosenSkills = (form.class_skill_ids ?? [])
     .map((id) => skillsById.get(Number(id))?.name)
@@ -27,11 +28,15 @@ export default function StepSummary({ stepNo, total, form, lookups, derived }) {
     .map((n) => skillLabels[n] ?? sentenceCase(n))
   const savingThrows = (classDetail?.saving_throws ?? []).map((s) => abilityName(s.ability))
 
+  // Вариант-фильтр — имя предмета, который назвал игрок.
+  const picks = form.item_choice_picks ?? {}
+  const pickedNames = useItemNames(Object.values(picks))
   const itemName = (opt) => {
-    const n =
-      opt?.item?.name ||
-      (opt?.name ? opt.name : undefined) ||
-      catalogItems.find((i) => Number(i.id) === Number(opt?.item_id))?.name
+    if (opt?.id != null && isFilterOption(opt)) {
+      const picked = pickedNames[picks[Number(opt.id)]]
+      return sentenceCase(picked ?? describeItemFilter(opt))
+    }
+    const n = opt?.item?.name || (opt?.name ? opt.name : undefined)
     if (n) return sentenceCase(n)
     return opt?.item_id != null ? `Предмет #${opt.item_id}` : '—'
   }

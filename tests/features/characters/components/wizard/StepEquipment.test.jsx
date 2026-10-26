@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event'
 import StepEquipment from '@/features/characters/components/wizard/StepEquipment.jsx'
 import { renderWithProviders } from '@tests/helpers/render.jsx'
 
+vi.mock('@/features/catalog/queries.js', async (importOriginal) => ({
+  ...(await importOriginal()),
+  useItems: (params = {}) => ({
+    data: params.weapon_category === 'SIMPLE' ? [{ id: 55, name: 'Булава' }, { id: 56, name: 'Копьё' }] : [],
+    isLoading: false,
+  }),
+}))
+
 const classDetail = {
   id: 1,
   name: 'Воин',
@@ -62,6 +70,21 @@ describe('StepEquipment', () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ starting_choices: { 'class:0': [] } }),
     )
+  })
+
+  it('asks for a concrete item once a filter option is chosen', async () => {
+    const update = vi.fn()
+    const filterClass = {
+      ...classDetail,
+      starting_choice_groups: [
+        { pick_count: 1, options: [{ id: 103, item_id: null, kind: 'WEAPON', weapon_category: 'SIMPLE', item: null }] },
+      ],
+    }
+    renderStep({ starting_choices: { 'class:0': [103] } }, update, { classDetail: filterClass })
+    expect(screen.getByTitle('Любое простое оружие')).toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText(/Предмет: любое простое оружие/))
+    await userEvent.click(screen.getByRole('option', { name: 'Копьё' }))
+    expect(update).toHaveBeenCalledWith({ item_choice_picks: { 103: 56 } })
   })
 
   it('shows a hint when no equipment is defined', () => {

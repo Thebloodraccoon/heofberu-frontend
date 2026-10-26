@@ -6,6 +6,9 @@ import { spellsCfg } from './spells.js'
 import { backgroundsCfg } from './backgrounds.js'
 import { featsCfg } from './feats.js'
 import { itemsCfg } from './items.js'
+import { weaponsCfg } from './weapons.js'
+import { armorCfg } from './armor.js'
+import { toolsCfg } from './tools.js'
 import { featuresCfg } from './features.js'
 
 export {
@@ -26,7 +29,11 @@ export const editorConfig = {
   skills: { ...catalog.skills, ...skillsCfg },
   spells: { ...catalog.spells, ...spellsCfg },
   backgrounds: { ...catalog.backgrounds, ...backgroundsCfg },
-  items: { ...catalog.items, ...itemsCfg },
+  // Предметы — по редактору на вид (kind): один справочник /items, разные формы.
+  weapons: { ...catalog.weapons, ...weaponsCfg },
+  armor: { ...catalog.armor, ...armorCfg },
+  tools: { ...catalog.tools, ...toolsCfg },
+  gear: { ...catalog.items, ...itemsCfg },
   feats: { ...catalog.feats, ...featsCfg },
   features: { ...catalog.features, ...featuresCfg },
 }

@@ -3,36 +3,29 @@ import {
   armorProficiencyLabels,
   weaponProficiencyLabels,
 } from '@/lib/i18n/index.js'
+import { describeArmorClassEffect, describeSpeedEffect, describeToolEffect } from '@/lib/utils/effectBundle.js'
 
-const FIXED_LIST_KEYS = [
-  'ability_effects',
-  'skill_effects',
-  'saving_throw_effects',
-  'armor_effects',
-  'weapon_effects',
-  'spell_effects',
-]
-
-export const EMPTY_EFFECTS = {
-  ability_effects: [],
-  skill_effects: [],
-  saving_throw_effects: [],
-  armor_effects: [],
-  weapon_effects: [],
-  spell_effects: [],
-}
-
+// effect_type бэка -> наш плоский ключ ({effect_type}_effects). speed и
+// armor_class — только фиксированные эффекты (в группах выбора их нет), их же
+// носят предметы (GET /items/{id}/effects).
 const STATIC_GROUP_TYPE_TO_KEY = {
   ability: 'ability_effects',
   skill: 'skill_effects',
   saving_throw: 'saving_throw_effects',
   armor: 'armor_effects',
   weapon: 'weapon_effects',
+  tool: 'tool_effects',
   spell: 'spell_effects',
+  speed: 'speed_effects',
+  armor_class: 'armor_class_effects',
 }
 
+const FIXED_LIST_KEYS = Object.values(STATIC_GROUP_TYPE_TO_KEY)
+
+export const EMPTY_EFFECTS = Object.fromEntries(FIXED_LIST_KEYS.map((key) => [key, []]))
+
 // choice_groups[].choice_type (бэк, ChoiceType enum) <-> наш ключ одного из
-// шести списков эффектов. Не путать со static_groups[].effect_type выше —
+// списков эффектов. Не путать со static_groups[].effect_type выше —
 // это два разных поля для двух разных сущностей бэка.
 export const CHOICE_TYPE_TO_KEY = {
   ABILITY_SCORE: 'ability_effects',
@@ -40,8 +33,12 @@ export const CHOICE_TYPE_TO_KEY = {
   SAVING_THROW: 'saving_throw_effects',
   ARMOR: 'armor_effects',
   WEAPON: 'weapon_effects',
+  TOOL: 'tool_effects',
   SPELL: 'spell_effects',
 }
+
+// Типы, которые бывают только фиксированными (никогда в группе выбора).
+export const STATIC_ONLY_KEYS = ['speed_effects', 'armor_class_effects']
 const KEY_TO_CHOICE_TYPE = Object.fromEntries(
   Object.entries(CHOICE_TYPE_TO_KEY).map(([choiceType, key]) => [key, choiceType]),
 )
@@ -163,13 +160,44 @@ const toSpellEffect = ({ id, spell_id, class_ids, min_level, max_level, castable
   }
 }
 
+// Конкретный инструмент (item_id) или — только в варианте выбора — «любой
+// инструмент» (item_id: null), при желании сужённый до tool_category. У
+// конкретного категория всегда null (бэк ответит 422).
+const toToolEffect = ({ id, item_id, tool_category }) => {
+  const itemId = toNumOr(item_id, null)
+  return { id: id ?? null, item_id: itemId, tool_category: itemId == null ? (tool_category || null) : null }
+}
+
+const toSpeedEffect = ({ id, speed_type, mode, value, condition, min_level }) => ({
+  id: id ?? null,
+  speed_type: speed_type || 'WALK',
+  mode: mode || 'BONUS',
+  value: toNumOr(value, 0),
+  condition: condition || 'NONE',
+  min_level: toNumOr(min_level, null),
+})
+
+// abilities — только у FORMULA (у BONUS бэк их не примет).
+const toArmorClassEffect = ({ id, mode, value, abilities, allows_shield, condition, min_level }) => ({
+  id: id ?? null,
+  mode: mode || 'BONUS',
+  value: toNumOr(value, 0),
+  abilities: mode === 'FORMULA' ? [...(abilities ?? [])] : [],
+  allows_shield: allows_shield ?? true,
+  condition: condition || 'NONE',
+  min_level: toNumOr(min_level, null),
+})
+
 const TO_ITEM = {
   ability: toAbilityEffect,
   skill: toSkillEffect,
   saving_throw: toSavingThrowEffect,
   armor: toArmorEffect,
   weapon: toWeaponEffect,
+  tool: toToolEffect,
   spell: toSpellEffect,
+  speed: toSpeedEffect,
+  armor_class: toArmorClassEffect,
 }
 
 const withoutId = (row) => {
@@ -330,6 +358,29 @@ export async function syncFeatureEffects(ops, featureId, prev = {}, next = {}) {
   await syncChoiceGroups(ops, featureId, prev.choice_groups ?? [], next.choice_groups ?? [])
 }
 
+// Эффекты предмета (speed/armor_class, пока он надет): у /items/{id}/effects
+// нет PATCH — изменённая строка уходит как удаление + добавление новой.
+// ops — api.items.effects. Возвращает ответ последнего запроса (актуальный
+// список эффектов предмета) или null, если менять нечего.
+export async function syncItemEffects(ops, itemId, prev = {}, next = {}) {
+  const { removed, changed, added } = diffEffectBundle(prev, next)
+  let last = null
+  for (const row of [...removed, ...changed]) last = await ops.remove(itemId, row.effectType, row.id)
+  const nextRows = normalizeEffects(next)
+  const readded = changed.map(({ effectType, id }) => ({
+    effect_type: effectType,
+    item: withoutId(TO_ITEM[effectType](nextRows[STATIC_GROUP_TYPE_TO_KEY[effectType]].find((r) => r.id === id))),
+  }))
+  const groups = added.map((g) => ({ ...g, items: [...g.items] }))
+  for (const { effect_type, item } of readded) {
+    const group = groups.find((g) => g.effect_type === effect_type)
+    if (group) group.items.push(item)
+    else groups.push({ effect_type, items: [item] })
+  }
+  if (groups.length > 0) last = await ops.add(itemId, { static_groups: groups })
+  return last
+}
+
 export { diffEffectBundle, newEffectGroups }
 
 const label = (map, value, fallback) =>
@@ -371,6 +422,17 @@ export function effectSummaryLines(feature = {}) {
     .join(', ')
   if (weaponsText) lines.push({ key: 'weapon', label: 'Владение оружием', text: weaponsText })
 
+  const toolsText = fixed.tool_effects
+    .map((t) => (t.item_id != null ? 'конкретный инструмент' : describeToolEffect(t)))
+    .join(', ')
+  if (toolsText) lines.push({ key: 'tool', label: 'Инструменты', text: toolsText })
+
+  const speedText = fixed.speed_effects.map(describeSpeedEffect).join('; ')
+  if (speedText) lines.push({ key: 'speed', label: 'Скорость', text: speedText })
+
+  const acText = fixed.armor_class_effects.map(describeArmorClassEffect).join('; ')
+  if (acText) lines.push({ key: 'armor_class', label: 'КД', text: acText })
+
   const spellsText = fixed.spell_effects
     .map((s) => (s.spell_id != null ? `заклинание #${s.spell_id}` : 'заклинание (фильтр)'))
     .join(', ')
@@ -389,9 +451,7 @@ export function effectSummaryLines(feature = {}) {
   return lines
 }
 
-const hasAnyFixedEffect = (feature) =>
-  FIXED_LIST_KEYS.some((key) => (feature[key] ?? []).length > 0) ||
-  (feature.ability_score_increases ?? []).length > 0
+const hasAnyFixedEffect = (feature) => FIXED_LIST_KEYS.some((key) => (feature[key] ?? []).length > 0)
 
 // Компактные бейджи для списков особенностей (GmEditorPage) — ровно два
 // бейджа рядом с названием: «Даёт эффекты» и «Выбор». Источник — флаги

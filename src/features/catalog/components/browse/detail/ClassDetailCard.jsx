@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { describeItemFilter } from '@/lib/utils/effectBundle.js'
 import { abilityLabels, armorProficiencyLabels, diceTypeLabels, ruLevel, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 import { ASI_LEVELS } from '@/lib/utils/ability.js'
 import { Badge, Card, AccordionItem, RichText } from '@/components/ui'
@@ -38,6 +39,8 @@ function letterOf(i) {
 }
 
 function ItemLink({ item }) {
+  // Вариант-фильтр (item_id: null): «любое простое оружие» — ссылки нет.
+  if (item && 'item_id' in item && item.item_id == null) return <span>{describeItemFilter(item)}</span>
   const id = item?.item_id ?? item?.id
   const name = sentenceCase(item?.item?.name ?? item?.name ?? itemName(id))
   if (id == null) return <span>{name}</span>
@@ -65,16 +68,21 @@ const asiFeature = (level) => ({
 
 function buildRows(cls, extraFeatures) {
   const featuresByLevel = {}
-  for (const feature of cls.features ?? []) {
-    const lv = feature.level ?? 0
+  const add = (lv, entry) => {
     if (!featuresByLevel[lv]) featuresByLevel[lv] = []
-    featuresByLevel[lv].push({ ...feature, fromSubclass: false })
+    featuresByLevel[lv].push(entry)
   }
-  for (const feature of extraFeatures ?? []) {
+  // Умение с прогрессией (scaling) повторяется на уровне каждой ступени;
+  // повторы помечены стрелкой (isScalingStep).
+  const addFeature = (feature, fromSubclass) => {
     const lv = feature.level ?? 0
-    if (!featuresByLevel[lv]) featuresByLevel[lv] = []
-    featuresByLevel[lv].push({ ...feature, fromSubclass: true })
+    add(lv, { ...feature, fromSubclass })
+    for (const step of feature.scaling?.steps ?? []) {
+      if (step.level !== lv) add(step.level, { ...feature, fromSubclass, isScalingStep: true })
+    }
   }
+  for (const feature of cls.features ?? []) addFeature(feature, false)
+  for (const feature of extraFeatures ?? []) addFeature(feature, true)
   const slotsByLevel = {}
   for (const slot of cls.spell_slot_progression ?? []) {
     if (!slotsByLevel[slot.class_level]) slotsByLevel[slot.class_level] = {}
@@ -281,6 +289,9 @@ export default function ClassDetailCard({ cls, selectedSubId, subDetail, subLoad
                                 }`}
                               >
                                 {sentenceCase(f.name)}
+                                {f.isScalingStep && (
+                                  <span className="ml-0.5 text-xs text-stone-500" title={f.scaling?.label ? `Прогрессия: ${f.scaling.label}` : 'Прогрессия'}>↑</span>
+                                )}
                               </button>
                             )}
                           </span>

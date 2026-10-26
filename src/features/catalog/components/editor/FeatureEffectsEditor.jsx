@@ -1,7 +1,5 @@
 import EditorAddButton from './EditorAddButton.jsx'
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { catalogApi as api } from '@/features/catalog/api.js'
 import {
   abilityLabels,
   armorProficiencyLabels,
@@ -9,18 +7,20 @@ import {
   weaponProficiencyLabels,
 } from '@/lib/i18n/index.js'
 import { inferGroupEffectType, normalizeEffectsTree } from '@/lib/utils/featureEffects.js'
-import { useItemNames, useSpellNames } from '@/features/catalog/queries.js'
+import { useItemNames, useSkills, useSpellNames } from '@/features/catalog/queries.js'
 import { describeOpenSpell } from '@/lib/utils/spellFilter.js'
+import { describeArmorClassEffect, describeSpeedEffect, describeToolEffect } from '@/lib/utils/effectBundle.js'
 import { EFFECT_TYPES } from './effectTypeEditors.jsx'
 import { SectionTitle, GroupRow } from './editorShared.jsx'
 import EffectGroupModal from './EffectGroupModal.jsx'
+import EffectsSummary from './EffectsSummary.jsx'
 
 // Человекочитаемая метка одной строки эффекта — используется только для
 // read-only просмотра внутри аккордеона (сама правка — только через модалку).
 function rowLabel(key, row, { skillNames, spellNames, itemNames }) {
   switch (key) {
     case 'ability_effects': {
-      const name = abilityLabels[row.ability] ?? row.ability
+      const name = row.ability == null ? 'Любая характеристика' : abilityLabels[row.ability] ?? row.ability
       const amount = row.amount
       const suffix = amount != null ? ` ${amount > 0 ? '+' : ''}${amount}` : ''
       const cap = row.new_cap != null ? ` (макс. ${row.new_cap})` : ''
@@ -32,7 +32,7 @@ function rowLabel(key, row, { skillNames, spellNames, itemNames }) {
       return `${name}${skillEffectModeSuffix[row.mode] ?? ''}`
     }
     case 'saving_throw_effects':
-      return abilityLabels[row.ability] ?? row.ability
+      return row.ability == null ? 'Любой спасбросок' : abilityLabels[row.ability] ?? row.ability
     case 'armor_effects':
       return row.item_id != null
         ? (itemNames[row.item_id] ?? `доспех #${row.item_id}`)
@@ -44,6 +44,12 @@ function rowLabel(key, row, { skillNames, spellNames, itemNames }) {
     case 'spell_effects':
       if (row.spell_id == null) return describeOpenSpell(row)
       return spellNames[row.spell_id] ?? `заклинание #${row.spell_id}`
+    case 'tool_effects':
+      return describeToolEffect(row, itemNames)
+    case 'speed_effects':
+      return describeSpeedEffect(row)
+    case 'armor_class_effects':
+      return describeArmorClassEffect(row)
     default:
       return ''
   }
@@ -57,26 +63,34 @@ const pluralOption = (n) => {
   return 'вариантов'
 }
 
-export default function FeatureEffectsEditor({ value, onChange, inline = false, drawer = false, onNavigate, summary }) {
+// part — только одна половина (вкладки «Статичные эффекты» / «Выбор эффектов»):
+// 'static' | 'choice'; без part — обе. summaryHtml — effects_summary с бэка: вверху
+// вкладки — превью своей части описания (splitEffectsSummary).
+export default function FeatureEffectsEditor({ value, onChange, inline = false, drawer = false, onNavigate, part = null, summaryHtml = '' }) {
+  const showStatic = part !== 'choice'
+  const showChoice = part !== 'static'
+  const summary = part && summaryHtml ? <EffectsSummary html={summaryHtml} part={part} /> : null
+  // Заголовок раздела слева, кнопка добавления справа — одной строкой.
+  const sectionHead = (title, button) => <SectionTitle button={button}>{title}</SectionTitle>
   const tree = normalizeEffectsTree(value)
   const groups = tree.choice_groups
   const [modal, setModal] = useState(null) // { mode: 'static'|'choice', effectType, groupIndex? } | null
   const [openKeys, setOpenKeys] = useState(() => new Set())
 
-  const skillsQ = useQuery({
-    queryKey: ['catalog', 'skills', 'all'],
-    queryFn: () => api.skills.list({ size: 100 }),
-  })
+  const { data: skillsCatalog = [] } = useSkills()
   const allSpellIds = [
     ...tree.spell_effects,
     ...groups.flatMap((g) => (g.options ?? []).flatMap((o) => o.spell_effects ?? [])),
   ].map((r) => r.spell_id)
-  const skillNames = Object.fromEntries((skillsQ.data?.items ?? []).map((s) => [s.id, s.name]))
+  const skillNames = Object.fromEntries(skillsCatalog.map((s) => [s.id, s.name]))
   const spellNames = useSpellNames(allSpellIds)
   const allItemIds = [
     ...tree.weapon_effects,
     ...tree.armor_effects,
-    ...groups.flatMap((g) => (g.options ?? []).flatMap((o) => [...(o.weapon_effects ?? []), ...(o.armor_effects ?? [])])),
+    ...tree.tool_effects,
+    ...groups.flatMap((g) =>
+      (g.options ?? []).flatMap((o) => [...(o.weapon_effects ?? []), ...(o.armor_effects ?? []), ...(o.tool_effects ?? [])]),
+    ),
   ].map((r) => r.item_id)
   const itemNames = useItemNames(allItemIds)
   const names = { skillNames, spellNames, itemNames }
@@ -84,7 +98,7 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
   const usedStaticTypes = new Set(EFFECT_TYPES.filter((t) => tree[t.key].length > 0).map((t) => t.key))
   const usedGroupTypes = new Set(groups.map((g) => inferGroupEffectType(g)))
 
-  const availableTypesFor = (used) => EFFECT_TYPES.filter((t) => !used.has(t.key))
+  const availableTypesFor = (used, mode) => EFFECT_TYPES.filter((t) => !used.has(t.key) && !(mode === 'choice' && t.staticOnly))
 
   const toggleOpen = (key) =>
     setOpenKeys((prev) => {
@@ -118,7 +132,7 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
     inline
     mode={modal.mode}
     effectType={modal.effectType}
-    availableTypes={availableTypesFor(modal.mode === 'static' ? usedStaticTypes : usedGroupTypes)}
+    availableTypes={availableTypesFor(modal.mode === 'static' ? usedStaticTypes : usedGroupTypes, modal.mode)}
     initialRows={modal.effectType ? tree[modal.effectType] : []}
     initialGroup={modal.groupIndex != null ? groups[modal.groupIndex] : null}
     onSave={modal.mode === 'static' ? saveStatic : saveGroup}
@@ -126,19 +140,14 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
   />
 
   return (
-    <div className="space-y-4">
-      <div>
-        <SectionTitle
-          button={
-            <EditorAddButton
-              onClick={() => openModal({ mode: 'static', effectType: null })}
-            >
-              Добавить статичный эффект
-            </EditorAddButton>
-          }
-        >
-          Статичные эффекты
-        </SectionTitle>
+    <div className="space-y-4 pb-6">
+      {summary}
+      {showStatic && <div>
+        {sectionHead('Статичные эффекты', (
+          <EditorAddButton onClick={() => openModal({ mode: 'static', effectType: null })} aria-label="Добавить статичный эффект">
+            Добавить
+          </EditorAddButton>
+        ))}
         {usedStaticTypes.size === 0 ? (
           <p className="text-sm text-stone-500">Статичных эффектов нет — особенность применяется как есть.</p>
         ) : (
@@ -166,24 +175,14 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
             })}
           </div>
         )}
-      </div>
+      </div>}
 
-      <div>
-        <SectionTitle
-          button={
-            <EditorAddButton
-              onClick={() => openModal({ mode: 'choice', effectType: null, groupIndex: null })}
-            >
-              Добавить выбор эффектов
-            </EditorAddButton>
-          }
-        >
-          Группы выбора
-        </SectionTitle>
-        <p className="pb-2 text-xs text-stone-500">
-          Особенность выдаёт игроку выбор «N из M» по одному типу эффекта — для каждого типа эффекта может быть
-          только одна группа выбора.
-        </p>
+      {showChoice && <div>
+        {sectionHead('Выбор эффектов', (
+          <EditorAddButton onClick={() => openModal({ mode: 'choice', effectType: null, groupIndex: null })} aria-label="Добавить выбор эффектов">
+            Добавить
+          </EditorAddButton>
+        ))}
         {groups.length === 0 ? (
           <p className="text-sm text-stone-500">Групп выбора нет — особенность применяется автоматически.</p>
         ) : (
@@ -218,7 +217,7 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
             })}
           </div>
         )}
-      </div>
+      </div>}
 
       {modal?.mode === 'static' && (
         <EffectGroupModal
@@ -236,7 +235,7 @@ export default function FeatureEffectsEditor({ value, onChange, inline = false, 
           drawer={drawer}
           mode="choice"
           effectType={modal.effectType}
-          availableTypes={availableTypesFor(usedGroupTypes)}
+          availableTypes={availableTypesFor(usedGroupTypes, 'choice')}
           initialGroup={modal.groupIndex != null ? groups[modal.groupIndex] : null}
           onSave={saveGroup}
           onClose={closeModal}

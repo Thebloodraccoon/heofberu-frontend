@@ -3,6 +3,9 @@ import { queryClient } from '@/lib/api/queryClient.js'
 import { normalizeEffectsTree, syncFeatureEffects } from '@/lib/utils/featureEffects.js'
 import { normalizeScaling } from '@/lib/utils/featureScaling.js'
 
+// Типы полей-групп кнопок: их Field — div, не label (см. Field group).
+export const GROUP_FIELD_TYPES = new Set(['chips', 'stepper', 'level', 'damageType'])
+
 export const opt = (map) => Object.entries(map).map(([value, label]) => ({ value, label }))
 export const optOptional = (map) => [{ value: '', label: '—' }, ...opt(map)]
 

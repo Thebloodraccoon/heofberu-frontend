@@ -30,6 +30,8 @@ export const DEFAULT_FORM = {
   ability_sources: {},
   class_skill_ids: [],
   starting_choices: {},
+  // Конкретный предмет для выбранного варианта-фильтра: { [option_id]: item_id }.
+  item_choice_picks: {},
   suggestion_ids: [],
   name: '',
 }
@@ -67,14 +69,48 @@ export function buildItemChoiceIds(classDetail, backgroundDetail, startingChoice
   return ids
 }
 
+/** An option with no `item_id` is a filter ("any simple weapon"): the player names the item. */
+export const isFilterOption = (opt) => opt?.item_id == null
+
+const FILTER_FIELDS = ['kind', 'weapon_category', 'armor_category', 'tool_category']
+
+/** `GET /items` params listing the candidates of a filter option (every set field must match). */
+export const itemFilterParams = (opt) => ({
+  ...Object.fromEntries(FILTER_FIELDS.filter((k) => opt?.[k] != null).map((k) => [k, opt[k]])),
+  size: 100,
+})
+
 /**
- * Whether every choice group has the full `pick_count` of options selected.
+ * `item_choice_picks` for character creation: `{ option_id, item_id }` for every
+ * chosen filter option that has a picked item (`picks` = `{ [optionId]: itemId }`).
+ */
+export function buildItemChoicePicks(classDetail, backgroundDetail, startingChoices = {}, picks = {}) {
+  const out = []
+  for (const { group, source, gi } of allChoiceGroups(classDetail, backgroundDetail)) {
+    const chosen = new Set(startingChoices[`${source}:${gi}`] ?? [])
+    for (const opt of group?.options ?? []) {
+      const optId = Number(opt.id)
+      if (chosen.has(optId) && isFilterOption(opt) && picks[optId] != null) {
+        out.push({ option_id: optId, item_id: Number(picks[optId]) })
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Whether every choice group has the full `pick_count` of options selected and
+ * every chosen filter option names a concrete item.
  * The backend rejects an incomplete character with 400.
  */
-export function choiceGroupsComplete(classDetail, backgroundDetail, startingChoices = {}) {
+export function choiceGroupsComplete(classDetail, backgroundDetail, startingChoices = {}, picks = {}) {
   return allChoiceGroups(classDetail, backgroundDetail).every(({ group, source, gi }) => {
     const pick = Number(group?.pick_count) || 1
-    return (startingChoices[`${source}:${gi}`] ?? []).length >= pick
+    const chosen = startingChoices[`${source}:${gi}`] ?? []
+    if (chosen.length < pick) return false
+    return (group?.options ?? []).every(
+      (opt) => !isFilterOption(opt) || !chosen.includes(Number(opt.id)) || picks[Number(opt.id)] != null,
+    )
   })
 }
 

@@ -76,7 +76,7 @@ export default function BackgroundPickerModal({ currentId, onPick, onClose }) {
   return (
     <SheetDrawer title="Выбор предыстории" onClose={onClose} footer={<>
         <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button onClick={() => onPick(selected || null)}>Применить</Button>
+        <Button disabled={!selected} onClick={() => onPick(selected)}>Применить</Button>
       </>}>
       <p className="mb-3 text-sm text-stone-400">
         Предыстория определяет, кем персонаж был до приключений, и даёт владение навыками и снаряжение.

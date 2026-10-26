@@ -106,6 +106,12 @@ export const canEditArticle = (article, user, isFounder, isGM = false) =>
   || (!!isGM && CAMPAIGN_ARTICLE_TYPES.includes(article?.article_type))
   || (article?.author?.id != null && user?.id != null && String(article.author.id) === String(user.id))
 
+// Удалить статью может основатель; квест и сессию — ещё и их автор.
+export const canDeleteArticle = (article, user, isFounder) =>
+  !!isFounder
+  || (CAMPAIGN_ARTICLE_TYPES.includes(article?.article_type)
+    && article?.author?.id != null && user?.id != null && String(article.author.id) === String(user.id))
+
 // Игрок видит только опубликованные публичные статьи; краткие карточки не содержат этих полей.
 export const isPublicArticle = (a) => a?.status === 'published' && a?.visibility === 'public'
 

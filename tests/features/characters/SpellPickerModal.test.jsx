@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/helpers/render.jsx'
 import SpellPickerModal from '@/features/characters/components/sheet/SpellPickerModal.jsx'
@@ -43,10 +43,13 @@ describe('Character spell selection', () => {
     await user.click(screen.getByRole('button', { name: /1 уровень/ }))
     await user.click(await screen.findByRole('checkbox', { name: /Заклинание 1(?:\D|$)/ }))
     expect(urls()[0].pathname).toMatch(/\/spells$/)
-    expect(Object.fromEntries(urls()[0].searchParams)).toEqual({ page: '1', size: '100', level: 'LEVEL_1' })
+    expect(Object.fromEntries(urls()[0].searchParams)).toEqual({ page: '1', size: '100', level: 'LEVEL_1', class_id: '2' })
     await user.click(screen.getAllByRole('button', { name: 'Подробнее' })[0])
     expect(screen.getByText('Описание заклинания')).toBeVisible()
-    await user.click(screen.getByRole('button', { name: 'Показать ещё' }))
+    expect(screen.getByRole('button', { name: /Фильтры/ })).toBeInTheDocument()
+    // Следующая страница — прокруткой списка до низа, без кнопки.
+    expect(screen.queryByRole('button', { name: 'Показать ещё' })).not.toBeInTheDocument()
+    fireEvent.scroll(document.querySelector('.grant-picker-list'))
     expect(await screen.findByRole('checkbox', { name: /Заклинание 101/ })).toBeVisible()
     expect(urls().at(-1).searchParams.get('page')).toBe('2')
     await user.click(screen.getByRole('button', { name: 'Назад' }))
@@ -62,15 +65,16 @@ describe('Character spell selection', () => {
     expect(urls().at(-1).searchParams.get('page')).toBe('1')
   }, 15000)
 
-  it('excludes known and unavailable spells, respects capacity and refreshes learned spells', async () => {
+  it('excludes known spells, asks the server for available ones, respects capacity and refreshes learned spells', async () => {
     mocks.known = [spell(1)]
-    fetchMock.mockResolvedValue(respond([spell(1), spell(2), spell(3), spell(4, 'LEVEL_1', { available_classes: [{ id: 99 }] })]))
+    fetchMock.mockResolvedValue(respond([spell(1), spell(2), spell(3)]))
     const { user, queryClient } = setup()
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
     await user.click(screen.getByRole('button', { name: /1 уровень/ }))
     await user.click(await screen.findByRole('checkbox', { name: /Заклинание 2/ }))
     expect(screen.queryByRole('checkbox', { name: /Заклинание 1/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: /Заклинание 4/ })).not.toBeInTheDocument()
+    // Недоступные классу/расе отсекает сервер: персонаж уходит в запрос.
+    expect(urls().at(-1).searchParams.get('class_id')).toBe('2')
     expect(screen.getByRole('checkbox', { name: /Заклинание 3/ })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Выучить ячейку' }))
     await waitFor(() => expect(mocks.add).toHaveBeenCalledWith(12, { spell_id: 2 }))

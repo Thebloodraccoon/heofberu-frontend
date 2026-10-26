@@ -69,8 +69,12 @@ function SpellFacts({ sp }) {
   )
 }
 
-function SpellRow({ sp, open, onExpand, onRemove }) {
+// Плашка уровня (как «ур. N» у способностей) — для заклинаний вне ячеек, где нет групп по уровню.
+const spellLevelBadge = (level) => (level === 'CANTRIP' ? 'Заговор' : level ? `ур. ${level.replace('LEVEL_', '')}` : null)
+
+function SpellRow({ sp, open, onExpand, onRemove, showLevel = false }) {
   const description = sp.description?.trim()
+  const levelBadge = showLevel ? spellLevelBadge(sp.level) : null
   return (
     <li className="character-record-card character-record-card--accordion">
       <div className="flex w-full items-center gap-2">
@@ -85,6 +89,7 @@ function SpellRow({ sp, open, onExpand, onRemove }) {
             {sp.name ? sentenceCase(sp.name) : `Заклинание #${sp.id}`}
             {sp.school && <span className="mt-1 block text-xs font-normal text-stone-400">{label(sp.school)}</span>}
           </span>
+          {levelBadge && <span className="rounded bg-stone-800 px-1.5 py-0.5 text-xs text-stone-400">{levelBadge}</span>}
         </button>
         {onRemove && <button
           type="button"
@@ -102,6 +107,12 @@ function SpellRow({ sp, open, onExpand, onRemove }) {
             <RichText value={description} className="text-stone-200" />
           ) : (
             <span className="text-stone-500">Описание отсутствует</span>
+          )}
+          {sp.higher_levels && (
+            <div className="mt-2">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">На более высоких уровнях</p>
+              <RichText value={sp.higher_levels} className="text-stone-300" />
+            </div>
           )}
         </div>
       )}
@@ -180,6 +191,7 @@ export default function SpellsPanel({ character, classSpellcastingAbility, onErr
                 <SpellRow
                   key={sp.id}
                   sp={sp}
+                  showLevel
                   open={openIds.includes(`granted:${sp.id}`)}
                   onExpand={() => toggleId(`granted:${sp.id}`)}
                 />

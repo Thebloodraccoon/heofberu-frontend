@@ -2,8 +2,10 @@
 // оружие…) или конкретный предмет из справочника (item_id) — общий вид
 // { key, label } для списка «Доспехи»/«Оружие» и таблицы владений.
 // Сначала категории в порядке справочника меток, потом предметы по имени.
+// Пока имя предмета не подгрузилось, label = null (лист рисует скелетон, а не
+// «оружие #1243»); такие строки идут в конце.
 
-export function ownedProficiencyItems(list, { categoryKey, categoryLabels, itemNames = {}, itemFallback }) {
+export function ownedProficiencyItems(list, { categoryKey, categoryLabels, itemNames = {} }) {
   const categoryOrder = Object.keys(categoryLabels)
   const seen = new Set()
   const categories = []
@@ -15,7 +17,7 @@ export function ownedProficiencyItems(list, { categoryKey, categoryLabels, itemN
       const key = `item-${itemId}`
       if (seen.has(key)) continue
       seen.add(key)
-      items.push({ key, label: itemNames[itemId] ?? `${itemFallback} #${itemId}` })
+      items.push({ key, label: itemNames[itemId] ?? null })
     } else if (value != null) {
       if (seen.has(value)) continue
       seen.add(value)
@@ -23,6 +25,6 @@ export function ownedProficiencyItems(list, { categoryKey, categoryLabels, itemN
     }
   }
   categories.sort((a, b) => categoryOrder.indexOf(a.key) - categoryOrder.indexOf(b.key))
-  items.sort((a, b) => a.label.localeCompare(b.label, 'ru'))
+  items.sort((a, b) => (a.label == null) - (b.label == null) || (a.label ?? '').localeCompare(b.label ?? '', 'ru'))
   return [...categories, ...items]
 }

@@ -4,12 +4,12 @@ import { featurePayload, persistFeatureEffects } from '@/features/catalog/config
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
+import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import { ErrorBox, RichTextField, TextField } from '@/components/ui'
 
-const SUBFEATURE_LEVEL_HINT =
-  'Уровень, с которого умение доступно. Обязательно для заполнения.'
 
 export default function SubclassEditor({ classId, detail, features, busy = false, error = null, onRefresh }) {
+  const [tab, setTab] = useState('main')
   const [imageUrl, setImageUrl] = useState(detail?.image_url ?? null)
   const [imageBusy, setImageBusy] = useState(false)
   const [imageError, setImageError] = useState(null)
@@ -90,24 +90,31 @@ export default function SubclassEditor({ classId, detail, features, busy = false
           {saveError && <ErrorBox error={saveError} onRetry={() => {}} />}
           {error && <ErrorBox error={error} onRetry={() => {}} />}
 
-          <ImageUploadBlock
-            imageUrl={imageUrl}
-            onUpload={uploadImage}
-            onRemove={removeImage}
-            busy={imageBusy}
-            error={imageError}
-          />
+          {/* Как у подрасы: «Основное» (название, описание, картинка) и «Умения». */}
+          <EditorTabs tabs={[['main', 'Основное'], ['features', 'Умения']]} value={tab} onChange={setTab} label="Разделы подкласса" />
+          <div hidden={tab !== 'main'} className="race-editor-main">
+            <div className="space-y-4">
+              <TextField
+                label="Название подкласса *"
+                value={detail.name}
+                onSave={saveField('name')}
+                placeholder="Например, Школа Воплощения"
+              />
 
-          <TextField
-            label="Название подкласса"
-            value={detail.name}
-            onSave={saveField('name')}
-            placeholder="Например, Школа Воплощения"
-          />
+              <RichTextField label="Описание" value={detail.description} onSave={saveField('description')} rows={2} />
+            </div>
+            <div className="race-editor-image">
+              <ImageUploadBlock
+                imageUrl={imageUrl}
+                onUpload={uploadImage}
+                onRemove={removeImage}
+                busy={imageBusy}
+                error={imageError}
+              />
+            </div>
+          </div>
 
-          <RichTextField label="Описание" value={detail.description} onSave={saveField('description')} rows={2} />
-
-          <div>
+          <div hidden={tab !== 'features'}>
             <FeaturesEditorBlock
               compact
               block={{
@@ -142,7 +149,6 @@ export default function SubclassEditor({ classId, detail, features, busy = false
             value={row}
             showLevel
             levelRequired
-            levelHint={SUBFEATURE_LEVEL_HINT}
             onSave={saveFeature}
             onSaved={onRefresh}
             onClose={() => setFeatureModal(null)}

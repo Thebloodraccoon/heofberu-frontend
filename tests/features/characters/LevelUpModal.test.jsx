@@ -7,9 +7,9 @@ import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.js
 const fixture = vi.hoisted(() => ({ levelUp: vi.fn(), next: vi.fn(), pending: vi.fn(), grants: [] }))
 vi.mock('@/features/characters/api.js', () => ({ charactersApi: { progression: { levelUp: fixture.levelUp, canLevelUp: fixture.next }, grants: { pending: fixture.pending } } }))
 vi.mock('@/features/characters/queries.js', () => ({ useCharacterFeats: () => ({ data: [] }), useCharacterPendingChoices: () => ({ data: fixture.grants }) }))
+vi.mock('@/features/catalog/api.js', () => ({ catalogApi: { feats: { list: async () => ({ items: [{ id: 7, name: 'Бдительный' }], total: 1 }) } } }))
 vi.mock('@/features/catalog/queries.js', () => ({
   useClassDetail: () => ({ data: { hit_dice: 'D8' } }),
-  useAllFeats: () => ({ data: [{ id: 7, name: 'Бдительный' }], isFetching: false }),
   useFeatDetail: (id) => ({ data: id ? { id: 7, name: 'Бдительный', description: 'Наблюдает за окружением.' } : null, isFetching: false }),
   useSkills: () => ({ data: [] }),
   useSpells: () => ({ data: [] }),
@@ -58,7 +58,7 @@ describe('LevelUpModal drawer', () => {
     expect(screen.getByRole('button', { name: 'Далее' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'Далее' }))
     await user.click(screen.getByRole('button', { name: 'Черта', exact: true }))
-    await user.click(screen.getByRole('button', { name: 'Бдительный', exact: true }))
+    await user.click(await screen.findByRole('button', { name: 'Бдительный', exact: true }))
     await user.click(screen.getByRole('button', { name: 'Применить' }))
     expect(fixture.levelUp).toHaveBeenCalledExactlyOnceWith(12, { hit_points_gained: 7, choice: { type: 'FEAT', feat_id: 7 } })
     expect(await screen.findByText('Уровень 4')).toBeVisible()

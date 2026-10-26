@@ -4,8 +4,11 @@ import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterItems, useCharacterSpells } from '@/features/characters/queries.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { STATS } from '@/lib/utils/ability.js'
-import { Button, Field, Input, Select } from '@/components/ui'
-import { ATTACK_TYPES, DAMAGE_TYPES, DICE_TYPES, num } from './constants.js'
+import { flattenItem } from '@/lib/utils/itemFacts.js'
+import { Button, DiceField, Field, Input } from '@/components/ui'
+import { ATTACK_TYPES, num } from './constants.js'
+import DamageTypeField from '@/components/ui/DamageTypeField.jsx'
+import ChipGroup from '@/components/ui/ChipGroup.jsx'
 
 const SOURCES = [
   { value: 'manual', label: 'Вручную' },
@@ -33,8 +36,9 @@ const damageText = (count, dice, dmgType) =>
     : null
 
 function ItemAttackOption({ ci, onPick }) {
-  const item = ci.item || {}
-  if (item.item_type !== 'WEAPON') return null
+  // Статы оружия — во вложенном item.weapon; дальше (applyWeapon) читаем плоско.
+  const item = flattenItem(ci.item || {})
+  if (item.kind !== 'WEAPON') return null
   const dmg = damageText(item.damage_dice_count, item.damage_dice_type, item.damage_type)
   return (
     <li>
@@ -100,17 +104,20 @@ export default function AttackModal({ characterId, attack = null, onClose, onSav
   }
 
   const applyWeapon = (ci, item) => {
-    const properties = (item.weapon_properties ?? '')
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean)
+    const properties = (item.properties ?? []).map((p) => p.name).filter(Boolean)
+    const versatile =
+      item.versatile_dice_count && item.versatile_dice_type
+        ? `Двумя руками: ${item.versatile_dice_count}${diceTypeLabels[item.versatile_dice_type] ?? item.versatile_dice_type}`
+        : ''
     applyPick({
       name: item.name || `Оружие #${ci.item_id}`,
-      attack_type: 'MELEE_ATTACK',
+      attack_type: item.attack_type || 'MELEE_ATTACK',
       damage_dice_count: num(item.damage_dice_count),
       damage_dice_type: item.damage_dice_type || null,
       damage_type: item.damage_type || null,
-      notes: properties.length ? `Свойства: ${properties.map((p) => label(p)).join(', ')}` : '',
+      range:
+        item.range_normal != null ? `${item.range_normal}${item.range_long != null ? `/${item.range_long}` : ''} фт.` : '',
+      notes: [properties.length ? `Свойства: ${properties.join(', ')}` : '', versatile].filter(Boolean).join(' · '),
     })
   }
 
@@ -209,59 +216,58 @@ export default function AttackModal({ characterId, attack = null, onClose, onSav
           <p className="col-span-full mt-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
             Основное
           </p>
-          <Field label="Название *">
+          {/* Как в конструкторе: название — строкой; тип атаки и характеристика — чипы (под типом —
+              чип «Владение»); бонусы и дистанция — одной строкой; урон — кость и тип урона чипами. */}
+          <Field label="Название *" className="col-span-full">
             <Input required value={form.name} onChange={set('name')} />
           </Field>
-          <Field label="Тип">
-            <Select value={form.attack_type} onChange={set('attack_type')}>
-              {ATTACK_TYPES.map((t) => (
-                <option key={t} value={t}>{label(t)}</option>
-              ))}
-            </Select>
+          <Field label="Тип" group className="col-span-full">
+            {/* Тип атаки чипами и «Владение» чекбоксом — одной строкой. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <ChipGroup label="Тип" options={ATTACK_TYPES.map((t) => ({ value: t, label: label(t) }))} value={form.attack_type} onChange={(attack_type) => setForm((f) => ({ ...f, attack_type }))} />
+              <label className="flex cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={form.is_proficient === true || form.is_proficient === 'true'}
+                  onChange={(e) => setForm((f) => ({ ...f, is_proficient: e.target.checked }))}
+                  className="size-4 accent-ember"
+                />
+                <span className="text-sm text-stone-200">Владение</span>
+              </label>
+            </div>
           </Field>
-          <Field label="Характеристика">
-            <Select value={form.ability} onChange={set('ability')}>
-              {STATS.map((s) => (
-                <option key={s.code} value={s.code}>{s.label}</option>
-              ))}
-            </Select>
+          <Field label="Характеристика" group className="col-span-full">
+            <ChipGroup label="Характеристика" options={STATS.map((st) => ({ value: st.code, label: st.label }))} value={form.ability} onChange={(ability) => setForm((f) => ({ ...f, ability }))} />
           </Field>
-          <Field label="Владение">
-            <Select value={String(form.is_proficient)} onChange={set('is_proficient')}>
-              <option value="true">Да</option>
-              <option value="false">Нет</option>
-            </Select>
-          </Field>
-          <Field label="Бонус атаки">
-            <Input type="number" value={form.bonus_attack} onChange={set('bonus_attack')} />
-          </Field>
-          <Field label="Дистанция">
-            <Input value={form.range} onChange={set('range')} />
-          </Field>
+          <div className="col-span-full grid gap-3 sm:grid-cols-3">
+            <Field label="Бонус атаки">
+              <Input type="number" value={form.bonus_attack} onChange={set('bonus_attack')} />
+            </Field>
+            <Field label="Бонус урона">
+              <Input type="number" value={form.bonus_damage} onChange={set('bonus_damage')} />
+            </Field>
+            <Field label="Дистанция">
+              <Input value={form.range} onChange={set('range')} />
+            </Field>
+          </div>
 
           <p className="col-span-full mt-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
             Урон
           </p>
-          <Field label="Кол-во костей">
-            <Input type="number" min="0" value={form.damage_dice_count} onChange={set('damage_dice_count')} />
-          </Field>
-          <Field label="Кость">
-            <Select value={form.damage_dice_type} onChange={set('damage_dice_type')}>
-              {DICE_TYPES.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Тип урона">
-            <Select value={form.damage_type} onChange={set('damage_type')}>
-              {DAMAGE_TYPES.map((d) => (
-                <option key={d} value={d}>{label(d)}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Бонус урона">
-            <Input type="number" value={form.bonus_damage} onChange={set('bonus_damage')} />
-          </Field>
+          <div className="col-span-full">
+            <DiceField
+              label="Кость урона"
+              count={form.damage_dice_count}
+              type={form.damage_dice_type ?? ''}
+              optional
+              onChange={({ count, type }) => setForm((f) => ({ ...f, damage_dice_count: count, damage_dice_type: type }))}
+              aside={
+                <Field label="Тип урона" group>
+                  <DamageTypeField value={form.damage_type ?? ''} onChange={(damage_type) => setForm((f) => ({ ...f, damage_type }))} />
+                </Field>
+              }
+            />
+          </div>
           <Field label="Заметки" className="sm:col-span-2">
             <Input value={form.notes} onChange={set('notes')} />
           </Field>

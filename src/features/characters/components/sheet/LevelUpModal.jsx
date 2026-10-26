@@ -92,7 +92,13 @@ export default function LevelUpModal({ character, onClose, onError, onRollToast 
         ...(choice ? { choice } : {}),
       })
       await invalidate()
-      const next = await charactersApi.progression.canLevelUp(Number(character.id))
+      // Инвалидация уже перезапросила can-level-up листа — берём его из кеша; запрос
+      // уходит, только если этот запрос сейчас никто не держит (он остался помеченным).
+      const next = await queryClient.fetchQuery({
+        queryKey: queryKeys.characters.canLevelUp(Number(character.id)),
+        queryFn: () => charactersApi.progression.canLevelUp(Number(character.id)),
+        staleTime: Infinity,
+      })
       if (next?.current_level != null) setLevel(asNum(next.current_level))
       setRolled(null)
       setPhase(next?.can_level_up ? 'hp' : 'done')

@@ -1,51 +1,23 @@
-import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
+import { label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
-import { Section, FeatureCards } from './detailHelpers.jsx'
+import { itemFactRows, itemKindText } from '@/lib/utils/itemFacts.js'
+import { describeArmorClassEffect, describeSpeedEffect } from '@/lib/utils/effectBundle.js'
+import { Section } from './detailHelpers.jsx'
+import WeaponPropertyChips from '@/features/catalog/components/WeaponPropertyChips.jsx'
 
 export default function ItemDetailCard({ item }) {
-  const damage =
-    item.damage_dice_count && item.damage_dice_type
-      ? `${item.damage_dice_count}${diceTypeLabels[item.damage_dice_type] ?? item.damage_dice_type}${
-          item.damage_type ? ` ${label(item.damage_type)}` : ''
-        }`.trim()
-      : null
-
-  const ac =
-    item.armor_class_base != null && item.armor_class_base !== ''
-      ? `${item.armor_class_base}${
-          item.armor_class_dex_bonus ? ' + Ловкость' : ''
-        }${item.armor_class_max_dex_bonus ? ` (макс. ${item.armor_class_max_dex_bonus})` : ''}`
-      : null
-
-  const properties = (item.weapon_properties ?? '')
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => label(p))
-    .join(', ')
-
-  const cost =
-    item.cost_gold != null && item.cost_gold !== '' ? `${item.cost_gold} зм.` : null
-  const weight =
-    item.weight != null && item.weight !== '' ? `${item.weight} фнт.` : null
-
   const rows = [
-    item.rarity && item.rarity !== 'NONE' ? { label: 'Редкость', value: label(item.rarity) } : null,
-    item.requires_attunement != null
-      ? { label: 'Настройка', value: item.requires_attunement ? 'Требуется' : 'Не требуется' }
-      : null,
-    weight ? { label: 'Вес', value: weight } : null,
-    cost ? { label: 'Цена', value: cost } : null,
-    damage ? { label: 'Урон', value: damage } : null,
-    ac ? { label: 'Класс доспеха', value: ac } : null,
-    item.strength_requirement != null && item.strength_requirement !== ''
-      ? { label: 'Требование силы', value: `Сила ${item.strength_requirement}` }
-      : null,
-    item.stealth_disadvantage ? { label: 'Скрытность', value: 'Помеха' } : null,
-    properties ? { label: 'Свойства оружия', value: properties } : null,
+    item.rarity && item.rarity !== 'NONE' ? { key: 'rarity', label: 'Редкость', value: label(item.rarity) } : null,
+    ...itemFactRows(item),
   ]
     .filter(Boolean)
     .sort((a, b) => a.value.length - b.value.length)
+
+  // httpClient раскладывает item.effects в плоские speed_effects/armor_class_effects.
+  const effects = [
+    ...(item.armor_class_effects ?? []).map(describeArmorClassEffect),
+    ...(item.speed_effects ?? []).map(describeSpeedEffect),
+  ]
 
   return (
     <Card className="my-[3px] detail-padded">
@@ -53,7 +25,7 @@ export default function ItemDetailCard({ item }) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl font-bold text-stone-100">{sentenceCase(item.name)}</h1>
           <div className="flex flex-wrap gap-1.5">
-            {item.item_type && <Badge className="my-[5px]">{label(item.item_type)}</Badge>}
+            {item.kind && <Badge className="my-[5px]">{itemKindText(item)}</Badge>}
             {item.rarity && item.rarity !== 'NONE' && (
               <Badge tone={item.rarity === 'LEGENDARY' || item.rarity === 'ARTIFACT' ? 'accent' : 'default'} className="my-[5px]">
                 {label(item.rarity)}
@@ -67,18 +39,22 @@ export default function ItemDetailCard({ item }) {
       {rows.length > 0 && (
         <FactList>
           {rows.map((r) => (
-            <FactRow key={r.label} label={r.label} value={r.value} />
+            <FactRow key={r.key} label={r.label} value={r.properties ? <WeaponPropertyChips properties={r.properties} /> : r.value} />
           ))}
         </FactList>
       )}
 
-      {item.description && <RichText value={item.description} className="description-blockquote" />}
-
-      {item.features && item.features.length > 0 && (
-        <Section title="Свойства">
-          <FeatureCards features={item.features} />
+      {effects.length > 0 && (
+        <Section title="Влияние на КД и скорость">
+          <ul className="list-disc space-y-0.5 pl-5 text-stone-200">
+            {effects.map((text, i) => (
+              <li key={i}>{text}</li>
+            ))}
+          </ul>
         </Section>
       )}
+
+      {item.description && <RichText value={item.description} className="description-blockquote" />}
     </Card>
   )
 }

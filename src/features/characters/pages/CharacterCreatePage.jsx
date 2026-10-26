@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { POINT_BUY_BUDGET, POINT_BUY_MIN, STATS, bonusMap, effectiveTotals, pointCost } from '@/lib/utils/ability.js'
-import { STEPS, DEFAULT_FORM, buildItemChoiceIds, choiceGroupsComplete, suggestionGroupsComplete } from '@/lib/utils/characterCreate.js'
+import { STEPS, DEFAULT_FORM, buildItemChoiceIds, buildItemChoicePicks, choiceGroupsComplete, suggestionGroupsComplete } from '@/lib/utils/characterCreate.js'
 import { Button, Card, ErrorBox, PageHeader, Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui'
 import StepAbilities from '@/features/characters/components/wizard/StepAbilities.jsx'
 import StepBackground from '@/features/characters/components/wizard/StepBackground.jsx'
@@ -21,7 +21,6 @@ import {
   useClasses,
   useClassDetail,
   useRaceDetail,
-  useRaceFeatures,
   useRaces,
   useSkills,
   useSubclassDetail,
@@ -46,7 +45,6 @@ export default function CharacterCreatePage() {
   const loading = racesQ.isLoading || classesQ.isLoading || backgroundsQ.isLoading || skillsQ.isLoading
 
   const { data: raceDetail } = useRaceDetail(form.race_id)
-  const { data: raceFeatures = [] } = useRaceFeatures(form.race_id)
   const { data: subraceDetail } = useSubraceDetail(form.race_id, form.subrace_id)
   const { data: classDetail } = useClassDetail(form.class_id)
   const { data: subclassDetail } = useSubclassDetail(form.class_id, form.subclass_id)
@@ -108,7 +106,8 @@ export default function CharacterCreatePage() {
     backgrounds,
     skills,
     raceDetail,
-    raceFeatures,
+    // Деталь расы уже несёт её особенности — отдельный GET /races/{id}/features не нужен.
+    raceFeatures: Array.isArray(raceDetail?.features) ? raceDetail.features : [],
     subraceDetail,
     subraceFeatures: Array.isArray(subraceDetail?.features) ? subraceDetail.features : [],
     classDetail,
@@ -170,7 +169,7 @@ export default function CharacterCreatePage() {
       case 'equipment': {
         // Снаряжение «выбери-себе-из-N» должно быть полностью заполнено:
         // бэкенд вернёт 400, если по группе выбрано не ровно pick_count опций.
-        const complete = choiceGroupsComplete(classDetail, backgroundDetail, form.starting_choices)
+        const complete = choiceGroupsComplete(classDetail, backgroundDetail, form.starting_choices, form.item_choice_picks)
         return complete
       }
       case 'summary': {
@@ -203,6 +202,9 @@ export default function CharacterCreatePage() {
       // бэкенд в item_choice_ids. Базовый комплект (starting_items расы/класса/
       // предыстории) выдаётся сервером автоматически.
       body.item_choice_ids = buildItemChoiceIds(classDetail, backgroundDetail, form.starting_choices)
+      // Вариант-фильтр («любое простое оружие») — плюс конкретный предмет игрока.
+      const picks = buildItemChoicePicks(classDetail, backgroundDetail, form.starting_choices, form.item_choice_picks)
+      if (picks.length > 0) body.item_choice_picks = picks
       if ((form.suggestion_ids ?? []).length > 0) {
         body.suggestion_ids = form.suggestion_ids.map(Number)
       }

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { charactersApi as api } from '@/features/characters/api.js'
 import { recordRoll } from '@/lib/rollHistory.js'
 import { fmtBonus } from '@/lib/utils/sheet.js'
-import { useCharacter, useCanLevelUp, useCharacterPendingChoicesCount, useCharacterProficiencies } from '@/features/characters/queries.js'
+import { useCharacter, useCanLevelUp, useCharacterCombatStats, useCharacterPendingChoicesCount, useCharacterProficiencies } from '@/features/characters/queries.js'
 import {
   useBackgroundDetail,
   useClassDetail,
@@ -37,10 +37,12 @@ import ProficiencyTable from '@/features/characters/components/sheet/Proficiency
 import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
 import HpModal from '@/features/characters/components/sheet/HpModal.jsx'
 import ArmorModal from '@/features/characters/components/sheet/ArmorModal.jsx'
+import SpeedModal from '@/features/characters/components/sheet/SpeedModal.jsx'
 import InspirationModal from '@/features/characters/components/sheet/InspirationModal.jsx'
 import LevelUpModal from '@/features/characters/components/sheet/LevelUpModal.jsx'
 import PendingChoicesModal from '@/features/characters/components/sheet/PendingChoicesModal.jsx'
 import AnsweredChoicesSection from '@/features/characters/components/sheet/AnsweredChoicesSection.jsx'
+import CombatStatsSection from '@/features/characters/components/sheet/CombatStatsTables.jsx'
 import CharacterSettingsModal from '@/features/characters/components/sheet/CharacterSettingsModal.jsx'
 import { num } from '@/features/characters/components/sheet/constants.js'
 
@@ -58,6 +60,7 @@ export default function CharacterDetailPage() {
   const { data: backgroundDetail } = useBackgroundDetail(character?.background_id)
   const { data: skillsCatalog = [] } = useSkills({ size: 100 })
   const { data: proficienciesData } = useCharacterProficiencies(id)
+  const { data: combatStats, refetch: refetchCombat } = useCharacterCombatStats(id)
 
   const [tab, setTab] = useState('attacks')
   useEffect(() => {
@@ -71,6 +74,7 @@ export default function CharacterDetailPage() {
   const [rollToasts, setRollToasts] = useState([])
   const [hpModal, setHpModal] = useState(false)
   const [armorModal, setArmorModal] = useState(false)
+  const [speedModal, setSpeedModal] = useState(false)
   const [inspirationModal, setInspirationModal] = useState(false)
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const { data: canLevelUpData } = useCanLevelUp(id)
@@ -80,8 +84,10 @@ export default function CharacterDetailPage() {
 
   const load = useCallback(async () => {
     const res = await refetch()
+    // Ручные КД/скорость и расчёт от характеристик лежат в combat-stats.
+    refetchCombat()
     setMutationError(res?.error ?? null)
-  }, [refetch])
+  }, [refetch, refetchCombat])
 
   const saveField = useCallback(
     (field) => async (value) => {
@@ -194,7 +200,7 @@ export default function CharacterDetailPage() {
   // Владения доспехами/оружием: категории и конкретные предметы (item_id) —
   // имена предметов подтягиваются из справочника.
   const profItemNames = useItemNames(
-    [...(proficienciesData?.armor ?? []), ...(proficienciesData?.weapons ?? [])].map((p) => p.item_id),
+    [...(proficienciesData?.armor ?? []), ...(proficienciesData?.weapons ?? []), ...(proficienciesData?.tools ?? [])].map((p) => p.item_id),
   )
   const armorProfs = useMemo(
     () =>
@@ -202,7 +208,6 @@ export default function CharacterDetailPage() {
         categoryKey: 'armor_type',
         categoryLabels: armorProficiencyLabels,
         itemNames: profItemNames,
-        itemFallback: 'доспех',
       }),
     [proficienciesData?.armor, classDetail, profItemNames],
   )
@@ -212,9 +217,19 @@ export default function CharacterDetailPage() {
         (proficienciesData?.weapons ?? classDetail?.weapon_proficiencies ?? []).map((w) =>
           typeof w === 'string' ? w : { ...w, weapon_category: w.weapon_category ?? w.weapon_type },
         ),
-        { categoryKey: 'weapon_category', categoryLabels: weaponProficiencyLabels, itemNames: profItemNames, itemFallback: 'оружие' },
+        { categoryKey: 'weapon_category', categoryLabels: weaponProficiencyLabels, itemNames: profItemNames },
       ),
     [proficienciesData?.weapons, classDetail, profItemNames],
+  )
+  // Инструменты — всегда конкретные предметы (item_id).
+  const toolProfs = useMemo(
+    () =>
+      ownedProficiencyItems(proficienciesData?.tools ?? [], {
+        categoryKey: 'tool_category',
+        categoryLabels: {},
+        itemNames: profItemNames,
+      }),
+    [proficienciesData?.tools, profItemNames],
   )
 
   // Чужой лист (персонаж не в кампании этого ГМ) — понятный русский текст вместо ответа бэка.
@@ -242,7 +257,7 @@ export default function CharacterDetailPage() {
     { label: 'Предыстория', value: backgroundDetail?.name && sentenceCase(backgroundDetail.name) },
   ]
 
-  const initiativeBonus = modFor('DEX') + (num(character.initiative_bonus) ?? 0)
+  const initiativeBonus = modFor('DEX')
   const initiativeKey = `heofberu:initiative:${id}`
 
   const rollInitiative = () => {
@@ -305,6 +320,16 @@ export default function CharacterDetailPage() {
     }
   }
 
+  const saveSpeed = async (body) => {
+    try {
+      await api.update(id, body)
+      await load()
+      setSpeedModal(false)
+    } catch (e) {
+      setMutationError(e)
+    }
+  }
+
   const tabs = [
     ['abilities', 'Характеристики', 'lg:hidden'],
     ['attacks', 'Атаки'],
@@ -327,6 +352,8 @@ export default function CharacterDetailPage() {
       onOpenInspiration={() => setInspirationModal(true)}
       onOpenHp={() => setHpModal(true)}
       onOpenAc={() => setArmorModal(true)}
+      onOpenSpeed={() => setSpeedModal(true)}
+      combat={combatStats}
       initiativeBonus={initiativeBonus}
       onRollInitiative={rollInitiative}
     />
@@ -338,7 +365,7 @@ export default function CharacterDetailPage() {
       secondaryStats={renderStats(['ac', 'initiative', 'speed', 'inspiration'], 'character-stats--secondary')}
       skills={sortedSkills} saveBonus={saveBonus} saveSet={saveSet}
       skillBonus={skillBonus} profSet={profSet} expertiseSet={expertiseSet} onRoll={rollDice}
-      armorProfs={armorProfs} weaponProfs={weaponProfs}
+      armorProfs={armorProfs} weaponProfs={weaponProfs} toolProfs={toolProfs}
     />
   )
 
@@ -376,6 +403,7 @@ export default function CharacterDetailPage() {
                   <PlayerChoices characterId={character.id} />
                 </div>
                 <ProficiencyTable characterId={character.id} />
+                <CombatStatsSection combat={combatStats} />
                 <AnsweredChoicesSection characterId={character.id} />
               </div>
             )}
@@ -429,7 +457,10 @@ export default function CharacterDetailPage() {
       )}
 
       {armorModal && (
-        <ArmorModal character={character} onClose={() => setArmorModal(false)} onSave={saveArmor} />
+        <ArmorModal character={character} combat={combatStats?.armor_class} onClose={() => setArmorModal(false)} onSave={saveArmor} />
+      )}
+      {speedModal && (
+        <SpeedModal character={character} combat={combatStats?.speed} onClose={() => setSpeedModal(false)} onSave={saveSpeed} />
       )}
 
       {inspirationModal && (

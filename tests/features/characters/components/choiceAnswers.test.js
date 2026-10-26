@@ -4,6 +4,7 @@ import {
   groupComplete,
   initialAnswers,
   isOptionAvailable,
+  optionNeedsItem,
   optionNeedsSkill,
   optionNeedsSpell,
   patchAnswer,
@@ -57,6 +58,31 @@ describe('open spell option', () => {
     expect(toAnswerItems(group.id, list)).toEqual([
       { choice_group_id: 4, choice_option_id: 40, spell_id: 7 },
       { choice_group_id: 4, choice_option_id: 40, spell_id: 9 },
+    ])
+  })
+})
+
+describe('open tool option', () => {
+  const openTool = { id: 50, needs_item: true, allowed_items: [{ id: 3, name: 'Лютня' }, { id: 4, name: 'Флейта' }] }
+  const group = { id: 6, pick_count: 2, options: [openTool] }
+
+  it('falls back to an open tool effect group for catalog options', () => {
+    expect(optionNeedsItem(openTool)).toBe(true)
+    expect(optionNeedsItem({ id: 1, effects: [{ effect_type: 'tool', items: [{ item_id: null, tool_category: 'KIT' }] }] })).toBe(true)
+    expect(optionNeedsItem({ id: 2, effects: [{ effect_type: 'tool', items: [{ item_id: 8 }] }] })).toBe(false)
+  })
+
+  it('needs an allowed item per entry and sends item_id', () => {
+    let list = addAnswer(toggleOption([], group, openTool), group, openTool)
+    const [first, second] = list
+    list = patchAnswer(list, first.key, { item_id: 3 })
+    list = patchAnswer(list, second.key, { item_id: 99 })
+    expect(groupComplete(list, group)).toBe(false)
+    list = patchAnswer(list, second.key, { item_id: 4 })
+    expect(groupComplete(list, group)).toBe(true)
+    expect(toAnswerItems(group.id, list)).toEqual([
+      { choice_group_id: 6, choice_option_id: 50, item_id: 3 },
+      { choice_group_id: 6, choice_option_id: 50, item_id: 4 },
     ])
   })
 })

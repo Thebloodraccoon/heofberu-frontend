@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { describeItemFilter } from '@/lib/utils/effectBundle.js'
 import { fieldLabel, sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import { Card, RichText } from '@/components/ui'
 import { isEmptyValue, itemName, skipFields, Section, FeatureCards, FieldValue, SkillChips, TagChips } from './detailHelpers.jsx'
@@ -18,6 +19,8 @@ function letterOf(i) {
 }
 
 function ItemLink({ item }) {
+  // Вариант-фильтр (item_id: null): «любое простое оружие» — ссылки нет.
+  if (item && 'item_id' in item && item.item_id == null) return <span>{describeItemFilter(item)}</span>
   const id = item?.item_id ?? item?.id
   const name = sentenceCase(item?.item?.name ?? item?.name ?? itemName(id))
   if (id == null) return <span>{name}</span>
@@ -87,45 +90,6 @@ export default function BackgroundDetailCard({ bg }) {
         </p>
       )}
 
-      {suggestionRows.length > 0 && (
-        <Section title="Персонализация">
-          <p className="mb-3 text-sm leading-relaxed text-stone-300">
-            Ниже приведены готовые варианты черт характера, идеалов, привязанностей и слабостей —
-            выберите подходящий вариант из таблицы или, при желании, определите его броском кубика.
-          </p>
-          <div className="flex flex-col gap-4">
-            {suggestionRows.map(([lbl, texts]) => (
-              <div key={lbl} className="overflow-hidden rounded-lg border border-stone-700/60 bg-stone-900/60">
-                <table className="sheet-table">
-                  <thead>
-                    <tr>
-                      <th className="w-12">{`к${texts.length}`}</th>
-                      <th>{lbl}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {texts.map((t, i) => (
-                      <tr key={i}>
-                        <td>{i + 1}</td>
-                        <td>
-                          <RichText value={t} className="inline leading-relaxed" />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {bg.features && bg.features.length > 0 && (
-        <Section title="Особенности и умения">
-          <FeatureCards features={bg.features} />
-        </Section>
-      )}
-
       {((bg.starting_items ?? []).length > 0 ||
         (bg.starting_choice_groups ?? []).length > 0 ||
         bg.starting_gold > 0) && (
@@ -152,7 +116,7 @@ export default function BackgroundDetailCard({ bg }) {
                 )}
               </li>
             ))}
-            {bg.starting_items.map((entry, i) => (
+            {(bg.starting_items ?? []).map((entry, i) => (
               <li key={`m-${i}`}>
                 {entry.quantity > 1 && <span className="font-medium text-ember">{entry.quantity}× </span>}
                 <ItemLink item={entry} />
@@ -164,6 +128,45 @@ export default function BackgroundDetailCard({ bg }) {
               </li>
             )}
           </ul>
+        </Section>
+      )}
+
+      {suggestionRows.length > 0 && (
+        <Section title="Персонализация">
+          <p className="mb-3 text-sm leading-relaxed text-stone-300">
+            Ниже приведены готовые варианты черт характера, идеалов, привязанностей и слабостей —
+            выберите подходящий вариант из таблицы или, при желании, определите его броском кубика.
+          </p>
+          <div className="flex flex-col gap-4">
+            {suggestionRows.map(([lbl, texts]) => (
+              <div key={lbl} className="overflow-hidden rounded-lg border border-stone-700/60 bg-stone-900/60">
+                <table className="sheet-table">
+                  <thead>
+                    <tr>
+                      <th className="w-12 !text-center">{`к${texts.length}`}</th>
+                      <th>{lbl}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {texts.map((t, i) => (
+                      <tr key={i}>
+                        <td className="text-center">{i + 1}</td>
+                        <td>
+                          <RichText value={t} className="inline leading-relaxed" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {bg.features && bg.features.length > 0 && (
+        <Section title="Особенности и умения">
+          <FeatureCards features={bg.features} />
         </Section>
       )}
 

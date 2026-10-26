@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { renderWithProviders } from '@tests/helpers/render.jsx'
 import CampaignFormDrawer from '@/features/campaigns/components/CampaignFormDrawer.jsx'
+import { publicCampaignsApi } from '@/features/campaigns/api.js'
 
 const state = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), pending: false, error: null, params: [], queryError: null, retry: vi.fn() }))
 const presets = [
@@ -12,14 +14,13 @@ vi.mock('@/features/articles/queries.js', () => ({ useTagSearch: () => ({ data: 
 vi.mock('@/features/campaigns/queries.js', () => ({
   useCreateCampaign: () => ({ mutate: state.create, isPending: state.pending, error: state.error }),
   useUpdateCampaign: () => ({ mutate: state.update, isPending: state.pending, error: state.error }),
-  usePublicCampaignsPage: (params) => { state.params.push(params); return { data: { items: params.page === 1 ? presets : [{ ...presets[1], id: 11, title: 'Последняя история' }], total: 11 }, error: state.queryError, refetch: state.retry, isLoading: false } },
 }))
 
 const campaign = { id: 1, title: 'Нова', status: 'active', public_campaign: null }
 function setup(props = {}) {
   const onClose = vi.fn()
   const onSaved = vi.fn()
-  const result = render(<CampaignFormDrawer onClose={onClose} onSaved={onSaved} {...props} />)
+  const result = renderWithProviders(<CampaignFormDrawer onClose={onClose} onSaved={onSaved} {...props} />, { auth: false })
   return { ...result, user: userEvent.setup(), onClose, onSaved }
 }
 async function chooseStatus(user, name) {
@@ -33,6 +34,10 @@ describe('table creation and settings drawer', () => {
     state.error = null
     state.queryError = null
     state.params = []
+    vi.spyOn(publicCampaignsApi, 'list').mockReset().mockImplementation((params) => {
+      state.params.push(params)
+      return Promise.resolve({ items: params.page === 1 ? presets : [{ ...presets[1], id: 11, title: 'Последняя история' }], total: 11 })
+    })
   })
 
   it('validates after blur and creates an independent table with a trimmed title', async () => {
@@ -54,12 +59,12 @@ describe('table creation and settings drawer', () => {
     await user.click(screen.getByRole('button', { name: /Публичная кампания/ }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'К созданию стола' })).toHaveFocus()
-    await user.click(screen.getByRole('button', { name: /Проклятие маяка/ }))
+    await user.click(await screen.findByRole('button', { name: /Проклятие маяка/ }))
     expect(screen.getByRole('textbox', { name: 'Название стола' })).toHaveValue('Проклятие маяка')
     expect(screen.getByText('@Ария')).toBeVisible()
     expect(screen.queryByText('Тайна.')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Изменить' }))
-    await user.click(screen.getByRole('button', { name: 'Тихая гавань' }))
+    await user.click(await screen.findByRole('button', { name: 'Тихая гавань' }))
     expect(screen.getByRole('textbox', { name: 'Название стола' })).toHaveValue('Тихая гавань')
     await user.click(screen.getByRole('button', { name: 'Создать стол' }))
     expect(state.create).toHaveBeenCalledWith({ title: 'Тихая гавань', public_campaign_id: 10 }, expect.any(Object))
@@ -72,19 +77,20 @@ describe('table creation and settings drawer', () => {
     await user.click(screen.getByRole('button', { name: 'Назад', exact: true }))
     expect(screen.getByRole('textbox', { name: 'Название стола' })).toHaveValue('Моя группа')
     await user.click(screen.getByRole('button', { name: /Выбрать публичную кампанию/ }))
-    await user.click(screen.getByRole('button', { name: /Проклятие маяка/ }))
+    await user.click(await screen.findByRole('button', { name: /Проклятие маяка/ }))
     expect(screen.getByRole('textbox', { name: 'Название стола' })).toHaveValue('Моя группа')
   })
 
-  it('searches and paginates sources beyond the first page', async () => {
+  it('searches and loads sources beyond the first page on scroll', async () => {
     const { user } = setup()
     await user.click(screen.getByRole('button', { name: /Публичная кампания/ }))
-    await user.click(screen.getByRole('button', { name: 'Следующая страница' }))
+    const list = (await screen.findByRole('list', { name: 'Найденные публичные кампании' })).parentElement
+    act(() => { list.dispatchEvent(new Event('scroll')) })
+    expect(await screen.findByRole('button', { name: 'Последняя история' })).toBeVisible()
     expect(state.params.at(-1)).toMatchObject({ page: 2, size: 10 })
-    expect(screen.getByRole('button', { name: 'Последняя история' })).toBeVisible()
     await user.type(screen.getByRole('searchbox'), '  море  ')
     await user.click(screen.getByRole('button', { name: 'Найти публичные кампании' }))
-    expect(state.params.at(-1)).toMatchObject({ q: 'море', page: 1 })
+    await waitFor(() => expect(state.params.at(-1)).toMatchObject({ q: 'море', page: 1 }))
   })
 
   it('opens an initial full source without making the form dirty', async () => {

@@ -1,13 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { renderWithProviders } from '@tests/helpers/render.jsx'
 import AsiChoiceModal from '@/features/characters/components/wizard/AsiChoiceModal.jsx'
-import { useAllFeats, useFeatDetail } from '@/features/catalog/queries.js'
+import { useFeatDetail } from '@/features/catalog/queries.js'
+import { catalogApi } from '@/features/catalog/api.js'
 
 vi.mock('@/features/catalog/queries.js', () => ({
-  useAllFeats: vi.fn(),
   useFeatDetail: vi.fn(),
 }))
+vi.mock('@/features/catalog/api.js', () => ({ catalogApi: { feats: { list: vi.fn() } } }))
+const featsPage = (items) => catalogApi.feats.list.mockResolvedValue({ items, total: items.length })
 
 const statRow = (label) => screen.getByText(label).closest('div')
 
@@ -69,7 +72,7 @@ const featDetails = {
 }
 
 const renderModal = (props = {}) =>
-  render(
+  renderWithProviders(
     <AsiChoiceModal
       level={4}
       abilityTotals={{ STR: 15, DEX: 10, CON: 14, INT: 10, WIS: 10, CHA: 10 }}
@@ -77,6 +80,7 @@ const renderModal = (props = {}) =>
       onCancel={vi.fn()}
       {...props}
     />,
+    { auth: false },
   )
 
 beforeEach(() => {
@@ -86,19 +90,19 @@ beforeEach(() => {
 
 describe('AsiChoiceModal', () => {
   it('renders the fork header with the level', () => {
-    useAllFeats.mockReturnValue({ data: [], isFetching: false })
+    featsPage([])
     renderModal({ level: 8 })
     expect(screen.getByText(/Уровень 8: вы на развилке/)).toBeInTheDocument()
   })
 
   it('keeps confirm disabled until at least one point is allocated', () => {
-    useAllFeats.mockReturnValue({ data: [], isFetching: false })
+    featsPage([])
     renderModal()
     expect(screen.getByRole('button', { name: 'Применить' })).toBeDisabled()
   })
 
   it('allows +1 to two different stats', async () => {
-    useAllFeats.mockReturnValue({ data: [], isFetching: false })
+    featsPage([])
     const onConfirm = vi.fn()
     renderModal({ onConfirm })
     await userEvent.click(within(statRow('Сила')).getByText('+'))
@@ -115,7 +119,7 @@ describe('AsiChoiceModal', () => {
   })
 
   it('allows at most +2 per stat', async () => {
-    useAllFeats.mockReturnValue({ data: [], isFetching: false })
+    featsPage([])
     renderModal()
     const row = statRow('Сила')
     await userEvent.click(within(row).getByText('+'))
@@ -125,7 +129,7 @@ describe('AsiChoiceModal', () => {
   })
 
   it('caps a stat at the ability cap or 20', async () => {
-    useAllFeats.mockReturnValue({ data: [], isFetching: false })
+    featsPage([])
     renderModal({ abilityTotals: { STR: 19, DEX: 10, CON: 14, INT: 10, WIS: 10, CHA: 10 } })
     const row = statRow('Сила')
     await userEvent.click(within(row).getByText('+'))
@@ -134,7 +138,7 @@ describe('AsiChoiceModal', () => {
   })
 
   it('decrements an allocation and filters zero amounts from the payload', async () => {
-    useAllFeats.mockReturnValue({ data: [], isFetching: false })
+    featsPage([])
     const onConfirm = vi.fn()
     renderModal({ onConfirm })
     const row = statRow('Сила')
@@ -150,22 +154,23 @@ describe('AsiChoiceModal', () => {
 
   describe('feat mode', () => {
     beforeEach(() => {
-      useAllFeats.mockReturnValue({ data: feats, isFetching: false })
+      featsPage(feats)
     })
 
     it('shows a search input and empty state', async () => {
-      useAllFeats.mockReturnValue({ data: [], isFetching: false })
+      featsPage([])
       renderModal()
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
       expect(screen.getByPlaceholderText(/поиск черты/i)).toBeInTheDocument()
-      expect(useAllFeats).toHaveBeenLastCalledWith('')
-      expect(screen.getByText('Черты не найдены.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Найти' })).toBeInTheDocument()
+      expect(await screen.findByText('Черты не найдены.')).toBeInTheDocument()
+      expect(catalogApi.feats.list).toHaveBeenLastCalledWith({ page: 1, size: 30 })
     })
 
     it('disables feats with unmet prerequisites or min level above the current one', async () => {
       renderModal()
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      expect(screen.getByRole('button', { name: /^проворный$/i })).not.toBeDisabled()
+      expect(await screen.findByRole('button', { name: /^проворный$/i })).not.toBeDisabled()
       expect(screen.getByRole('button', { name: /^могучий$/i })).not.toBeDisabled()
       expect(screen.getByRole('button', { name: /^недостижимый$/i })).toBeDisabled()
       expect(screen.getByRole('button', { name: /^поздний$/i })).toBeDisabled()
@@ -175,21 +180,21 @@ describe('AsiChoiceModal', () => {
     it('shows the min level tag even for feats already meeting it', async () => {
       renderModal({ level: 12 })
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      expect(screen.getByRole('button', { name: /^поздний$/i })).not.toBeDisabled()
+      expect(await screen.findByRole('button', { name: /^поздний$/i })).not.toBeDisabled()
       expect(screen.getByText('с ур. 12')).toBeInTheDocument()
     })
 
     it('shows choice/effect labels for feats coming from has_choices/has_static_effects', async () => {
       renderModal()
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      expect(screen.getByText('Выбор')).toBeInTheDocument()
+      expect(await screen.findByText('Выбор')).toBeInTheDocument()
     })
 
     it('takes a feat with choices right away and points to «Выборы» for them', async () => {
       const onConfirm = vi.fn()
       renderModal({ onConfirm })
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      await userEvent.click(screen.getByRole('button', { name: /^агент порядка$/i }))
+      await userEvent.click(await screen.findByRole('button', { name: /^агент порядка$/i }))
       expect(screen.getByText(/их вы сделаете сразу после/)).toBeInTheDocument()
       expect(screen.queryByLabelText('+1 к Ловкость')).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
@@ -200,7 +205,7 @@ describe('AsiChoiceModal', () => {
       renderModal()
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
       expect(screen.queryByText('Быстрее всех.')).not.toBeInTheDocument()
-      await userEvent.click(screen.getByRole('button', { name: 'Посмотреть: Проворный' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Посмотреть: Проворный' }))
       expect(useFeatDetail).toHaveBeenLastCalledWith(1)
       expect(await screen.findByText('Быстрее всех.')).toBeInTheDocument()
     })
@@ -209,7 +214,7 @@ describe('AsiChoiceModal', () => {
       const onConfirm = vi.fn()
       renderModal({ onConfirm })
       await userEvent.click(screen.getByRole('button', { name: 'Черта' }))
-      await userEvent.click(screen.getByRole('button', { name: /^могучий$/i }))
+      await userEvent.click(await screen.findByRole('button', { name: /^могучий$/i }))
       await userEvent.click(screen.getByRole('button', { name: 'Применить' }))
       expect(onConfirm).toHaveBeenCalledWith({ type: 'FEAT', feat_id: 2 })
       expect(screen.queryByText(/их вы сделаете сразу после/)).not.toBeInTheDocument()

@@ -1,8 +1,10 @@
 import { useId, useState } from 'react'
 import { Input, RichText } from '@/components/ui'
 import { normalizeScaling, scalingError, scalingMarkdown, stepBelowMin } from '@/lib/utils/featureScaling.js'
+import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import EditorAddButton from './EditorAddButton.jsx'
 import { SectionTitle, TrashIcon } from './editorShared.jsx'
+import LevelField from './LevelField.jsx'
 
 const LEVEL_MAX = 20
 const EMPTY = { label: '', steps: [] }
@@ -26,7 +28,6 @@ export default function FeatureScalingEditor({ value, onChange, minLevel = null,
   const steps = draft.steps ?? []
   const hasContent = steps.length > 0 || (draft.label ?? '') !== ''
   const [expanded, setExpanded] = useState(hasContent)
-  const [focusIndex, setFocusIndex] = useState(null)
   const labelId = useId()
   const error = scalingError(draft, minLevel)
   const preview = normalizeScaling(draft)
@@ -39,13 +40,11 @@ export default function FeatureScalingEditor({ value, onChange, minLevel = null,
   const addStep = () => {
     const last = steps.reduce((max, s) => (s.level != null && s.level > max ? s.level : max), 0)
     const level = last > 0 ? Math.min(LEVEL_MAX, last + 1) : minLevel ?? 1
-    setFocusIndex(steps.length)
     onChange({ ...draft, steps: [...steps, { level, value: '' }] })
   }
 
   const start = () => {
     setExpanded(true)
-    setFocusIndex(0)
     onChange({ label: draft.label ?? '', steps: steps.length > 0 ? steps : [{ level: minLevel ?? 1, value: '' }] })
   }
 
@@ -54,25 +53,21 @@ export default function FeatureScalingEditor({ value, onChange, minLevel = null,
     onChange(EMPTY)
   }
 
-  const removeButton = expanded && (
-    <button type="button" onClick={clear} className="text-xs text-stone-500 transition hover:text-red-300">
-      Убрать строку
-    </button>
-  )
+  // Справа в шапке: «Добавить», а когда строка есть — на том же месте «Убрать».
+  const headerButton = expanded
+    ? <button type="button" onClick={clear} className="catalog-add-button" aria-label="Убрать строку"><LoreIcon name="close" />Убрать</button>
+    : <EditorAddButton onClick={start} aria-label="Добавить строку">Добавить</EditorAddButton>
 
   return (
     <section>
-      <SectionTitle button={removeButton}>Растёт с уровнем</SectionTitle>
+      <SectionTitle button={headerButton}>Растёт с уровнем</SectionTitle>
 
       {!expanded ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-stone-700 px-4 py-3">
-          <p className="min-w-0 flex-1 text-sm text-stone-400">
-            С уровнем меняется одна величина — кость, число очков, бонус? Опишите лесенку, и на листе персонажа
-            покажется значение для его уровня.
-            <span className="mt-0.5 block text-xs text-stone-500">Например: Доп. хиты — 1к6 → 1к8 → 1к10 → 1к12</span>
-          </p>
-          <EditorAddButton onClick={start}>Добавить строку</EditorAddButton>
-        </div>
+        <p className="text-sm text-stone-400">
+          С уровнем меняется одна величина — кость, число очков, бонус? Опишите лесенку, и на листе персонажа
+          покажется значение для его уровня.
+          <span className="mt-0.5 block text-xs text-stone-500">Например: Доп. хиты — 1к6 → 1к8 → 1к10 → 1к12</span>
+        </p>
       ) : (
         <div className="space-y-3 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
           <div>
@@ -105,17 +100,10 @@ export default function FeatureScalingEditor({ value, onChange, minLevel = null,
               {steps.map((step, i) => (
                 <li key={i} className="flex items-center gap-2">
                   <span className="shrink-0 text-xs text-stone-500">с</span>
-                  <Input
-                    type="number"
-                    min={minLevel ?? 1}
-                    max={LEVEL_MAX}
-                    className={`!w-16 shrink-0 text-center ${stepBelowMin(step, minLevel) ? '!border-red-500' : ''}`}
-                    value={step.level ?? ''}
-                    onChange={(e) => setStep(i, { level: e.target.value === '' ? null : Number(e.target.value) })}
-                    onBlur={sortOnBlur}
-                    autoFocus={focusIndex === i}
-                    aria-label={`Уровень ступени ${i + 1}`}
-                  />
+                  {/* Порядок ступеней — по уровню: пересортировка, когда фокус ушёл из поля. */}
+                  <div onBlur={sortOnBlur} className={`shrink-0 ${stepBelowMin(step, minLevel) ? 'rounded ring-1 ring-red-500' : ''}`}>
+                    <LevelField hideLabel required suffix="" label={`Уровень ступени ${i + 1}`} min={minLevel ?? 1} value={step.level ?? null} onChange={(level) => setStep(i, { level })} />
+                  </div>
                   <span className="shrink-0 text-xs text-stone-500">ур. →</span>
                   <Input
                     className="min-w-0 flex-1 font-semibold"
@@ -142,7 +130,6 @@ export default function FeatureScalingEditor({ value, onChange, minLevel = null,
                 </li>
               ))}
             </ul>
-            <p className="mt-1.5 text-xs text-stone-500">Enter в последнем значении добавляет следующий уровень.</p>
           </div>
 
           {error ? (

@@ -106,7 +106,7 @@ export default function CampaignFormDrawer({ campaign, preset, onClose, onSaved,
   } : null
 
   return (
-    <Drawer title={picking ? 'Публичная кампания' : editing ? 'Настройки стола' : 'Новый игровой стол'} subtitle={picking ? 'Выберите основу для своей игры.' : editing ? campaign.title : 'Состав, сессии и заметки вашей игровой группы.'} onClose={requestClose} confirmation={confirmation} closeLabel="Закрыть форму кампании" className="campaign-form-drawer" footer={picking
+    <Drawer title={picking ? 'Публичная кампания' : editing ? 'Настройки стола' : 'Новый игровой стол'} subtitle={picking ? 'Выберите основу для своей игры.' : editing ? campaign.title : 'Состав, сессии и заметки вашей игровой группы.'} onClose={requestClose} confirmation={confirmation} closeLabel="Закрыть форму кампании" className="campaign-form-drawer" bodyClassName={picking ? 'grant-picker-body' : ''} footer={picking
       ? <Button variant="ghost" className="w-full" onClick={() => setPicking(false)}>Назад</Button>
       : <div className="article-filter-actions"><Button variant="ghost" disabled={pending} onClick={requestClose}>Отмена</Button><Button type="submit" form="campaign-form" disabled={!valid || pending || (editing && !dirty)}>{mutation.isPending ? 'Сохраняем…' : editing ? 'Сохранить' : 'Создать стол'}</Button></div>
     }>
@@ -149,7 +149,7 @@ export default function CampaignFormDrawer({ campaign, preset, onClose, onSaved,
           {campaign.archived_at ? restoreAction && <Button variant="ghost" disabled={pending} onClick={() => setConfirming('restore')}><LoreIcon name="undo" />Вернуть из архива</Button> : archiveAction && <Button variant="danger" disabled={pending} onClick={() => setConfirming('archive')}><LoreIcon name="archive" />В архив</Button>}
         </section>}
       </div>
-      {picking && <div ref={pickerRef}><PresetPicker value={chosen} onPick={choosePreset} onBack={() => setPicking(false)} backLabel={editing ? 'К настройкам' : 'К созданию стола'} /></div>}
+      {picking && <div ref={pickerRef} className="contents"><PresetPicker value={chosen} onPick={choosePreset} onBack={() => setPicking(false)} backLabel={editing ? 'К настройкам' : 'К созданию стола'} /></div>}
     </Drawer>
   )
 }

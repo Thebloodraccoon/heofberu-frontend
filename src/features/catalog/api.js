@@ -70,6 +70,7 @@ export const catalogApi = {
       list: (id) => request(`/races/${id}/features`),
     },
     subraces: {
+      // Без raceId — все подрасы.
       list: (raceId) => request('/subraces', { params: { race_id: raceId } }),
       create: (raceId, body) =>
         request('/subraces', { method: 'POST', body: { ...body, race_id: raceId } }),
@@ -194,6 +195,10 @@ export const catalogApi = {
       list: (id) => request(`/backgrounds/${id}/items`),
       set: (id, body) => request(`/backgrounds/${id}/items`, { method: 'PUT', body }),
     },
+    choiceGroups: {
+      list: (id) => request(`/backgrounds/${id}/choice-groups`),
+      set: (id, body) => request(`/backgrounds/${id}/choice-groups`, { method: 'PUT', body }),
+    },
     suggestions: {
       list: (id) => request(`/backgrounds/${id}/suggestions`),
       create: (id, body) => request(`/backgrounds/${id}/suggestions`, { method: 'POST', body }),
@@ -232,9 +237,32 @@ export const catalogApi = {
 
   items: {
     list: (params) => request('/items', { params }),
+    // Вид (kind) задаётся при создании: у каждого свой POST, характеристики вида —
+    // вложенным объектом (weapon/armor/tool). GEAR — просто POST /items.
     create: (body) => request('/items', { method: 'POST', body }),
+    createWeapon: (body) => request('/items/weapons', { method: 'POST', body }),
+    createArmor: (body) => request('/items/armor', { method: 'POST', body }),
+    createTool: (body) => request('/items/tools', { method: 'POST', body }),
     get: (id) => request(`/items/${id}`),
+    // PATCH /items/{id} — только общие поля; характеристики вида — своим PATCH.
     update: (id, body) => request(`/items/${id}`, { method: 'PATCH', body }),
+    updateWeapon: (id, body) => request(`/items/${id}/weapon`, { method: 'PATCH', body }),
+    updateArmor: (id, body) => request(`/items/${id}/armor`, { method: 'PATCH', body }),
+    updateTool: (id, body) => request(`/items/${id}/tool`, { method: 'PATCH', body }),
     remove: (id) => request(`/items/${id}`, { method: 'DELETE' }),
+    // Словарь свойств оружия (оружие ссылается на них через property_ids).
+    properties: {
+      list: () => request('/items/properties'),
+      create: (body) => request('/items/properties', { method: 'POST', body }),
+      update: (id, body) => request(`/items/properties/${id}`, { method: 'PATCH', body }),
+      remove: (id) => request(`/items/properties/${id}`, { method: 'DELETE' }),
+    },
+    // Эффекты надетого предмета (speed / armor_class): только POST и DELETE, PATCH нет.
+    effects: {
+      get: (id) => request(`/items/${id}/effects`),
+      add: (id, body) => request(`/items/${id}/effects`, { method: 'POST', body }),
+      remove: (id, effectType, effectId) =>
+        request(`/items/${id}/effects/${effectType}/${effectId}`, { method: 'DELETE' }),
+    },
   },
 }

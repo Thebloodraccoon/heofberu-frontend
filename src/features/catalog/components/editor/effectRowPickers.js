@@ -44,11 +44,15 @@ export const ROW_PICKERS = {
   },
 }
 
-export const hasRowsPicker = (effectType) => Object.hasOwn(ROW_PICKERS, effectType)
+// Экран-список у типа есть, если он выбирается из списка (ROW_PICKERS) или
+// конкретным предметом (ITEM_PICKERS; у инструментов — только так).
+export const hasRowsPicker = (effectType) => Object.hasOwn(ROW_PICKERS, effectType) || Object.hasOwn(ITEM_PICKERS, effectType)
 
 // Экран конкретного предмета (mode 'items'): какие типы предметов искать и
 // в какое поле строки кладётся категория (у предметной строки она null).
 export const ITEM_PICKERS = {
-  weapon_effects: { title: 'Конкретное оружие', itemTypes: ['WEAPON'], categoryKey: 'weapon_category', search: 'Найти оружие…' },
-  armor_effects: { title: 'Конкретный доспех', itemTypes: ['ARMOR', 'SHIELD'], categoryKey: 'armor_type', search: 'Найти доспех…' },
+  weapon_effects: { title: 'Конкретное оружие', kind: 'WEAPON', categoryKey: 'weapon_category', search: 'Найти оружие…' },
+  // Щит — тоже kind ARMOR (armor_category SHIELD), отдельного вида нет.
+  armor_effects: { title: 'Конкретный доспех', kind: 'ARMOR', categoryKey: 'armor_type', search: 'Найти доспех…' },
+  tool_effects: { title: 'Конкретный инструмент', kind: 'TOOL', categoryKey: 'tool_category', search: 'Найти инструмент…' },
 }

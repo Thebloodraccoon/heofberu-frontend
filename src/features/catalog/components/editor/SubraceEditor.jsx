@@ -1,16 +1,14 @@
-import EditorAddButton from './EditorAddButton.jsx'
 import EditorTabs from '@/components/ui/EditorTabs.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { featurePayload, persistFeatureEffects } from '@/features/catalog/config/editors/index.js'
-import { abilityLabels } from '@/lib/i18n/index.js'
 import FeatureModal from './FeaturesModal.jsx'
 import FeaturesEditorBlock from './FeaturesEditorBlock.jsx'
 import ImageUploadBlock from './ImageUploadBlock.jsx'
-import TagInput from '@/features/articles/components/TagInput.jsx'
-import { ErrorBox, RichTextField, Select, TextField } from '@/components/ui'
+import CatalogTagInput from './CatalogTagInput.jsx'
+import AbilityBonusesBlock from './AbilityBonusesBlock.jsx'
+import { ErrorBox, RichTextField, TextField } from '@/components/ui'
 import { useToasts } from '@/components/ToastProvider.jsx'
-import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
 
 export default function SubraceEditor({ raceId, detail, features, busy = false, error = null, onRefresh }) {
   const [tab, setTab] = useState('main')
@@ -117,22 +115,6 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tags])
 
-  const setBonus = (i, key, val) =>
-    setBonuses((rows) => rows.map((row, j) => (j === i ? { ...row, [key]: val } : row)))
-
-  const addBonus = () =>
-    setBonuses((rows) => {
-      const used = new Set(rows.map((r) => r.ability))
-      const free = Object.keys(abilityLabels).find((k) => !used.has(k))
-      if (!free) return rows
-      return [...rows, { ability: free, bonus: 1 }]
-    })
-
-  const removeBonus = (i) => setBonuses((rows) => rows.filter((_, j) => j !== i))
-
-  const abilitiesUsedUp = Object.keys(abilityLabels).every((k) =>
-    bonuses.some((r) => r.ability === k)
-  )
 
   const saveFeature = async (next) => {
     setSaveError(null)
@@ -206,7 +188,7 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
           <div className="race-editor-main">
           <div className="space-y-4">
           <TextField
-            label="Название подрасы"
+            label="Название подрасы *"
             value={detail.name}
             onSave={saveField('name')}
             placeholder="Например, Высший эльф"
@@ -226,69 +208,10 @@ export default function SubraceEditor({ raceId, detail, features, busy = false, 
 
           </div>
           </div>
-          <TagInput value={tags} onChange={setTags} />
+          <CatalogTagInput value={tags} onChange={setTags} />
           </div>
           <div hidden={tab !== 'bonuses'}>
-            <SectionTitle
-              button={
-                <EditorAddButton onClick={addBonus} disabled={abilitiesUsedUp}>Добавить бонус</EditorAddButton>
-              }
-            >
-              Бонусы характеристик
-            </SectionTitle>
-            {bonuses.length === 0 ? (
-              <p className="text-sm text-stone-500">Бонусов нет</p>
-            ) : (
-              <>
-                {abilitiesUsedUp && (
-                  <p className="mb-2 text-xs text-stone-500">
-                    Все доступные варианты использованы — каждый вариант не может повторяться.
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {bonuses.map((row, i) => {
-                    const used = new Set(bonuses.map((r) => r.ability))
-                    return (
-                      <div
-                        key={i}
-                        className="catalog-bonus-row"
-                      >
-                        <div className="w-48">
-                          <Select
-                            value={row.ability}
-                            onChange={(e) => setBonus(i, 'ability', e.target.value)}
-                            className="w-full"
-                          >
-                            {Object.entries(abilityLabels).map(([k, v]) => (
-                              <option key={k} value={k} disabled={used.has(k) && k !== row.ability}>
-                                {v}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-                        <div className="w-20">
-                          <BlurNumberInput
-                            min={-5}
-                            max={5}
-                            value={row.bonus}
-                            onChange={(next) => setBonus(i, 'bonus', Number(next) || 0)}
-                            className="input-narrow w-full sm:h-10"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeBonus(i)}
-                          className="catalog-delete-button"
-                          title="Удалить"
-                        >
-                          <TrashIcon />
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
+            <AbilityBonusesBlock value={bonuses} onChange={setBonuses} owner={`подраса «${detail.name}»`} />
           </div>
 
           <div hidden={tab !== 'features'}>

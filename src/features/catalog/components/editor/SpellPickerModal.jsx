@@ -1,20 +1,16 @@
-import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
-import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
-import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import CatalogSearchList from '@/features/catalog/components/CatalogSearchList.jsx'
+import { useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { catalog } from '@/features/catalog/catalog.js'
 import { useSpellDetail } from '@/features/catalog/queries.js'
 import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { spellLevel } from '@/features/catalog/components/browse/detail/detailHelpers.jsx'
 import { Badge, Button, Modal, RichText, Skeleton } from '@/components/ui'
-import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import Drawer from '@/components/ui/Drawer.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import { queryKeys } from '@/lib/api/queryKeys.js'
 
 const COMPONENT_FULL = { VERBAL: 'Вербальный', SOMATIC: 'Соматический', MATERIAL: 'Материальный' }
-const PAGE_SIZE = 30
-const SCROLL_THRESHOLD = 120
 
 // Тот же набор полей, что и в карточке заклинания игрока/каталога
 // (SpellDetailCard) — школа, время накладывания, дистанция, длительность,
@@ -117,54 +113,8 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose, dra
   const [selected, setSelected] = useState(null)
   const panel = drawer || inline
   const Container = inline ? InlineSpellPicker : drawer ? Drawer : Modal
-  const [queryInput, setQueryInput] = useState('')
-  const [appliedSearch, setAppliedSearch] = useState('')
-  const [filters, setFilters] = useState({})
-  const [showFilters, setShowFilters] = useState(false)
-  const [page, setPage] = useState(1)
-  const [allSpells, setAllSpells] = useState([])
   const [expanded, setExpanded] = useState(() => new Set())
-  const listRef = useRef(null)
   const excluded = new Set(excludeIds)
-
-  const listParams = { page, size: PAGE_SIZE }
-  if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
-  for (const f of catalog.spells.filters) {
-    if (Array.isArray(filters[f.name]) && filters[f.name].length > 0) listParams[f.name] = filters[f.name]
-  }
-
-  const listQ = useQuery({
-    queryKey: ['catalog', 'spell-picker-modal', appliedSearch.trim(), filters, page],
-    queryFn: () => api.spells.list(listParams),
-  })
-
-  // Смена поиска/фильтров начинает список заново, а не докидывает страницы
-  // к прежней выборке.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1)
-    setAllSpells([])
-  }, [appliedSearch, filters])
-
-  useEffect(() => {
-    if (!listQ.data) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAllSpells((prev) => (page === 1 ? listQ.data.items : [...prev, ...listQ.data.items]))
-  }, [listQ.data, page])
-
-  const total = listQ.data?.total ?? 0
-  const hasMore = allSpells.length < total
-  const spells = allSpells.filter((sp) => !excluded.has(sp.id))
-
-  const applySearch = () => setAppliedSearch(queryInput)
-
-  const onScroll = () => {
-    const el = listRef.current
-    if (!el || listQ.isFetching || !hasMore) return
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD) {
-      setPage((p) => p + 1)
-    }
-  }
 
   const toggleExpand = (id) =>
     setExpanded((prev) => {
@@ -176,19 +126,14 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose, dra
 
   return (
     <Container {...(drawer ? { bodyClassName: 'grant-picker-body' } : {})} title={drawer ? 'Выдать заклинание' : 'Заклинания'} subtitle="Поиск и выбор заклинания" onClose={onClose} size="lg" scroll footer={drawer && <div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected} onClick={() => { onPick(selected); onClose() }}>Выдать заклинание</Button></div>}>
-      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={catalog.spells.filters?.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={drawer || inline} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.spells.filters} value={filters} onChange={setFilters} />
-      {showFilters && (
-        <FilterModal
-          inline={drawer || inline}
-          filters={catalog.spells.filters}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
-      <div ref={listRef} onScroll={onScroll} className={panel ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
-        {!listQ.isFetching && spells.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
-        <ul className={panel ? 'space-y-2' : 'space-y-1'}>
+      <CatalogSearchList
+        queryKey={queryKeys.pickers.spells}
+        list={api.spells.list}
+        filters={catalog.spells.filters ?? []}
+        exclude={(sp) => excluded.has(sp.id)}
+        listClassName={panel ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}
+      >
+        {(spells) => <ul className={panel ? 'space-y-2' : 'space-y-1'}>
           {spells.map((sp) => {
             const isOpen = expanded.has(sp.id)
             return (
@@ -230,15 +175,8 @@ export default function SpellPickerModal({ excludeIds = [], onPick, onClose, dra
               </li>
             )
           })}
-        </ul>
-        {listQ.isFetching && (
-          <div className="space-y-1.5 py-1" aria-busy="true">
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-9 w-full" />
-            ))}
-          </div>
-        )}
-      </div>
+        </ul>}
+      </CatalogSearchList>
       {!drawer && !inline && <div className="flex pt-3 mt-4">
         <Button type="button" variant="ghost" className="w-full" onClick={onClose}>
           Закрыть

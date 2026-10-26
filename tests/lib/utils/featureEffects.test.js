@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   effectBadges,
   effectSummaryLines,
@@ -6,6 +6,7 @@ import {
   normalizeEffects,
   normalizeEffectsTree,
   syncFeatureEffects,
+  syncItemEffects,
 } from '@/lib/utils/featureEffects.js'
 
 describe('normalizeEffects', () => {
@@ -17,7 +18,10 @@ describe('normalizeEffects', () => {
       'saving_throw_effects',
       'armor_effects',
       'weapon_effects',
+      'tool_effects',
       'spell_effects',
+      'speed_effects',
+      'armor_class_effects',
     ])
     expect(empty.ability_effects).toEqual([])
     const partial = normalizeEffects({ ability_effects: [{ ability: 'STR', amount: 2 }] })
@@ -347,5 +351,139 @@ describe('effectBadges', () => {
   it('respects an explicit false flag even when the effect tree would suggest otherwise', () => {
     const badges = effectBadges({ has_static_effects: false, has_choices: false, ability_effects: [{ ability: 'STR', amount: 1 }] })
     expect(badges).toEqual([])
+  })
+})
+
+describe('tool / speed / armor_class effects', () => {
+  it('reads the new types out of static_groups and flattened option effects', () => {
+    const tree = normalizeEffectsTree({
+      static_groups: [
+        { effect_type: 'tool', items: [{ id: 1, item_id: 5, tool_category: null }] },
+        { effect_type: 'speed', items: [{ id: 2, speed_type: 'WALK', mode: 'BONUS', value: 10 }] },
+        { effect_type: 'armor_class', items: [{ id: 3, mode: 'FORMULA', value: 10, abilities: ['DEX', 'CON'] }] },
+      ],
+    })
+    expect(tree.tool_effects).toHaveLength(1)
+    expect(tree.speed_effects[0].value).toBe(10)
+    expect(tree.armor_class_effects[0].abilities).toEqual(['DEX', 'CON'])
+    const option = flattenEffectGroups({ effects: [{ effect_type: 'tool', items: [{ item_id: null, tool_category: 'KIT' }] }] })
+    expect(option.tool_effects).toEqual([{ item_id: null, tool_category: 'KIT' }])
+  })
+
+  it('posts new fixed rows with defaults; a concrete tool never carries a category, abilities only on FORMULA', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(ops, FEATURE_ID, {}, {
+      tool_effects: [{ item_id: '5', tool_category: 'KIT' }],
+      speed_effects: [{ speed_type: 'FLY', mode: 'SET', value: '50' }],
+      armor_class_effects: [{ mode: 'BONUS', value: 1, abilities: ['DEX'] }],
+    })
+    expect(ops.calls).toEqual([
+      ['effects.add', FEATURE_ID, {
+        static_groups: [
+          { effect_type: 'tool', items: [{ item_id: 5, tool_category: null }] },
+          { effect_type: 'speed', items: [{ speed_type: 'FLY', mode: 'SET', value: 50, condition: 'NONE', min_level: null }] },
+          {
+            effect_type: 'armor_class',
+            items: [{ mode: 'BONUS', value: 1, abilities: [], allows_shield: true, condition: 'NONE', min_level: null }],
+          },
+        ],
+      }],
+    ])
+  })
+
+  it('patches only the changed fields of a speed row', async () => {
+    const ops = mockOps()
+    const row = { id: 4, speed_type: 'WALK', mode: 'BONUS', value: 10, condition: 'NONE', min_level: null }
+    await syncFeatureEffects(ops, FEATURE_ID, { speed_effects: [row] }, {
+      speed_effects: [{ ...row, value: 15, condition: 'NO_HEAVY_ARMOR' }],
+    })
+    expect(ops.calls).toEqual([['effects.patch', FEATURE_ID, 'speed', 4, { value: 15, condition: 'NO_HEAVY_ARMOR' }]])
+  })
+
+  it('creates a TOOL choice group with an open "any musical instrument" option', async () => {
+    const ops = mockOps()
+    await syncFeatureEffects(ops, FEATURE_ID, {}, {
+      choice_groups: [
+        {
+          effect_type: 'tool_effects',
+          pick_count: 3,
+          options: [{ tool_effects: [{ item_id: null, tool_category: 'MUSICAL_INSTRUMENT' }] }],
+        },
+      ],
+    })
+    expect(ops.calls).toEqual([
+      ['groups.create', FEATURE_ID, {
+        choice_type: 'TOOL',
+        pick_count: 3,
+        sort_order: 0,
+        options: [
+          { sort_order: 0, effects: [{ effect_type: 'tool', items: [{ item_id: null, tool_category: 'MUSICAL_INSTRUMENT' }] }] },
+        ],
+      }],
+    ])
+  })
+
+  it('summarises the new types in Russian', () => {
+    const lines = effectSummaryLines({
+      tool_effects: [{ item_id: null, tool_category: 'GAMING_SET' }],
+      speed_effects: [{ speed_type: 'WALK', mode: 'BONUS', value: 10, condition: 'NO_HEAVY_ARMOR' }],
+      armor_class_effects: [{ mode: 'FORMULA', value: 10, abilities: ['DEX', 'CON'], allows_shield: true }],
+    })
+    const textOf = (key) => lines.find((l) => l.key === key)?.text
+    expect(textOf('tool')).toBe('любой игровой набор')
+    expect(textOf('speed')).toBe('Ходьба +10 фт. (без тяжёлого доспеха)')
+    expect(textOf('armor_class')).toBe('КД = 10 + Ловкость + Телосложение')
+  })
+})
+
+describe('syncItemEffects', () => {
+  const itemOps = () => {
+    const calls = []
+    const rec = (name) => (...args) => {
+      calls.push([name, ...args])
+      return Promise.resolve({ item_id: 9, effects: [] })
+    }
+    return { calls, add: rec('add'), remove: rec('remove') }
+  }
+
+  it('replaces a changed row with delete + add (items have no PATCH), drops removed rows, adds new ones', async () => {
+    const ops = itemOps()
+    const ac = { id: 1, mode: 'BONUS', value: 1, abilities: [], allows_shield: true, condition: 'NONE', min_level: null }
+    const swim = { id: 2, speed_type: 'SWIM', mode: 'SET', value: 40, condition: 'NONE', min_level: null }
+    const res = await syncItemEffects(ops, 9, { armor_class_effects: [ac], speed_effects: [swim] }, {
+      armor_class_effects: [{ ...ac, value: 2 }],
+      speed_effects: [{ speed_type: 'CLIMB', mode: 'EQUAL_TO_WALK', value: 0 }],
+    })
+    expect(ops.calls).toEqual([
+      ['remove', 9, 'speed', 2],
+      ['remove', 9, 'armor_class', 1],
+      ['add', 9, {
+        static_groups: [
+          { effect_type: 'speed', items: [{ speed_type: 'CLIMB', mode: 'EQUAL_TO_WALK', value: 0, condition: 'NONE', min_level: null }] },
+          { effect_type: 'armor_class', items: [{ mode: 'BONUS', value: 2, abilities: [], allows_shield: true, condition: 'NONE', min_level: null }] },
+        ],
+      }],
+    ])
+    expect(res).toEqual({ item_id: 9, effects: [] })
+  })
+
+  it('does nothing when unchanged', async () => {
+    const ops = itemOps()
+    const ac = { id: 1, mode: 'BONUS', value: 1 }
+    expect(await syncItemEffects(ops, 9, { armor_class_effects: [ac] }, { armor_class_effects: [ac] })).toBeNull()
+    expect(ops.calls).toEqual([])
+  })
+
+  it('rejects on a failed request and stops there (rows already removed stay removed, the add is not sent)', async () => {
+    const ops = itemOps()
+    const failing = vi.fn().mockRejectedValueOnce(new Error('404'))
+    ops.remove = (...args) => {
+      ops.calls.push(['remove', ...args])
+      return ops.calls.length === 1 ? Promise.resolve({ item_id: 9, effects: [] }) : failing()
+    }
+    const a = { id: 1, mode: 'BONUS', value: 1 }
+    const b = { id: 2, mode: 'BONUS', value: 2 }
+    await expect(syncItemEffects(ops, 9, { armor_class_effects: [a, b] }, { armor_class_effects: [{ mode: 'BONUS', value: 3 }] })).rejects.toThrow('404')
+    expect(ops.calls).toEqual([['remove', 9, 'armor_class', 1], ['remove', 9, 'armor_class', 2]])
   })
 })

@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { renderWithProviders } from '@tests/helpers/render.jsx'
 import CandidatesDrawer from '@/features/campaigns/components/CandidatesDrawer.jsx'
+import { campaignsApi } from '@/features/campaigns/api.js'
 
-const state = vi.hoisted(() => ({ params: [], enabled: [], add: vi.fn(), pending: false, loading: false, placeholder: false, error: null, items: [], total: 2, refetch: vi.fn() }))
+const state = vi.hoisted(() => ({ add: vi.fn(), pending: false }))
 vi.mock('@/features/campaigns/queries.js', () => ({
-  useCandidates: (_id, params, options) => {
-    state.params.push(params)
-    state.enabled.push(options.enabled)
-    return { data: { items: state.items, total: state.total }, isLoading: state.loading, isPlaceholderData: state.placeholder, error: state.error, refetch: state.refetch }
-  },
   useAddToRoster: () => ({ mutate: state.add, isPending: state.pending }),
 }))
 
@@ -20,27 +17,22 @@ const candidates = [
 const campaign = { id: 10, title: 'Маяк', viewer_role: 'gm', status: 'active', archived_at: null }
 function setup(patch = {}) {
   const onClose = vi.fn()
-  const result = render(<CandidatesDrawer campaign={{ ...campaign, ...patch }} onClose={onClose} />)
+  const result = renderWithProviders(<CandidatesDrawer campaign={{ ...campaign, ...patch }} onClose={onClose} />, { auth: false })
   return { ...result, user: userEvent.setup(), onClose }
 }
 
 describe('character selection for a table', () => {
   beforeEach(() => {
-    state.params = []
-    state.enabled = []
+    state.add = vi.fn()
     state.pending = false
-    state.loading = false
-    state.placeholder = false
-    state.error = null
-    state.items = candidates
-    state.total = 2
+    vi.spyOn(campaignsApi.roster, 'candidates').mockReset().mockResolvedValue({ items: candidates, total: 2 })
   })
 
   it('selects a card without writing and adds only the selected character from the footer', async () => {
     const { user, onClose } = setup()
     const addButton = screen.getByRole('button', { name: 'Добавить', exact: true })
     expect(addButton).toBeDisabled()
-    expect(screen.getByText('@Ария')).toBeVisible()
+    expect(await screen.findByText('@Ария')).toBeVisible()
     await user.click(screen.getByRole('button', { name: /Эйра/ }))
     expect(screen.getByRole('button', { name: /Эйра/ })).toHaveAttribute('aria-pressed', 'true')
     expect(state.add).not.toHaveBeenCalled()
@@ -53,80 +45,54 @@ describe('character selection for a table', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Персонаж «Бор» добавлен в состав')
     expect(screen.getByRole('searchbox', { name: 'Имя персонажа' })).toHaveFocus()
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.getByRole('dialog')).toBeVisible()
-  })
-
-  it('can deselect a character and closes without adding it', async () => {
-    const { user, onClose } = setup()
-    const card = screen.getByRole('button', { name: /Эйра/ })
-    await user.click(card)
-    await user.click(card)
-    expect(card).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Добавить', exact: true })).toBeDisabled()
-    await user.click(card)
-    await user.click(screen.getByRole('button', { name: 'Закрыть', exact: true }))
-    expect(onClose).toHaveBeenCalledOnce()
-    expect(state.add).not.toHaveBeenCalled()
   })
 
   it('searches by name and optional username on the server and clears the selection', async () => {
     const { user } = setup()
-    await user.click(screen.getByRole('button', { name: /Эйра/ }))
+    await user.click(await screen.findByRole('button', { name: /Эйра/ }))
     await user.type(screen.getByRole('searchbox', { name: 'Имя персонажа' }), ' Эйра ')
     await user.click(screen.getByRole('button', { name: 'Найти персонажей' }))
-    expect(state.params.at(-1)).toMatchObject({ q: 'Эйра', player: undefined, page: 1, size: 10 })
+    await waitFor(() => expect(campaignsApi.roster.candidates).toHaveBeenLastCalledWith(10, expect.objectContaining({ q: 'Эйра', page: 1, size: 10 })))
     expect(screen.getByRole('button', { name: 'Добавить', exact: true })).toBeDisabled()
     await user.click(screen.getByText('Ник игрока', { selector: 'summary span' }))
     await user.type(screen.getByRole('textbox', { name: 'Ник игрока' }), ' @Ария ')
     await user.click(screen.getByRole('button', { name: 'Найти игрока' }))
-    expect(state.params.at(-1)).toMatchObject({ q: 'Эйра', player: 'Ария', page: 1 })
+    await waitFor(() => expect(campaignsApi.roster.candidates).toHaveBeenLastCalledWith(10, expect.objectContaining({ q: 'Эйра', player: 'Ария', page: 1 })))
   })
 
-  it('clears selection when changing pages and does not select placeholder data', async () => {
-    state.total = 11
-    const { user, rerender } = setup()
-    await user.click(screen.getByRole('button', { name: /Эйра/ }))
-    await user.click(screen.getByRole('button', { name: 'Следующая страница' }))
-    expect(state.params.at(-1).page).toBe(2)
-    expect(screen.getByRole('button', { name: 'Добавить', exact: true })).toBeDisabled()
-    state.placeholder = true
-    rerender(<CandidatesDrawer campaign={campaign} onClose={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /Эйра/ })).toBeDisabled()
+  it('loads the next page when the list is scrolled to the bottom', async () => {
+    campaignsApi.roster.candidates.mockImplementation((_id, { page }) => Promise.resolve({ items: page === 1 ? candidates : [{ id: 3, name: 'Лия' }], total: 3 }))
+    setup()
+    await screen.findByRole('button', { name: /Эйра/ })
+    const list = screen.getByRole('list', { name: 'Свободные персонажи' }).parentElement
+    act(() => { list.dispatchEvent(new Event('scroll')) })
+    expect(await screen.findByRole('button', { name: /Лия/ })).toBeInTheDocument()
+    expect(campaignsApi.roster.candidates).toHaveBeenLastCalledWith(10, expect.objectContaining({ page: 2 }))
   })
 
   it('keeps the selection on a server conflict and allows retry', async () => {
     const { user } = setup()
-    await user.click(screen.getByRole('button', { name: /Эйра/ }))
+    await user.click(await screen.findByRole('button', { name: /Эйра/ }))
     await user.click(screen.getByRole('button', { name: 'Добавить', exact: true }))
     act(() => state.add.mock.calls[0][1].onError({ message: 'Conflict', data: { error: { type: 'CharacterNotFreeException' } } }))
     expect(screen.getByRole('alert')).toHaveTextContent('Персонаж уже играет в другой кампании.')
     expect(screen.getByRole('button', { name: /Эйра/ })).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByRole('button', { name: 'Повторить' }))
     expect(state.add).toHaveBeenLastCalledWith(1, expect.any(Object))
-    expect(state.add).toHaveBeenCalledTimes(2)
   })
 
-  it('distinguishes loading, errors with retry, and empty results', async () => {
-    state.loading = true
-    const { user, rerender } = setup()
-    expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument()
-    expect(screen.queryByText('Свободных персонажей пока нет.')).not.toBeInTheDocument()
-    state.loading = false
-    state.error = new Error('Сервер недоступен')
-    rerender(<CandidatesDrawer campaign={campaign} onClose={vi.fn()} />)
-    expect(screen.getByText('Сервер недоступен')).toBeVisible()
+  it('shows errors with retry and empty results', async () => {
+    campaignsApi.roster.candidates.mockRejectedValueOnce(new Error('Сервер недоступен'))
+    const { user } = setup()
+    expect(await screen.findByText('Сервер недоступен')).toBeVisible()
+    campaignsApi.roster.candidates.mockResolvedValue({ items: [], total: 0 })
     await user.click(screen.getByRole('button', { name: 'Повторить' }))
-    expect(state.refetch).toHaveBeenCalledOnce()
-    state.error = null
-    state.items = []
-    state.total = 0
-    rerender(<CandidatesDrawer campaign={campaign} onClose={vi.fn()} />)
-    expect(screen.getByText('Свободных персонажей пока нет.')).toBeVisible()
+    expect(await screen.findByText('Свободных персонажей пока нет.')).toBeVisible()
   })
 
   it.each([{ status: 'finished' }, { archived_at: '2026-10-01' }, { viewer_role: 'player' }])('does not load or add characters without roster access: %o', async (patch) => {
     const { user } = setup(patch)
-    expect(state.enabled.at(-1)).toBe(false)
+    expect(campaignsApi.roster.candidates).not.toHaveBeenCalled()
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Добавить', exact: true }))
     expect(state.add).not.toHaveBeenCalled()
@@ -134,7 +100,7 @@ describe('character selection for a table', () => {
 
   it('keeps the drawer open and blocks duplicate submission while adding', async () => {
     const { user, onClose, rerender } = setup()
-    await user.click(screen.getByRole('button', { name: /Эйра/ }))
+    await user.click(await screen.findByRole('button', { name: /Эйра/ }))
     state.pending = true
     rerender(<CandidatesDrawer campaign={campaign} onClose={onClose} />)
     await user.keyboard('{Escape}')

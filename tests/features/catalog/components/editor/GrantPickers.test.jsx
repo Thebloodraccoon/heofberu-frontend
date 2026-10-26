@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/helpers/render.jsx'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
 import SpellPickerModal from '@/features/catalog/components/editor/SpellPickerModal.jsx'
+import { catalogApi } from '@/features/catalog/api.js'
 
 vi.mock('@/features/catalog/api.js', () => ({ catalogApi: {
   items: { list: vi.fn().mockResolvedValue({ items: [{ id: 1, name: 'Меч' }], total: 1 }) },
@@ -17,34 +18,40 @@ describe('GM grant drawers', () => {
     const user = userEvent.setup()
     const onSave = vi.fn().mockResolvedValue(undefined)
     renderWithProviders(<ItemsGrantModal value={[{ item_id: 3, quantity: 2, item: { name: 'Щит' } }]} onSave={onSave} onClose={vi.fn()} />, { auth: false })
-    const quantity = screen.getByRole('spinbutton')
+    const quantity = screen.getByRole('textbox', { name: 'Количество: Щит' })
     fireEvent.change(quantity, { target: { value: '4' } })
-    await user.click(screen.getByRole('button', { name: 'Добавить предмет' }))
+    fireEvent.blur(quantity)
+    // По кнопке на вид: «Оружие» сразу открывает выбор оружия.
+    expect(screen.getByRole('group', { name: 'Что добавить' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Добавить: Оружие' }))
+    expect(catalogApi.items.list).toHaveBeenCalledWith(expect.objectContaining({ kind: ['WEAPON'] }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'Меч' }))
-    expect(screen.getAllByRole('spinbutton')[0]).toHaveValue(4)
+    expect(screen.getByRole('textbox', { name: 'Количество: Щит' })).toHaveValue('4')
     expect(onSave).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
     expect(onSave).toHaveBeenCalledWith([{ item_id: 3, quantity: 4 }, { item_id: 1, quantity: 1 }])
   })
 
-  it('expands filters inside the drawer and preserves selection after applying', async () => {
+  it('opens filters as a narrow drawer on top of the picker and preserves selection after applying', async () => {
     const user = userEvent.setup()
     renderWithProviders(<ItemPickerModal drawer title="Выдать предмет" onPick={vi.fn()} onClose={vi.fn()} />, { auth: false })
     await user.click(await screen.findByRole('button', { name: 'Меч' }))
     await user.click(screen.getByRole('button', { name: 'Фильтры' }))
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    const filters = screen.getByRole('region', { name: 'Фильтры' })
+    expect(screen.queryByRole('region', { name: 'Фильтры' })).not.toBeInTheDocument()
+    const filters = screen.getByRole('dialog', { name: 'Фильтры' })
+    expect(filters).toHaveClass('ui-drawer--filters')
+    expect(screen.getAllByRole('dialog')).toHaveLength(2)
+    // Результаты остаются в панели выбора под фильтрами.
+    expect(screen.getByRole('button', { name: /Меч/, pressed: true, hidden: true })).toBeInTheDocument()
     const options = within(filters).getAllByRole('button', { pressed: false })
     await user.click(options[0])
     await user.click(within(filters).getByRole('button', { name: 'Применить' }))
-    expect(screen.queryByRole('region', { name: 'Фильтры' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Фильтры' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Выдать предмет' })).toBeEnabled()
     expect(screen.getByLabelText('Применённые фильтры')).toBeVisible()
-    await user.click(screen.getByRole('button', { name: /Фильтры/ }))
-    await user.click(screen.getByRole('button', { name: /Фильтры/ }))
-    expect(screen.queryByRole('region', { name: 'Фильтры' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Фильтры/ })).toHaveTextContent('1')
   })
 
   it('waits for explicit confirmation and validates item quantity', async () => {

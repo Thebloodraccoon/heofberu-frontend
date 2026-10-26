@@ -274,6 +274,15 @@ input[type="number"]:hover,
 input[type="number"]:focus {
   box-shadow: inset 0 0 0 40px color-mix(in srgb, var(--color-ember) 7%, transparent);
 }
+/* Плотные таблицы цифр (ячейки заклинаний): без стрелок — число по центру во всю ширину,
+   ↑/↓ с клавиатуры работают как обычно. */
+input[type="number"].input-no-steppers {
+  padding-right: 0.25rem;
+  background-image: none;
+}
+input[type="number"].input-no-steppers::-webkit-inner-spin-button {
+  display: none;
+}
 
 /* Плавное появление контента страницы */
 @keyframes sheet-fade-up {

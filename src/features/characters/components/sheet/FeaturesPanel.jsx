@@ -55,7 +55,6 @@ export default function FeaturesPanel({ character }) {
         name: cf.feat?.name || `Черта #${cf.feat_id}`,
         description: cf.feat?.description,
         effectsSummary: cf.feat?.effects_summary,
-        notes: null,
         level: null,
         sub: 0,
         rank: 0,
@@ -71,7 +70,6 @@ export default function FeaturesPanel({ character }) {
           description: cf.feature?.description,
           effectsSummary: cf.feature?.effects_summary,
           scaling: scalingMarkdown(cf.feature?.scaling, character.level),
-          notes: cf.notes,
           level: st === 'CLASS' || st === 'SUBCLASS' ? featureLevelAt(cf.feature, character.level) : null,
           rank: SOURCE_RANK[st] ?? 5,
           sub: st === 'SUBCLASS' ? 1 : 0,
@@ -120,11 +118,6 @@ export default function FeaturesPanel({ character }) {
                   <RichText value={it.description} tail={[it.scaling, it.effectsSummary]} className="break-words" />
                 ) : (
                   <p className="text-stone-500">Нет описания</p>
-                )}
-                {it.notes && (
-                  <div className="mt-1.5 text-stone-500">
-                    Заметка: <RichText value={it.notes} className="inline" />
-                  </div>
                 )}
               </AccordionItem>
             </li>

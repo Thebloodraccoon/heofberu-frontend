@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { sentenceCase } from '@/lib/i18n/index.js'
 import { toPlainText } from '@/lib/utils/richText.js'
-import { catalog } from '../catalog.js'
+import { ITEM_KIND_RESOURCE, catalog } from '../catalog.js'
 import { findCatalogPage } from '../findPage.js'
 import { useCatalogPage } from '@/features/catalog/queries.js'
 import { Badge, Card, ErrorBox, Skeleton, SkeletonCard } from '@/components/ui'
@@ -88,7 +88,6 @@ export function CatalogListPage() {
 
   const sectionRef = useRef(null)
   const listScrollRef = useRef(null)
-  const resultsRef = useRef(null)
   const listScrollState = useRef({ resource, top: 0, hasSelection: false })
   const lastScrolledSelection = useRef(null)
 
@@ -123,7 +122,8 @@ export function CatalogListPage() {
     return params
   }, [cfg, pageParam, appliedSearch, filters])
 
-  const listQ = useCatalogPage(resource, listParams)
+  // Разделы предметов (оружие, доспехи…) листают общий /items с фильтром kind.
+  const listQ = useCatalogPage(cfg.apiResource ?? resource, listParams)
   const pageData = listQ.data ?? null
   const items = pageData?.items ?? null
 
@@ -154,24 +154,6 @@ export function CatalogListPage() {
   }, [resource, pageParam, selectedId, items])
   const total = pageData?.total ?? 0
 
-  useLayoutEffect(() => {
-    if (selectedId || total <= PAGE_SIZE || !items?.length) return undefined
-    const results = resultsRef.current
-    if (!results) return undefined
-    const updateHeight = () => {
-      results.style.setProperty('--catalog-results-top', `${Math.max(0, results.getBoundingClientRect().top)}px`)
-    }
-    updateHeight()
-    const header = results.closest('.catalog-page')?.querySelector('.catalog-page-aside')
-    const observer = new ResizeObserver(updateHeight)
-    if (header) observer.observe(header)
-    window.addEventListener('resize', updateHeight)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', updateHeight)
-    }
-  }, [selectedId, total, items, resource])
-
   const setPage = (p) => {
     if (selectedId) window.scrollTo({ top: 0 })
     setManualPageChange(Boolean(selectedId))
@@ -191,18 +173,29 @@ export function CatalogListPage() {
     setPage(1)
   }
 
+  // Разделы видов предметов кешируют карточку под 'items' — её правка (префикс
+  // ['catalog','items']) и useItemDetail делят тот же ключ, а useItemNames
+  // (['catalog','items','by-ids',…]) сбрасывается тем же префиксом.
   const detailQ = useQuery({
-    queryKey: ['catalog', resource, selectedId],
+    queryKey: ['catalog', cfg.apiResource ?? resource, selectedId],
     queryFn: () => fetchDetail(resource, selectedId),
     enabled: !!selectedId,
   })
+
+  // Ссылка /catalog/items/{id} (сводки эффектов, стартовое снаряжение) может вести
+  // на оружие/доспех/инструмент — переводим в раздел его вида.
+  const detailKind = detailQ.data?.kind
+  useEffect(() => {
+    if (!cfg.itemKind || !detailKind || detailKind === cfg.itemKind) return
+    navigate({ pathname: `/catalog/${ITEM_KIND_RESOURCE[detailKind]}/${selectedId}`, search: searchParams.toString() }, { replace: true })
+  }, [cfg.itemKind, detailKind, selectedId, navigate, searchParams])
 
   const hasActiveFilters = Object.keys(filters).length > 0
   const hasQuery = Boolean(appliedSearch.trim()) || hasActiveFilters
   const selectedOnPage = items?.some((item) => Number(item.id) === selectedId) ?? false
   const shouldLocatePage = Boolean(selectedId && items?.length && !selectedOnPage && (!searchParams.has('page') || !manualPageChange) && !hasQuery)
   const pageLookupQ = useQuery({
-    queryKey: ['catalog', resource, 'page-for-item', selectedId, total, PAGE_SIZE],
+    queryKey: ['catalog', cfg.apiResource ?? resource, 'page-for-item', cfg.listParams ?? {}, selectedId, total, PAGE_SIZE],
     queryFn: () => findCatalogPage(cfg.api.list, selectedId, total, PAGE_SIZE, cfg.listParams),
     enabled: shouldLocatePage,
     staleTime: 5 * 60 * 1000,
@@ -421,7 +414,7 @@ export function CatalogListPage() {
               )}
           </section>
         ) : (
-          <div ref={resultsRef} className={total > PAGE_SIZE ? 'catalog-results catalog-results--paginated' : 'catalog-results'}>
+          <div className={total > PAGE_SIZE ? 'catalog-results catalog-results--paginated' : 'catalog-results'}>
             <div className="catalog-grid">
               {items.map((it) => (
                 <TileCard key={it.id} item={it} resource={resource} />

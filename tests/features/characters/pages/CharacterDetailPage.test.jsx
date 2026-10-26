@@ -11,7 +11,7 @@ const fixture = vi.hoisted(() => ({
   character: { id: 12, name: 'Элиан Ворон', owner_id: 1, class_id: 2, race_id: 3, level: 5, strength: 12, dexterity: 16, constitution: 14, intelligence: 10, wisdom: 14, charisma: 10, current_hp: 32, max_hp: 42, temp_hp: 5, armor_class: 14, shield: 2, speed: 30, inspiration: 1 },
   skills: [{ id: 1, name: 'stealth', ability: 'DEX' }, { id: 2, name: 'perception', ability: 'WIS' }],
   attacks: [{ id: 1, name: 'Длинный лук', attack_type: 'RANGED_ATTACK', ability: 'DEX', is_proficient: true, bonus_damage: 3, damage_dice_count: 1, damage_dice_type: 'D8', damage_type: 'PIERCING', notes: 'Из тиса', range: '150 футов' }],
-  update: vi.fn(), hp: vi.fn(), rest: vi.fn(), addAttack: vi.fn(), refetch: vi.fn(), removeAttack: vi.fn(),
+  update: vi.fn(), hp: vi.fn(), rest: vi.fn(), addAttack: vi.fn(), refetch: vi.fn(), removeAttack: vi.fn(), refetchCombat: vi.fn(),
 }))
 vi.mock('@/features/auth/useAuth.js', () => ({ useAuth: () => ({ user: { id: 1, username: 'Daniel' } }) }))
 vi.mock('@/features/users/queries.js', () => ({ useUsers: () => ({ data: [] }) }))
@@ -32,6 +32,13 @@ vi.mock('@/features/characters/queries.js', async (importOriginal) => ({
   useCharacterConditions: () => ({ data: [] }),
   useBackstory: () => ({ data: '' }),
   useCharacterStats: () => ({ data: {} }),
+  useCharacterCombatStats: () => ({
+    data: {
+      armor_class: { manual: 14, shield_manual: 2, computed: 15, breakdown: [{ source: 'armor', label: 'Кожаный доспех', value: 11 }, { source: 'ability', label: 'Ловкость', value: 3 }, { source: 'bonus', label: 'Кольцо защиты', value: 1 }] },
+      speed: { manual: 30, computed: { walk: 35, fly: null, swim: 40, climb: null, burrow: null }, breakdown: [{ source: 'base', label: 'Скорость расы', value: 30, speed_type: 'WALK' }] },
+    },
+    refetch: fixture.refetchCombat,
+  }),
   useCharacterAsiChoices: () => ({ data: [] }),
   useCharacterAnsweredChoices: () => ({ data: [] }),
 }))
@@ -64,6 +71,31 @@ beforeEach(() => {
 })
 
 describe('Character sheet', () => {
+  it('shows computed AC and speed next to the manual ones and saves the manual speed', async () => {
+    const { user } = setup()
+    expect(screen.getAllByText('Щит: +2 · Расчёт: 15')[0]).toBeVisible()
+    await user.click(screen.getAllByRole('button', { name: /^Скорость/ })[0])
+    const swim = within(screen.getByRole('rowgroup', { name: 'Плавание' }))
+    expect(swim.getByRole('rowheader', { name: 'Плавание' }).nextSibling).toHaveTextContent('40 фт')
+    expect(within(screen.getByRole('rowgroup', { name: 'Ходьба' })).getByText('Скорость расы')).toBeVisible()
+    const input = screen.getByLabelText(/Скорость ходьбы на листе/)
+    await user.clear(input)
+    await user.type(input, '35')
+    await user.click(screen.getByRole('button', { name: 'Задать' }))
+    expect(fixture.update).toHaveBeenCalledWith('12', { speed: 35 })
+    // Ручная скорость и расчёт лежат в combat-stats — после сохранения он перечитывается.
+    expect(fixture.refetchCombat).toHaveBeenCalled()
+  })
+
+  it('refetches combat stats after saving the manual AC', async () => {
+    const { user } = setup()
+    fixture.refetchCombat.mockClear()
+    await user.click(screen.getAllByRole('button', { name: /^Класс доспеха/ })[0])
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }))
+    expect(fixture.update).toHaveBeenCalledWith('12', { armor_class: 14, shield: 2 })
+    expect(fixture.refetchCombat).toHaveBeenCalled()
+  })
+
   it('records the natural die and calculation for initiative history', async () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0.999)
     try {

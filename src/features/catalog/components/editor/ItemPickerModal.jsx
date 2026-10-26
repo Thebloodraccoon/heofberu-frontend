@@ -1,18 +1,16 @@
-import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
-import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
-import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import CatalogSearchList from '@/features/catalog/components/CatalogSearchList.jsx'
+import { useState } from 'react'
 import { catalogApi as api } from '@/features/catalog/api.js'
 import { useItemDetail } from '@/features/catalog/queries.js'
-import { diceTypeLabels, label, sentenceCase } from '@/lib/i18n/index.js'
+import { itemKindLabels, itemKindPickLabels, label, sentenceCase } from '@/lib/i18n/index.js'
+import { itemFactRows, itemKindText } from '@/lib/utils/itemFacts.js'
 import { Badge, Button, Input, Modal, RichText, Skeleton } from '@/components/ui'
-import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
-import { ITEM_FILTERS } from './itemFilters.js'
+import { ITEM_FILTERS, ITEM_FILTERS_BY_KIND } from './itemFilters.js'
 import Drawer from '@/components/ui/Drawer.jsx'
+import WeaponPropertyChips from '@/features/catalog/components/WeaponPropertyChips.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
-
-const PAGE_SIZE = 30
-const SCROLL_THRESHOLD = 120
+import { queryKeys } from '@/lib/api/queryKeys.js'
+import EditorAddButton from './EditorAddButton.jsx'
 
 // Тот же набор полей, что и в карточке предмета (ItemDetailCard), без
 // заголовка — имя и так видно в строке аккордеона.
@@ -27,41 +25,7 @@ function ItemDetail({ itemId, drawer = false }) {
     )
   }
 
-  const damage =
-    it.damage_dice_count && it.damage_dice_type
-      ? `${it.damage_dice_count}${diceTypeLabels[it.damage_dice_type] ?? it.damage_dice_type}${
-          it.damage_type ? ` ${label(it.damage_type)}` : ''
-        }`.trim()
-      : null
-  const ac =
-    it.armor_class_base != null && it.armor_class_base !== ''
-      ? `${it.armor_class_base}${it.armor_class_dex_bonus ? ' + Ловкость' : ''}${
-          it.armor_class_max_dex_bonus ? ` (макс. ${it.armor_class_max_dex_bonus})` : ''
-        }`
-      : null
-  const properties = (it.weapon_properties ?? '')
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => label(p))
-    .join(', ')
-  const cost = it.cost_gold != null && it.cost_gold !== '' ? `${it.cost_gold} зм.` : null
-  const weight = it.weight != null && it.weight !== '' ? `${it.weight} фнт.` : null
-
-  const rows = [
-    it.requires_attunement != null
-      ? { key: 'attunement', label: 'Настройка', value: it.requires_attunement ? 'Требуется' : 'Не требуется' }
-      : null,
-    weight ? { key: 'weight', label: 'Вес', value: weight } : null,
-    cost ? { key: 'cost', label: 'Цена', value: cost } : null,
-    damage ? { key: 'damage', label: 'Урон', value: damage } : null,
-    ac ? { key: 'ac', label: 'Класс доспеха', value: ac } : null,
-    it.strength_requirement != null && it.strength_requirement !== ''
-      ? { key: 'str', label: 'Требование силы', value: `Сила ${it.strength_requirement}` }
-      : null,
-    it.stealth_disadvantage ? { key: 'stealth', label: 'Скрытность', value: 'Помеха' } : null,
-    properties ? { key: 'props', label: 'Свойства оружия', value: properties } : null,
-  ].filter(Boolean)
+  const rows = itemFactRows(it)
 
   return (
     <div className={drawer ? 'grant-picker-detail' : 'border-t border-stone-800 px-3 py-2.5 text-sm text-stone-400'}>
@@ -70,7 +34,7 @@ function ItemDetail({ itemId, drawer = false }) {
           {rows.map((r) => (
             <div key={r.key} className="col-span-2 flex gap-2">
               <dt className="shrink-0 text-stone-500">{r.label}:</dt>
-              <dd className="text-stone-300">{r.value}</dd>
+              <dd className="text-stone-300">{r.properties ? <WeaponPropertyChips properties={r.properties} /> : r.value}</dd>
             </div>
           ))}
         </dl>
@@ -84,6 +48,19 @@ function ItemDetail({ itemId, drawer = false }) {
   )
 }
 
+// «Что добавить» — по кнопке на вид (Оружие / Доспех / Инструмент / Предмет + extra),
+// клик сразу добавляет: onPick(value) — вид предмета (откроется ItemPickerModal kind=…)
+// или ключ из extra (например, вариант-фильтр «Любой предмет вида»).
+export function ItemKindAddControl({ onPick, extra = {} }) {
+  return (
+    <div role="group" aria-label="Что добавить" className="flex flex-wrap items-center gap-2">
+      {Object.entries({ ...itemKindPickLabels, ...extra }).map(([key, text]) => (
+        <EditorAddButton key={key} onClick={() => onPick(key)} aria-label={`Добавить: ${text}`}>{text}</EditorAddButton>
+      ))}
+    </div>
+  )
+}
+
 // Модалка выбора предмета для снаряжения — тот же стиль поиска, что и в
 // основном списке ГМ-редактора: поле + кнопка «⌕» + «Фильтр», список
 // подгружается по скроллу вниз, «Подробнее» раскрывает карточку в строке.
@@ -91,8 +68,10 @@ function InlineItemPicker({ onClose, children }) {
   return <section className="equipment-picker-content"><button type="button" className="article-back inline-flex items-center gap-2 text-sm text-stone-300" onClick={onClose}><LoreIcon name="back" /> К снаряжению</button>{children}</section>
 }
 
+// kind — показывать только предметы этого вида (фильтры — по виду).
 export default function ItemPickerModal({
-  title = 'Предметы',
+  kind = null,
+  title = kind ? itemKindLabels[kind] : 'Предметы',
   subtitle = 'Поиск и выбор предмета',
   excludeIds = new Set(),
   onPick,
@@ -104,52 +83,8 @@ export default function ItemPickerModal({
   const [quantity, setQuantity] = useState('1')
   const quantityValid = Number.isInteger(Number(quantity)) && Number(quantity) >= 1
   const Container = inline ? InlineItemPicker : drawer ? Drawer : Modal
-  const [queryInput, setQueryInput] = useState('')
-  const [appliedSearch, setAppliedSearch] = useState('')
-  const [filters, setFilters] = useState({})
-  const [showFilters, setShowFilters] = useState(false)
-  const [page, setPage] = useState(1)
-  const [allItems, setAllItems] = useState([])
   const [expanded, setExpanded] = useState(() => new Set())
-  const listRef = useRef(null)
-
-  const listParams = { page, size: PAGE_SIZE }
-  if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
-  if (filters.item_type?.length) listParams.item_type = filters.item_type
-  if (filters.rarity?.length) listParams.rarity = filters.rarity
-
-  const listQ = useQuery({
-    queryKey: ['catalog', 'item-picker-modal', appliedSearch.trim(), filters, page],
-    queryFn: () => api.items.list(listParams),
-  })
-
-  // Смена поиска/фильтров начинает список заново, а не докидывает страницы
-  // к прежней выборке.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1)
-    setAllItems([])
-  }, [appliedSearch, filters])
-
-  useEffect(() => {
-    if (!listQ.data) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAllItems((prev) => (page === 1 ? listQ.data.items : [...prev, ...listQ.data.items]))
-  }, [listQ.data, page])
-
-  const total = listQ.data?.total ?? 0
-  const hasMore = allItems.length < total
-  const items = allItems.filter((it) => !excludeIds.has(it.id))
-
-  const applySearch = () => setAppliedSearch(queryInput)
-
-  const onScroll = () => {
-    const el = listRef.current
-    if (!el || listQ.isFetching || !hasMore) return
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD) {
-      setPage((p) => p + 1)
-    }
-  }
+  const filterDefs = kind ? ITEM_FILTERS_BY_KIND[kind] : ITEM_FILTERS
 
   const toggleExpand = (id) =>
     setExpanded((prev) => {
@@ -161,20 +96,15 @@ export default function ItemPickerModal({
 
   return (
     <Container {...(drawer ? { bodyClassName: 'grant-picker-body' } : {})} title={title} subtitle={subtitle} onClose={onClose} size="lg" scroll footer={drawer && <div className="w-full space-y-3">{selected && <label className="block text-sm text-stone-300">Количество<Input className="mt-1 w-full" type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label>}<div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected || !quantityValid} onClick={() => { onPick(selected, Number(quantity)); onClose() }}>Выдать предмет</Button></div></div>}>
-      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={ITEM_FILTERS.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={drawer || inline} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={ITEM_FILTERS} value={filters} onChange={setFilters} />
-      {showFilters && (
-        <FilterModal
-          inline={drawer || inline}
-          filters={ITEM_FILTERS}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
-
-      <div ref={listRef} onScroll={onScroll} className={drawer || inline ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}>
-        {!listQ.isFetching && items.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
-        <ul className={drawer ? 'space-y-2' : 'space-y-1'}>
+      <CatalogSearchList
+        queryKey={queryKeys.pickers.items}
+        list={api.items.list}
+        params={kind ? { kind: [kind] } : {}}
+        filters={filterDefs}
+        exclude={(item) => excludeIds.has(item.id)}
+        listClassName={drawer || inline ? 'grant-picker-list space-y-2 pr-1' : 'max-h-[55vh] space-y-1 overflow-y-auto pr-1'}
+      >
+        {(items) => <ul className={drawer ? 'space-y-2' : 'space-y-1'}>
           {items.map((item) => {
             const isOpen = expanded.has(item.id)
             return (
@@ -195,9 +125,9 @@ export default function ItemPickerModal({
                     aria-pressed={drawer ? selected?.id === item.id : undefined}
                   >
                     <span className="truncate text-sm text-stone-100 hover:text-ember">{sentenceCase(item.name)}</span>
-                    {item.item_type && (
+                    {item.kind && (
                       <Badge tone="accent" className="shrink-0">
-                        {label(item.item_type)}
+                        {itemKindText(item)}
                       </Badge>
                     )}
                     {item.rarity && item.rarity !== 'NONE' && (
@@ -224,15 +154,8 @@ export default function ItemPickerModal({
               </li>
             )
           })}
-        </ul>
-        {listQ.isFetching && (
-          <div className="space-y-1.5 py-1" aria-busy="true">
-            {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="h-9 w-full" />
-            ))}
-          </div>
-        )}
-      </div>
+        </ul>}
+      </CatalogSearchList>
 
       {!drawer && !inline && <div className="flex pt-3 mt-4">
         <Button type="button" variant="ghost" className="w-full" onClick={onClose}>

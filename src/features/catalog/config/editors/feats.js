@@ -21,26 +21,18 @@ export const featsCfg = {
   singular: 'черта',
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Проворный', full: true },
-    { key: 'prerequisite_ability', label: 'Требуемая характеристика', type: 'select', options: optOptional(abilityLabels), inline: true },
-    { key: 'prerequisite_minimum_score', label: 'Минимальное значение', type: 'number', min: 1, max: 30, inline: true },
+    // Характеристика и порог — одной строкой: «[Сил][Лов]…  не ниже [−] 13 [+]».
+    { key: 'prerequisite_ability', label: 'Требуемая характеристика', type: 'abilityScore', scoreKey: 'prerequisite_minimum_score', options: optOptional(abilityLabels) },
     { key: 'prerequisite_description', label: 'Описание требований', type: 'textarea', full: true },
-    { key: 'min_level', label: 'Минимальный уровень', type: 'number', min: 1, max: 20, inline: true },
+    { key: 'min_level', label: 'Минимальный уровень', type: 'level', emptyText: 'Любой' },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
-    {
-      key: 'effects_summary',
-      label: 'Сводка эффектов',
-      type: 'summary',
-      full: true,
-      showWhen: (f) => !!f.effects_summary,
-    },
   ],
   sections: [
     { type: 'scaling', key: 'scaling', levelKey: 'min_level' },
-    {
-      type: 'effectsTree',
-      key: 'effects',
-      label: 'Эффекты и группы выбора',
-    },
+    // Две вкладки (tabs.js): «Статичные эффекты» и «Выбор эффектов», у каждой —
+    // превью своей части effects_summary (сводка целиком больше не показывается).
+    { type: 'effectsTree', key: 'effects', part: 'static' },
+    { type: 'effectsTree', key: 'effects', part: 'choice' },
   ],
   emptyForm: () => ({
     name: '',
@@ -53,8 +45,6 @@ export const featsCfg = {
     scaling: null,
     effects: normalizeEffectsTree(),
   }),
-  // FeatResponse не несёт растущую строку — она есть у той же записи в /features.
-  enrich: async (feat) => ({ ...feat, scaling: (await api.features.get(feat.id))?.scaling ?? null }),
   fromRecord: (r) => ({
     name: r.name,
     prerequisite_ability: r.prerequisite_ability ?? '',

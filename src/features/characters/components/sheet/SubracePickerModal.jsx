@@ -1,7 +1,7 @@
 import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { useState } from 'react'
 import { abilityName, bonusMap } from '@/lib/utils/ability.js'
-import { skillLabels, sentenceCase } from '@/lib/i18n/index.js'
+import { sentenceCase } from '@/lib/i18n/index.js'
 import { Button, RichText, Skeleton } from '@/components/ui'
 import { useSubracesForRace, useSubraceDetail } from '@/features/catalog/queries.js'
 
@@ -31,10 +31,6 @@ function SubraceDetail({ raceId, subraceId }) {
   if (!detail) return null
 
   const bonuses = Object.entries(bonusMap(detail.ability_bonuses ?? [])).filter(([, v]) => v)
-  const skills = (detail.granted_skills ?? []).map((s) => {
-    const n = s.name ?? s.item?.name ?? s
-    return { id: s.id ?? s.item_id, name: skillLabels[n] ?? sentenceCase(n) }
-  })
 
   return (
     <div className="mt-2 space-y-4 border-t border-stone-800 px-[15px] pt-2 pb-2">
@@ -56,12 +52,6 @@ function SubraceDetail({ raceId, subraceId }) {
           </span>
         ))}
       </span>
-      {skills.length > 0 && (
-        <p className="text-xs text-stone-400">
-          <span className="font-medium text-stone-300">Навыки: </span>
-          {skills.map((s) => s.name).join(', ')}
-        </p>
-      )}
       {(detail.features ?? []).length > 0 && (
         <div className="space-y-3">
           <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">Особенности</p>

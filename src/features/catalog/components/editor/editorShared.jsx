@@ -1,6 +1,9 @@
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import LevelField, { NumberStepper } from './LevelField.jsx'
+import DamageTypeField from '@/components/ui/DamageTypeField.jsx'
+import ChipGroup from '@/components/ui/ChipGroup.jsx'
 import { useEffect, useRef, useState } from 'react'
-import { Input, RichText, RichTextEditor, RichTextField, Select, TextField } from '@/components/ui'
+import { Input, RichTextEditor, RichTextField, Select, TextField } from '@/components/ui'
 
 export function PencilIcon({ className = 'h-4 w-4' }) {
   return (
@@ -96,13 +99,24 @@ function Chevron({ open }) {
 // на выбор и т.п.): заголовок с названием/счётчиком и Изменить/Удалить всегда
 // виден, по клику раскрывается read-only содержимое. Сама правка — только
 // через отдельную модалку конкретной группы.
+// «Выбирает: − 2 + из 5» — сколько вариантов из списка берёт игрок (навыки класса).
+export function ChoiceCountStepper({ value, max, onChange }) {
+  const over = value > max
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs ${over ? 'text-red-300' : 'text-stone-400'}`} title={over ? 'Больше, чем вариантов в списке' : undefined}>
+      Выбирает:
+      <button type="button" className="character-dice-step !size-8" aria-label="Выбирает меньше" disabled={value <= 0} onClick={() => onChange(value - 1)}><LoreIcon name="minus" /></button>
+      <span className="min-w-4 text-center text-sm tabular-nums text-stone-100" aria-label="Сколько выбирает игрок">{value}</span>
+      <button type="button" className="character-dice-step !size-8" aria-label="Выбирает больше" disabled={value >= max} onClick={() => onChange(value + 1)}><LoreIcon name="plus" /></button>
+      из {max}
+    </span>
+  )
+}
+
 export function GroupRow({ title, count, open, onToggle, onEdit, onRemove, children }) {
   return (
-    <div
-      className={`rounded-lg border transition ${
-        open ? 'border-ember/60 bg-stone-900' : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/40'
-      }`}
-    >
+    // Раскрытие видно по стрелке — рамка одна в любом состоянии.
+    <div className="rounded-lg border border-stone-700/60 bg-stone-900/60">
       <div className="flex items-center justify-between gap-2 p-3">
         <button
           type="button"
@@ -141,11 +155,6 @@ export function GroupRow({ title, count, open, onToggle, onEdit, onRemove, child
 }
 
 export default function EditorFieldControl({ field, value, onChange, onSaveField }) {
-  if (field.type === 'summary') {
-    // Только для чтения: авто-сводка эффектов с бэка, GM её не редактирует
-    // напрямую здесь — она обновляется при сохранении дерева эффектов ниже.
-    return <RichText value={value} className="rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm leading-relaxed text-stone-300" />
-  }
   if (field.type === 'textarea') {
     // При редактировании существующей записи текстовые поля сохраняются сами
     // по себе (без общей кнопки формы) — так правки не теряются, если GM
@@ -162,8 +171,41 @@ export default function EditorFieldControl({ field, value, onChange, onSaveField
       />
     )
   }
+  // Маленький диапазон (КД, уровень, бонус) — «[−] N [+]»; level — 1–20, пусто = «Сразу».
+  if (field.type === 'stepper' || field.type === 'level') {
+    const Control = field.type === 'level' ? LevelField : NumberStepper
+    return (
+      <Control
+        hideLabel
+        label={field.label}
+        min={field.min}
+        max={field.max}
+        suffix={field.suffix}
+        emptyText={field.emptyText}
+        required={field.required}
+        value={value === '' || value == null ? null : Number(value)}
+        onChange={(n) => onChange(n == null ? '' : String(n))}
+      />
+    )
+  }
   if (field.type === 'number') {
+    // unit — единица прямо в поле (фт., зм, фунт.), без стрелок: для больших чисел они бесполезны.
+    if (field.unit) {
+      return (
+        <span className="unit-input">
+          <BlurNumberInput min={field.min} max={field.max} value={value} onChange={onChange} inputMode="numeric" className="input-base input-no-steppers" />
+          <span className="unit-input-suffix">{field.unit}</span>
+        </span>
+      )
+    }
     return <BlurNumberInput min={field.min} max={field.max} value={value} onChange={onChange} className="input-base" />
+  }
+  // Чипы — короткий список (до ~6 вариантов) виден целиком, выбор в один клик.
+  if (field.type === 'chips') {
+    return <ChipGroup label={field.label} options={field.options} value={value} onChange={onChange} emptyLabel={field.emptyLabel} />
+  }
+  if (field.type === 'damageType') {
+    return <DamageTypeField label={field.label} value={value ?? ''} onChange={onChange} />
   }
   if (field.type === 'select') {
     return (

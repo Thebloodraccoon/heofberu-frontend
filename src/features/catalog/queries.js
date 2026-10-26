@@ -1,14 +1,19 @@
-import { keepPreviousData, useQuery, useQueries } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
 import { catalogApi } from '@/features/catalog/api.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
+import { syncItemEffects } from '@/lib/utils/featureEffects.js'
 
 const items = (page) => page?.items ?? []
 
-const listHook = (key, fn) => (params = {}) =>
-  useQuery({
-    queryKey: key(params),
-    queryFn: () => fn({ size: 100, ...params }).then(items),
+// Ключ — по фактическим параметрам запроса: useSkills() и useSkills({ size: 100 }) — один кеш.
+const listHook = (key, fn) => (params = {}, { enabled = true } = {}) => {
+  const full = { size: 100, ...params }
+  return useQuery({
+    queryKey: key(full),
+    queryFn: () => fn(full).then(items),
+    enabled,
   })
+}
 
 export const useRaces = listHook(queryKeys.catalog.races, catalogApi.races.list)
 export const useClasses = listHook(queryKeys.catalog.classes, catalogApi.classes.list)
@@ -24,14 +29,6 @@ export const useRaceDetail = (id) =>
     queryKey: queryKeys.catalog.raceDetail(id),
     queryFn: () => catalogApi.races.get(Number(id)),
     enabled: !!id,
-  })
-
-export const useRaceFeatures = (id) =>
-  useQuery({
-    queryKey: ['catalog', 'races', id, 'features'],
-    queryFn: () => catalogApi.races.features.list(Number(id)),
-    enabled: !!id,
-    select: (data) => (Array.isArray(data) ? data : []),
   })
 
 export const useSubraceDetail = (raceId, subraceId) =>
@@ -73,7 +70,7 @@ export const useSubclassDetail = (classId, subclassId) =>
 
 export const useItemDetail = (id) =>
   useQuery({
-    queryKey: ['catalog', 'items', id],
+    queryKey: queryKeys.catalog.itemDetail(Number(id)),
     queryFn: () => catalogApi.items.get(Number(id)),
     enabled: !!id,
   })
@@ -85,49 +82,10 @@ export const useBackgroundDetail = (id) =>
     enabled: !!id,
   })
 
-export const useCatalogList = (resource, params = {}) =>
-  useQuery({
-    queryKey: queryKeys.catalog[resource]?.(params) ?? ['catalog', resource, params],
-    queryFn: () => catalogApi[resource].list({ size: 100, ...params }).then(items),
-  })
-
 export const useCatalogPage = (resource, params = {}) =>
   useQuery({
     queryKey: ['catalog', resource, 'page', params],
     queryFn: () => catalogApi[resource].list({ size: 20, ...params }),
-  })
-
-export const useFeatsFull = () =>
-  useQuery({
-    queryKey: ['catalog', 'feats', 'full'],
-    queryFn: async () => {
-      const page = await catalogApi.feats.list({ size: 100 })
-      const list = page?.items ?? []
-      const full = await Promise.all(list.map((f) => catalogApi.feats.get(f.id).catch(() => null)))
-      return full.filter(Boolean)
-    },
-    staleTime: Infinity,
-  })
-
-const fetchAllPages = async (fn, params = {}) => {
-  const size = 100
-  let page = 1
-  let out = []
-  for (;;) {
-    const res = await fn({ ...params, page, size })
-    const batch = res?.items ?? []
-    out = out.concat(batch)
-    const total = Number(res?.total ?? 0)
-    if (batch.length < size || (total > 0 && out.length >= total) || page >= 50) return out
-    page += 1
-  }
-}
-
-export const useAllFeats = (search = '') =>
-  useQuery({
-    queryKey: ['catalog', 'feats', 'all', search],
-    queryFn: () => fetchAllPages(catalogApi.feats.list, { search: search || undefined }),
-    placeholderData: (prev) => prev,
   })
 
 export const useFeatDetail = (id) =>
@@ -144,23 +102,29 @@ export const useSpellDetail = (id) =>
     enabled: !!id,
   })
 
-// Карточки справочника по id (заклинания, предметы) — тянем каждую отдельно
-// (кэш общий с useSpellDetail), а не полагаемся на первую страницу списка.
+// Строки справочника по id (заклинания, предметы) — одним запросом списка
+// GET /{resource}?id=…&id=… (по BY_IDS_CHUNK id на запрос), а не карточкой на id.
+// Строка списка — лёгкая (имя, уровень/школа, вид…), не полная карточка.
 // combine возвращает структурно равный результат, TanStack сохраняет ту же
 // ссылку между рендерами — её можно класть в deps useMemo/useEffect.
-// Карточки редко меняются, поэтому не перезапрашиваем их при каждом открытии.
+// Справочник редко меняется, поэтому не перезапрашиваем его при каждом открытии.
 const CATALOG_BY_ID_STALE_MS = 5 * 60 * 1000
+const BY_IDS_CHUNK = 100
 
 const useCatalogByIds = (resource, ids, pick) => {
-  const unique = [...new Set((ids ?? []).filter((id) => id != null).map(Number))]
+  const unique = [...new Set((ids ?? []).filter((id) => id != null).map(Number))].sort((a, b) => a - b)
+  const chunks = []
+  for (let i = 0; i < unique.length; i += BY_IDS_CHUNK) chunks.push(unique.slice(i, i + BY_IDS_CHUNK))
   return useQueries({
-    queries: unique.map((id) => ({
-      queryKey: ['catalog', resource, id],
-      queryFn: () => catalogApi[resource].get(id),
+    queries: chunks.map((chunk) => ({
+      queryKey: ['catalog', resource, 'by-ids', chunk],
+      queryFn: () => catalogApi[resource].list({ id: chunk, size: chunk.length }).then(items),
       staleTime: CATALOG_BY_ID_STALE_MS,
     })),
     combine: (results) =>
-      Object.fromEntries(unique.map((id, i) => [id, pick(results[i]?.data)]).filter(([, value]) => value)),
+      Object.fromEntries(
+        results.flatMap((r) => r.data ?? []).map((row) => [row.id, pick(row)]).filter(([, value]) => value),
+      ),
   })
 }
 
@@ -170,16 +134,72 @@ export const useSpellNames = (ids) => useCatalogByIds('spells', ids, (spell) => 
 // Имена предметов по id (конкретное оружие и доспехи в эффектах владения).
 export const useItemNames = (ids) => useCatalogByIds('items', ids, (item) => item?.name)
 
-// Предметы из справочника по поиску — для владения конкретным оружием
-// (item_type WEAPON) или доспехом (ARMOR, SHIELD); поиск на сервере.
-export const useItemSearch = (itemTypes, search, { enabled = true } = {}) =>
+// Заклинания по id (тот же кеш, что у useSpellNames) — когда кроме имени нужны
+// уровень и школа: { [id]: строка GET /spells }.
+export const useSpellsById = (ids) => useCatalogByIds('spells', ids, (spell) => spell)
+
+// Словарь свойств оружия — небольшой, без пагинации, отсортирован по имени.
+export const useWeaponProperties = ({ enabled = true } = {}) =>
   useQuery({
-    queryKey: ['catalog', 'items', 'search', itemTypes, search],
-    queryFn: () => catalogApi.items.list({ item_type: itemTypes, size: 50, ...(search ? { search } : {}) }).then(items),
+    queryKey: queryKeys.catalog.itemProperties,
+    queryFn: () => catalogApi.items.properties.list(),
+    select: (data) => (Array.isArray(data) ? data : []),
+    staleTime: 5 * 60 * 1000,
     enabled,
-    placeholderData: keepPreviousData,
   })
 
-// Заклинания целиком по id (тот же кеш, что у useSpellNames) — когда кроме
-// имени нужны уровень и школа: { [id]: SpellResponse }.
-export const useSpellsById = (ids) => useCatalogByIds('spells', ids, (spell) => spell)
+// Созданное свойство сразу кладём в словарь: форма оружия выбирает его тут же, и
+// автосохранение до перезапроса словаря уже должно видеть его требования.
+export const useCreateWeaponProperty = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body) => catalogApi.items.properties.create(body),
+    onSuccess: (created) => {
+      queryClient.setQueryData(queryKeys.catalog.itemProperties, (old) => [...(Array.isArray(old) ? old : []), created])
+      return queryClient.invalidateQueries({ queryKey: queryKeys.catalog.itemProperties })
+    },
+  })
+}
+
+// Правка и удаление свойства: словарь перечитываем, а предметы — тоже (оружие
+// отдаёт свойства с именами). Удаление свойства, которое стоит у оружия, — 409.
+export const useUpdateWeaponProperty = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }) => catalogApi.items.properties.update(id, body),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.catalog.itemProperties }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.catalog.resource('items') }),
+    ]),
+  })
+}
+
+export const useDeleteWeaponProperty = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => catalogApi.items.properties.remove(id),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData(queryKeys.catalog.itemProperties, (old) => (Array.isArray(old) ? old.filter((p) => p.id !== id) : old))
+      return queryClient.invalidateQueries({ queryKey: queryKeys.catalog.itemProperties })
+    },
+  })
+}
+
+// Эффекты предмета (скорость/КД): prev → next точечными запросами (syncItemEffects).
+// При сбое посреди серии часть запросов уже прошла — к ошибке прикладываем
+// перечитанные эффекты (error.latest, null — если и перечитать не вышло), чтобы
+// редактор считал следующий дифф от того, что реально на сервере.
+export const useSyncItemEffects = (itemId) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ prev, next }) => {
+      try {
+        return await syncItemEffects(catalogApi.items.effects, itemId, prev, next)
+      } catch (error) {
+        error.latest = await catalogApi.items.effects.get(itemId).catch(() => null)
+        throw error
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.catalog.resource('items') }),
+  })
+}

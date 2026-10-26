@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { STATS, abilityByCode } from '@/lib/utils/ability.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
-import { useCharacterAsiChoices } from '@/features/characters/queries.js'
-import { useFeats } from '@/features/catalog/queries.js'
+import { useCharacterAsiChoices, useCharacterFeats } from '@/features/characters/queries.js'
 import { Skeleton } from '@/components/ui'
 
 const abilityDisplayName = (raw) => {
@@ -47,11 +46,12 @@ const groupByLevel = (choices, featNameById) => {
 
 export default function PlayerChoices({ characterId }) {
   const { data: choices = [], isLoading } = useCharacterAsiChoices(characterId)
-  const { data: featsCatalog = [] } = useFeats({ size: 100 })
+  // Черта, выбранная на уровне, выдана персонажу — имя берём из его черт, не из всего каталога.
+  const { data: charFeats = [] } = useCharacterFeats(characterId)
 
   const featNameById = useMemo(
-    () => new Map(featsCatalog.map((f) => [Number(f.id), f.name])),
-    [featsCatalog],
+    () => new Map(charFeats.map((cf) => [Number(cf.feat_id), cf.feat?.name]).filter(([, name]) => name)),
+    [charFeats],
   )
   const rows = useMemo(() => groupByLevel(choices, featNameById), [choices, featNameById])
 

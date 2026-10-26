@@ -222,7 +222,8 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-stone-500 max-lg:hidden">{fmtDate(u.created_at)}</td>
                   <td className="px-4 py-3 text-stone-500 max-lg:hidden">{fmtDate(u.last_login)}</td>
                   <td className="px-4 py-3 text-right">
-                    {u.id !== me?.id && (
+                    {/* Себя и администратора по умолчанию бэк удалить не даст (403). */}
+                    {u.id !== me?.id && u.email?.toLowerCase() !== SUPER_ADMIN_EMAIL && (
                       <Button type="button" variant="danger" size="sm" onClick={() => setToDelete(u)}>Удалить</Button>
                     )}
                   </td>

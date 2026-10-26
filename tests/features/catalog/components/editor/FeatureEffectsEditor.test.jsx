@@ -47,7 +47,8 @@ describe('FeatureEffectsEditor', () => {
     expect(screen.getByPlaceholderText('Название или описание…')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Фильтр/i }))
-    expect(screen.getByRole('region', { name: 'Фильтры' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Фильтры' })).toHaveClass('ui-drawer--filters')
+    await user.click(screen.getByRole('button', { name: 'Применить' }))
     await user.click(await screen.findByRole('button', { name: /^огненный шар/i }))
     expect(screen.queryByPlaceholderText('Название или описание…')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Добавить заклинание' })).toBeInTheDocument()
@@ -81,7 +82,8 @@ describe('FeatureEffectsEditor', () => {
   it('renders empty static effects and choice groups sections', async () => {
     renderEditor()
     expect(screen.getByText('Статичные эффекты')).toBeInTheDocument()
-    expect(screen.getByText('Группы выбора')).toBeInTheDocument()
+    expect(screen.getByText('Выбор эффектов')).toBeInTheDocument()
+    expect(screen.queryByText(/выбор «N из M»/)).not.toBeInTheDocument()
     expect(screen.getByText('Статичных эффектов нет — особенность применяется как есть.')).toBeInTheDocument()
     expect(screen.getByText('Групп выбора нет — особенность применяется автоматически.')).toBeInTheDocument()
   })
@@ -118,7 +120,7 @@ describe('FeatureEffectsEditor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Добавить статичный эффект' }))
     await user.click(await screen.findByRole('button', { name: 'Изменение характеристик' }))
-    await user.click(await screen.findByRole('button', { name: 'Увеличение' }))
+    await user.click(await screen.findByRole('button', { name: 'Добавить увеличение' }))
     // Характеристики выбираются экраном-списком внутри той же панели.
     await user.click(await screen.findByRole('button', { name: 'Сила' }))
     // Уже добавленную характеристику повторно выбрать нельзя.
@@ -184,7 +186,7 @@ describe('FeatureEffectsEditor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Добавить статичный эффект' }))
     await user.click(await screen.findByRole('button', { name: 'Владение навыками' }))
-    await user.click(await screen.findByRole('button', { name: 'Навык' }))
+    await user.click(await screen.findByRole('button', { name: 'Добавить навык' }))
 
     // Экран выбора живёт внутри той же панели — второго диалога нет.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -216,5 +218,29 @@ describe('FeatureEffectsEditor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
     expect(await screen.findByText(/Заклинания/)).toBeInTheDocument()
+  })
+})
+
+describe('FeatureEffectsEditor split into tabs (part)', () => {
+  const html = '<p>Вы получаете:</p><ul><li>Сила +2</li></ul><p>У вас есть выбор:</p><ul><li>Один навык</li></ul>'
+
+  it('static part: only static effects + the fixed half of the summary as a preview', () => {
+    catalogApi.skills.list.mockResolvedValue({ items: [] })
+    renderWithProviders(<FeatureEffectsEditor part="static" summaryHtml={html} value={{}} onChange={vi.fn()} />)
+    expect(screen.getByText('Сила +2')).toBeInTheDocument()
+    expect(screen.queryByText('Один навык')).not.toBeInTheDocument()
+    // Заголовок раздела слева и кнопка справа — одной строкой.
+    const add = screen.getByRole('button', { name: 'Добавить статичный эффект' })
+    expect(add.parentElement).toHaveTextContent('Статичные эффекты')
+    expect(screen.queryByRole('button', { name: 'Добавить выбор эффектов' })).not.toBeInTheDocument()
+  })
+
+  it('choice part: only choice groups + the choices half of the summary', () => {
+    catalogApi.skills.list.mockResolvedValue({ items: [] })
+    renderWithProviders(<FeatureEffectsEditor part="choice" summaryHtml={html} value={{}} onChange={vi.fn()} />)
+    expect(screen.getByText('Один навык')).toBeInTheDocument()
+    expect(screen.queryByText('Сила +2')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Добавить выбор эффектов' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Добавить статичный эффект' })).not.toBeInTheDocument()
   })
 })

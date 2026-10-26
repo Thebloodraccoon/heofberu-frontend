@@ -22,7 +22,6 @@ import {
   useClassDetail,
   useClasses,
   useRaceDetail,
-  useRaceFeatures,
   useRaces,
   useSkills,
   useSubclassDetail,
@@ -136,7 +135,6 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
   const loading = racesQ.isLoading || classesQ.isLoading || backgroundsQ.isLoading || skillsQ.isLoading
 
   const { data: raceDetail } = useRaceDetail(form.race_id)
-  const { data: raceFeatures = [] } = useRaceFeatures(form.race_id)
   const { data: subraceDetail } = useSubraceDetail(form.race_id, form.subrace_id)
   const { data: classDetail } = useClassDetail(form.class_id)
   const { data: subclassDetail } = useSubclassDetail(form.class_id, form.subclass_id)
@@ -201,7 +199,8 @@ export default function RebuildModal({ character, onClose, onSuccess }) {
     backgrounds,
     skills,
     raceDetail,
-    raceFeatures,
+    // Деталь расы уже несёт её особенности — отдельный GET /races/{id}/features не нужен.
+    raceFeatures: Array.isArray(raceDetail?.features) ? raceDetail.features : [],
     subraceDetail,
     subraceFeatures: Array.isArray(subraceDetail?.features) ? subraceDetail.features : [],
     classDetail,

@@ -15,23 +15,15 @@ export const featuresCfg = {
   listParams: { source_type: 'OTHER' },
   fields: [
     { key: 'name', label: 'Название', type: 'text', required: true, placeholder: 'Например, Печать древней клятвы', full: true },
-    { key: 'level', label: 'Уровень', type: 'number', min: 1, max: 20 },
+    { key: 'level', label: 'Уровень', type: 'level' },
     { key: 'description', label: 'Описание', type: 'textarea', full: true },
-    {
-      key: 'effects_summary',
-      label: 'Сводка эффектов',
-      type: 'summary',
-      full: true,
-      showWhen: (f) => !!f.effects_summary,
-    },
   ],
   sections: [
     { type: 'scaling', key: 'scaling', levelKey: 'level' },
-    {
-      type: 'effectsTree',
-      key: 'effects',
-      label: 'Эффекты и группы выбора',
-    },
+    // Две вкладки (tabs.js): «Статичные эффекты» и «Выбор эффектов», у каждой —
+    // превью своей части effects_summary (сводка целиком больше не показывается).
+    { type: 'effectsTree', key: 'effects', part: 'static' },
+    { type: 'effectsTree', key: 'effects', part: 'choice' },
   ],
   emptyForm: () => ({ name: '', level: '', description: '', effects_summary: '', scaling: null, effects: normalizeEffectsTree() }),
   fromRecord: (r) => ({

@@ -1,18 +1,44 @@
 import { useItems } from '@/features/catalog/queries.js'
 import { sentenceCase } from '@/lib/i18n/index.js'
+import { Select } from '@/components/ui'
+import { describeItemFilter } from '@/lib/utils/effectBundle.js'
+import { isFilterOption, itemFilterParams } from '@/lib/utils/characterCreate.js'
 import { Hint, Section, StepShell, Tag } from './StepShell.jsx'
+
+// Выбранный вариант-фильтр («любое простое оружие»): игрок называет конкретный
+// предмет из подходящих (GET /items с полями фильтра).
+function FilterItemPick({ option, value, onPick }) {
+  const { data: candidates = [], isLoading } = useItems(itemFilterParams(option))
+  return (
+    <Select
+      aria-label={`Предмет: ${describeItemFilter(option)}`}
+      value={value ?? ''}
+      onChange={(e) => onPick(e.target.value ? Number(e.target.value) : null)}
+      placeholder={isLoading ? 'Загрузка…' : 'Выберите предмет…'}
+    >
+      {candidates.map((it) => (
+        <option key={it.id} value={it.id}>
+          {sentenceCase(it.name)}
+        </option>
+      ))}
+    </Select>
+  )
+}
 
 export default function StepEquipment({ stepNo, total, form, update, lookups }) {
   const { classDetail, backgroundDetail } = lookups
-  const { data: catalogItems = [] } = useItems()
+  // Стартовые предметы и варианты приходят с кратким item { id, name, kind } — имя берём оттуда.
   const itemName = (opt) => {
-    const n = opt?.item?.name ?? catalogItems.find((i) => Number(i.id) === Number(opt.item_id))?.name
+    if (isFilterOption(opt)) return sentenceCase(describeItemFilter(opt))
+    const n = opt?.item?.name
     return n ? sentenceCase(n) : `Предмет #${opt.item_id}`
   }
 
   const classItems = classDetail?.starting_items ?? []
   const bgItems = backgroundDetail?.starting_items ?? []
   const choices = form.starting_choices ?? {}
+  const picks = form.item_choice_picks ?? {}
+  const setPick = (optId, itemId) => update({ item_choice_picks: { ...picks, [optId]: itemId } })
 
   const groups = [
     ...(classDetail?.starting_choice_groups ?? classDetail?.choice_groups ?? []).map((g) => ({
@@ -87,32 +113,36 @@ export default function StepEquipment({ stepNo, total, form, update, lookups }) 
                       const optId = Number(opt.id ?? opt.item_id)
                       const on = chosen.includes(optId)
                       return (
-                        <button
-                          key={optId}
-                          type="button"
-                          disabled={!on && chosen.length >= pick}
-                          onClick={() => toggle(g.source, gi, optId, pick)}
-                          className={`flex items-center gap-2 rounded border px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                            on
-                              ? 'border-ember/70 bg-ember/10'
-                              : 'border-stone-700/60 bg-stone-800/40 hover:border-ember/40'
-                          }`}
-                        >
-                          <span
-                            className={`min-w-0 flex-1 truncate ${on ? 'text-ember' : 'text-stone-200'}`}
-                            title={itemName(opt)}
-                          >
-                            {itemName(opt)}
-                          </span>
-                          {opt.quantity > 1 && <span className="shrink-0 text-xs text-ember">×{opt.quantity}</span>}
-                          <span
-                            className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
-                              on ? 'border-ember bg-ember text-white' : 'border-stone-600 text-transparent'
+                        <div key={optId} className="space-y-1.5">
+                          <button
+                            type="button"
+                            disabled={!on && chosen.length >= pick}
+                            onClick={() => toggle(g.source, gi, optId, pick)}
+                            className={`flex w-full items-center gap-2 rounded border px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                              on
+                                ? 'border-ember/70 bg-ember/10'
+                                : 'border-stone-700/60 bg-stone-800/40 hover:border-ember/40'
                             }`}
                           >
-                            ✓
-                          </span>
-                        </button>
+                            <span
+                              className={`min-w-0 flex-1 truncate ${on ? 'text-ember' : 'text-stone-200'}`}
+                              title={itemName(opt)}
+                            >
+                              {itemName(opt)}
+                            </span>
+                            {opt.quantity > 1 && <span className="shrink-0 text-xs text-ember">×{opt.quantity}</span>}
+                            <span
+                              className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
+                                on ? 'border-ember bg-ember text-white' : 'border-stone-600 text-transparent'
+                              }`}
+                            >
+                              ✓
+                            </span>
+                          </button>
+                          {on && isFilterOption(opt) && (
+                            <FilterItemPick option={opt} value={picks[optId]} onPick={(itemId) => setPick(optId, itemId)} />
+                          )}
+                        </div>
                       )
                     })}
                   </div>

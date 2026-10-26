@@ -85,14 +85,6 @@ export const useFullRoster = (id, options = {}) =>
     enabled: !!id && options.enabled !== false,
   })
 
-export const useCandidates = (id, params, options = {}) =>
-  useQuery({
-    queryKey: queryKeys.campaigns.candidates(Number(id), params),
-    queryFn: () => campaignsApi.roster.candidates(Number(id), params),
-    enabled: !!id && options.enabled !== false,
-    placeholderData: keepPreviousData,
-  })
-
 const useRosterMutation = (id, mutationFn) => {
   const queryClient = useQueryClient()
   return useMutation({

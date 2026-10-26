@@ -71,7 +71,6 @@ export default function SpellDetailCard({ spell }) {
             {spell.is_ritual && <Badge className="my-[5px]">Ритуал</Badge>}
           </div>
         </div>
-        {spell.source && <p className="mt-1 text-xs text-stone-500">Источник: {spell.source}</p>}
       </div>
 
       {rows.length > 0 && (

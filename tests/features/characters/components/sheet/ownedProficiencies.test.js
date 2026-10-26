@@ -41,9 +41,15 @@ describe('ownedProficiencyItems', () => {
     expect(out.map((p) => p.key)).toEqual(['LIGHT', 'item-3'])
   })
 
-  it('falls back to a numbered label for an item without a name', () => {
-    expect(ownedProficiencyItems([{ armor_type: null, item_id: 3 }], OPTIONS)).toEqual([
-      { key: 'item-3', label: 'доспех #3' },
+  it('leaves the label empty (a skeleton on the sheet) until the item name loads, after the named ones', () => {
+    expect(
+      ownedProficiencyItems([{ armor_type: null, item_id: 3 }, { armor_type: null, item_id: 1 }], {
+        ...OPTIONS,
+        itemNames: { 1: 'Кольчуга' },
+      }),
+    ).toEqual([
+      { key: 'item-1', label: 'Кольчуга' },
+      { key: 'item-3', label: null },
     ])
   })
 

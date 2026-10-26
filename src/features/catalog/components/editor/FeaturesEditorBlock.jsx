@@ -52,8 +52,8 @@ export default function FeaturesEditorBlock({
     <div className="space-y-4 pt-4">
       <SectionTitle
         button={
-          <EditorAddButton onClick={onAdd}>
-            {`Добавить ${block.noun}`}
+          <EditorAddButton onClick={onAdd} aria-label={`Добавить ${block.noun}`}>
+            Добавить
           </EditorAddButton>
         }
       >
@@ -84,11 +84,7 @@ export default function FeaturesEditorBlock({
             return (
               <li
                 key={key}
-                className={compact ? 'editor-record-card catalog-feature-card' : `rounded-lg border p-3 transition ${
-                  open
-                    ? 'border-ember/60 bg-stone-900'
-                    : 'border-stone-700/60 bg-stone-900/60 hover:border-ember/40'
-                }`}
+                className={compact ? 'editor-record-card catalog-feature-card' : 'rounded-lg border border-stone-700/60 bg-stone-900/60 p-3'}
               >
                 <div className="flex items-center justify-between gap-2">
                   <button

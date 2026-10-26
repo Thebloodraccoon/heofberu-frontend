@@ -2,15 +2,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { screen } from '@testing-library/react'
 import PlayerChoices from '@/features/characters/components/sheet/PlayerChoices.jsx'
 import { renderWithProviders } from '@tests/helpers/render.jsx'
-import { useCharacterAsiChoices } from '@/features/characters/queries.js'
-import { useFeats } from '@/features/catalog/queries.js'
+import { useCharacterAsiChoices, useCharacterFeats } from '@/features/characters/queries.js'
 
 vi.mock('@/features/characters/queries.js', () => ({
   useCharacterAsiChoices: vi.fn(() => ({ data: [], isLoading: false })),
-}))
-
-vi.mock('@/features/catalog/queries.js', () => ({
-  useFeats: vi.fn(() => ({ data: [] })),
+  useCharacterFeats: vi.fn(() => ({ data: [] })),
 }))
 
 beforeEach(() => {
@@ -56,15 +52,17 @@ describe('PlayerChoices', () => {
     expect(row).toHaveTextContent('Сила +1, Ловкость +1')
   })
 
-  it('shows feat choices with their catalog names', () => {
+  it('names feat choices from the character feats (no feat catalog request)', () => {
     useCharacterAsiChoices.mockReturnValue({
       data: [
         { id: 1, class_level: 4, choice_type: 'FEAT', feat_id: 3, increases: [] },
       ],
       isLoading: false,
     })
-    useFeats.mockReturnValue({ data: [{ id: 3, name: 'Проворный' }] })
+    useCharacterFeats.mockReturnValue({ data: [{ id: 30, feat_id: 3, feat: { id: 3, name: 'Проворный' } }] })
     renderWithProviders(<PlayerChoices characterId={7} />)
+
+    expect(useCharacterFeats).toHaveBeenCalledWith(7)
 
     expect(screen.getByText('Ур. 4')).toBeInTheDocument()
     expect(screen.getByText('Черта: Проворный')).toBeInTheDocument()

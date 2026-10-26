@@ -52,27 +52,61 @@ beforeEach(() => {
   useCharacterPendingChoices.mockReturnValue({ data: [grant], isLoading: false })
 })
 
+const pickSpell = async (user, name) => {
+  await user.click(screen.getByRole('button', { name: 'Выбрать заклинание' }))
+  await user.click(screen.getByText(name))
+}
+
 describe('PendingChoicesModal', () => {
-  it('shows the current grant and waits until every group is complete', async () => {
+  it('keeps confirm enabled and points at the unfinished group instead of sending', async () => {
     const user = userEvent.setup()
     renderModal()
 
     expect(screen.getByText('Тайны магии')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Подтвердить' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Подтвердить' }))
+    expect(charactersApi.features.choices.answer).not.toHaveBeenCalled()
+    expect(screen.getByText('Здесь ещё не всё выбрано.')).toBeInTheDocument()
 
-    await user.click(screen.getByText('Молния'))
-    expect(screen.getByRole('button', { name: 'Подтвердить' })).toBeEnabled()
+    await pickSpell(user, 'Молния')
+    expect(screen.queryByText('Здесь ещё не всё выбрано.')).not.toBeInTheDocument()
   })
 
   it('submits the open spell option with the spell the player named', async () => {
     const user = userEvent.setup()
     renderModal()
 
-    await user.click(screen.getByText('Молния'))
+    await pickSpell(user, 'Молния')
     await user.click(screen.getByRole('button', { name: 'Подтвердить' }))
 
     expect(charactersApi.features.choices.answer).toHaveBeenCalledWith(12, 77, {
       answers: [{ choice_group_id: 1, choice_option_id: 40, spell_id: 9 }],
     })
+  })
+
+  it('opens one group at a time and folds a finished one into its summary', async () => {
+    const user = userEvent.setup()
+    const abilityGroup = {
+      id: 2,
+      choice_type: 'ABILITY_SCORE',
+      pick_count: 1,
+      options: [
+        { id: 60, ability_effects: [{ ability: 'STR', amount: 1 }] },
+        { id: 61, ability_effects: [{ ability: 'DEX', amount: 1 }] },
+      ],
+    }
+    useCharacterPendingChoices.mockReturnValue({
+      data: [{ ...grant, groups: [abilityGroup, ...grant.groups] }],
+      isLoading: false,
+    })
+    renderModal()
+
+    expect(screen.getByText('Готово 0 из 2')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Выбрать заклинание' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('Сила +1'))
+    expect(screen.getByText('Готово 1 из 2')).toBeInTheDocument()
+    expect(screen.queryByText('Ловкость +1')).not.toBeInTheDocument()
+    expect(screen.getByText('Сила +1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Выбрать заклинание' })).toBeInTheDocument()
   })
 })

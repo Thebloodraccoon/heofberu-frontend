@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { itemKindText } from '@/lib/utils/itemFacts.js'
+import { isItemResource } from '@/features/catalog/catalog.js'
 import {
   abilityLabels,
   diceTypeLabels,
@@ -148,10 +150,7 @@ export function summaryBadges(item, resource) {
     // Ровно два бейджа у названия — «Даёт эффекты» и «Выбор» — по флагам
     // has_static_effects/has_choices, которые бэк считает для любой карточки
     // (в т.ч. короткой, без полного дерева эффектов).
-    const hasStaticFallback =
-      (item.ability_effects ?? []).length > 0 ||
-      (resource === 'feats' && (item.ability_score_increases ?? []).length > 0)
-    const hasStatic = item.has_static_effects ?? hasStaticFallback
+    const hasStatic = item.has_static_effects ?? (item.ability_effects ?? []).length > 0
     if (hasStatic) badges.push({ text: 'Даёт эффекты', tone: 'good' })
     const hasChoices = item.has_choices ?? (item.choice_groups ?? []).length > 0
     if (hasChoices) badges.push({ text: 'Выбор', tone: 'violet' })
@@ -165,7 +164,8 @@ export function summaryBadges(item, resource) {
       item.rarity === 'ARTIFACT'
     badges.push({ text: label(item.rarity), tone: rare ? 'accent' : 'default' })
   }
-  if (item.item_type) badges.push({ text: label(item.item_type), tone: 'default' })
+  // Вид и так ясен из раздела — бейджем показываем только подтип прочего предмета.
+  if (isItemResource(resource) && item.kind === 'GEAR' && item.subtype) badges.push({ text: itemKindText(item), tone: 'default' })
   if (item.size) badges.push({ text: raceSizeLabels[item.size] ?? label(item.size), tone: 'default' })
   if (item.hit_dice) badges.push({ text: `Кость хитов ${diceTypeLabels[item.hit_dice] ?? item.hit_dice}`, tone: 'default' })
   if (resource !== 'features' && item.source_type) badges.push({ text: label(item.source_type), tone: 'default' })

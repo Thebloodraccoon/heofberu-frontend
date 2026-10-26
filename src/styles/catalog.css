@@ -255,20 +255,8 @@
   grid-auto-rows: 1fr;
   gap: 1rem;
 }
-.catalog-results--paginated {
-  display: flex;
-  height: max(14rem, calc(100dvh - var(--catalog-results-top, 20rem) - 1rem));
-  flex-direction: column;
-}
-.catalog-results--paginated .catalog-grid {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  align-content: start;
-  grid-auto-rows: minmax(10rem, max-content);
-  padding-right: 0.5rem;
-}
-.catalog-results--paginated > nav { flex: none; margin-top: 0; padding-top: 0.75rem; }
+/* Плитки и пагинация идут в общем потоке страницы — одна прокрутка (у страницы), без своей у списка. */
+.catalog-results--paginated > nav { margin-top: 0; padding-top: 0.75rem; }
 /* --- Боковая навигация и основная область каталога --- */
 
 .catalog-page { position: relative; min-width: 0; }
@@ -349,7 +337,12 @@
   transition: background 150ms, border-color 150ms;
 }
 .catalog-filter-choice:hover { background: var(--color-stone-900); border-color: var(--color-gold); }
-.catalog-filter-choice[aria-pressed="true"] { border-color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 12%, transparent); color: var(--color-stone-100); }
+/* Фокус с клавиатуры — заметная золотая обводка (системная почти не видна на тёмной теме). */
+.catalog-filter-choice:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+/* 6. Сенсорные экраны: цель нажатия ~44 px. */
+@media (pointer: coarse) { .catalog-filter-choice { min-height: 2.75rem; } }
+.catalog-filter-choice[aria-pressed="true"],
+.catalog-filter-choice[aria-checked="true"] { border-color: var(--color-gold); background: color-mix(in srgb, var(--color-gold) 12%, transparent); color: var(--color-stone-100); }
 
 @media (min-width: 64rem) {
   .catalog-page--detail { display: grid; grid-template-columns: 19rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }

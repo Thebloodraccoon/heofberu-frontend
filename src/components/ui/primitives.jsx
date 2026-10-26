@@ -2,6 +2,7 @@
 
 import { Children, isValidElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { FooterSlotContext } from './drawerFooterSlot.js'
 
 export function Spinner({ label = 'Загрузка...' }) {
   return (
@@ -71,12 +72,15 @@ export function EmptyState({ text }) {
   return <p className="py-8 text-center text-muted">{text}</p>
 }
 
-export function Field({ label, children, className = '' }) {
+// group — внутри группа кнопок (чипы, −/+): обёртка div, а не label — label отдаёт свой
+// :hover первой кнопке внутри, и при наведении куда угодно подсвечивался первый чип.
+export function Field({ label, children, className = '', group = false }) {
+  const Tag = group ? 'div' : 'label'
   return (
-    <label className={`flex flex-col gap-1.5 ${className}`}>
+    <Tag className={`flex flex-col gap-1.5 ${className}`}>
       <span className="text-label">{label}</span>
       {children}
-    </label>
+    </Tag>
   )
 }
 
@@ -478,7 +482,8 @@ export function Modal({
             )}
           </div>
         )}
-        <div className={scroll ? 'flex-1 space-y-3 overflow-y-auto p-5 max-sm:p-3' : ''}>{children}</div>
+        {/* DrawerFooter внутри модалки, открытой из панели, — в саму модалку, не в подвал панели под ней. */}
+        <div className={scroll ? 'flex-1 space-y-3 overflow-y-auto p-5 max-sm:p-3' : ''}><FooterSlotContext.Provider value={null}>{children}</FooterSlotContext.Provider></div>
         {footer && (
           <div
             className={

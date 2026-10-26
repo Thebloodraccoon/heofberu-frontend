@@ -1,7 +1,6 @@
 import { abilityLabels, label, sentenceCase } from '@/lib/i18n/index.js'
 import { Badge, Card, FactList, FactRow, RichText } from '@/components/ui'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
-import { Section, FeatureCards } from './detailHelpers.jsx'
 
 export default function FeatDetailCard({ item }) {
   // Требования собираются целиком: требуемая характеристика с её порогом и
@@ -19,8 +18,6 @@ export default function FeatDetailCard({ item }) {
   if (item.min_level != null && item.min_level !== '') prereqParts.push(`ур. ${item.min_level}`)
   const prerequisite = prereqParts.length > 0 ? prereqParts.join(', ') : null
 
-  const increases = item.ability_score_increases ?? []
-
   const rows = []
   if (prerequisite) rows.push({ key: 'prereq', label: 'Требования', value: prerequisite })
   if (item.prerequisite_description) {
@@ -28,15 +25,6 @@ export default function FeatDetailCard({ item }) {
       key: 'prereq-desc',
       label: 'Доп. требования',
       value: <RichText value={item.prerequisite_description} className="inline" />,
-    })
-  }
-  // Новый бэк отдаёт полное дерево эффектов (ability_effects, effects_summary);
-  // legacy ability_score_increases показываем только когда бэк не прислал summary.
-  if (!item.effects_summary && increases.length > 0) {
-    rows.push({
-      key: 'asi',
-      label: 'Увеличение характеристик',
-      value: increases.map((a) => `${abilityLabels[a.ability] ?? label(a.ability)} +${a.amount}`).join(' '),
     })
   }
 
@@ -64,12 +52,6 @@ export default function FeatDetailCard({ item }) {
 
       {(item.description || item.effects_summary) && (
         <RichText value={item.description} tail={item.effects_summary} className="description-blockquote" />
-      )}
-
-      {item.features && item.features.length > 0 && (
-        <Section title="Умения">
-          <FeatureCards features={item.features} />
-        </Section>
       )}
     </Card>
   )

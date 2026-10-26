@@ -78,6 +78,25 @@ describe('GmEditorPage', () => {
     expect(screen.getByRole('button', { name: 'Высший эльф' })).toHaveFocus()
   })
 
+  it('opens a record from its detail alone: embedded features and subraces need no extra GETs', async () => {
+    const user = userEvent.setup()
+    catalogApi.races.get.mockClear()
+    catalogApi.races.features.list.mockClear()
+    catalogApi.races.get.mockResolvedValue({
+      ...races[0],
+      ability_bonuses: [],
+      granted_skills: [],
+      subraces: [{ id: 12, name: 'Высший эльф' }],
+      features: [{ id: 5, name: 'Тёмное зрение', description: '' }],
+    })
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^эльф/i }))
+    await user.click(await screen.findByRole('tab', { name: 'Подрасы' }))
+    expect(screen.getByRole('button', { name: 'Высший эльф' })).toBeInTheDocument()
+    expect(catalogApi.races.get).toHaveBeenCalledTimes(1)
+    expect(catalogApi.races.features.list).not.toHaveBeenCalled()
+  })
+
   it('switches catalog editor tabs without saving', async () => {
     const user = userEvent.setup()
     catalogApi.races.get.mockResolvedValue({ ...races[0], ability_bonuses: [], granted_skills: [], subraces: [] })

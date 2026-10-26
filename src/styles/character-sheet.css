@@ -87,7 +87,6 @@ button.character-check-row:active { transform: scale(0.985); }
 .character-sheet .sheet-btn_primary, .character-sheet-drawer .sheet-btn_primary { background: var(--color-action-primary); border-color: var(--color-action-primary); color: white; }
 .character-sheet .sheet-btn_primary:hover, .character-sheet-drawer .sheet-btn_primary:hover { background: var(--color-action-primary-hover); border-color: var(--color-action-primary-hover); }
 .character-sheet .sheet-btn_warn-pulse { animation: none; }
-.character-sheet-drawer { width: min(38rem, 100%); }
 .character-sheet-drawer .ui-drawer-footer > * { flex: 1; }
 .character-hp-controls { display: flex; align-items: stretch; gap: 0.5rem; }
 .character-hp-controls > input { flex: 1; min-width: 0; }
@@ -138,7 +137,6 @@ button.character-check-row:active { transform: scale(0.985); }
   .character-ability-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
   .character-ability-score { padding: 0.4rem 0.2rem; gap: 0.25rem; }
   .character-stat-label { font-size: 0.7rem; }
-  .character-sheet-drawer { width: 100%; }
   .character-icon-button { width: 2.75rem; height: 2.75rem; }
 }
 @media (prefers-reduced-motion: reduce) { .character-health-track > span, .character-sheet .sheet-tabs__btn, .character-sheet .article-editor-tab-indicator, .character-check-row { transition: none; } .character-sheet-content { animation: none; } .character-check-row:active { transform: none; } }

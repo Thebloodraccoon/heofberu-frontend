@@ -1,16 +1,20 @@
 import SheetDrawer from '@/components/sheet/SheetDrawer.jsx'
 import { catalogApi } from '@/features/catalog/api.js'
+import { catalog } from '@/features/catalog/catalog.js'
+import CatalogSearchList from '@/features/catalog/components/CatalogSearchList.jsx'
 import { useMemo, useState } from 'react'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { useCharacterSpells, useCharacterSpellSlots } from '@/features/characters/queries.js'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { label, sentenceCase } from '@/lib/i18n/index.js'
-import { Button, ErrorBox, Skeleton } from '@/components/ui'
+import { Button } from '@/components/ui'
 import { SPELL_LEVEL_ORDER } from './constants.js'
 import { SpellDetailFetched } from '../SpellQuickView.jsx'
 
 const LEVEL_TITLE = (lv) => (lv === 'CANTRIP' ? 'Заговоры' : label(lv))
+// Уровень задаёт выбранная ячейка — остальные фильтры каталога заклинаний.
+const SPELL_FILTERS = catalog.spells.filters.filter((f) => f.name !== 'level')
 
 /**
  * Two-step spell picker modal.
@@ -27,15 +31,6 @@ export default function SpellPickerModal({ character, onClose, onError }) {
   const { data: known = [] } = useCharacterSpells(characterId)
   const { data: slots = [] } = useCharacterSpellSlots(characterId)
   const [selectedLevel, setSelectedLevel] = useState(null)
-  const spellsQ = useInfiniteQuery({
-    queryKey: ['catalog', 'character-spell-picker', characterId, selectedLevel],
-    enabled: selectedLevel !== null,
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => catalogApi.spells.list({ page: pageParam, size: 100, level: selectedLevel }),
-    getNextPageParam: (lastPage, pages) => pages.reduce((total, page) => total + page.items.length, 0) < lastPage.total
-      ? pages.length + 1 : undefined,
-  })
-  const catalog = useMemo(() => spellsQ.data?.pages.flatMap((page) => page.items) ?? [], [spellsQ.data])
   const [selected, setSelected] = useState(() => new Set())
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState(() => new Set())
@@ -62,25 +57,15 @@ export default function SpellPickerModal({ character, onClose, onError }) {
     )
   }, [slots, known])
 
-  const groups = useMemo(() => {
-    const matches = (list, id) =>
-      !list?.length || (id != null && list.some((x) => Number(x.id) === Number(id)))
-    const allowed = (sp) => {
-      if (knownIds.has(sp.id)) return false
-      if (!matches(sp.available_classes, character.class_id)) return false
-      if (!matches(sp.available_subclasses, character.subclass_id)) return false
-      if (!matches(sp.available_races, character.race_id)) return false
-      if (!matches(sp.available_subraces, character.subrace_id)) return false
-      return true
-    }
-    const byLevel = {}
-    for (const sp of catalog) {
-      if (!allowed(sp)) continue
-      ;(byLevel[sp.level] ??= []).push(sp)
-    }
-    for (const list of Object.values(byLevel)) list.sort((a, b) => a.name.localeCompare(b.name))
-    return byLevel
-  }, [catalog, character, knownIds])
+  // Доступность классу/подклассу/расе/подрасе отсекает сервер (те же правила, что при изучении);
+  // здесь убираем только уже известные.
+  const blockedSpell = (sp) => knownIds.has(sp.id)
+  const availableTo = {
+    class_id: character.class_id,
+    subclass_id: character.subclass_id,
+    race_id: character.race_id,
+    subrace_id: character.subrace_id,
+  }
 
   const fillableLevels = useMemo(
     () =>
@@ -92,14 +77,13 @@ export default function SpellPickerModal({ character, onClose, onError }) {
   )
 
   const levelCap = selectedLevel != null ? capacityByLevel[selectedLevel] ?? 0 : 0
-  const chosenForLevel = [...selected].map((id) => catalog.find((s) => s.id === id))
 
   const toggle = (spell) => {
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(spell.id)) next.delete(spell.id)
       else {
-        if (chosenForLevel.length >= levelCap) return prev
+        if (next.size >= levelCap) return prev
         next.add(spell.id)
       }
       return next
@@ -115,7 +99,8 @@ export default function SpellPickerModal({ character, onClose, onError }) {
     })
 
   const pickLevel = (lv) => {
-    queryClient.removeQueries({ queryKey: ['catalog', 'character-spell-picker', characterId, lv], exact: true })
+    // Ячейка каждый раз открывается с первой страницы.
+    queryClient.removeQueries({ queryKey: queryKeys.pickers.characterSpells(characterId) })
     setSelected(new Set())
     setExpanded(new Set())
     setSelectedLevel(lv)
@@ -147,7 +132,7 @@ export default function SpellPickerModal({ character, onClose, onError }) {
   }
 
   return (
-    <SheetDrawer title="Заклинания" onClose={onClose} footer={selectedLevel == null ? <Button variant="ghost" onClick={onClose}>Отмена</Button> : <><Button variant="ghost" onClick={back}>Назад</Button><Button onClick={learnCell} disabled={saving || selected.size === 0}>{saving ? 'Сохраняем…' : 'Выучить ячейку'}</Button></>}>
+    <SheetDrawer title="Заклинания" onClose={onClose} bodyClassName={selectedLevel == null ? undefined : 'grant-picker-body'} footer={selectedLevel == null ? <Button variant="ghost" onClick={onClose}>Отмена</Button> : <><Button variant="ghost" onClick={back}>Назад</Button><Button onClick={learnCell} disabled={saving || selected.size === 0}>{saving ? 'Сохраняем…' : 'Выучить ячейку'}</Button></>}>
       {selectedLevel == null ? (
         <>
           <p className="-mt-1 text-xs text-stone-500">
@@ -181,20 +166,24 @@ export default function SpellPickerModal({ character, onClose, onError }) {
         </>
       ) : (
         <>
-          <p className="-mt-1 flex items-center justify-between gap-2 text-xs text-stone-500">
+          <p className="-mt-1 mb-4 flex items-center justify-between gap-2 text-xs text-stone-500">
             <button type="button" onClick={back} className="font-medium text-ember hover:underline">
               ← Выбрать ячейку
             </button>
             <span><span className="text-stone-300">{LEVEL_TITLE(selectedLevel)}</span> (свободно {levelCap})</span>
           </p>
-          <div className="mt-4 space-y-3">
-            {spellsQ.isPending && <Skeleton className="h-24 w-full" />}
-            {spellsQ.isError && <ErrorBox error={spellsQ.error} onRetry={() => spellsQ.isFetchNextPageError ? spellsQ.fetchNextPage() : spellsQ.refetch()} />}
-            {!spellsQ.isPending && !spellsQ.isError && (groups[selectedLevel] ?? []).length === 0 && (
-              <p className="text-sm text-stone-500">{spellsQ.hasNextPage ? 'Среди загруженных заклинаний нет доступных. Загрузите следующую страницу.' : 'Для этой ячейки нет доступных заклинаний.'}</p>
-            )}
-            <ul className="space-y-3">
-              {groups[selectedLevel]?.map((sp) => {
+          <CatalogSearchList
+            queryKey={queryKeys.pickers.characterSpells(characterId)}
+            list={catalogApi.spells.list}
+            params={{ level: selectedLevel, ...availableTo }}
+            filters={SPELL_FILTERS}
+            pageSize={100}
+            exclude={blockedSpell}
+            emptyText="Для этой ячейки нет доступных заклинаний."
+            listClassName="grant-picker-list pr-1"
+          >
+            {(spells) => <ul className="space-y-3">
+              {spells.map((sp) => {
                 const checked = selected.has(sp.id)
                 const isOpen = expanded.has(sp.id)
                 const blocked = !checked && selected.size >= levelCap
@@ -257,13 +246,8 @@ export default function SpellPickerModal({ character, onClose, onError }) {
                   </li>
                 )
               })}
-            </ul>
-            {spellsQ.hasNextPage && <Button type="button" variant="ghost" className="mt-3 w-full"
-              disabled={spellsQ.isFetching} onClick={() => spellsQ.fetchNextPage()}>
-              {spellsQ.isFetchingNextPage ? 'Загружаем…' : 'Показать ещё'}
-            </Button>}
-          </div>
-
+            </ul>}
+          </CatalogSearchList>
         </>
       )}
     </SheetDrawer>

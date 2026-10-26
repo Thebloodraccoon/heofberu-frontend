@@ -1,17 +1,18 @@
-import { useState } from 'react'
-import { Button, ErrorBox, Field, Input, Skeleton } from '@/components/ui'
+import { useRef, useState } from 'react'
+import { Button, Field, Input } from '@/components/ui'
 import { useToasts } from '@/components/ToastProvider.jsx'
 import Drawer from '@/components/ui/Drawer.jsx'
-import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
+import SearchPickerList from '@/components/ui/SearchPickerList.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
-import { useArticleFinder } from '@/features/articles/queries.js'
+import { articlesApi } from '@/features/articles/api.js'
 import { articleTypeLabels } from '@/lib/i18n/index.js'
 import { toCampaignError } from '@/features/campaigns/errors.js'
-import { useCampaignMaterials } from '@/features/campaigns/queries.js'
+import { campaignMaterialsApi } from '@/features/campaigns/api.js'
 import ActiveFilters from './ActiveFilters.jsx'
 import FilterDrawer from './FilterDrawer.jsx'
 import { ArticleCreateForm } from '@/features/articles/pages/GmArticlesPage.jsx'
 import { sameCampaignMaterial } from '../editorNavigation.js'
+import { queryKeys } from '@/lib/api/queryKeys.js'
 
 const MAX_LINKS = 100
 const SOURCES = [['materials', 'Материалы кампаний'], ['lore', 'Лор']]
@@ -32,39 +33,59 @@ const FILTER_SECTIONS = [
   { key: 'tags', legend: 'Теги', type: 'tags', hint: 'Статьи с любым из выбранных тегов.' },
 ]
 
-// «Добавить существующую» — боковая панель справа, как поиск в лоре: строка поиска, «Фильтры» (откуда и теги)
-// во второй панели поверх, найденное с типом, автором и кратким описанием: сначала материалы кампаний, потом лор.
-// Клик подвязывает сразу (kb.attach), панель остаётся открытой — можно подвязать несколько подряд.
+// «Добавить существующую» — боковая панель справа: общий SearchPickerList (поиск, «Фильтры» — откуда и теги — в
+// узкой панели поверх, подгрузка при прокрутке). Страница списка — страница материалов кампаний и страница лора
+// вместе: сначала материалы, потом лор. Клик подвязывает сразу (kb.attach), панель остаётся открытой.
 export default function AttachArticleDrawer({ kb, onClose }) {
-  const [query, setQuery] = useState('')
-  const [applied, setApplied] = useState('')
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const tagIds = filters.tags.length ? filters.tags.map((tag) => tag.id) : undefined
   const sources = filters.source.length ? filters.source : ALL_SOURCES
-  const lore = useArticleFinder({ text: applied, tag_id: tagIds, size: 20 }, { enabled: sources.includes('lore') })
-  const materials = useCampaignMaterials({ q: applied.length >= 2 ? applied : undefined, tag_id: tagIds, size: 20 }, { enabled: sources.includes('materials') })
-  const finders = [sources.includes('materials') && materials, sources.includes('lore') && lore].filter(Boolean)
-  const failed = finders.find((finder) => finder.error)
   const linked = new Set(kb.links.map((link) => link.article_id))
-  const found = [...new Map(finders.flatMap((finder) => finder.data?.items ?? []).map((article) => [article.id, article])).values()].filter((article) => !linked.has(article.id))
   const full = kb.links.length >= MAX_LINKS
   const chips = [
     ...(sources.length < ALL_SOURCES.length ? SOURCES.filter(([source]) => sources.includes(source)).map(([source, label]) => [`source-${source}`, label, () => setFilters({ ...filters, source: ALL_SOURCES })]) : []),
     ...filters.tags.map((tag) => [`tag-${tag.id}`, `#${tag.name}`, () => setFilters({ ...filters, tags: filters.tags.filter((item) => item.id !== tag.id) })]),
-  ].filter(Boolean)
+  ]
+  // Поиск у обоих источников — от двух символов, короче — просто список. Итог источника запоминаем по выборке
+  // (источники, теги, поиск): кончившийся источник на следующих страницах больше не запрашиваем.
+  const totals = useRef(new Map())
+  const fetchPage = async ({ search = '', page, size }) => {
+    const params = { page, size, tag_id: tagIds, ...(search.length >= 2 ? { q: search } : {}) }
+    const selection = JSON.stringify([sources, tagIds, params.q])
+    const known = page === 1 ? {} : totals.current.get(selection) ?? {}
+    const apis = { materials: campaignMaterialsApi, lore: articlesApi }
+    const asked = ALL_SOURCES.filter((source) => sources.includes(source) && !(known[source] != null && (page - 1) * size >= known[source]))
+    const pages = await Promise.all(asked.map((source) => (params.q ? apis[source].search(params) : apis[source].list(params))))
+      .catch((cause) => { throw toCampaignError(cause) })
+    const next = { ...known }
+    asked.forEach((source, index) => { next[source] = pages[index]?.total ?? 0 })
+    totals.current.set(selection, next)
+    return { items: pages.flatMap((result) => result?.items ?? []), total: sources.reduce((sum, source) => sum + (next[source] ?? 0), 0) }
+  }
 
   return (
     // Пока открыты фильтры, Escape закрывает только их.
-    <Drawer title="Добавить существующую" subtitle={sources.length === ALL_SOURCES.length ? 'Материалы кампаний и статьи лора.' : sources.includes('lore') ? 'Статьи лора.' : 'Материалы кампаний: квесты и планы сессий.'} onClose={filtersOpen ? () => {} : onClose} closeLabel="Закрыть добавление статей" footer={<Button variant="ghost" className="w-full" onClick={onClose}>Готово</Button>}>
-      <div className="space-y-3">
-        <div className="lore-search-panel">
-          <SearchToolbar query={query} onQueryChange={setQuery} onSearch={() => setApplied(query.trim())} onFilters={() => setFiltersOpen(true)} filterCount={chips.length} filtersOpen={filtersOpen} label="Поиск статей" placeholder="Название или текст…" submitLabel="Найти статьи" />
-          <ActiveFilters chips={chips} onReset={() => setFilters(EMPTY_FILTERS)} />
-        </div>
-        {full && <p className="text-hint">В базе знаний уже {MAX_LINKS} статей — больше добавить нельзя.</p>}
-        {failed && <ErrorBox error={toCampaignError(failed.error)} onRetry={failed.refetch} />}
-        {finders.some((finder) => finder.isLoading) ? <Skeleton className="h-24 w-full" /> : <ul className={`space-y-1.5 ${finders.some((finder) => finder.isPlaceholderData) ? 'opacity-60' : ''}`} aria-label="Найденные статьи">
+    <Drawer title="Добавить существующую" subtitle={sources.length === ALL_SOURCES.length ? 'Материалы кампаний и статьи лора.' : sources.includes('lore') ? 'Статьи лора.' : 'Материалы кампаний: квесты и планы сессий.'} onClose={filtersOpen ? () => {} : onClose} closeLabel="Закрыть добавление статей" bodyClassName="grant-picker-body" footer={<Button variant="ghost" className="w-full" onClick={onClose}>Готово</Button>}>
+      <SearchPickerList
+        queryKey={[...queryKeys.pickers.knowledgeBaseArticles, sources, tagIds]}
+        fetchPage={fetchPage}
+        pageSize={20}
+        label="Поиск статей"
+        placeholder="Название или текст…"
+        submitLabel="Найти статьи"
+        onFilters={() => setFiltersOpen(true)}
+        filterCount={chips.length}
+        filtersOpen={filtersOpen}
+        exclude={(article) => linked.has(article.id)}
+        emptyText="Ничего не найдено."
+        header={<>
+          {chips.length > 0 && <div className="mb-3"><ActiveFilters chips={chips} onReset={() => setFilters(EMPTY_FILTERS)} /></div>}
+          {full && <p className="text-hint mb-3">В базе знаний уже {MAX_LINKS} статей — больше добавить нельзя.</p>}
+          {filtersOpen && <FilterDrawer title="Фильтры статей" subtitle="Откуда добавлять и по каким темам." sections={FILTER_SECTIONS} value={filters} empty={EMPTY_FILTERS} onApply={setFilters} onClose={() => setFiltersOpen(false)} />}
+        </>}
+      >
+        {(found) => found.length > 0 && <ul className="space-y-1.5" aria-label="Найденные статьи">
           {found.map((article) => <li key={article.id}>
             <button type="button" className="catalog-record-card w-full text-left" disabled={full} onClick={() => kb.attach(article)}>
               <span className="flex flex-wrap items-center gap-2 text-xs"><span className="lore-article-type">{article.article_type === 'session' ? 'План сессии' : articleTypeLabels[article.article_type] ?? article.article_type}</span>{article.author && <span className="text-stone-500">@{article.author.username}</span>}<LoreIcon name="plus" className="ml-auto" /></span>
@@ -72,10 +93,8 @@ export default function AttachArticleDrawer({ kb, onClose }) {
               {article.excerpt && <span className="campaign-note-excerpt mt-1 block">{article.excerpt}</span>}
             </button>
           </li>)}
-          {found.length === 0 && <li className="text-sm text-stone-400">Ничего не найдено.</li>}
         </ul>}
-      </div>
-      {filtersOpen && <FilterDrawer title="Фильтры статей" subtitle="Откуда добавлять и по каким темам." sections={FILTER_SECTIONS} value={filters} empty={EMPTY_FILTERS} onApply={setFilters} onClose={() => setFiltersOpen(false)} />}
+      </SearchPickerList>
     </Drawer>
   )
 }

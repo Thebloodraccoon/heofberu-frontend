@@ -1,6 +1,5 @@
-import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
-import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
-import { useMemo, useRef, useState, useEffect } from 'react'
+import CatalogSearchList from '@/features/catalog/components/CatalogSearchList.jsx'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { charactersApi } from '@/features/characters/api.js'
 import { catalogApi } from '@/features/catalog/api.js'
@@ -23,7 +22,6 @@ import ProficiencyPicker from './ProficiencyPicker.jsx'
 import SpellPickerModal from '@/features/catalog/components/editor/SpellPickerModal.jsx'
 import ItemPickerModal from '@/features/catalog/components/editor/ItemPickerModal.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
-import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
 import { queryKeys } from '@/lib/api/queryKeys.js'
 import { effectBadges } from '@/lib/utils/featureEffects.js'
 import { STATS, abilityByCode, abilityName } from '@/lib/utils/ability.js'
@@ -187,9 +185,13 @@ function LevelSection({ character, onError, reload }) {
   const [newCeiling, setNewCeiling] = useState('')
   const [ceilingBusy, setCeilingBusy] = useState(false)
 
+  // Потолок только растёт: бэк отвечает 400 на значение ≤ текущего потолка (без строки — ≤ уровня).
+  const currentCap = Number(maxLevelData?.max_level ?? character.level) || 1
+  const ceilingValid = Number.isFinite(Number(newCeiling)) && Number(newCeiling) > currentCap && Number(newCeiling) <= 20
+
   const raiseCeiling = async () => {
     const next = Number(newCeiling)
-    if (!Number.isFinite(next) || next < (Number(character.level) || 1)) return
+    if (!ceilingValid) return
     setCeilingBusy(true)
     try {
       await charactersApi.gmPanel.maxLevel.set(character.id, { max_level: next })
@@ -218,13 +220,13 @@ function LevelSection({ character, onError, reload }) {
           <span className="whitespace-nowrap">Новый потолок:</span>
           <Input
             type="number"
-            min={Math.max(Number(character.level) || 1, Number(maxLevelData?.max_level) || 1)}
+            min={Math.min(20, currentCap + 1)}
             max="20"
             value={newCeiling}
             onChange={(e) => setNewCeiling(e.target.value)}
-            placeholder={`≥ ${maxLevelData?.max_level ?? character.level}`}
+            placeholder={`> ${currentCap}`}
           />
-          <Button size="sm" variant="ghost" disabled={ceilingBusy || !newCeiling} onClick={raiseCeiling}>
+          <Button size="sm" variant="ghost" disabled={ceilingBusy || !newCeiling || !ceilingValid} onClick={raiseCeiling}>
             Задать
           </Button>
         </div>
@@ -262,10 +264,12 @@ function StatsSection({ character, onError, reload }) {
   }
 
   const parsedAmount = Number(newAmount)
-  const amountValid = newAmount !== '' && Number.isFinite(parsedAmount) && parsedAmount >= adjustMin && parsedAmount <= adjustMax
+  // 0 бэк не принимает (422): корректировка без изменения бессмысленна.
+  const amountValid = newAmount !== '' && Number.isFinite(parsedAmount) && parsedAmount !== 0 && parsedAmount >= adjustMin && parsedAmount <= adjustMax
 
   const invalidateStats = async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.characters.stats(Number(characterId)) })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.characters.combatStats(Number(characterId)) })
     await queryClient.invalidateQueries({ queryKey: ['characters', Number(characterId), 'gm-panel', 'asi'] })
   }
 
@@ -671,55 +675,11 @@ function WeaponProficienciesSection({ character, onError, reload }) {
   )
 }
 
-const PICKER_PAGE_SIZE = 30
-const PICKER_SCROLL_THRESHOLD = 120
-
 function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }) {
-  const [queryInput, setQueryInput] = useState('')
-  const [appliedSearch, setAppliedSearch] = useState('')
-  const [filters, setFilters] = useState({})
-  const [showFilters, setShowFilters] = useState(false)
-  const [page, setPage] = useState(1)
-  const [allFeats, setAllFeats] = useState([])
-  const [featId, setFeatId] = useState(null)
+  const [selectedFeat, setSelectedFeat] = useState(null)
+  const featId = selectedFeat?.id ?? null
   const [increaseId, setIncreaseId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
-  const listRef = useRef(null)
-
-  const listParams = { page, size: PICKER_PAGE_SIZE }
-  if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
-
-  const featsQ = useQuery({
-    queryKey: ['catalog', 'feat-picker-modal', appliedSearch.trim(), filters, page],
-    queryFn: () => catalogApi.feats.list(listParams),
-  })
-
-  // Смена поиска/фильтров начинает список заново, а не докидывает страницы
-  // к прежней выборке.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1)
-    setAllFeats([])
-  }, [appliedSearch, filters])
-
-  useEffect(() => {
-    if (!featsQ.data) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAllFeats((prev) => (page === 1 ? featsQ.data.items : [...prev, ...featsQ.data.items]))
-  }, [featsQ.data, page])
-
-  const total = featsQ.data?.total ?? 0
-  const hasMore = allFeats.length < total
-  const feats = allFeats
-
-  const applySearch = () => setAppliedSearch(queryInput)
-  const onScroll = () => {
-    const el = listRef.current
-    if (!el || featsQ.isFetching || !hasMore) return
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < PICKER_SCROLL_THRESHOLD) {
-      setPage((p) => p + 1)
-    }
-  }
 
   const detailId = featId ?? expandedId
   const detailQ = useFeatDetail(detailId)
@@ -732,16 +692,18 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
   }
   const featLevelOk = (f) => f.min_level == null || Number(f.min_level) <= Number(level)
 
-  // Черты, уже выданные персонажу, на повторную выдачу недоступны.
-  const available = feats.filter((f) => !grantedIds.has(Number(f.id)))
-  const selectedFeat = feats.find((f) => String(f.id) === String(featId))
   const currentFeat = selectedFeat
 
-  // Варианты увеличения характеристик берём из деталей черты (список может их содержать).
+  // Варианты увеличения характеристик — эффекты «ability» в вариантах групп выбора черты
+  // (choice_groups детали; их id бэк ждёт в ability_score_increase_id). «Любая
+  // характеристика» (ability: null) сюда не идёт — её игрок называет при ответе на выбор.
   const increaseOptions = useMemo(() => {
     if (!currentFeat) return []
-    const src = detailQ.data ?? currentFeat
-    return Array.isArray(src?.ability_score_increases) ? src.ability_score_increases : []
+    return (detailQ.data?.choice_groups ?? []).flatMap((group) =>
+      (group.options ?? []).flatMap((option) =>
+        (option.effects ?? []).filter((e) => e.effect_type === 'ability').flatMap((e) => e.items ?? []),
+      ),
+    ).filter((item) => item.ability != null)
   }, [currentFeat, detailQ.data])
 
   const needsIncrease = increaseOptions.length > 0
@@ -788,10 +750,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                         type="radio"
                         name="gm-feat-asi"
                         checked={checked}
-                        onChange={() => {
-                          setIncreaseId(ai.id)
-                          setFeatId(currentFeat.id)
-                        }}
+                        onChange={() => setIncreaseId(ai.id)}
                         className="checkbox-base"
                       />
                       <span>+{ai.amount} к {abilityName(ai.ability)}</span>
@@ -812,23 +771,15 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
         </div>
       }
     >
-      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={catalog.feats.filters?.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={true} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.feats.filters} value={filters} onChange={setFilters} />
-      {showFilters && (
-        <FilterModal
-          inline={true}
-          filters={catalog.feats.filters}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
-      {!featsQ.isFetching && available.length === 0 && (
-        <p className="py-4 text-center text-sm text-stone-400">
-          {appliedSearch ? 'Ничего не найдено по запросу.' : 'Доступных черт нет.'}
-        </p>
-      )}
-      <div ref={listRef} onScroll={onScroll} className="grant-picker-list space-y-2 pr-1">
-        {available.map((f) => {
+      {/* Черты, уже выданные персонажу, на повторную выдачу недоступны. */}
+      <CatalogSearchList
+        queryKey={queryKeys.pickers.feats}
+        list={catalogApi.feats.list}
+        filters={catalog.feats.filters}
+        exclude={(f) => grantedIds.has(Number(f.id))}
+        emptyText="Доступных черт нет."
+      >
+        {(available) => available.map((f) => {
           const ok = featPrereqOk(f) && featLevelOk(f)
           const selected = String(f.id) === String(featId)
           const expanded = String(expandedId) === String(f.id)
@@ -844,7 +795,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
                   type="button"
                   disabled={!ok}
                   onClick={() => {
-                    setFeatId(f.id)
+                    setSelectedFeat(f)
                     setIncreaseId(null)
                     setExpandedId(null)
                   }}
@@ -908,16 +859,7 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
             </div>
           )
         })}
-        {featsQ.isFetching && (
-          <div className="space-y-1.5 py-1" aria-busy="true">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
-        )}
-      </div>
-
-
+      </CatalogSearchList>
     </Drawer>
   )
 }
@@ -925,8 +867,8 @@ function GmFeatPickerModal({ grantedIds, level, abilityTotals, onPick, onClose }
 function FeatureDetail({ featureId }) {
   const detailQ = useQuery({
     // FeatureResponse уже содержит ability_effects и effects_summary —
-    // отдельный запрос за эффектами не нужен.
-    queryKey: ['catalog', 'features', 'detail', featureId],
+    // отдельный запрос за эффектами не нужен. Ключ — как у карточки справочника.
+    queryKey: ['catalog', 'features', featureId],
     queryFn: () => catalogApi.features.get(featureId),
     enabled: featureId != null,
   })
@@ -951,68 +893,20 @@ function FeatureDetail({ featureId }) {
 
 function FeaturePickerModal({ grantedIds, onPick, onClose }) {
   const [selected, setSelected] = useState(null)
-  const [queryInput, setQueryInput] = useState('')
-  const [appliedSearch, setAppliedSearch] = useState('')
-  const [filters, setFilters] = useState({})
-  const [showFilters, setShowFilters] = useState(false)
-  const [page, setPage] = useState(1)
-  const [allFeatures, setAllFeatures] = useState([])
   const [expandedId, setExpandedId] = useState(null)
-  const listRef = useRef(null)
-
-  const listParams = { page, size: PICKER_PAGE_SIZE, source_type: 'OTHER' }
-  if (appliedSearch.trim()) listParams.search = appliedSearch.trim()
-  for (const [key, values] of Object.entries(filters)) {
-    if (key !== 'source_type' && values.length) listParams[key] = values
-  }
-
-  const featuresQ = useQuery({
-    queryKey: ['catalog', 'feature-picker-modal', appliedSearch.trim(), filters, page],
-    queryFn: () => catalogApi.features.list(listParams),
-  })
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1)
-    setAllFeatures([])
-  }, [appliedSearch, filters])
-
-  useEffect(() => {
-    if (!featuresQ.data) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAllFeatures((prev) => (page === 1 ? featuresQ.data.items : [...prev, ...featuresQ.data.items]))
-  }, [featuresQ.data, page])
-
-  const total = featuresQ.data?.total ?? 0
-  const hasMore = allFeatures.length < total
-  const available = allFeatures.filter((f) => !grantedIds.has(Number(f.id)))
-
-  const applySearch = () => setAppliedSearch(queryInput)
-  const onScroll = () => {
-    const el = listRef.current
-    if (!el || featuresQ.isFetching || !hasMore) return
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < PICKER_SCROLL_THRESHOLD) {
-      setPage((p) => p + 1)
-    }
-  }
+  // source_type задаёт сам выбор (только OTHER) — такой фильтр не показываем.
+  const filterDefs = catalog.features.filters.filter((f) => f.name !== 'source_type')
 
   return (
     <Drawer bodyClassName="grant-picker-body" title="Выдать особенность" subtitle="Особые свойства из справочника" onClose={onClose} footer={<div className="article-filter-actions"><Button variant="ghost" onClick={onClose}>Отмена</Button><Button disabled={!selected} onClick={() => onPick(selected)}>Выдать особенность</Button></div>}>
-      <div className="mb-3"><SearchToolbar query={queryInput} onQueryChange={setQueryInput} onSearch={applySearch} onFilters={catalog.features.filters?.length ? () => setShowFilters((open) => !open) : undefined} filtersInline={true} filtersOpen={showFilters} filterCount={Object.values(filters).reduce((count, values) => count + values.length, 0)} placeholder="Название или описание…" label="Поиск записей" /></div><CatalogFilterSummary definitions={catalog.features.filters} value={filters} onChange={setFilters} />
-      {showFilters && (
-        <FilterModal
-          inline={true}
-          filters={catalog.features.filters}
-          value={filters}
-          onChange={setFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
-      <div ref={listRef} onScroll={onScroll} className="grant-picker-list space-y-2 pr-1">
-        {!featuresQ.isFetching && available.length === 0 && (
-          <p className="text-sm text-stone-500">Особенностей не найдено.</p>
-        )}
-        {available.map((f) => {
+      <CatalogSearchList
+        queryKey={queryKeys.pickers.features}
+        list={catalogApi.features.list}
+        filters={filterDefs}
+        exclude={(f) => grantedIds.has(Number(f.id))}
+        emptyText="Особенностей не найдено."
+      >
+        {(available) => available.map((f) => {
           const expanded = expandedId === f.id
           return (
             <div
@@ -1055,21 +949,12 @@ function FeaturePickerModal({ grantedIds, onPick, onClose }) {
             </div>
           )
         })}
-        {featuresQ.isFetching && (
-          <div className="space-y-1.5 py-1" aria-busy="true">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
-        )}
-      </div>
-
-
+      </CatalogSearchList>
     </Drawer>
   )
 }
 
-function FeatsSection({ character, onError, reload }) {
+function FeatsSection({ character, onError }) {
   const queryClient = useQueryClient()
   const { data: charFeats = [] } = useCharacterFeats(character.id)
   const { data: stats } = useCharacterStats(character.id)
@@ -1099,6 +984,11 @@ function FeatsSection({ character, onError, reload }) {
     [charFeats],
   )
 
+  // Черта — это грант: меняет владения, заклинания, характеристики, КД/скорость и
+  // выборы. Префикс ['characters', id] обновляет всё это и сам лист разом.
+  const invalidateGrant = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
+
   const grantFeat = async (feat, increaseId) => {
     setFeatPickerOpen(false)
     try {
@@ -1106,8 +996,7 @@ function FeatsSection({ character, onError, reload }) {
         feat_id: Number(feat.id),
         ability_score_increase_id: increaseId ? Number(increaseId) : null,
       })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.feats(Number(character.id)) })
-      await reload()
+      await invalidateGrant()
     } catch (e) {
       onError(e)
     }
@@ -1116,8 +1005,7 @@ function FeatsSection({ character, onError, reload }) {
   const removeFeat = async (charFeatId) => {
     try {
       await charactersApi.gmPanel.feats.remove(character.id, charFeatId)
-      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.feats(Number(character.id)) })
-      await reload()
+      await invalidateGrant()
     } catch (e) {
       onError(e)
     }
@@ -1199,7 +1087,7 @@ function FeatsSection({ character, onError, reload }) {
   )
 }
 
-function FeaturesSection({ character, onError, reload }) {
+function FeaturesSection({ character, onError }) {
   const queryClient = useQueryClient()
   const { data: charFeatures = [] } = useCharacterFeatures(character.id)
   const [featurePickerOpen, setFeaturePickerOpen] = useState(false)
@@ -1213,10 +1101,10 @@ function FeaturesSection({ character, onError, reload }) {
     [charFeatures],
   )
 
-  const invalidateFeatures = async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.characters.features(Number(character.id)) })
-    await reload()
-  }
+  // Как и у черт: выданная особенность влияет на владения, заклинания, характеристики и
+  // выборы, поэтому обновляем весь префикс персонажа (в нём и сам лист).
+  const invalidateFeatures = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.characters.detail(Number(character.id)) })
 
   const grantFeature = async (feature) => {
     setFeaturePickerOpen(false)
@@ -1438,6 +1326,21 @@ function GrantedSpellsSection({ character, onError, reload }) {
   )
 }
 
+function ItemFlagToggle({ on, label, title, onClick }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={title}
+      onClick={onClick}
+      className={`sheet-chip shrink-0 !py-0.5 text-[11px] ${on ? 'sheet-chip_on' : ''}`}
+    >
+      <span className="sheet-chip__dot" />
+      {label}
+    </button>
+  )
+}
+
 function ItemsSection({ character, onError, reload }) {
   const queryClient = useQueryClient()
   const { data: items = [] } = useCharacterItems(character.id)
@@ -1446,7 +1349,11 @@ function ItemsSection({ character, onError, reload }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [qtyEdits, setQtyEdits] = useState({})
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.characters.items(Number(character.id)) })
+  // Экипировка и настройка меняют расчётные КД и скорость.
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.characters.items(Number(character.id)) })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.characters.combatStats(Number(character.id)) })
+  }
 
   // Каждый POST создаёт новый стек — даже если такой предмет уже есть у персонажа.
   const addItem = async (catalogItem, qty) => {
@@ -1480,6 +1387,22 @@ function ItemsSection({ character, onError, reload }) {
       await reload()
     } catch (e) {
       onError(e)
+    }
+  }
+
+  // 409: предмет не требует настройки или уже настроены 3 предмета.
+  const toggleFlag = async (ci, field) => {
+    try {
+      await charactersApi.gmPanel.items.update(character.id, ci.id, { [field]: !ci[field] })
+      await invalidate()
+      await reload()
+    } catch (e) {
+      if (e?.status === 409 && field === 'is_attuned') {
+        const err = new Error('Настроиться нельзя: предмет не требует настройки или уже настроены 3 предмета.')
+        err.status = e.status
+        err.data = e.data
+        onError(err)
+      } else onError(e)
     }
   }
 
@@ -1518,6 +1441,10 @@ function ItemsSection({ character, onError, reload }) {
                 >
                   {ci.item?.name ? sentenceCase(ci.item.name) : `Предмет #${ci.item_id}`}
                 </button>
+                <ItemFlagToggle on={ci.is_equipped} label="Экип." title="Экипирован" onClick={() => toggleFlag(ci, 'is_equipped')} />
+                {(ci.item?.requires_attunement || ci.is_attuned) && (
+                  <ItemFlagToggle on={ci.is_attuned} label="Настр." title="Настроен" onClick={() => toggleFlag(ci, 'is_attuned')} />
+                )}
                 <input
                   type="number"
                   min={1}
@@ -1597,8 +1524,8 @@ export default function GmCharacterPanel({ character, onError, reload }) {
         <WeaponProficienciesSection character={character} onError={onError} reload={reload} />
       </div>
       <div role="tabpanel" aria-label="Умения" hidden={tab !== 'abilities'} className="article-editor-panel gm-editor-sections">
-        <FeatsSection character={character} onError={onError} reload={reload} />
-        <FeaturesSection character={character} onError={onError} reload={reload} />
+        <FeatsSection character={character} onError={onError} />
+        <FeaturesSection character={character} onError={onError} />
         <GrantedSpellsSection character={character} onError={onError} reload={reload} />
       </div>
       <div role="tabpanel" aria-label="Снаряжение" hidden={tab !== 'equipment'} className="article-editor-panel gm-editor-sections">

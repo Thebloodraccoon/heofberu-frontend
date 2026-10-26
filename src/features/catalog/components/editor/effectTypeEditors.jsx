@@ -1,25 +1,33 @@
 import EditorAddButton from './EditorAddButton.jsx'
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { catalogApi as api } from '@/features/catalog/api.js'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import {
   abilityLabels,
+  armorClassModeLabels,
   armorProficiencyLabels,
+  effectConditionLabels,
   skillEffectModeHints,
   skillEffectModeLabels,
+  speedEffectModeLabels,
+  speedTypeLabels,
   spellLevelLabels,
   spellSchoolLabels,
+  sentenceCase,
+  toolCategoryLabels,
   weaponProficiencyLabels,
 } from '@/lib/i18n/index.js'
-import { Button, Input, Select } from '@/components/ui'
+import { describeArmorClassEffect, describeSpeedEffect, describeToolEffect } from '@/lib/utils/effectBundle.js'
+import { normalizeEffects } from '@/lib/utils/featureEffects.js'
+import { Button, Select } from '@/components/ui'
 import Drawer from '@/components/ui/Drawer.jsx'
-import { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
-import { useClasses, useItemNames, useItemSearch, useSpellNames } from '@/features/catalog/queries.js'
-import useDebouncedValue from '@/features/articles/useDebouncedValue.js'
+import EditorFieldControl, { BlurNumberInput, SectionTitle, TrashIcon } from './editorShared.jsx'
+import LevelField, { NumberStepper } from './LevelField.jsx'
+import ChipGroup from '@/components/ui/ChipGroup.jsx'
+import { useClasses, useItemNames, useSkills, useSpellNames } from '@/features/catalog/queries.js'
 import {
   SPELL_LEVELS,
   SPELL_SCHOOLS,
+  describeOpenSpell,
   isOpenSpellEffect,
   newOpenSpellEffect,
   spellLevelRangeInverted,
@@ -30,8 +38,8 @@ import {
 // особенности, и для формы одного варианта внутри группы выбора. Вынесены
 // сюда, чтобы EffectGroupModal и FeatureEffectsEditor не дублировали код.
 
-export function AddButton({ onClick, disabled, title }) {
-  return <EditorAddButton onClick={onClick} disabled={disabled}>{title}</EditorAddButton>
+export function AddButton({ onClick, disabled, title, ariaLabel }) {
+  return <EditorAddButton onClick={onClick} disabled={disabled} aria-label={ariaLabel}>{title}</EditorAddButton>
 }
 
 export function RowShell({ children, onRemove }) {
@@ -82,7 +90,7 @@ function useMenuPosition(open, anchorRef) {
 // Всплывающее меню «что доступно добавить» — открывается кнопкой «+», без
 // нативного <select>. Уже добавленные варианты показаны серым и недоступны
 // для повторного выбора (дублирование владений/эффектов невозможно).
-export function PickerMenu({ options, onPick, disabled, addLabel, searchable, onSearchChange, onOpenChange, loading = false, hasMore = false, onMore, error, onRetry }) {
+export function PickerMenu({ options, onPick, disabled, addLabel, ariaLabel, searchable, onSearchChange, onOpenChange, loading = false, hasMore = false, onMore, error, onRetry }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const ref = useRef(null)
@@ -103,7 +111,7 @@ export function PickerMenu({ options, onPick, disabled, addLabel, searchable, on
 
   return (
     <div className="relative inline-block" ref={ref} onKeyDown={(event) => { if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); onOpenChange?.(false); ref.current?.querySelector('button')?.focus() } }}>
-      <AddButton onClick={() => { const next = !open; setOpen(next); onOpenChange?.(next) }} disabled={disabled} title={addLabel} />
+      <AddButton onClick={() => { const next = !open; setOpen(next); onOpenChange?.(next) }} disabled={disabled} title={addLabel} ariaLabel={ariaLabel} />
       {open && pos && (
         <div
           style={{ position: 'fixed', top: pos.top, left: pos.left }}
@@ -147,7 +155,13 @@ export function PickerMenu({ options, onPick, disabled, addLabel, searchable, on
   )
 }
 
-export function Section({ title, count, empty, addControl, onHide, children }) {
+// Статичный эффект: заголовок панели — уже имя типа, в разделе его не повторяем
+// (EffectGroupModal оборачивает редактор в SectionTitleHidden).
+export const SectionTitleHidden = createContext(false)
+
+// forceTitle — показать title и внутри панели (там, где тип уже в шапке, но раздел назван иначе).
+export function Section({ title, count, empty, addControl, onHide, forceTitle = false, children }) {
+  const hideTitle = useContext(SectionTitleHidden) && !forceTitle
   return (
     <div>
       <SectionTitle
@@ -166,7 +180,7 @@ export function Section({ title, count, empty, addControl, onHide, children }) {
           </>
         }
       >
-        {title}
+        {hideTitle ? null : title}
       </SectionTitle>
       {count === 0 ? (
         <p className="text-sm text-stone-500">{empty}</p>
@@ -179,7 +193,9 @@ export function Section({ title, count, empty, addControl, onHide, children }) {
 
 // allowOpen — вариант группы выбора: можно добавить «любую характеристику на
 // выбор» (ability: null, не больше одной на вариант) — игрок назовёт её сам.
-export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker, allowOpen = false }) {
+// withCap=false — без «нового максимума»; sectionTitle — своё название раздела, видимое и в
+// панели (бонусы характеристик расы/подрасы).
+export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker, allowOpen = false, withCap = true, sectionTitle }) {
   const used = new Set(rows.map((r) => r.ability))
   const options = Object.entries(abilityLabels).map(([k, v]) => ({
     key: k,
@@ -192,7 +208,8 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker
 
   return (
     <Section
-      title="Изменение характеристик"
+      title={sectionTitle ?? 'Изменение характеристик'}
+      forceTitle={!!sectionTitle}
       count={rows.length}
       empty="Увеличений нет"
       onHide={onHide}
@@ -202,8 +219,8 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker
         // у строки своя величина и свой предел.
         <>
           {onOpenPicker
-            ? <AddButton onClick={onOpenPicker} title="+ Увеличение" />
-            : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Увеличение" />}
+            ? <AddButton onClick={onOpenPicker} title="Добавить" ariaLabel="Добавить увеличение" />
+            : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="Добавить" ariaLabel="Добавить увеличение" />}
           {allowOpen && <AddButton onClick={() => add(null)} disabled={hasOpen} title="+ Любая характеристика" />}
         </>
       }
@@ -218,31 +235,10 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker
           <span className="min-w-0 self-center truncate text-sm text-stone-200">
             {row.ability == null ? 'Любая на выбор' : abilityLabels[row.ability] ?? row.ability}
           </span>
-          <BlurNumberInput
-            min={-5}
-            max={5}
-            value={row.amount}
-            onChange={(next) => onChange(rows.map((r, j) => (j === i ? { ...r, amount: Number(next) || 0 } : r)))}
-            className="input-base"
-            title="Величина бонуса"
-          />
-          <Input
-            type="number"
-            min={20}
-            max={30}
-            value={row.new_cap ?? ''}
-            onChange={(e) =>
-              onChange(
-                rows.map((r, j) =>
-                  j === i
-                    ? { ...r, new_cap: e.target.value === '' ? null : Math.min(30, Math.max(20, Number(e.target.value))) }
-                    : r,
-                ),
-              )
-            }
-            placeholder="новый макс."
-            title="Новый предел характеристики (20–30)"
-          />
+          <NumberStepper hideLabel required label="Величина бонуса" min={-5} max={5} value={Number(row.amount) || 0} onChange={(amount) => onChange(rows.map((r, j) => (j === i ? { ...r, amount } : r)))} />
+          {withCap ? (
+            <NumberStepper hideLabel label="Новый предел характеристики (20–30)" min={20} max={30} emptyText="новый макс." value={row.new_cap ?? null} onChange={(new_cap) => onChange(rows.map((r, j) => (j === i ? { ...r, new_cap } : r)))} />
+          ) : <BlankSlot />}
         </RowShell>
       ))}
     </Section>
@@ -253,11 +249,8 @@ export function AbilityEffectsEditor({ rows = [], onChange, onHide, onOpenPicker
 // «любой навык на выбор» (skill_id: null, не больше одного на вариант) —
 // конкретный навык игрок назовёт сам, когда будет выбирать вариант.
 export function SkillEffectsEditor({ rows = [], onChange, onHide, onOpenPicker, allowOpen = false }) {
-  const skillsQ = useQuery({
-    queryKey: ['catalog', 'skills', 'all'],
-    queryFn: () => api.skills.list({ size: 100 }),
-  })
-  const skills = (skillsQ.data?.items ?? []).map((s) => ({ id: s.id, name: s.name }))
+  const skillsQ = useSkills()
+  const skills = (skillsQ.data ?? []).map((s) => ({ id: s.id, name: s.name }))
   const nameOf = (id) =>
     id == null ? 'Любой навык на выбор' : (skills.find((s) => s.id === id)?.name ?? `навык #${id}`)
   const used = new Set(rows.map((r) => r.skill_id))
@@ -276,8 +269,8 @@ export function SkillEffectsEditor({ rows = [], onChange, onHide, onOpenPicker, 
           {/* В панели эффектов выбор уезжает на отдельный экран со списком и
               поиском (onOpenPicker) — навыков много, в узком меню «+» тесно. */}
           {onOpenPicker
-            ? <AddButton onClick={onOpenPicker} title="+ Навык" />
-            : <PickerMenu options={options} onPick={add} disabled={skills.length === 0} addLabel="+ Навык" searchable />}
+            ? <AddButton onClick={onOpenPicker} title="Добавить" ariaLabel="Добавить навык" />
+            : <PickerMenu options={options} onPick={add} disabled={skills.length === 0} addLabel="Добавить" ariaLabel="Добавить навык" searchable />}
           {allowOpen && <AddButton onClick={() => add(null)} disabled={hasOpen} title="+ Любой навык" />}
         </>
       }
@@ -326,8 +319,8 @@ export function SavingThrowEffectsEditor({ rows = [], onChange, onHide, onOpenPi
       addControl={
         <>
           {onOpenPicker
-            ? <AddButton onClick={onOpenPicker} title="+ Спасбросок" />
-            : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="+ Спасбросок" />}
+            ? <AddButton onClick={onOpenPicker} title="Добавить" ariaLabel="Добавить спасбросок" />
+            : <PickerMenu options={options} onPick={add} disabled={usedUp} addLabel="Добавить" ariaLabel="Добавить спасбросок" />}
           {allowOpen && <AddButton onClick={() => add(null)} disabled={hasOpen} title="+ Любой спасбросок" />}
         </>
       }
@@ -358,9 +351,10 @@ const ARMOR_EDITOR = {
   usedUpText: 'Все типы доспехов уже добавлены — повтор невозможен.',
   categoryKey: 'armor_type',
   categoryLabels: armorProficiencyLabels,
-  itemTypes: ['ARMOR', 'SHIELD'],
+  kinds: ['ARMOR'],
   categoryAddLabel: '+ Категория',
-  itemAddLabel: '+ Доспех',
+  itemAddLabel: 'Добавить',
+  itemAddAria: 'Добавить доспех',
   itemFallback: 'доспех',
 }
 
@@ -369,28 +363,19 @@ const WEAPON_EDITOR = {
   empty: 'Оружия нет',
   categoryKey: 'weapon_category',
   categoryLabels: weaponProficiencyLabels,
-  itemTypes: ['WEAPON'],
+  kinds: ['WEAPON'],
   categoryAddLabel: '+ Категория',
-  itemAddLabel: '+ Оружие',
+  itemAddLabel: 'Добавить',
+  itemAddAria: 'Добавить оружие',
   itemFallback: 'оружие',
 }
 
+// Строка — категория или конкретный предмет; выбор — экранами панели эффектов
+// (onOpenPicker('categories' | 'items')): поиск, фильтры и подгрузка там.
 function CategoryOrItemEditor({ config, rows = [], onChange, onHide, onOpenPicker }) {
-  const { categoryKey, categoryLabels, itemTypes, itemFallback } = config
-  const used = new Set(rows.filter((r) => r.item_id == null).map((r) => r[categoryKey]))
-  const categoryOptions = Object.entries(categoryLabels).map(([k, v]) => ({ key: k, label: v, disabled: used.has(k) }))
-  const usedUp = categoryOptions.every((o) => o.disabled)
-  const addCategory = (value) => onChange([...rows, { [categoryKey]: value, item_id: null }])
-
+  const { categoryKey, categoryLabels, itemFallback } = config
   const itemNames = useItemNames(rows.map((r) => r.item_id))
-  const [query, setQuery] = useState('')
-  const [menuOpen, setMenuOpen] = useState(false)
-  // Поиск по справочнику дебаунсим: без этого каждая буква — отдельный запрос.
-  const debouncedQuery = useDebouncedValue(query.trim(), 300)
-  const itemsQ = useItemSearch(itemTypes, debouncedQuery, { enabled: menuOpen && !onOpenPicker })
-  const usedItems = new Set(rows.filter((r) => r.item_id != null).map((r) => Number(r.item_id)))
-  const itemOptions = (itemsQ.data ?? []).map((item) => ({ key: item.id, label: item.name, disabled: usedItems.has(item.id) }))
-  const addItem = (itemId) => onChange([...rows, { [categoryKey]: null, item_id: itemId }])
+  const usedUp = Object.keys(categoryLabels).every((k) => rows.some((r) => r.item_id == null && r[categoryKey] === k))
 
   return (
     <Section
@@ -399,23 +384,10 @@ function CategoryOrItemEditor({ config, rows = [], onChange, onHide, onOpenPicke
       empty={config.empty}
       onHide={onHide}
       addControl={
-        onOpenPicker
-          ? <>
-              <AddButton onClick={() => onOpenPicker('categories')} title={config.categoryAddLabel} />
-              <AddButton onClick={() => onOpenPicker('items')} title={config.itemAddLabel} />
-            </>
-          : <>
-              <PickerMenu options={categoryOptions} onPick={addCategory} disabled={usedUp} addLabel={config.categoryAddLabel} />
-              <PickerMenu
-                options={itemOptions}
-                onPick={addItem}
-                addLabel={config.itemAddLabel}
-                searchable
-                onSearchChange={setQuery}
-                onOpenChange={setMenuOpen}
-                loading={itemsQ.isFetching}
-              />
-            </>
+        <>
+          <AddButton onClick={() => onOpenPicker?.('categories')} title={config.categoryAddLabel} />
+          <AddButton onClick={() => onOpenPicker?.('items')} title={config.itemAddLabel} ariaLabel={config.itemAddAria} />
+        </>
       }
     >
       {usedUp && rows.length > 0 && config.usedUpText && (
@@ -444,6 +416,279 @@ export function WeaponEffectsEditor(props) {
   return <CategoryOrItemEditor config={WEAPON_EDITOR} {...props} />
 }
 
+// Инструменты. Фиксированный эффект — только конкретные инструменты. В варианте
+// выбора два режима (чипы): «Любой» — открытый выбор игрока (item_id: null),
+// при желании сужённый до вида (tool_category; ни одного — любой инструмент),
+// и «Инструмент» — конкретные инструменты из справочника (экран 'items').
+// Строки наружу те же, что и раньше; смена режима заменяет строки варианта.
+export function ToolEffectsEditor({ rows = [], onChange, onOpenPicker, allowOpen = false }) {
+  const hideTitle = useContext(SectionTitleHidden)
+  const itemNames = useItemNames(rows.map((r) => r.item_id))
+  const openRow = rows.find((r) => r.item_id == null)
+  const [mode, setMode] = useState(openRow ? 'any' : 'item')
+  const anyMode = allowOpen && mode === 'any'
+  const itemRows = rows.filter((r) => r.item_id != null)
+  const remove = (row) => onChange(rows.filter((r) => r !== row))
+  const setCategory = (category) => onChange([{ tool_category: category, item_id: null }])
+  const chooseAny = () => {
+    setMode('any')
+    if (!openRow) setCategory(null)
+  }
+  const chooseItem = () => {
+    setMode('item')
+    onChange(itemRows)
+  }
+
+  return (
+    <div>
+      <SectionTitle button={!anyMode && <AddButton onClick={() => onOpenPicker?.('items')} title="Добавить" ariaLabel="Добавить инструмент" />}>
+        {hideTitle ? null : 'Владение инструментами'}
+      </SectionTitle>
+      {allowOpen && (
+        <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Какой инструмент">
+          <FilterChip active={anyMode} onClick={chooseAny}>Любой</FilterChip>
+          <FilterChip active={!anyMode} onClick={chooseItem}>Инструмент</FilterChip>
+        </div>
+      )}
+      {anyMode ? (
+        <div className="space-y-2">
+          <p className="text-xs text-stone-400">Вид инструмента (ни одного — любой)</p>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Вид инструмента">
+            {Object.entries(toolCategoryLabels).map(([value, text]) => (
+              <FilterChip
+                key={value}
+                active={openRow?.tool_category === value}
+                onClick={() => setCategory(openRow?.tool_category === value ? null : value)}
+              >
+                {text}
+              </FilterChip>
+            ))}
+          </div>
+          <EffectPreview>{sentenceCase(describeToolEffect(openRow))}</EffectPreview>
+        </div>
+      ) : itemRows.length === 0 ? (
+        <p className="text-sm text-stone-500">Инструментов нет</p>
+      ) : (
+        <div className="space-y-2">
+          {itemRows.map((row) => (
+            <RowShell key={row.item_id} onRemove={() => remove(row)}>
+              <span className="min-w-0 self-center truncate text-sm text-stone-200">{describeToolEffect(row, itemNames)}</span>
+              <BlankSlot />
+              <BlankSlot />
+            </RowShell>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Подписанное поле строки эффекта скорости/КД.
+// group — внутри чипы/−/+: div, а не label (label отдаёт :hover первой кнопке).
+function LabeledField({ label, children, className = '', group = false }) {
+  const Tag = group ? 'div' : 'label'
+  return (
+    <Tag className={`flex min-w-0 flex-col gap-1 text-xs text-stone-500 ${className}`}>
+      {label}
+      {children}
+    </Tag>
+  )
+}
+
+// Итог строки человеческим языком — та же формулировка, что в сводке и на листе.
+function EffectPreview({ children }) {
+  return <p className="rounded bg-stone-800/60 px-2 py-1 text-sm text-stone-200">{children}</p>
+}
+
+// Общие поля эффектов скорости и КД: когда действует и с какого уровня.
+function ConditionField({ row, set }) {
+  return (
+    <LabeledField group label="Когда действует">
+      <ChipGroup label="Когда действует" options={Object.entries(effectConditionLabels).map(([value, label]) => ({ value, label }))} value={row.condition ?? 'NONE'} onChange={(condition) => set({ condition })} />
+    </LabeledField>
+  )
+}
+
+function MinLevelField({ row, set }) {
+  return (
+    <LabeledField group label="С уровня персонажа">
+      <LevelField hideLabel label="С уровня персонажа" emptyText="Всегда" value={row.min_level ?? null} onChange={(level) => set({ min_level: level })} />
+    </LabeledField>
+  )
+}
+
+// Список эффектов скорости/КД: строка — итог человеческим языком + «Изменить»
+// (форма во выезжающей панели справа) + корзина. «+ …» открывает ту же панель
+// для новой строки. Черновик живёт в панели: «Отмена» его отбрасывает, «Готово»
+// кладёт в rows через onChange — данные наружу те же, что и раньше.
+function DrawerRowsEditor({ rows, onChange, onHide, title, empty, addLabel, drawerTitle, newRow, describe, invalid = () => false, Form }) {
+  const [editing, setEditing] = useState(null) // { index: number | null, draft }
+  const set = (patch) => setEditing((e) => ({ ...e, draft: { ...e.draft, ...patch } }))
+  const done = () => {
+    const { index, draft } = editing
+    onChange(index == null ? [...rows, draft] : rows.map((r, j) => (j === index ? draft : r)))
+    setEditing(null)
+  }
+  return (
+    <>
+    <Section title={title} count={rows.length} empty={empty} onHide={onHide}
+      addControl={<AddButton onClick={() => setEditing({ index: null, draft: newRow() })} title="Добавить" ariaLabel={`Добавить: ${addLabel}`} />}>
+      {rows.map((row, i) => (
+        <div key={row.id ?? `new-${i}`} className="flex items-center gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-2">
+          <span className={`min-w-0 flex-1 text-sm ${invalid(row) ? 'text-red-300' : 'text-stone-200'}`}>{describe(row)}</span>
+          <Button type="button" variant="ghost" size="xs" onClick={() => setEditing({ index: i, draft: row })} aria-label={`Изменить: ${describe(row)}`}>
+            Изменить
+          </Button>
+          <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} className="catalog-delete-button" title="Удалить">
+            <TrashIcon />
+          </button>
+        </div>
+      ))}
+    </Section>
+    {/* Вне Section: у пустого списка Section не рисует детей, а новая строка — тоже через панель. */}
+    {editing && (
+        <Drawer
+          title={drawerTitle}
+          closeLabel={`Закрыть: ${drawerTitle}`}
+          onClose={() => setEditing(null)}
+          footer={
+            <>
+              <Button type="button" variant="ghost" onClick={() => setEditing(null)}>Отмена</Button>
+              <Button type="button" onClick={done} disabled={invalid(editing.draft)}>Готово</Button>
+            </>
+          }
+        >
+          <div className="grid gap-3">
+            <Form row={editing.draft} set={set} />
+            <EffectPreview>{describe(editing.draft)}</EffectPreview>
+          </div>
+        </Drawer>
+      )}
+    </>
+  )
+}
+
+// Две строки: что за скорость и что с ней сделать; затем условие, под ним значение и уровень.
+// Строка полей формы; не помещается (−/+ уровня, чипы) — переносится.
+const FORM_ROW = 'flex flex-wrap items-end gap-3'
+
+function SpeedForm({ row, set }) {
+  const mode = row.mode ?? 'BONUS'
+  const needsValue = mode === 'BONUS' || mode === 'SET'
+  return (
+    <>
+      <div className="grid gap-3">
+        {mode !== 'IGNORE_ARMOR_PENALTY' && (
+          <LabeledField group label="Скорость">
+            <EditorFieldControl field={{ type: 'chips', label: 'Скорость', options: Object.entries(speedTypeLabels).map(([value, label]) => ({ value, label })) }} value={row.speed_type ?? 'WALK'} onChange={(speed_type) => set({ speed_type })} />
+          </LabeledField>
+        )}
+        <LabeledField group label="Действие">
+          <EditorFieldControl field={{ type: 'chips', label: 'Действие', options: Object.entries(speedEffectModeLabels).map(([value, label]) => ({ value, label })) }} value={mode} onChange={(next) => set({ mode: next })} />
+        </LabeledField>
+      </div>
+      <ConditionField row={row} set={set} />
+      <div className={FORM_ROW}>
+        {needsValue && (
+          <LabeledField label={mode === 'SET' ? 'Не меньше, фт' : 'Прибавка, фт'}>
+            <BlurNumberInput min={-200} max={200} value={row.value} onChange={(next) => set({ value: Number(next) || 0 })} className="input-base" />
+          </LabeledField>
+        )}
+        <MinLevelField row={row} set={set} />
+      </div>
+      {invalidSpeedRow(row) && (
+        <p className="text-xs text-red-300">
+          {mode === 'SET' ? 'Для «Не меньше» нужна скорость больше 0.' : 'Выберите вид скорости, отличный от ходьбы.'}
+        </p>
+      )}
+    </>
+  )
+}
+
+// Скорость (только фиксированный эффект): что сделать с одним видом скорости.
+export function SpeedEffectsEditor({ rows = [], onChange, onHide }) {
+  return (
+    <DrawerRowsEditor
+      rows={rows}
+      onChange={onChange}
+      onHide={onHide}
+      title="Скорость"
+      empty="Эффектов скорости нет"
+      addLabel="Скорость"
+      drawerTitle="Эффект скорости"
+      newRow={() => ({ speed_type: 'WALK', mode: 'BONUS', value: 10, condition: 'NONE', min_level: null })}
+      describe={describeSpeedEffect}
+      invalid={invalidSpeedRow}
+      Form={SpeedForm}
+    />
+  )
+}
+
+const toggleAbility = (list = [], value) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
+
+// Сначала условие, под ним значение и уровень одной строкой; ниже — вид эффекта
+// (бонус / формула) и доп. настройки формулы; итог-строка — ниже формы.
+function ArmorClassForm({ row, set }) {
+  const formula = row.mode === 'FORMULA'
+  return (
+    <>
+      <ConditionField row={row} set={set} />
+      <div className={FORM_ROW}>
+        <LabeledField label={formula ? 'Основа КД' : 'Прибавка к КД'}>
+          <BlurNumberInput min={-30} max={30} value={row.value} onChange={(next) => set({ value: Number(next) || 0 })} className="input-base" />
+        </LabeledField>
+        <MinLevelField row={row} set={set} />
+      </div>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Вид эффекта КД">
+        {Object.entries(armorClassModeLabels).map(([value, text]) => (
+          <FilterChip
+            key={value}
+            active={(row.mode ?? 'BONUS') === value}
+            onClick={() => set(value === 'FORMULA' ? { mode: 'FORMULA', value: 10 } : { mode: 'BONUS', value: 1, abilities: [] })}
+          >
+            {text}
+          </FilterChip>
+        ))}
+      </div>
+      {formula && (
+        <>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-stone-500">+ модификаторы:</span>
+            {Object.entries(abilityLabels).map(([ability, text]) => (
+              <FilterChip key={ability} active={(row.abilities ?? []).includes(ability)} onClick={() => set({ abilities: toggleAbility(row.abilities, ability) })}>
+                {text}
+              </FilterChip>
+            ))}
+          </div>
+          <FilterCheckbox checked={row.allows_shield ?? true} onChange={(allows_shield) => set({ allows_shield })}>
+            Щит прибавляется к этой основе
+          </FilterCheckbox>
+        </>
+      )}
+    </>
+  )
+}
+
+// КД (только фиксированный эффект): бонус «+N» или своя основа «база +
+// модификаторы» (Защита без доспехов: 10 + Ловкость + Телосложение) — тогда
+// лист возьмёт лучшую из основ (доспех / без доспеха / формулы).
+export function ArmorClassEffectsEditor({ rows = [], onChange, onHide }) {
+  return (
+    <DrawerRowsEditor
+      rows={rows}
+      onChange={onChange}
+      onHide={onHide}
+      title="Класс доспеха"
+      empty="Эффектов КД нет"
+      addLabel="КД"
+      drawerTitle="Эффект КД"
+      newRow={() => ({ mode: 'BONUS', value: 1, abilities: [], allows_shield: true, condition: 'NONE', min_level: null })}
+      describe={describeArmorClassEffect}
+      Form={ArmorClassForm}
+    />
+  )
+}
+
 // Кнопка-переключатель фильтра («чип»): школа, класс.
 function FilterChip({ active, onClick, children }) {
   return (
@@ -462,11 +707,12 @@ function FilterChip({ active, onClick, children }) {
   )
 }
 
+// Флажок-карточка — как у флагов свойства оружия (WeaponPropertiesPicker).
 function FilterCheckbox({ checked, onChange, children }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2 text-sm text-stone-300">
-      <input type="checkbox" className="mt-0.5" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span>{children}</span>
+    <label className="flex w-full cursor-pointer items-center gap-2 rounded border border-stone-700 bg-stone-800/70 px-3 py-2">
+      <input type="checkbox" className="size-4 shrink-0 accent-ember" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="text-sm text-stone-200">{children}</span>
     </label>
   )
 }
@@ -474,51 +720,45 @@ function FilterCheckbox({ checked, onChange, children }) {
 const toggleIn = (list = [], value) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
 
 // Короткое описание фильтра до сохранения (summary с бэка сбрасывается
-// первой же правкой): уровни, флаги, школы, классы.
-function draftFilterText(row, classes) {
+// первой же правкой): уровни, флаги, школы, классы — части списком.
+function draftFilterParts(row, classes) {
   const levels = [row.min_level, row.max_level].map((level) => (level ? spellLevelLabels[level] : '…'))
   const classNames = (row.class_ids ?? []).map((id) => classes.find((c) => c.id === id)?.name ?? `#${id}`)
   return [
-    row.min_level || row.max_level ? `уровень: ${levels.join(' – ')}` : null,
+    row.min_level && row.min_level === row.max_level
+      ? levels[0]
+      : row.min_level || row.max_level ? `уровень: ${levels.join(' – ')}` : null,
     row.castable_only ? 'если есть ячейки' : null,
     row.ritual_only ? 'ритуал' : null,
     (row.schools ?? []).length ? `школа: ${row.schools.map((s) => spellSchoolLabels[s]).join(', ')}` : null,
     classNames.length ? `классы: ${classNames.join(', ')}` : null,
-  ]
-    .filter(Boolean)
-    .join('; ')
+  ].filter(Boolean)
 }
 
-// Окно под панелью фильтра — панель эффектов (Drawer) или модалка; фильтр на 50px уже.
-const FILTER_POPUP_INSET = 50
-const parentPanelWidth = (el) => {
-  const panel = el?.closest('.ui-drawer') ?? el?.closest('[role="dialog"]')?.firstElementChild
-  return panel ? Math.max(280, panel.getBoundingClientRect().width - FILTER_POPUP_INSET) : null
-}
+// Как вариант увидит игрок — та же формулировка, что в сводке эффектов.
+const openSpellPreview = (row, classes) => sentenceCase(describeOpenSpell({ summary: row.summary ?? draftFilterParts(row, classes) }))
 
 // «Любое заклинание на выбор» — пустая ячейка, которую игрок заполнит сам,
 // когда будет выбирать вариант. В строке — описание фильтра и кнопка
 // «Настройки», сам фильтр — в панели справа поверх редактора. Пустой
 // фильтр — любое заклинание из справочника (кроме уже известных персонажу).
 function OpenSpellRow({ row, onChange, onRemove, classes }) {
-  const rowRef = useRef(null)
-  const [popupWidth, setPopupWidth] = useState(null)
-  const open = popupWidth !== null
+  const [open, setOpen] = useState(false)
   // Сохранённая строка несёт summary (текст условий с бэка); любая правка
   // его сбрасывает — дальше видно описание текущего черновика.
   const set = (patch) => onChange({ ...row, ...patch, summary: undefined })
-  const summaryText = row.summary ? row.summary.join('; ') : draftFilterText(row, classes)
+  const summaryText = (row.summary ?? draftFilterParts(row, classes)).join('; ')
   const inverted = spellLevelRangeInverted(row)
 
   return (
-    <div ref={rowRef} className="flex items-start gap-2 rounded-lg border border-ember/40 bg-ember/5 p-3">
+    <div className="flex items-start gap-2 rounded-lg border border-ember/40 bg-ember/5 p-3">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-stone-100">Любое заклинание на выбор</p>
         <p className={`mt-0.5 text-xs ${inverted ? 'text-red-300' : 'text-stone-400'}`}>
           {inverted ? '«От» не может быть выше «до» — откройте настройки.' : summaryText || 'Без ограничений'}
         </p>
       </div>
-      <Button type="button" variant="ghost" size="xs" onClick={() => setPopupWidth(parentPanelWidth(rowRef.current) ?? 0)}>
+      <Button type="button" variant="ghost" size="xs" onClick={() => setOpen(true)}>
         Настройки
       </Button>
       <button type="button" onClick={onRemove} className="catalog-delete-button" title="Удалить">
@@ -530,23 +770,22 @@ function OpenSpellRow({ row, onChange, onRemove, classes }) {
           set={set}
           classes={classes}
           inverted={inverted}
-          width={popupWidth || null}
-          onClose={() => setPopupWidth(null)}
+          onClose={() => setOpen(false)}
         />
       )}
     </div>
   )
 }
 
-// Фильтр «любого заклинания» — выезжающая справа панель, как фильтры каталога
-// заклинаний, поверх панели эффектов. Esc закрывает только её (стек Drawer).
-function OpenSpellFilterPopup({ row, set, classes, inverted, width, onClose }) {
+// Фильтр «любого заклинания» — выезжающая справа панель обычной ширины (это не
+// панель одних фильтров) поверх панели эффектов; внизу — как вариант увидит
+// игрок. Esc закрывает только её (стек Drawer).
+function OpenSpellFilterPopup({ row, set, classes, inverted, onClose }) {
   return (
     <Drawer
       title="Любое заклинание на выбор"
       subtitle="Что игрок сможет выбрать"
       onClose={onClose}
-      width={width}
       className="catalog-nested-drawer"
       bodyClassName="space-y-4"
       closeLabel="Закрыть настройки"
@@ -556,35 +795,23 @@ function OpenSpellFilterPopup({ row, set, classes, inverted, width, onClose }) {
         </Button>
       }
     >
-      <div className="grid gap-2 sm:grid-cols-2">
-        <div className="text-xs text-stone-400">
-          <span className="mb-1 block">Уровень от</span>
-          <Select value={row.min_level ?? ''} onChange={(e) => set({ min_level: e.target.value || null })}>
-            <option value="">Любой</option>
-            {SPELL_LEVELS.map((level) => (
-              <option key={level} value={level}>
-                {spellLevelLabels[level]}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="text-xs text-stone-400">
-          <span className="mb-1 block">Уровень до</span>
-          <Select value={row.max_level ?? ''} onChange={(e) => set({ max_level: e.target.value || null })}>
-            <option value="">Любой</option>
-            {SPELL_LEVELS.map((level) => (
-              <option key={level} value={level}>
-                {spellLevelLabels[level]}
-              </option>
-            ))}
-          </Select>
-        </div>
+      {/* Как уровень у заклинания: полосы «[Любой][Заговор][1]…[9]». */}
+      <div className="grid gap-3">
+        {[['min_level', 'Уровень от'], ['max_level', 'Уровень до']].map(([key, text]) => (
+          <LabeledField key={key} group label={text}>
+            <EditorFieldControl
+              field={{ type: 'chips', label: text, emptyLabel: 'Любой', options: [{ value: '', label: 'Любой' }, ...SPELL_LEVELS.map((level, i) => ({ value: level, label: i ? String(i) : spellLevelLabels[level] }))] }}
+              value={row[key] ?? ''}
+              onChange={(next) => set({ [key]: next || null })}
+            />
+          </LabeledField>
+        ))}
       </div>
       {inverted && <p className="text-xs text-red-300">«От» не может быть выше «до».</p>}
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <FilterCheckbox checked={Boolean(row.castable_only)} onChange={(v) => set({ castable_only: v })}>
-          Только уровня, который персонаж может накладывать (заговоры — всегда)
+          Только если у персонажа есть ячейки этого уровня (заговоры — всегда)
         </FilterCheckbox>
         <FilterCheckbox checked={Boolean(row.ritual_only)} onChange={(v) => set({ ritual_only: v })}>
           Только ритуалы
@@ -621,6 +848,11 @@ function OpenSpellFilterPopup({ row, set, classes, inverted, width, onClose }) {
           {classes.length === 0 && <span className="text-xs text-stone-500">Загрузка классов…</span>}
         </div>
       </div>
+
+      <div>
+        <p className="mb-1.5 text-xs text-stone-400">Как увидит игрок</p>
+        <EffectPreview>{openSpellPreview(row, classes)}</EffectPreview>
+      </div>
     </Drawer>
   )
 }
@@ -638,7 +870,7 @@ export function SpellEffectsEditor({ rows = [], onChange, onHide, onSelectSpell,
   return <Section title="Заклинания" count={rows.length} empty="Заклинаний нет" onHide={onHide}
     addControl={
       <>
-        <AddButton onClick={onSelectSpell} title="Добавить заклинание" />
+        <AddButton onClick={onSelectSpell} title="Добавить" ariaLabel="Добавить заклинание" />
         {allowOpen && (
           <AddButton onClick={() => onChange([...rows, newOpenSpellEffect()])} disabled={hasOpen} title="+ Любое заклинание" />
         )}
@@ -672,14 +904,16 @@ export const EFFECT_TYPES = [
   { key: 'saving_throw_effects', label: 'Проверки спасброска', Editor: SavingThrowEffectsEditor },
   { key: 'armor_effects', label: 'Владение доспехами', Editor: ArmorEffectsEditor },
   { key: 'weapon_effects', label: 'Владение оружием', Editor: WeaponEffectsEditor },
+  { key: 'tool_effects', label: 'Владение инструментами', Editor: ToolEffectsEditor },
   { key: 'spell_effects', label: 'Заклинания', Editor: SpellEffectsEditor },
+  // staticOnly — в группах выбора не бывает (у бэка нет такого choice_type).
+  { key: 'speed_effects', label: 'Скорость', Editor: SpeedEffectsEditor, staticOnly: true },
+  { key: 'armor_class_effects', label: 'Класс доспеха', Editor: ArmorClassEffectsEditor, staticOnly: true },
 ]
 
-export const EMPTY_OPTION_EFFECTS = () => ({
-  ability_effects: [],
-  skill_effects: [],
-  saving_throw_effects: [],
-  armor_effects: [],
-  weapon_effects: [],
-  spell_effects: [],
-})
+export const EMPTY_OPTION_EFFECTS = () => normalizeEffects()
+
+// Строка скорости, которую бэк не примет (422): SET без положительного
+// значения или «равна ходьбе» у самой ходьбы.
+export const invalidSpeedRow = (row) =>
+  (row.mode === 'SET' && !(Number(row.value) > 0)) || (row.mode === 'EQUAL_TO_WALK' && (row.speed_type ?? 'WALK') === 'WALK')

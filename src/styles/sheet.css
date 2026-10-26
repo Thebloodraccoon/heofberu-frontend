@@ -729,6 +729,34 @@
   border-bottom: none;
 }
 
+/* Расчёт КД / скорости: итог и приглушённые «сейчас не применяется».
+   Заголовки строк (th в tbody) получают ту же границу, что и ячейки, а не шапочную. */
+.combat-table tbody th {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-stone-700) 45%, transparent);
+}
+.combat-table tbody:not(:last-child) tr:last-child td,
+.combat-table tbody:not(:last-child) tr:last-child th {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-stone-700) 45%, transparent);
+}
+.combat-table tbody:last-child tr:last-child th {
+  border-bottom: none;
+}
+.combat-table__total th,
+.combat-table__total td {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-stone-100);
+  border-top: 1px solid var(--color-stone-700);
+}
+.combat-table__group th {
+  padding-top: 0.75rem;
+}
+.combat-table__inactive td {
+  color: var(--color-stone-500);
+}
+
 /* ===== Кнопка «Level up» ===== */
 @keyframes sheet-levelup-pulse {
   0%,

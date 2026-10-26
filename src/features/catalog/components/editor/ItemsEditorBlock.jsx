@@ -1,7 +1,7 @@
 import EditorAddButton from './EditorAddButton.jsx'
 import { useState } from 'react'
-import { label } from '@/lib/i18n/index.js'
-import { Badge, ErrorBox, Skeleton } from '@/components/ui'
+import { describeItemFilter } from '@/lib/utils/effectBundle.js'
+import { ErrorBox, Skeleton } from '@/components/ui'
 import { GroupRow, SectionTitle } from './editorShared.jsx'
 import ItemInfoModal from '@/features/catalog/components/browse/detail/ItemInfoModal.jsx'
 import ItemsGrantModal from './ItemsGrantModal.jsx'
@@ -15,34 +15,26 @@ const pluralOption = (n) => {
   return 'вариантов'
 }
 
-function ItemCard({ item, itemId, quantity, onInfo }) {
+// Снаряжение построчно: строка-панель — предмет (или фильтр «любое простое
+// оружие») слева, количество справа.
+function ItemsList({ rows, onInfo }) {
   return (
-    <div className="card-item relative">
-      {quantity > 1 && (
-        <span className="absolute right-2 top-2 rounded border border-stone-700 bg-stone-800/70 px-1.5 py-0.5 text-[11px] tabular-nums text-stone-300">
-          × {quantity}
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={onInfo}
-        className="link-ember max-w-[calc(100%-3rem)] truncate pr-2 text-left font-display text-base font-bold"
-        title="Показать предмет"
-      >
-        {item?.name ?? `Предмет #${itemId}`}
-      </button>
-      <div className="badge-row mt-1.5">
-        {item?.item_type && <Badge className="my-[5px]">{label(item.item_type)}</Badge>}
-        {item?.rarity && item.rarity !== 'NONE' && (
-          <Badge
-            tone={item.rarity === 'LEGENDARY' || item.rarity === 'ARTIFACT' ? 'accent' : 'default'}
-            className="my-[5px]"
-          >
-            {label(item.rarity)}
-          </Badge>
-        )}
-      </div>
-    </div>
+    <ul className="space-y-2">
+      {rows.map((row, i) => (
+        <li key={row.id ?? row.item_id ?? `filter-${i}`} className="flex items-center gap-3 rounded-lg border border-stone-700/60 bg-stone-900/60 px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1 truncate">
+            {row.item_id == null ? (
+              <span className="text-stone-200">{describeItemFilter(row)}</span>
+            ) : (
+              <button type="button" onClick={() => onInfo(row.item_id)} className="link-ember text-left" title="Показать предмет">
+                {row.item?.name ?? `Предмет #${row.item_id}`}
+              </button>
+            )}
+          </span>
+          <span className="shrink-0 tabular-nums text-stone-300">× {row.quantity ?? 1}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -90,8 +82,9 @@ export default function ItemsEditorBlock({
           button={
             <EditorAddButton
               onClick={() => setGrantOpen(true)}
+              aria-label="Добавить снаряжение"
             >
-              Добавить снаряжение
+              Добавить
             </EditorAddButton>
           }
         >
@@ -100,28 +93,15 @@ export default function ItemsEditorBlock({
         {error && <ErrorBox error={error} onRetry={onRetry} />}
 
         {loading ? (
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
-            {Array.from({ length: 6 }, (_, i) => (
-              <div key={i} className="card-item space-y-2">
-                <Skeleton className="h-5 w-2/3" />
-                <Skeleton className="h-3.5 w-24" />
-              </div>
+          <div className="space-y-2" aria-busy="true">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
             ))}
           </div>
         ) : items.length === 0 ? (
           <p className="text-sm text-stone-500">{block.empty}</p>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {items.map((it) => (
-              <ItemCard
-                key={it.item_id}
-                item={it.item}
-                itemId={it.item_id}
-                quantity={it.quantity}
-                onInfo={() => setInfoItemId(it.item_id)}
-              />
-            ))}
-          </div>
+          <ItemsList rows={items} onInfo={setInfoItemId} />
         )}
       </div>
 
@@ -131,8 +111,9 @@ export default function ItemsEditorBlock({
             button={
               <EditorAddButton
                 onClick={() => setGroupModal({ index: null })}
+                aria-label="Добавить группу"
               >
-                Добавить группу
+                Добавить
               </EditorAddButton>
             }
           >
@@ -164,17 +145,7 @@ export default function ItemsEditorBlock({
                     {options.length === 0 ? (
                       <p className="text-stone-500">Вариантов нет</p>
                     ) : (
-                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                        {options.map((o) => (
-                          <ItemCard
-                            key={o.id ?? o.item_id}
-                            item={o.item}
-                            itemId={o.item_id}
-                            quantity={o.quantity}
-                            onInfo={() => setInfoItemId(o.item_id)}
-                          />
-                        ))}
-                      </div>
+                      <ItemsList rows={options} onInfo={setInfoItemId} />
                     )}
                   </GroupRow>
                 )

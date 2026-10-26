@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Button } from '@/components/ui'
 import Drawer from '@/components/ui/Drawer.jsx'
 
-export default function FilterModal({ filters, value, onChange, onClose, inline = false }) {
+// Фильтры всегда — узкая выезжающая панель (Drawer variant="filters"), в т.ч. поверх
+// панелей выбора предмета/заклинания: список результатов под ней остаётся на месте.
+export default function FilterModal({ filters, value, onChange, onClose }) {
   const [draft, setDraft] = useState(value)
 
   const toggle = (name, v) => {
@@ -48,9 +50,5 @@ export default function FilterModal({ filters, value, onChange, onClose, inline 
         ))}
       </div>
   )
-  if (inline) return <section className="inline-catalog-filters" aria-label="Фильтры">
-    <div className="inline-catalog-filters-fields">{content}</div>
-    <div className="inline-catalog-filters-actions">{footer}</div>
-  </section>
-  return <Drawer title="Фильтры" subtitle={activeCount ? `Выбрано: ${activeCount}` : 'Выберите параметры поиска'} onClose={onClose} footer={footer}>{content}</Drawer>
+  return <Drawer variant="filters" title="Фильтры" subtitle={activeCount ? `Выбрано: ${activeCount}` : 'Выберите параметры поиска'} onClose={onClose} footer={footer}>{content}</Drawer>
 }

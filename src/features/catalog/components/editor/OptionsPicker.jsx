@@ -1,18 +1,43 @@
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import Drawer from '@/components/ui/Drawer.jsx'
-import { Button, Input } from '@/components/ui'
+import { Button, RichText } from '@/components/ui'
+import SearchToolbar from '@/components/ui/SearchToolbar.jsx'
 import { useEffect, useRef, useState } from 'react'
-import { SectionTitle } from './editorShared.jsx'
+import CatalogFilterSummary from '@/features/catalog/components/CatalogFilterSummary.jsx'
+import FilterModal from '@/features/catalog/components/browse/FilterModal.jsx'
+import { SectionTitle, TrashIcon } from './editorShared.jsx'
 
 const SEARCH_THRESHOLD = 8
 
 // Блок множественного выбора из справочника: показывает только выбранные
 // значения (чипы с крестиком), а кнопка «+ Добавить» раскрывает список ещё
-// не выбранных вариантов — клик по варианту добавляет его.
-export default function OptionsPicker({ drawer = false, label, hint, empty, options, selected, onToggle, onClear }) {
+// не выбранных вариантов — клик по варианту добавляет его. drawerActions —
+// доп. кнопки над списком в выезжающей панели (например, «Добавить» свойство);
+// headerActions — доп. кнопки в шапке блока рядом с «Изменить» (например, «Редактор свойств»);
+// subheader — строка под шапкой (например, «Выбирает: − 2 + из 5» у навыков класса).
+// В панели поиск и кнопки остаются наверху, прокручивается только список.
+// chosenAsRows — выбранное строками «название + описание (option.description, Markdown)»
+// с корзиной, как список умений; в панели выбора описание видно под каждым вариантом.
+// В панели — поиск с «Найти»; parentFilterLabel («Класс», «Раса») включает «Фильтры»
+// по родителю варианта (option.parentId / parentName — подклассы, подрасы).
+export default function OptionsPicker({ drawer = false, label, hint, empty, options, selected, onToggle, onClear, drawerActions = null, headerActions = null, subheader = null, chosenAsRows = false, parentFilterLabel }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [search, setSearch] = useState('')
+  const [filterValue, setFilterValue] = useState({})
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const rootRef = useRef(null)
+
+  const parentOptions = parentFilterLabel
+    ? [...new Map(options.filter((o) => o.parentId != null).map((o) => [o.parentId, o.parentName ?? String(o.parentId)])).entries()]
+      .map(([value, name]) => ({ value, label: name }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'ru'))
+    : []
+  const filters = parentOptions.length ? [{ name: 'parentId', label: parentFilterLabel, options: parentOptions }] : []
+  const parents = filterValue.parentId ?? []
+  const s = search.trim().toLowerCase()
+  const drawerVisible = options.filter((option) =>
+    (!s || String(option.label).toLowerCase().includes(s)) && (!parents.length || parents.includes(option.parentId)))
 
   useEffect(() => {
     if (!open || drawer) return undefined
@@ -43,6 +68,7 @@ export default function OptionsPicker({ drawer = false, label, hint, empty, opti
       <SectionTitle
         button={
           <div className="flex items-center gap-3">
+            {headerActions}
             {chosen.length > 0 && onClear && (
               <button type="button" onClick={onClear} className="text-xs font-medium text-stone-400 hover:text-ember">
                 Очистить
@@ -53,9 +79,11 @@ export default function OptionsPicker({ drawer = false, label, hint, empty, opti
               className="catalog-add-button"
               onClick={() => {
                 setQuery('')
+                setSearch('')
+                setFilterValue({})
                 setOpen((v) => !v)
               }}
-              disabled={options.length === 0 || (!drawer && available.length === 0)}
+              disabled={(options.length === 0 && !drawerActions) || (!drawer && available.length === 0)}
               aria-expanded={open}
             >
               {!drawer && <LoreIcon name="plus" />}
@@ -66,11 +94,26 @@ export default function OptionsPicker({ drawer = false, label, hint, empty, opti
       >
         {label}
       </SectionTitle>
+      {subheader && <div className="mb-2">{subheader}</div>}
 
-      {options.length === 0 ? (
+      {options.length === 0 && !drawerActions ? (
         <p className="text-sm text-stone-500">{empty}</p>
       ) : chosen.length === 0 ? (
         <p className="text-sm text-stone-500">{hint ?? 'Ничего не выбрано'}</p>
+      ) : chosenAsRows ? (
+        <ul className="space-y-2">
+          {chosen.map((o) => (
+            <li key={o.value} className="flex items-start gap-2 rounded-lg border border-stone-700/60 bg-stone-900/60 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-stone-100">{o.label}</p>
+                {o.description ? <RichText value={o.description} className="mt-1 text-sm text-stone-400" /> : <p className="mt-1 text-xs text-stone-500">Описания нет</p>}
+              </div>
+              <button type="button" onClick={() => onToggle(o.value)} className="catalog-delete-button" title={`Убрать: ${o.label}`} aria-label={`Убрать: ${o.label}`}>
+                <TrashIcon />
+              </button>
+            </li>
+          ))}
+        </ul>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {chosen.map((o) => drawer ? (
@@ -96,12 +139,37 @@ export default function OptionsPicker({ drawer = false, label, hint, empty, opti
         </div>
       )}
 
-      {open && drawer && <Drawer title={label} closeLabel={`Закрыть: ${label}`} onClose={() => setOpen(false)} footer={<Button type="button" onClick={() => setOpen(false)}>Готово</Button>}>
-        <Input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск…" aria-label={`Поиск: ${label}`} className="w-full mb-4" />
-        <div className="space-y-2">{options.filter((option) => !q || String(option.label).toLowerCase().includes(q)).map((option) => <button type="button" key={option.value} className={`editor-record-card ${selected.includes(option.value) ? 'is-active' : ''}`} aria-pressed={selected.includes(option.value)} onClick={() => onToggle(option.value)}>
+      {open && drawer && <Drawer title={label} closeLabel={`Закрыть: ${label}`} bodyClassName="grant-picker-body" onClose={() => setOpen(false)} footer={<Button type="button" onClick={() => setOpen(false)}>Готово</Button>}>
+        <div className="mb-4 flex items-center gap-2">
+          <SearchToolbar
+            className="min-w-0 flex-1"
+            query={query}
+            onQueryChange={setQuery}
+            onSearch={() => setSearch(query)}
+            onFilters={filters.length ? () => setFiltersOpen(true) : undefined}
+            filtersOpen={filtersOpen}
+            filterCount={parents.length}
+            label={`Поиск: ${label}`}
+          />
+          {drawerActions && <div className="shrink-0">{drawerActions}</div>}
+        </div>
+        <CatalogFilterSummary definitions={filters} value={filterValue} onChange={setFilterValue} />
+        {filtersOpen && <FilterModal filters={filters} value={filterValue} onChange={setFilterValue} onClose={() => setFiltersOpen(false)} />}
+        <div className="grant-picker-list space-y-2 pr-1">{drawerVisible.map((option) => option.description ? (
+          // С описанием: название — кнопка выбора, описание читается под ним (клик по нему тоже выбирает).
+          <div key={option.value} className={`editor-record-card ${selected.includes(option.value) ? 'is-active' : ''}`}>
+            <button type="button" className="w-full text-left" aria-pressed={selected.includes(option.value)} onClick={() => onToggle(option.value)}>
+              {option.label}
+            </button>
+            <div className="mt-1 cursor-pointer text-xs text-stone-400" onClick={() => onToggle(option.value)}>
+              <RichText value={option.description} />
+            </div>
+          </div>
+        ) : <button type="button" key={option.value} className={`editor-record-card ${selected.includes(option.value) ? 'is-active' : ''}`} aria-pressed={selected.includes(option.value)} onClick={() => onToggle(option.value)}>
           {option.label}
-        </button>)}</div>
-        {options.every((option) => q && !String(option.label).toLowerCase().includes(q)) && <p className="text-sm text-stone-500">Ничего не найдено</p>}
+        </button>)}
+        {options.length > 0 && drawerVisible.length === 0 && <p className="text-sm text-stone-500">Ничего не найдено</p>}
+        </div>
       </Drawer>}
       {open && !drawer && (
         <div className="mt-2 rounded border border-stone-700/70 bg-stone-900/80 p-2">

@@ -1,5 +1,6 @@
 import { useCharacterProficiencies } from '@/features/characters/queries.js'
 import { useItemNames, useSkills } from '@/features/catalog/queries.js'
+import { SkeletonText } from '@/components/ui'
 import { abilityLabels, armorProficiencyLabels, sentenceCase, skillLabels, weaponProficiencyLabels } from '@/lib/i18n/index.js'
 
 const SOURCE_TYPE_LABELS = {
@@ -36,7 +37,7 @@ function Table({ title, columnLabel, rows }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.key}>
-                <td className="text-stone-200">{r.name}</td>
+                <td className="text-stone-200">{r.name ?? <SkeletonText w="8rem" />}</td>
                 <td className="text-stone-400">{r.sources.length > 0 ? r.sources.join(', ') : '—'}</td>
               </tr>
             ))}
@@ -52,15 +53,16 @@ export default function ProficiencyTable({ characterId }) {
   const { data: skillsCatalog = [] } = useSkills({ size: 100 })
   const skillsById = new Map(skillsCatalog.map((s) => [Number(s.id), s]))
   const itemNames = useItemNames(
-    [...(proficiencies?.armor ?? []), ...(proficiencies?.weapons ?? [])].map((p) => p.item_id),
+    [...(proficiencies?.armor ?? []), ...(proficiencies?.weapons ?? []), ...(proficiencies?.tools ?? [])].map((p) => p.item_id),
   )
 
   const skillRows = (proficiencies?.skills ?? []).map((p) => {
     const sk = skillsById.get(Number(p.skill_id))
-    const name = sk ? (skillLabels[sk.name] ?? sentenceCase(sk.name)) : `Навык #${p.skill_id}`
+    // имя ещё не подгрузилось — null, в таблице скелетон вместо «Навык #id»
+    const name = sk ? (skillLabels[sk.name] ?? sentenceCase(sk.name)) : null
     return {
       key: `skill-${p.skill_id}`,
-      name: p.is_expertise ? `${name} (эксперт.)` : name,
+      name: name != null && p.is_expertise ? `${name} (эксперт.)` : name,
       sources: (p.sources ?? []).map(sourceLabel),
     }
   })
@@ -76,7 +78,7 @@ export default function ProficiencyTable({ characterId }) {
     key: `armor-${p.item_id != null ? `item-${p.item_id}` : p.armor_type}`,
     name:
       p.item_id != null
-        ? (itemNames[p.item_id] ?? `Доспех #${p.item_id}`)
+        ? (itemNames[p.item_id] ?? null)
         : (armorProficiencyLabels[p.armor_type] ?? p.armor_type),
     sources: (p.sources ?? []).map(sourceLabel),
   }))
@@ -85,12 +87,18 @@ export default function ProficiencyTable({ characterId }) {
     key: `weapon-${p.item_id != null ? `item-${p.item_id}` : p.weapon_category}`,
     name:
       p.item_id != null
-        ? (itemNames[p.item_id] ?? `Оружие #${p.item_id}`)
+        ? (itemNames[p.item_id] ?? null)
         : (weaponProficiencyLabels[p.weapon_category] ?? p.weapon_category),
     sources: (p.sources ?? []).map(sourceLabel),
   }))
 
-  if (skillRows.length === 0 && saveRows.length === 0 && armorRows.length === 0 && weaponRows.length === 0) {
+  const toolRows = (proficiencies?.tools ?? []).map((p) => ({
+    key: `tool-${p.item_id}`,
+    name: itemNames[p.item_id] ?? null,
+    sources: (p.sources ?? []).map(sourceLabel),
+  }))
+
+  if (skillRows.length === 0 && saveRows.length === 0 && armorRows.length === 0 && weaponRows.length === 0 && toolRows.length === 0) {
     return null
   }
 
@@ -100,6 +108,7 @@ export default function ProficiencyTable({ characterId }) {
       <Table title="Владение спасбросками" columnLabel="Спасбросок" rows={saveRows} />
       <Table title="Владение доспехами" columnLabel="Доспехи" rows={armorRows} />
       <Table title="Владение оружием" columnLabel="Оружие" rows={weaponRows} />
+      <Table title="Владение инструментами" columnLabel="Инструмент" rows={toolRows} />
     </div>
   )
 }

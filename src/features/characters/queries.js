@@ -116,6 +116,27 @@ export const useCharacterStats = (id, options = {}) =>
     gcTime: 0,
   })
 
+// Надеть/снять предмет со своего листа: меняет инвентарь и расчётные КД/скорость.
+export const useSetItemEquipped = (id) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ stackId, isEquipped }) => charactersApi.items.setEquipped(Number(id), stackId, isEquipped),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.items(Number(id)) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.characters.combatStats(Number(id)) })
+    },
+  })
+}
+
+// Не кешируется на бэке и зависит от экипировки/особенностей — всегда свежий.
+export const useCharacterCombatStats = (id) =>
+  useQuery({
+    queryKey: queryKeys.characters.combatStats(Number(id)),
+    queryFn: () => charactersApi.combatStats(Number(id)),
+    enabled: !!id,
+    staleTime: 0,
+  })
+
 export const useCharacterAsiChoices = (id, options = {}) =>
   useQuery({
     queryKey: queryKeys.characters.asiChoices(Number(id)),
@@ -141,7 +162,7 @@ export const useCharacterAsiAdjustments = (id) =>
 
 export const useCanLevelUp = (id) =>
   useQuery({
-    queryKey: ['characters', Number(id), 'progression', 'can-level-up'],
+    queryKey: queryKeys.characters.canLevelUp(Number(id)),
     queryFn: () => charactersApi.progression.canLevelUp(Number(id)),
     enabled: !!id,
   })

@@ -1,13 +1,14 @@
 import SpellPickerModal from './SpellPickerModal.jsx'
-import Drawer from '@/components/ui/Drawer.jsx'
+import Drawer, { DrawerFooter } from '@/components/ui/Drawer.jsx'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
 import { useState } from 'react'
-import { Button, Input, Modal } from '@/components/ui'
-import { AddButton, EFFECT_TYPES, EMPTY_OPTION_EFFECTS } from './effectTypeEditors.jsx'
+import { Button, Modal } from '@/components/ui'
+import { AddButton, EFFECT_TYPES, EMPTY_OPTION_EFFECTS, invalidSpeedRow } from './effectTypeEditors.jsx'
 import EffectRowsPicker from './EffectRowsPicker.jsx'
 import { hasRowsPicker } from './effectRowPickers.js'
 import { TrashIcon } from './editorShared.jsx'
 import { spellLevelRangeInverted } from '@/lib/utils/spellFilter.js'
+import { NumberStepper } from './LevelField.jsx'
 
 // Один вариант внутри группы выбора: у опции нет названия (ChoiceOptionPayload
 // не поддерживает label) — только порядковый номер и строки эффекта того же
@@ -35,14 +36,13 @@ function ChoiceOption({ index, option, effectType, Editor, onChange, onRemove, o
 // Модальное окно для одной группы эффектов особенности — и статичной, и
 // группы выбора. Два шага: сначала выбор типа эффекта (только при добавлении
 // новой группы — у существующей тип уже зафиксирован), потом форма.
-function EffectScreen({ title, subtitle, onClose, footer, children, navigating, summary }) {
+function EffectScreen({ subtitle, onClose, footer, children, navigating, summary }) {
   return <section className={`catalog-effect-screen${navigating ? ' catalog-effect-screen--picker' : ''}`}>
     {!navigating && <button type="button" className="article-back" onClick={onClose}><LoreIcon name="back" /> К эффектам</button>}
     {!navigating && summary && <div className="mt-3">{summary}</div>}
-    {!navigating && <h3 className="article-editor-label mt-4">{title}</h3>}
     {!navigating && subtitle && <p className="mb-4 text-sm text-stone-400">{subtitle}</p>}
     {children}
-    {footer && <footer className="catalog-effect-actions">{footer}</footer>}
+    {footer && <DrawerFooter className="catalog-effect-actions">{footer}</DrawerFooter>}
   </section>
 }
 
@@ -55,6 +55,9 @@ export default function EffectGroupModal({
   availableTypes = [],
   initialRows = [],
   initialGroup = null,
+  allowEmpty = false, // статичный список можно сохранить пустым (бонусы расы: убрать все)
+  editorProps = {}, // доп. пропсы редактора статичных строк (AbilityEffectsEditor withCap, sectionTitle)
+  title = null, // своя шапка панели вместо названия типа эффекта
   onSave,
   onClose,
 }) {
@@ -127,7 +130,9 @@ export default function EffectGroupModal({
   const invertedSpellRange = (group.options ?? []).some((option) =>
     (option.spell_effects ?? []).some(spellLevelRangeInverted),
   )
-  const canSave = mode === 'static' ? rows.length > 0 : group.options.length > 0 && !invertedSpellRange
+  const canSave = mode === 'static'
+    ? (allowEmpty || rows.length > 0) && !(effectType === 'speed_effects' && rows.some(invalidSpeedRow))
+    : group.options.length > 0 && !invertedSpellRange
 
   return (
     <Container
@@ -136,8 +141,8 @@ export default function EffectGroupModal({
       summary={summary}
       navigating={navigating}
       bodyClassName={navigating ? 'grant-picker-body' : undefined}
-      title={typeDef.label}
-      subtitle={mode === 'choice' ? 'Группа выбора' : 'Статичный эффект'}
+      title={title ?? typeDef.label}
+      subtitle={mode === 'choice' ? 'Группа выбора' : undefined}
       onClose={onClose}
       size="lg"
       scroll
@@ -170,20 +175,22 @@ export default function EffectGroupModal({
           />
         )
       ) : mode === 'static' ? (
-        <Editor onSelectSpell={() => setPicker({ kind: 'spell', target: 'static' })} onOpenPicker={openPickerFor('static')} rows={rows} onChange={setRows} />
+        // Название раздела («Владение доспехами») видно и в панели — рядом с кнопками «Категория»/«Добавить».
+        <Editor {...editorProps} onSelectSpell={() => setPicker({ kind: 'spell', target: 'static' })} onOpenPicker={openPickerFor('static')} rows={rows} onChange={setRows} />
       ) : (
         <div className="space-y-3">
-          <label className="flex items-center gap-2 text-sm text-stone-300">
-            Выбрать
-            <Input
-              type="number"
-              min={1}
-              max={10}
-              value={group.pick_count ?? 1}
-              onChange={(e) => setGroup({ ...group, pick_count: Math.max(1, Number(e.target.value) || 1) })}
-              className="input-narrow w-16"
+          {/* «Выбрать N» слева, «Добавить» напротив — на одной строке. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm text-stone-300">
+              Выбрать
+              <NumberStepper hideLabel required label="Сколько выбрать" min={1} max={10} value={group.pick_count ?? 1} onChange={(n) => setGroup({ ...group, pick_count: n })} />
+            </div>
+            <AddButton
+              onClick={() => setGroup({ ...group, options: [...group.options, EMPTY_OPTION_EFFECTS()] })}
+              title="Добавить"
+              ariaLabel="Добавить вариант"
             />
-          </label>
+          </div>
 
           <div className="space-y-3">
             {group.options.map((option, oi) => (
@@ -201,10 +208,6 @@ export default function EffectGroupModal({
                 onRemove={() => setGroup({ ...group, options: group.options.filter((_, j) => j !== oi) })}
               />
             ))}
-            <AddButton
-              onClick={() => setGroup({ ...group, options: [...group.options, EMPTY_OPTION_EFFECTS()] })}
-              title="+ Добавить вариант"
-            />
           </div>
           {group.options.length === 0 && (
             <p className="text-xs text-stone-500">Добавьте хотя бы один вариант выбора.</p>

@@ -2,6 +2,7 @@ import { STATS } from '@/lib/utils/ability.js'
 import { fmtBonus } from '@/lib/utils/sheet.js'
 import { sentenceCase, skillLabels } from '@/lib/i18n/index.js'
 import LoreIcon from '@/features/articles/components/LoreIcon.jsx'
+import { SkeletonText } from '@/components/ui'
 
 function ProficiencyMark({ proficient, expert = false }) {
   return (
@@ -17,7 +18,9 @@ function ProficiencyMark({ proficient, expert = false }) {
 function OwnedProficiencies({ items }) {
   return items.length > 0 ? (
     <ul className="character-owned-list">
-      {items.map((item) => <li key={item.key}>{item.label}</li>)}
+      {items.map((item) => (
+        <li key={item.key}>{item.label ?? <SkeletonText w="6rem" className="inline-block align-middle" />}</li>
+      ))}
     </ul>
   ) : <p className="text-xs text-stone-500">Нет владений</p>
 }
@@ -30,7 +33,7 @@ function CheckRow({ onRoll, title, bonus, label, children }) {
 }
 
 // Без onRoll и без списков доспехов/оружия — урезанная версия для публичного листа героя.
-export default function AbilitiesPanel({ skills, saveBonus, saveSet, skillBonus, profSet, expertiseSet, onRoll, armorProfs, weaponProfs, topStats, secondaryStats }) {
+export default function AbilitiesPanel({ skills, saveBonus, saveSet, skillBonus, profSet, expertiseSet, onRoll, armorProfs, weaponProfs, toolProfs, topStats, secondaryStats }) {
   return (
     <div className="character-abilities">
       {topStats}
@@ -49,6 +52,7 @@ export default function AbilitiesPanel({ skills, saveBonus, saveSet, skillBonus,
           {armorProfs && weaponProfs && <section className="character-proficiencies" aria-label="Владение оружием и доспехами">
             <h3 className="sheet-section-label">Доспехи</h3><OwnedProficiencies items={armorProfs} />
             <h3 className="sheet-section-label">Оружие</h3><OwnedProficiencies items={weaponProfs} />
+            {toolProfs?.length > 0 && <><h3 className="sheet-section-label">Инструменты</h3><OwnedProficiencies items={toolProfs} /></>}
           </section>}
         </div>
         <div className="character-abilities-right">
